@@ -1,0 +1,5 @@
+ProjectName=SampleProject
+ProjectType=1080p
+FrameRate=23.976
+Raster=1920x1080
+ColorSpace=Rec.709

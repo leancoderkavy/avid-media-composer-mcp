@@ -1,0 +1,3 @@
+AudioProjectSampleRate=48000
+DefaultPan=Alternating
+RenderCodec=DNxHR SQ

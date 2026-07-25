@@ -1,0 +1,86 @@
+{
+  "name": "avid-media-composer-mcp",
+  "version": "0.1.0",
+  "description": "Source-safe MCP server for deep Avid Media Composer project, bin, AAF, ALE, EDL, and clip analysis with a guarded live-editing bridge.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "avid-media-composer-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "python/avid_inspector.py",
+    "python/requirements.txt",
+    "docs",
+    "README.md",
+    "RESEARCH.md",
+    "SECURITY.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "smoke": "npm run build && node scripts/smoke-built.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:python": "node scripts/run-python-tests.mjs",
+    "test:all": "npm test && npm run test:python",
+    "python:setup": "python -m pip install -r python/requirements.txt",
+    "prepack": "npm run build",
+    "pack:dry-run": "npm pack --dry-run",
+    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run pack:dry-run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leancoderkavy/avid-media-composer-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/leancoderkavy/avid-media-composer-mcp/issues"
+  },
+  "homepage": "https://github.com/leancoderkavy/avid-media-composer-mcp#readme",
+  "keywords": [
+    "avid",
+    "avid-media-composer",
+    "media-composer",
+    "mcp",
+    "model-context-protocol",
+    "video-editing",
+    "nle",
+    "avb",
+    "aaf",
+    "ale",
+    "edl",
+    "mxf",
+    "post-production",
+    "ai-video-editing",
+    "automation"
+  ],
+  "author": "Avid Media Composer MCP contributors",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.20.6",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.11"
+  }
+}

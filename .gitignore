@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.avid-mcp-bridge/
+.avid-mcp-analysis/
