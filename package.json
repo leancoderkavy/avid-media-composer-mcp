@@ -23,8 +23,10 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
+    "start:http": "node dist/http-server.js",
     "dev": "tsx src/index.ts",
     "smoke": "npm run build && node scripts/smoke-built.mjs",
+    "smoke:http": "npm run build && node scripts/smoke-http.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -33,7 +35,9 @@
     "python:setup": "python -m pip install -r python/requirements.txt",
     "prepack": "npm run build",
     "pack:dry-run": "npm pack --dry-run",
-    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run pack:dry-run"
+    "publish:npm": "node scripts/publish-npm.mjs",
+    "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run",
+    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run"
   },
   "repository": {
     "type": "git",

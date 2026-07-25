@@ -6,6 +6,8 @@
 - Added Windows and macOS installation discovery and host-configuration diagnostics.
 - Upgraded the bridge contract to protocol v2 with fail-closed version, OS, and architecture checks.
 - Expanded CI to Windows and macOS on Node.js 20 and 24.
+- Added an authenticated Streamable HTTP transport, container image, and Fly.io deployment.
+- Added guarded local and GitHub Actions npm publication paths with provenance.
 
 ## 0.1.0 - 2026-07-25
 

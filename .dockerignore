@@ -1,0 +1,8 @@
+.git
+.github
+.venv
+node_modules
+dist
+coverage
+*.log
+*.tgz

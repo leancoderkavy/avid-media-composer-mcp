@@ -74,6 +74,17 @@ Run the local stdio server:
 node .\dist\index.js
 ```
 
+Run the authenticated Streamable HTTP transport:
+
+```powershell
+$env:MCP_AUTH_TOKEN = "<a strong random bearer token>"
+npm run build
+npm run start:http
+```
+
+The remote endpoint is `/mcp`; `/health` is intentionally unauthenticated for provider health
+checks. Every MCP request requires `Authorization: Bearer <token>`.
+
 Example MCP client configuration:
 
 ```json
@@ -186,6 +197,19 @@ Or run every release gate:
 ```powershell
 npm run check
 ```
+
+Prepare or publish the npm package:
+
+```powershell
+npm run publish:npm:dry-run
+npm login --auth-type=web
+npm run publish:npm
+```
+
+The hosted Fly.io service runs with `inspect` authority and `/data` as its only readable root.
+It cannot see projects on an editor workstation or control Media Composer there. Local project
+analysis and editing require running the MCP beside Media Composer and connecting the Extension
+bridge.
 
 The test suite covers native parsers, binary configuration handling, allowed-root enforcement, project/lock analysis, stable edit tokens, simulated bridge application, MCP discovery/annotations/resources/prompts, and read-only AVB/AAF fixtures.
 

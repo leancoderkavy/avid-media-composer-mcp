@@ -1,0 +1,42 @@
+name: Publish npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm distribution tag
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: npm ci
+      - run: python -m pip install -r python/requirements.txt
+      - run: npm run check
+      - name: Refuse duplicate version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "avid-media-composer-mcp@${VERSION}" version >/dev/null 2>&1; then
+            echo "avid-media-composer-mcp@${VERSION} is already published."
+            exit 1
+          fi
+      - name: Publish with provenance
+        run: npm publish --access public --provenance --tag "${{ inputs.tag }}"

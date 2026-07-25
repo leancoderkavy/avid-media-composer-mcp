@@ -2,7 +2,9 @@
 
 ## Intended deployment
 
-`avid-media-composer-mcp` is a local stdio server launched by an MCP client under the same operating-system account that owns the Avid project and runs Media Composer. It does not expose an HTTP listener.
+`avid-media-composer-mcp` supports a local stdio server and an explicitly selected Streamable HTTP
+entry point. Local stdio is the required deployment for desktop project access and Media Composer
+control. The hosted configuration is a read-only inspection and compatibility service.
 
 ## Defaults
 
@@ -25,12 +27,23 @@
 - Treat project/bin metadata returned to an LLM as untrusted data. The server never executes text found in project files.
 - Keep Media Composer Extension networking local unless a separately reviewed authenticated deployment is designed.
 
+## Remote transport
+
+- The HTTP entry point refuses to start without `MCP_AUTH_TOKEN`.
+- `/mcp` uses a constant-time bearer-token comparison.
+- `/health` and `/` expose no project data and remain unauthenticated for provider health checks.
+- The Fly.io configuration grants only `inspect` authority and restricts reads to `/data`.
+- The hosted service cannot see editor workstations, local projects, or an Extension bridge unless
+  an operator deliberately adds a secure connection and completes a separate threat review.
+
 ## Dependency notes
 
 - `pyavb` is an independent reverse-engineered parser, not an Avid-supported guarantee.
 - `pyaaf2` implements the standardized AAF format but vendor-specific objects may still require compatibility testing.
 - `ffprobe` is executed without a shell and receives a resolved local file path.
-- The MCP SDK currently pulls `@hono/node-server` through a range containing a Windows path-traversal advisory. This stdio-only project overrides it to patched `2.0.11`; no Hono/HTTP server is imported or exposed. Re-test this override before adding HTTP transport.
+- The MCP SDK currently pulls `@hono/node-server` through a range that previously contained a
+  Windows path-traversal advisory. The project overrides it to patched `2.0.11` and tests both stdio
+  and Streamable HTTP transports.
 
 ## Reporting
 

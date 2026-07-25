@@ -1,0 +1,30 @@
+app = "avid-media-composer-mcp"
+primary_region = "lax"
+
+[build]
+
+[env]
+  PORT = "3000"
+  AVID_MCP_ALLOWED_ROOTS = "/data"
+  AVID_MCP_CAPABILITIES = "inspect"
+  AVID_MCP_PYTHON = "python"
+  AVID_MCP_FFPROBE = "ffprobe"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
