@@ -19,8 +19,14 @@ import {
 import { analyzeProject, discoverProjects } from "./analysis/project.js";
 import { EDIT_ACTION_CATALOG } from "./edit/catalog.js";
 import { applyEditPlan, previewEditPlan } from "./edit/plans.js";
+import {
+  AVID_RELEASE_TRACKS,
+  detectHostPlatform,
+  evaluateCompatibility,
+} from "./compatibility/releases.js";
+import { detectInstallations } from "./compatibility/installations.js";
 
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.2.0";
 
 const INSTRUCTIONS = `Avid Media Composer MCP separates verified capability from aspiration.
 
@@ -150,6 +156,10 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           allowedRoots: config.allowedRoots,
           dependencies: { pythonInspector, ffprobe },
           bridge,
+          compatibility: {
+            supportedReleaseTracks: AVID_RELEASE_TRACKS,
+            host: detectHostPlatform(),
+          },
           implementation: {
             availableNow: [
               "project tree inventory and hashing",
@@ -167,6 +177,89 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
             providerGate:
               "Avid Media Composer Extensions SDK access/onboarding and a locally installed bridge extension",
           },
+        };
+      }),
+  );
+
+  server.registerTool(
+    "avid_get_compatibility_matrix",
+    {
+      title: "Avid version and platform compatibility",
+      description:
+        "Return the qualified Windows and macOS rules for Media Composer 2025.12.x, 2025.6, and 2024.12.x.",
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async () =>
+      execute("avid_get_compatibility_matrix", async () => ({
+        verifiedAt: "2026-07-25",
+        releaseTracks: AVID_RELEASE_TRACKS,
+        host: detectHostPlatform(),
+        caveat:
+          "Avid qualification also depends on the workstation, GPU, I/O hardware, drivers, and shared-storage stack.",
+      })),
+  );
+
+  server.registerTool(
+    "avid_check_compatibility",
+    {
+      title: "Check an Avid host configuration",
+      description:
+        "Evaluate a Media Composer release, operating system, and architecture against the supported three-release matrix.",
+      inputSchema: {
+        media_composer_version: z.string().min(1),
+        platform: z.enum(["windows", "macos"]),
+        operating_system_version: z.string().optional(),
+        architecture: z.enum(["x64", "arm64"]).optional(),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({
+      media_composer_version,
+      platform,
+      operating_system_version,
+      architecture,
+    }) =>
+      execute("avid_check_compatibility", async () =>
+        evaluateCompatibility({
+          mediaComposerVersion: media_composer_version,
+          platform,
+          ...(operating_system_version
+            ? { operatingSystemVersion: operating_system_version }
+            : {}),
+          ...(architecture ? { architecture } : {}),
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "avid_detect_installations",
+    {
+      title: "Detect Media Composer installations",
+      description:
+        "Check standard Windows or macOS application locations plus AVID_MCP_APPLICATION_PATH without launching Media Composer.",
+      inputSchema: {
+        platform: z.enum(["windows", "macos"]).optional(),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ platform }) =>
+      execute("avid_detect_installations", async () => {
+        const host = detectHostPlatform();
+        const selected = platform ?? host.platform;
+        if (!selected) {
+          return {
+            supportedHost: false,
+            host,
+            message: "Specify windows or macos when running discovery from another platform.",
+          };
+        }
+        return {
+          supportedHost: true,
+          host,
+          ...(await detectInstallations(selected)),
         };
       }),
   );

@@ -32,7 +32,14 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(16);
+      expect(tools.tools).toHaveLength(19);
+      expect(tools.tools.map((tool) => tool.name)).toEqual(
+        expect.arrayContaining([
+          "avid_get_compatibility_matrix",
+          "avid_check_compatibility",
+          "avid_detect_installations",
+        ]),
+      );
       expect(tools.tools.map((tool) => tool.name)).toContain("avid_analyze_project");
       expect(tools.tools.find((tool) => tool.name === "avid_analyze_clip")?.annotations).toMatchObject({
         readOnlyHint: true,

@@ -2,7 +2,7 @@
 
 A source-safe Model Context Protocol server for inspecting Avid Media Composer projects and, once an Avid Extension bridge is installed, applying guarded edits.
 
-The current `0.1.0` foundation provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.avp`/`.avs` configuration evidence, and media clips. It also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible extension is connected and advertises each supported operation.
+The current `0.2.0` foundation provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions. It also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible extension is connected and advertises each supported operation.
 
 > Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
 
@@ -18,6 +18,8 @@ The current `0.1.0` foundation provides working offline analysis for project tre
 - Inspect container and stream metadata through `ffprobe`, with optional frame/packet counting and SHA-256 hashing.
 - Preview compound editing plans, classify risk, require destructive opt-in, and bind approval to an exact SHA-256 confirmation token.
 - Report enabled authority, dependency health, source coverage, truncation, provider gates, and live bridge status.
+- Evaluate Media Composer/Windows/macOS/architecture combinations against source-linked Avid rules.
+- Detect standard Media Composer application locations on Windows and macOS.
 
 ## What still requires Avid access
 
@@ -29,7 +31,7 @@ Until that bridge exists:
 - `avid_apply_edit_plan` fails closed even when the `edit` capability is enabled.
 - An action appearing in the catalog is a planned contract, not evidence that Media Composer performed it.
 
-See [RESEARCH.md](RESEARCH.md), [the capability matrix](docs/CAPABILITY_MATRIX.md), and [the bridge contract](docs/AVID_EXTENSION_BRIDGE.md).
+See [RESEARCH.md](RESEARCH.md), [supported versions](docs/SUPPORTED_VERSIONS.md), [the capability matrix](docs/CAPABILITY_MATRIX.md), and [the bridge contract](docs/AVID_EXTENSION_BRIDGE.md).
 
 ## Architecture
 
@@ -54,7 +56,7 @@ Requirements:
 - Node.js 20 or newer
 - Python 3.9 or newer for AVB/AAF analysis
 - `ffprobe` on `PATH` for clip analysis
-- Media Composer 2023.8 or newer plus an eventual compatible Extension bridge for live control
+- Media Composer 2025.12.x, 2025.6, or 2024.12.x plus a protocol v2 Extension bridge for live control
 
 ```powershell
 git clone https://github.com/leancoderkavy/avid-media-composer-mcp.git
@@ -103,6 +105,9 @@ $env:AVID_MCP_BRIDGE_DIR = "$env:LOCALAPPDATA\avid-media-composer-mcp\bridge"
 | `avid_ping` | Server health and mode | None |
 | `avid_get_capabilities` | Authority, dependency, coverage, and bridge report | None |
 | `avid_get_bridge_status` | Validate bridge heartbeat and advertised support | None |
+| `avid_get_compatibility_matrix` | Report the latest three release/platform contracts | None |
+| `avid_check_compatibility` | Evaluate a Media Composer/OS/architecture combination | None |
+| `avid_detect_installations` | Find standard Windows/macOS installations | None |
 | `avid_get_edit_operation_catalog` | Browse the 167 planned editing actions | None |
 | `avid_discover_projects` | Find directories containing `.avp` files | None |
 | `avid_inventory_project_files` | Classify and optionally hash a project tree | None |

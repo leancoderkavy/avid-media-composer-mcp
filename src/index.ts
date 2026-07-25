@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   console.error(
     JSON.stringify({
       type: "avid-media-composer-mcp-ready",
-      version: "0.1.0",
+      version: "0.2.0",
       transport: "stdio",
       capabilities: [...config.capabilities].sort(),
       allowedRoots: config.allowedRoots,

@@ -1,6 +1,6 @@
 # Media Composer Extension bridge contract
 
-Protocol version: `1`
+Protocol version: `2`
 
 This contract is ready for an `.avpi` Media Composer Extension built with the sanctioned Extensions SDK. It does not reverse engineer `avid-api-gateway` and does not include proprietary SDK material.
 
@@ -22,9 +22,12 @@ The extension rewrites `state/capabilities.json` at least every 10 seconds:
 
 ```json
 {
-  "protocolVersion": 1,
-  "extensionVersion": "0.1.0",
-  "mediaComposerVersion": "2025.12",
+  "protocolVersion": 2,
+  "extensionVersion": "0.2.0",
+  "mediaComposerVersion": "2025.12.1",
+  "platform": "windows",
+  "operatingSystemVersion": "Windows 11 24H2",
+  "architecture": "x64",
   "sessionId": "d88ed40e-e967-41f0-928f-3190a8a9b57f",
   "heartbeatAt": "2026-07-25T22:00:00.000Z",
   "supportedActions": ["inspect.getState", "edit.applyPlan"],
@@ -37,13 +40,15 @@ The extension rewrites `state/capabilities.json` at least every 10 seconds:
 }
 ```
 
-The MCP considers the bridge disconnected after 15 seconds without a heartbeat. A version match alone is not health evidence.
+The MCP considers the bridge disconnected after 15 seconds without a heartbeat. It also fails
+closed when the declared Media Composer, operating-system, and architecture combination is not
+fully qualified by the bundled three-release matrix. A version match alone is not health evidence.
 
 ## Inspection request
 
 ```json
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "operationId": "uuid",
   "createdAt": "2026-07-25T22:00:01.000Z",
   "action": "inspect.getState",
@@ -70,7 +75,7 @@ The extension should return stable identities, not UI row numbers, whenever the 
 
 ```json
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "operationId": "uuid",
   "createdAt": "2026-07-25T22:00:02.000Z",
   "action": "edit.applyPlan",
@@ -106,7 +111,7 @@ Before mutation, the extension must:
 
 ```json
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "operationId": "uuid",
   "completedAt": "2026-07-25T22:00:03.000Z",
   "ok": true,
@@ -129,7 +134,7 @@ Failure responses use:
 
 ```json
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "operationId": "uuid",
   "completedAt": "2026-07-25T22:00:03.000Z",
   "ok": false,

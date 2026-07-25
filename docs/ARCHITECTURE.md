@@ -11,7 +11,7 @@
 
 ### MCP server
 
-`src/server.ts` exposes 16 tools, one resource, and two workflow prompts over local stdio. Tool results use a stable structured envelope:
+`src/server.ts` exposes 19 tools, one resource, and two workflow prompts over local stdio. Tool results use a stable structured envelope:
 
 ```json
 {
@@ -59,7 +59,16 @@ bridge/
   responses/<operation-id>.json
 ```
 
-The extension publishes a fresh heartbeat plus supported bridge commands and supported edit operations. The MCP does not infer support from Media Composer version alone.
+The extension publishes a fresh heartbeat plus Media Composer version, host platform, OS version,
+architecture, supported bridge commands, and supported edit operations. Protocol v2 rejects hosts
+outside the qualified three-release matrix. The MCP still does not infer operation support from
+Media Composer version alone.
+
+### Version and platform compatibility
+
+The compatibility layer contains source-linked rules for Media Composer 2025.12.x, 2025.6, and
+2024.12.x. It evaluates Windows/macOS qualification independently from live operation support and
+can discover standard installation paths on either desktop platform.
 
 ### Edit plans
 

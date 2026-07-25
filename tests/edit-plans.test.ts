@@ -61,9 +61,12 @@ describe("guarded edit plans", () => {
     await writeFile(
       path.join(root, "state", "capabilities.json"),
       JSON.stringify({
-        protocolVersion: 1,
+        protocolVersion: 2,
         extensionVersion: "0.1.0-test",
-        mediaComposerVersion: "2025.12-test",
+        mediaComposerVersion: "2025.12.1",
+        platform: "windows",
+        operatingSystemVersion: "Windows 11 24H2",
+        architecture: "x64",
         sessionId: "test-session",
         heartbeatAt: new Date().toISOString(),
         supportedActions: ["edit.applyPlan"],
@@ -94,7 +97,7 @@ describe("guarded edit plans", () => {
           await writeFile(
             path.join(root, "responses", `${request.operationId}.json`),
             JSON.stringify({
-              protocolVersion: 1,
+              protocolVersion: 2,
               operationId: request.operationId,
               completedAt: new Date().toISOString(),
               ok: true,

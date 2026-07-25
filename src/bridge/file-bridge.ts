@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { evaluateCompatibility } from "../compatibility/releases.js";
 import { AvidMcpError } from "../errors.js";
 import {
   AVID_BRIDGE_PROTOCOL_VERSION,
@@ -19,6 +20,9 @@ function isCapabilities(value: unknown): value is BridgeCapabilities {
     candidate.protocolVersion === AVID_BRIDGE_PROTOCOL_VERSION &&
     typeof candidate.extensionVersion === "string" &&
     typeof candidate.mediaComposerVersion === "string" &&
+    (candidate.platform === "windows" || candidate.platform === "macos") &&
+    typeof candidate.operatingSystemVersion === "string" &&
+    (candidate.architecture === "x64" || candidate.architecture === "arm64") &&
     typeof candidate.sessionId === "string" &&
     typeof candidate.heartbeatAt === "string" &&
     Array.isArray(candidate.supportedActions) &&
@@ -74,15 +78,30 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
       };
     }
     const heartbeatAgeMs = Math.max(0, Date.now() - heartbeat);
+    const compatibility = evaluateCompatibility({
+      mediaComposerVersion: raw.mediaComposerVersion,
+      platform: raw.platform,
+      operatingSystemVersion: raw.operatingSystemVersion,
+      architecture: raw.architecture,
+    });
+    const compatible = compatibility.status === "qualified";
     return {
       configured: true,
-      connected: heartbeatAgeMs <= HEARTBEAT_MAX_AGE_MS,
+      connected: heartbeatAgeMs <= HEARTBEAT_MAX_AGE_MS && compatible,
       bridgeDir,
       heartbeatAgeMs,
       capabilities: raw,
+      compatibility,
       ...(heartbeatAgeMs > HEARTBEAT_MAX_AGE_MS
         ? { reason: `Bridge heartbeat is stale (${heartbeatAgeMs}ms old)` }
-        : {}),
+        : !compatible
+          ? {
+              reason:
+                compatibility.status === "unqualified"
+                  ? "Bridge host is outside the qualified Media Composer/platform matrix"
+                  : "Bridge host compatibility could not be fully verified",
+            }
+          : {}),
     };
   } catch (error) {
     return {
