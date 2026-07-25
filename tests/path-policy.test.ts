@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -16,7 +16,9 @@ describe("allowed-root path policy", () => {
     temporary.push(root);
     const filePath = path.join(root, "clip.ale");
     await writeFile(filePath, "Heading\n", "utf8");
-    await expect(resolveReadablePath(filePath, [root], "file")).resolves.toBe(filePath);
+    await expect(resolveReadablePath(filePath, [root], "file")).resolves.toBe(
+      await realpath(filePath),
+    );
   });
 
   it("rejects a sibling path with the same prefix", async () => {
