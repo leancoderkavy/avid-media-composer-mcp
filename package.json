@@ -1,7 +1,7 @@
 {
   "name": "avid-media-composer-mcp",
   "version": "0.2.0",
-  "description": "Source-safe MCP server for deep Avid Media Composer project, bin, AAF, ALE, EDL, and clip analysis with a guarded live-editing bridge.",
+  "description": "MCP server for source-safe Avid Media Composer project, AVB bin, AAF, ALE, EDL, and media analysis with guarded editing automation.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,6 +14,8 @@
     "python/requirements.txt",
     "docs",
     "README.md",
+    "llms.txt",
+    "CITATION.cff",
     "RESEARCH.md",
     "SECURITY.md",
     "LICENSE",
@@ -62,7 +64,12 @@
     "mxf",
     "post-production",
     "ai-video-editing",
-    "automation"
+    "automation",
+    "avid-automation",
+    "media-asset-management",
+    "editorial-workflow",
+    "claude-mcp",
+    "chatgpt-mcp"
   ],
   "author": "Avid Media Composer MCP contributors",
   "license": "MIT",

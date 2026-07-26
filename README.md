@@ -1,10 +1,24 @@
-# Avid Media Composer MCP
+# Avid Media Composer MCP Server
 
-A source-safe Model Context Protocol server for inspecting Avid Media Composer projects and, once an Avid Extension bridge is installed, applying guarded edits.
+An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
 
-The current `0.2.0` foundation provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions. It also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible extension is connected and advertises each supported operation.
+Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The current `0.2.0` foundation provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
+
+The server also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible Avid Extension is connected and advertises each supported operation.
 
 > Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
+
+## Facts at a glance
+
+| Question | Answer |
+| --- | --- |
+| What is this? | An open-source MCP server for Avid Media Composer analysis and guarded automation. |
+| What can it inspect? | AVB bins, AAF files, ALE logs, EDLs, AVP/AVS configuration evidence, project trees, locks, and media metadata. |
+| Does it modify Avid projects offline? | No. Offline analysis is read-only and source media is never modified. |
+| Can it edit a live Media Composer session? | Only through a separately installed, compatible Avid Extension bridge. Without that bridge, editing fails closed. |
+| Which systems are supported? | Qualified Windows and macOS combinations for Media Composer 2025.12.x, 2025.6, and 2024.12.x. |
+| Which AI clients can use it? | Any standards-compatible MCP client that can launch a local stdio server or connect to authenticated Streamable HTTP. |
+| Is it an official Avid product? | No. It is an independent MIT-licensed project. |
 
 ## What works now
 
@@ -20,6 +34,16 @@ The current `0.2.0` foundation provides working offline analysis for project tre
 - Report enabled authority, dependency health, source coverage, truncation, provider gates, and live bridge status.
 - Evaluate Media Composer/Windows/macOS/architecture combinations against source-linked Avid rules.
 - Detect standard Media Composer application locations on Windows and macOS.
+
+## Common use cases
+
+- Ask an AI assistant to audit an Avid project before conform, turnover, migration, or archive.
+- Summarize bins, sequences, tracks, clips, markers, and metadata from AVB or AAF evidence.
+- Validate ALE and EDL interchange files and identify missing, opaque, or malformed data.
+- Inventory project files, detect active or orphaned bin locks, and report collaboration risks.
+- Inspect codec, container, duration, frame-rate, timecode, and stream metadata through `ffprobe`.
+- Check whether a Media Composer version is qualified for the detected Windows or macOS environment.
+- Preview a bounded edit plan and require exact confirmation before a connected extension can apply it.
 
 ## What still requires Avid access
 
@@ -221,6 +245,42 @@ AVB, AVP, and AVS are not public, Avid-supported interchange specifications. `py
 - never writes an open or locked bin offline;
 - preserves unrecognized or opaque evidence in reports;
 - uses AAF/ALE/EDL and the Extensions SDK as the preferred supported exchange/control surfaces.
+
+## Frequently asked questions
+
+### Is there an MCP server for Avid Media Composer?
+
+Yes. This project provides a working MCP server for read-only Avid Media Composer project analysis. Guarded live editing is part of the protocol, but it requires a compatible Avid Extension bridge running inside Media Composer.
+
+### Can Claude, ChatGPT, or Codex inspect an Avid project?
+
+Yes, when the AI client supports MCP and the server is allowed to read the project directory. The client can inventory files and inspect supported AVB, AAF, ALE, EDL, configuration, and media evidence through the tools listed above.
+
+### Can this MCP server edit an Avid timeline?
+
+Not by itself. The server can validate and preview editing plans, but live timeline or bin changes require the separate Extension bridge. If the bridge is absent, stale, or does not advertise an operation, the server rejects the request.
+
+### Does the server upload footage or project data?
+
+The local stdio server does not need to upload project data. Analysis happens beside the project, subject to explicit allowed-root controls. A remote HTTP deployment can only read files available in its own environment and should use a strong bearer token.
+
+### Which Avid file formats are supported?
+
+The server analyzes AVB through `pyavb`, AAF through `pyaaf2`, ALE and EDL with native parsers, AVP/AVS and related configuration files as text or bounded binary evidence, and media containers through `ffprobe`. Proprietary or opaque data is reported as such rather than guessed.
+
+### How is this different from UI automation?
+
+It uses structured MCP tools, bounded filesystem access, explicit capabilities, compatibility rules, and a guarded extension protocol. It does not silently fall back to mouse-and-keyboard automation or claim an edit succeeded from a preview alone.
+
+## Project metadata
+
+- [Capability matrix](docs/CAPABILITY_MATRIX.md)
+- [Supported Media Composer versions](docs/SUPPORTED_VERSIONS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Avid Extension bridge contract](docs/AVID_EXTENSION_BRIDGE.md)
+- [Research and primary sources](RESEARCH.md)
+- [Security policy](SECURITY.md)
+- [Citation metadata](CITATION.cff)
 
 ## License
 
