@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://leancoderkavy.github.io/avid-media-composer-mcp/sitemap.xml
