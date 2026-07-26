@@ -73,9 +73,13 @@ function frameRate(value: string | undefined): number | undefined {
 export async function probeFfprobe(
   executable: string,
   timeoutMs: number,
+  processRunner: typeof runProcess = runProcess,
 ): Promise<DependencyStatus> {
   try {
-    const result = await runProcess(executable, ["-version"], { timeoutMs, maxOutputBytes: 256_000 });
+    const result = await processRunner(executable, ["-version"], {
+      timeoutMs,
+      maxOutputBytes: 256_000,
+    });
     if (result.exitCode !== 0) {
       return { available: false, executable, error: result.stderr.trim() || `exit ${result.exitCode}` };
     }
@@ -100,6 +104,7 @@ export interface MediaAnalysisOptions {
 export async function analyzeMediaFile(
   filePath: string,
   options: MediaAnalysisOptions,
+  processRunner: typeof runProcess = runProcess,
 ): Promise<Record<string, unknown>> {
   const args = [
     "-v",
@@ -114,7 +119,7 @@ export async function analyzeMediaFile(
   if (options.deep) args.push("-count_frames", "-count_packets");
   args.push(filePath);
 
-  const result = await runProcess(options.executable, args, {
+  const result = await processRunner(options.executable, args, {
     timeoutMs: options.timeoutMs,
     maxOutputBytes: 32 * 1024 * 1024,
   });

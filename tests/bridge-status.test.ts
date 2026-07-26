@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { getBridgeStatus } from "../src/bridge/file-bridge.js";
+import { getBridgeStatus, sendBridgeCommand } from "../src/bridge/file-bridge.js";
 
 const temporary: string[] = [];
 
@@ -93,5 +93,67 @@ describe("Media Composer bridge status", () => {
     expect(status.connected).toBe(true);
     expect(status.compatibility?.status).toBe("qualified");
     expect(status.heartbeatAgeMs).toBeLessThan(15_000);
+  });
+
+  it("rejects commands the connected extension does not advertise", async () => {
+    const root = await bridgeDirectory(capability());
+    await expect(sendBridgeCommand(root, "edit.applyPlan", {}, 100, "unsupported")).rejects.toMatchObject({
+      code: "BRIDGE_ACTION_UNSUPPORTED",
+    });
+  });
+
+  it("rejects malformed and mismatched bridge responses", async () => {
+    const root = await bridgeDirectory(capability());
+    await mkdir(path.join(root, "responses"), { recursive: true });
+    await writeFile(
+      path.join(root, "responses", "malformed.json"),
+      JSON.stringify({ protocolVersion: 2, operationId: "someone-else", ok: true }),
+      "utf8",
+    );
+
+    await expect(
+      sendBridgeCommand(root, "inspect.getState", {}, 100, "malformed"),
+    ).rejects.toMatchObject({ code: "BRIDGE_INVALID_RESPONSE" });
+  });
+
+  it("surfaces extension failures and accepts valid successful responses", async () => {
+    const root = await bridgeDirectory(capability());
+    await mkdir(path.join(root, "responses"), { recursive: true });
+    await writeFile(
+      path.join(root, "responses", "failed.json"),
+      JSON.stringify({
+        protocolVersion: 2,
+        operationId: "failed",
+        completedAt: new Date().toISOString(),
+        ok: false,
+        error: { code: "AVID_REJECTED", message: "Avid rejected the operation" },
+      }),
+      "utf8",
+    );
+    await writeFile(
+      path.join(root, "responses", "success.json"),
+      JSON.stringify({
+        protocolVersion: 2,
+        operationId: "success",
+        completedAt: new Date().toISOString(),
+        ok: true,
+        result: { project: "Demo" },
+      }),
+      "utf8",
+    );
+
+    await expect(
+      sendBridgeCommand(root, "inspect.getState", {}, 100, "failed"),
+    ).rejects.toMatchObject({ code: "AVID_REJECTED" });
+    await expect(
+      sendBridgeCommand(root, "inspect.getState", {}, 100, "success"),
+    ).resolves.toMatchObject({ ok: true, result: { project: "Demo" } });
+  });
+
+  it("times out when the extension does not produce a response", async () => {
+    const root = await bridgeDirectory(capability());
+    await expect(
+      sendBridgeCommand(root, "inspect.getState", {}, 1, "timeout"),
+    ).rejects.toMatchObject({ code: "BRIDGE_TIMEOUT" });
   });
 });
