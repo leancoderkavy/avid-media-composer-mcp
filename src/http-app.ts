@@ -9,6 +9,30 @@ import { createServer } from "./server.js";
 export interface HttpServerOptions {
   authToken: string;
   config?: ServerConfig;
+  maxRequestBytes?: number;
+  maxConcurrentRequests?: number;
+  rateLimitPerMinute?: number;
+  requestBodyTimeoutMs?: number;
+}
+
+const MIN_AUTH_TOKEN_BYTES = 32;
+const DEFAULT_MAX_REQUEST_BYTES = 1024 * 1024;
+const DEFAULT_MAX_CONCURRENT_REQUESTS = 32;
+const DEFAULT_RATE_LIMIT_PER_MINUTE = 120;
+const DEFAULT_REQUEST_BODY_TIMEOUT_MS = 15_000;
+
+interface RateWindow {
+  count: number;
+  startedAt: number;
+}
+
+class HttpInputError extends Error {
+  constructor(
+    readonly status: number,
+    readonly publicMessage: string,
+  ) {
+    super(publicMessage);
+  }
 }
 
 function isAuthorized(request: http.IncomingMessage, authToken: string): boolean {
@@ -29,18 +53,121 @@ function sendJson(
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     ...headers,
   });
   response.end(`${JSON.stringify(body)}\n`);
 }
 
-export function createHttpServer(options: HttpServerOptions): http.Server {
-  if (!options.authToken) {
-    throw new Error("MCP_AUTH_TOKEN is required");
+function positiveLimit(value: number | undefined, fallback: number, name: string): number {
+  const selected = value ?? fallback;
+  if (!Number.isSafeInteger(selected) || selected <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return selected;
+}
+
+async function readJsonBody(
+  request: http.IncomingMessage,
+  maxBytes: number,
+  timeoutMs: number,
+): Promise<unknown> {
+  const contentType = request.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
+  if (contentType !== "application/json") {
+    throw new HttpInputError(415, "Content-Type must be application/json");
   }
 
-  return http.createServer(async (request, response) => {
+  const declaredLength = request.headers["content-length"];
+  if (declaredLength !== undefined) {
+    const parsedLength = Number(declaredLength);
+    if (!Number.isSafeInteger(parsedLength) || parsedLength < 0) {
+      throw new HttpInputError(400, "Invalid Content-Length");
+    }
+    if (parsedLength > maxBytes) {
+      throw new HttpInputError(413, "Request body too large");
+    }
+  }
+
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  const timeout = setTimeout(() => request.destroy(new Error("Request body timeout")), timeoutMs);
+  timeout.unref();
+  try {
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bytes += buffer.length;
+      if (bytes > maxBytes) {
+        throw new HttpInputError(413, "Request body too large");
+      }
+      chunks.push(buffer);
+    }
+  } catch (error) {
+    if (error instanceof HttpInputError) throw error;
+    throw new HttpInputError(408, "Request body timed out");
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (bytes === 0) {
+    throw new HttpInputError(400, "Request body is required");
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks, bytes).toString("utf8"));
+  } catch {
+    throw new HttpInputError(400, "Request body must be valid JSON");
+  }
+}
+
+export function createHttpServer(options: HttpServerOptions): http.Server {
+  if (Buffer.byteLength(options.authToken, "utf8") < MIN_AUTH_TOKEN_BYTES) {
+    throw new Error(`MCP_AUTH_TOKEN must contain at least ${MIN_AUTH_TOKEN_BYTES} bytes`);
+  }
+
+  const maxRequestBytes = positiveLimit(
+    options.maxRequestBytes,
+    DEFAULT_MAX_REQUEST_BYTES,
+    "maxRequestBytes",
+  );
+  const maxConcurrentRequests = positiveLimit(
+    options.maxConcurrentRequests,
+    DEFAULT_MAX_CONCURRENT_REQUESTS,
+    "maxConcurrentRequests",
+  );
+  const rateLimitPerMinute = positiveLimit(
+    options.rateLimitPerMinute,
+    DEFAULT_RATE_LIMIT_PER_MINUTE,
+    "rateLimitPerMinute",
+  );
+  const requestBodyTimeoutMs = positiveLimit(
+    options.requestBodyTimeoutMs,
+    DEFAULT_REQUEST_BODY_TIMEOUT_MS,
+    "requestBodyTimeoutMs",
+  );
+  const rateWindows = new Map<string, RateWindow>();
+  let activeRequests = 0;
+
+  const httpServer = http.createServer(async (request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    const now = Date.now();
+    const client = request.socket.remoteAddress ?? "unknown";
+    const priorWindow = rateWindows.get(client);
+    const rateWindow =
+      !priorWindow || now - priorWindow.startedAt >= 60_000
+        ? { count: 0, startedAt: now }
+        : priorWindow;
+    rateWindow.count += 1;
+    rateWindows.set(client, rateWindow);
+    if (rateWindow.count > rateLimitPerMinute) {
+      sendJson(response, 429, { error: "Too many requests" }, { "Retry-After": "60" });
+      return;
+    }
+    if (rateWindows.size > 10_000) {
+      for (const [address, window] of rateWindows) {
+        if (now - window.startedAt >= 60_000) rateWindows.delete(address);
+      }
+    }
 
     if (request.method === "GET" && pathname === "/health") {
       sendJson(response, 200, {
@@ -80,6 +207,20 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
       return;
     }
 
+    if (activeRequests >= maxConcurrentRequests) {
+      sendJson(response, 503, { error: "Server busy" }, { "Retry-After": "1" });
+      return;
+    }
+    activeRequests += 1;
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      activeRequests -= 1;
+    };
+    response.once("close", release);
+    response.once("finish", release);
+
     const server = createServer(options.config ?? loadConfig());
     const transport = new StreamableHTTPServerTransport();
     response.on("close", () => {
@@ -88,11 +229,19 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     });
 
     try {
+      const parsedBody =
+        request.method === "POST"
+          ? await readJsonBody(request, maxRequestBytes, requestBodyTimeoutMs)
+          : undefined;
       // SDK 1.29's Node transport declaration is structurally compatible at runtime but conflicts
       // with exactOptionalPropertyTypes because its optional callback getters include undefined.
       await server.connect(transport as unknown as Transport);
-      await transport.handleRequest(request, response);
+      await transport.handleRequest(request, response, parsedBody);
     } catch (error) {
+      if (error instanceof HttpInputError && !response.headersSent) {
+        sendJson(response, error.status, { error: error.publicMessage });
+        return;
+      }
       console.error(
         "[avid-media-composer-mcp] HTTP request failed:",
         error instanceof Error ? error.message : String(error),
@@ -102,4 +251,9 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
       }
     }
   });
+  httpServer.maxHeadersCount = 100;
+  httpServer.headersTimeout = 10_000;
+  httpServer.requestTimeout = 30_000;
+  httpServer.keepAliveTimeout = 5_000;
+  return httpServer;
 }

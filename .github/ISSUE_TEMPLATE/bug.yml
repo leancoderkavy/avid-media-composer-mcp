@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible defect without sharing private media or project data.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the project. Remove credentials, customer data, proprietary SDK files, and identifying media metadata before submitting.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Local stdio MCP transport
+        - Streamable HTTP transport
+        - Project or file inventory
+        - AVB or AAF analysis
+        - ALE or EDL analysis
+        - Media analysis
+        - Extension bridge
+        - Compatibility detection
+        - Packaging or CI
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Include the expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Use synthetic or legally redistributable fixtures only.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node, Python, Media Composer version, transport, and enabled capabilities.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, private project data, customer media, and proprietary SDK material.
+          required: true
+        - label: I understand security vulnerabilities should be reported privately.
+          required: true

@@ -26,6 +26,65 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
+const MAX_PLAN_DEPTH = 20;
+const MAX_PLAN_NODES = 10_000;
+const MAX_PLAN_STRING_BYTES = 1024 * 1024;
+const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+
+function validateJsonValue(value: unknown, label: string): void {
+  let nodes = 0;
+  let stringBytes = 0;
+  const ancestors = new Set<object>();
+
+  const visit = (current: unknown, depth: number): void => {
+    nodes += 1;
+    if (nodes > MAX_PLAN_NODES) {
+      throw new AvidMcpError("INVALID_EDIT_PLAN", `${label} exceeds the node limit`);
+    }
+    if (depth > MAX_PLAN_DEPTH) {
+      throw new AvidMcpError("INVALID_EDIT_PLAN", `${label} exceeds the nesting limit`);
+    }
+    if (
+      current === null ||
+      typeof current === "boolean" ||
+      (typeof current === "number" && Number.isFinite(current))
+    ) {
+      return;
+    }
+    if (typeof current === "string") {
+      stringBytes += Buffer.byteLength(current, "utf8");
+      if (stringBytes > MAX_PLAN_STRING_BYTES) {
+        throw new AvidMcpError("INVALID_EDIT_PLAN", `${label} exceeds the string-size limit`);
+      }
+      return;
+    }
+    if (!Array.isArray(current) && !isPlainObject(current)) {
+      throw new AvidMcpError("INVALID_EDIT_PLAN", `${label} must contain only JSON values`);
+    }
+    if (ancestors.has(current)) {
+      throw new AvidMcpError("INVALID_EDIT_PLAN", `${label} must not contain cycles`);
+    }
+    ancestors.add(current);
+    if (Array.isArray(current)) {
+      for (const item of current) visit(item, depth + 1);
+    } else {
+      for (const [key, item] of Object.entries(current)) {
+        if (UNSAFE_OBJECT_KEYS.has(key)) {
+          throw new AvidMcpError(
+            "INVALID_EDIT_PLAN",
+            `${label} contains unsafe object key '${key}'`,
+          );
+        }
+        stringBytes += Buffer.byteLength(key, "utf8");
+        visit(item, depth + 1);
+      }
+    }
+    ancestors.delete(current);
+  };
+
+  visit(value, 0);
+}
+
 export function validateEditPlan(value: unknown): EditPlan {
   if (!isPlainObject(value)) {
     throw new AvidMcpError("INVALID_EDIT_PLAN", "Edit plan must be an object");
@@ -52,11 +111,15 @@ export function validateEditPlan(value: unknown): EditPlan {
         `Operation ${index} arguments must be an object`,
       );
     }
+    validateJsonValue(raw.arguments, `Operation ${index} arguments`);
     if (raw.expectedState !== undefined && !isPlainObject(raw.expectedState)) {
       throw new AvidMcpError(
         "INVALID_EDIT_PLAN",
         `Operation ${index} expectedState must be an object`,
       );
+    }
+    if (raw.expectedState !== undefined) {
+      validateJsonValue(raw.expectedState, `Operation ${index} expectedState`);
     }
     return {
       action: raw.action,
@@ -66,9 +129,15 @@ export function validateEditPlan(value: unknown): EditPlan {
   });
 
   const plan: EditPlan = { operations };
-  if (typeof value.projectId === "string") plan.projectId = value.projectId;
-  if (typeof value.projectPath === "string") plan.projectPath = value.projectPath;
-  if (typeof value.rationale === "string") plan.rationale = value.rationale;
+  for (const field of ["projectId", "projectPath", "rationale"] as const) {
+    const selected = value[field];
+    if (typeof selected === "string") {
+      if (Buffer.byteLength(selected, "utf8") > 16_384) {
+        throw new AvidMcpError("INVALID_EDIT_PLAN", `${field} exceeds the string-size limit`);
+      }
+      plan[field] = selected;
+    }
+  }
   if (typeof value.allowDestructive === "boolean") plan.allowDestructive = value.allowDestructive;
   return plan;
 }

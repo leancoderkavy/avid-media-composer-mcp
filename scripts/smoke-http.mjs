@@ -4,7 +4,7 @@ import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-const token = "local-http-smoke-token";
+const token = "local-http-smoke-token-32-bytes-minimum";
 
 async function unusedPort() {
   const listener = net.createServer();

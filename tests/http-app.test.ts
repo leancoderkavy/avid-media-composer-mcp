@@ -3,9 +3,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createHttpServer } from "../src/http-app.js";
 
 const servers: http.Server[] = [];
+const TEST_TOKEN = "unit-test-token-32-bytes-minimum!";
 
-async function startServer(token = "unit-test-token"): Promise<string> {
-  const server = createHttpServer({ authToken: token });
+async function startServer(
+  token = TEST_TOKEN,
+  options: Omit<Parameters<typeof createHttpServer>[0], "authToken"> = {},
+): Promise<string> {
+  const server = createHttpServer({ authToken: token, ...options });
   servers.push(server);
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -28,8 +32,9 @@ afterEach(async () => {
 });
 
 describe("remote HTTP application", () => {
-  it("refuses construction without a bearer token", () => {
-    expect(() => createHttpServer({ authToken: "" })).toThrow("MCP_AUTH_TOKEN is required");
+  it("refuses missing or weak bearer tokens", () => {
+    expect(() => createHttpServer({ authToken: "" })).toThrow("at least 32 bytes");
+    expect(() => createHttpServer({ authToken: "short" })).toThrow("at least 32 bytes");
   });
 
   it("serves bounded public health and service metadata", async () => {
@@ -63,7 +68,7 @@ describe("remote HTTP application", () => {
   it.each([
     ["missing header", undefined],
     ["wrong scheme", "Basic abc"],
-    ["wrong token with equal length", "Bearer unit-test-tokes"],
+    ["wrong token with equal length", `Bearer ${"x".repeat(Buffer.byteLength(TEST_TOKEN))}`],
     ["wrong token with different length", "Bearer short"],
   ])("rejects %s", async (_label, authorization) => {
     const base = await startServer();
@@ -81,7 +86,7 @@ describe("remote HTTP application", () => {
     const response = await fetch(`${base}/mcp`, {
       method: "POST",
       headers: {
-        Authorization: "Bearer unit-test-token",
+        Authorization: `Bearer ${TEST_TOKEN}`,
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
       },
@@ -89,5 +94,33 @@ describe("remote HTTP application", () => {
     });
     expect(response.status).toBe(400);
     expect(await response.text()).toContain("Invalid JSON-RPC");
+  });
+
+  it("requires JSON and rejects oversized request bodies", async () => {
+    const base = await startServer(TEST_TOKEN, { maxRequestBytes: 32 });
+    const headers = { Authorization: `Bearer ${TEST_TOKEN}` };
+
+    const wrongType = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers,
+      body: "{}",
+    });
+    expect(wrongType.status).toBe(415);
+
+    const oversized = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ value: "x".repeat(64) }),
+    });
+    expect(oversized.status).toBe(413);
+  });
+
+  it("rate limits repeated requests from one client", async () => {
+    const base = await startServer(TEST_TOKEN, { rateLimitPerMinute: 2 });
+    expect((await fetch(`${base}/health`)).status).toBe(200);
+    expect((await fetch(`${base}/health`)).status).toBe(200);
+    const limited = await fetch(`${base}/health`);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBe("60");
   });
 });

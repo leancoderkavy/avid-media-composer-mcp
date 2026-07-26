@@ -50,6 +50,25 @@ describe("guarded edit plans", () => {
     ).toThrow("Unknown edit action");
   });
 
+  it("rejects deeply nested, cyclic, or prototype-sensitive plan values", () => {
+    let nested: Record<string, unknown> = {};
+    for (let depth = 0; depth < 25; depth += 1) nested = { child: nested };
+    expect(() =>
+      validateEditPlan({ operations: [{ action: "bin.create", arguments: nested }] }),
+    ).toThrow("nesting limit");
+
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    expect(() =>
+      validateEditPlan({ operations: [{ action: "bin.create", arguments: cyclic }] }),
+    ).toThrow("cycles");
+
+    const unsafe = JSON.parse('{"__proto__":{"polluted":true}}') as Record<string, unknown>;
+    expect(() =>
+      validateEditPlan({ operations: [{ action: "bin.create", arguments: unsafe }] }),
+    ).toThrow("unsafe object key");
+  });
+
   it("applies an exact token only through a live bridge advertising the operation", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "avid-mcp-bridge-"));
     temporary.push(root);

@@ -35,4 +35,20 @@ describe("configuration analysis", () => {
     expect(result.binary?.magicHex).toBe("0001020300ff800009000400");
     expect(result.text).toBeUndefined();
   });
+
+  it("reads only the configured prefix of oversized files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "avid-mcp-bounded-config-"));
+    temporary.push(root);
+    const filePath = path.join(root, "Large.avs");
+    const largeBinary = Buffer.alloc(1024 * 1024);
+    for (let index = 0; index < largeBinary.length; index += 1) {
+      largeBinary[index] = index % 4;
+    }
+    await writeFile(filePath, largeBinary);
+
+    const result = await analyzeConfigurationFile(filePath, 1024);
+    expect(result.sizeBytes).toBe(1024 * 1024);
+    expect(result.truncated).toBe(true);
+    expect(result.binary?.magicHex).toHaveLength(64);
+  });
 });

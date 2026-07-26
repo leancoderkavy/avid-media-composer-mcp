@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a bounded, source-safe capability.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What editorial or integration problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: Describe inputs, outputs, limits, and failure behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: authority
+    attributes:
+      label: Required authority
+      options:
+        - Read-only inspection
+        - Live-state inspection through the bridge
+        - Guarded project or timeline mutation
+        - Export or external side effect
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Compatibility evidence
+      description: Link public documentation or describe legal, redistributable fixtures.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Source-safety constraints
+      options:
+        - label: The proposal does not require committing proprietary Avid SDK material.
+          required: true
+        - label: The proposal can fail closed when dependencies or authority are unavailable.
+          required: true

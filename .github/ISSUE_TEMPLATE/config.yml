@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/leancoderkavy/avid-media-composer-mcp/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue with exploit details.
+  - name: Support and usage questions
+    url: https://github.com/leancoderkavy/avid-media-composer-mcp/discussions
+    about: Ask setup and usage questions in GitHub Discussions.

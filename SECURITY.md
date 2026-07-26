@@ -30,7 +30,10 @@ control. The hosted configuration is a read-only inspection and compatibility se
 ## Remote transport
 
 - The HTTP entry point refuses to start without `MCP_AUTH_TOKEN`.
+- `MCP_AUTH_TOKEN` must contain at least 32 bytes; generate it with a cryptographically secure random source.
 - `/mcp` uses a constant-time bearer-token comparison.
+- JSON request bodies are capped at 1 MiB by default, including chunked requests.
+- The server applies per-client request limits, a concurrent-request cap, body/header timeouts, and bounded HTTP headers.
 - `/health` and `/` expose no project data and remain unauthenticated for provider health checks.
 - The Fly.io configuration grants only `inspect` authority and restricts reads to `/data`.
 - The hosted service cannot see editor workstations, local projects, or an Extension bridge unless
@@ -41,6 +44,8 @@ control. The hosted configuration is a read-only inspection and compatibility se
 - `pyavb` is an independent reverse-engineered parser, not an Avid-supported guarantee.
 - `pyaaf2` implements the standardized AAF format but vendor-specific objects may still require compatibility testing.
 - `ffprobe` is executed without a shell and receives a resolved local file path.
+- Text and configuration analyzers read only their configured prefix instead of buffering an entire untrusted file.
+- Edit-plan values have depth, node, and string-size limits and reject prototype-sensitive object keys.
 - The MCP SDK currently pulls `@hono/node-server` through a range that previously contained a
   Windows path-traversal advisory. The project overrides it to patched `2.0.11` and tests both stdio
   and Streamable HTTP transports.
@@ -48,3 +53,5 @@ control. The hosted configuration is a read-only inspection and compatibility se
 ## Reporting
 
 Please report security issues privately through GitHub's security advisory flow rather than opening a public issue with exploit details.
+
+See the latest [security audit](docs/SECURITY_AUDIT.md) for reviewed surfaces, fixed findings, and residual risks.

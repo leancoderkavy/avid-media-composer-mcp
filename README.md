@@ -280,6 +280,9 @@ It uses structured MCP tools, bounded filesystem access, explicit capabilities, 
 - [Avid Extension bridge contract](docs/AVID_EXTENSION_BRIDGE.md)
 - [Research and primary sources](RESEARCH.md)
 - [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
+- [Security audit](docs/SECURITY_AUDIT.md)
 - [Citation metadata](CITATION.cff)
 
 ## License

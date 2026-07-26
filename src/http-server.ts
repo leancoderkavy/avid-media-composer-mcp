@@ -10,9 +10,9 @@ if (!Number.isSafeInteger(port) || port < 0 || port > 65_535) {
   process.exit(1);
 }
 
-if (!authToken) {
+if (Buffer.byteLength(authToken, "utf8") < 32) {
   console.error(
-    "[avid-media-composer-mcp] Refusing to start remote transport without MCP_AUTH_TOKEN.",
+    "[avid-media-composer-mcp] Refusing to start remote transport unless MCP_AUTH_TOKEN contains at least 32 bytes.",
   );
   process.exit(1);
 }

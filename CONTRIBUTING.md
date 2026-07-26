@@ -26,3 +26,19 @@ npm run check
 ```
 
 Use small synthetic fixtures or documented, redistributable samples.
+
+## Before opening a pull request
+
+1. Open or reference a structured issue unless the change is a small documentation correction.
+2. Keep each pull request focused on one behavior or risk.
+3. Add success and failure-path tests.
+4. Run `npm run check` and include the result in the pull request.
+5. Complete the source-safety checklist in the pull request template.
+
+Maintainers use CodeQL, dependency review, npm audit, protected-branch checks, and CODEOWNERS review for security-sensitive paths. Automated checks are evidence of passing gates, not proof of live Media Composer behavior.
+
+## Security reports and support
+
+- Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/leancoderkavy/avid-media-composer-mcp/security/advisories/new).
+- Use [GitHub Discussions](https://github.com/leancoderkavy/avid-media-composer-mcp/discussions) for setup and usage questions.
+- See [SUPPORT.md](SUPPORT.md) for the support boundary.

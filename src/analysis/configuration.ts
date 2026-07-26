@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { decodeTextFile } from "./text.js";
+import { decodeTextFile, readFilePrefix } from "./text.js";
 import { sha256File } from "./file-inventory.js";
 
 export interface ConfigurationAnalysis {
@@ -103,8 +102,7 @@ export async function analyzeConfigurationFile(
     };
   }
 
-  const full = await readFile(filePath);
-  const buffer = full.subarray(0, maxBytes);
+  const { buffer } = await readFilePrefix(filePath, maxBytes);
   let nulls = 0;
   for (const byte of buffer) if (byte === 0) nulls += 1;
   return {
