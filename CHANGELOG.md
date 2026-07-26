@@ -8,6 +8,7 @@
 - Expanded CI to Windows and macOS on Node.js 20 and 24.
 - Added an authenticated Streamable HTTP transport, container image, and Fly.io deployment.
 - Added guarded local and GitHub Actions npm publication paths with provenance.
+- Added isolated HTTP authentication/routing, bridge-status, installation-discovery, and deployment-policy unit tests.
 
 ## 0.1.0 - 2026-07-25
 

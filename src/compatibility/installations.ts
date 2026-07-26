@@ -9,18 +9,10 @@ export interface AvidInstallationCandidate {
   exists: boolean;
 }
 
-async function exists(candidate: string): Promise<boolean> {
-  try {
-    await access(candidate);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function detectInstallations(
   platform: AvidPlatform,
   env: NodeJS.ProcessEnv = process.env,
+  accessPath: (candidate: string) => Promise<unknown> = access,
 ): Promise<{ platform: AvidPlatform; candidates: AvidInstallationCandidate[]; detected: string[] }> {
   const configured = env.AVID_MCP_APPLICATION_PATH?.trim();
   const paths =
@@ -62,7 +54,7 @@ export async function detectInstallations(
     unique.map(async (candidate) => ({
       platform,
       ...candidate,
-      exists: await exists(candidate.path),
+      exists: await existsWith(candidate.path, accessPath),
     })),
   );
   return {
@@ -70,4 +62,16 @@ export async function detectInstallations(
     candidates,
     detected: candidates.filter((candidate) => candidate.exists).map((candidate) => candidate.path),
   };
+}
+
+async function existsWith(
+  candidate: string,
+  accessPath: (candidate: string) => Promise<unknown>,
+): Promise<boolean> {
+  try {
+    await accessPath(candidate);
+    return true;
+  } catch {
+    return false;
+  }
 }
