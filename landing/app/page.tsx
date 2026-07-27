@@ -1,7 +1,8 @@
 import {
-  ArrowRight, Binary, Boxes, Check, CircleCheck, ClipboardCheck, Code2,
+  ArrowRight, Binary, Boxes, CircleCheck, ClipboardCheck, Code2,
   FileSearch, Film, FolderLock, Github, HardDrive, Network, ShieldCheck, Sparkles
 } from "lucide-react"
+import { HeroDemo } from "@/components/hero-demo"
 
 const repo = "https://github.com/leancoderkavy/avid-media-composer-mcp"
 
@@ -97,10 +98,7 @@ export default function Home() {
             <a className="button secondary" href={`${repo}/blob/main/docs/CAPABILITY_MATRIX.md`}><ClipboardCheck /> Capability matrix</a>
           </div>
         </div>
-        <div className="terminal" aria-label="Example Avid Media Composer MCP project audit">
-          <div className="terminal-bar"><i /><i /><i /><span>avid-media-composer-mcp</span><b>Av</b></div>
-          <pre><code><span className="comment"># Ask your MCP client</span>{"\n"}<span className="prompt">›</span> Audit the Episode_101 Avid project.{"\n"}  Flag locks, missing dependencies, and{"\n"}  interchange risks before turnover.{"\n\n"}<span className="success">✓ 6 bins analyzed</span>{"\n"}<span className="success">✓ 2 AAFs · 1 ALE · 3 EDLs parsed</span>{"\n"}<span className="warn">! 1 active bin lock requires review</span>{"\n"}<span className="muted">  source files unchanged</span></code></pre>
-        </div>
+        <HeroDemo />
         <div className="proof">
           <div><FileSearch /><span><strong>Read-only analysis</strong><small>Source-safe by default</small></span></div>
           <div><HardDrive /><span><strong>Windows + macOS</strong><small>Qualified Avid releases</small></span></div>
