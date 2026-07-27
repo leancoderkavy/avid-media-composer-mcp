@@ -1,0 +1,11 @@
+# Avid Media Composer MCP
+
+> Independent, open-source Model Context Protocol server for source-safe Avid Media Composer project analysis and guarded editing automation.
+
+- Project: https://avid-media-composer-mcp.vercel.app/
+- Repository: https://github.com/leancoderkavy/avid-media-composer-mcp
+- Documentation: https://github.com/leancoderkavy/avid-media-composer-mcp#readme
+- Capability matrix: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md
+- Security: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/SECURITY.md
+
+The current release provides read-only analysis for Avid projects, AVB bins, AAF, ALE, EDL, AVP/AVS configuration evidence, locks, and media metadata. Live editing requires a compatible Avid Extension bridge and fails closed when that bridge is unavailable.
