@@ -6,7 +6,7 @@ describe("PostHog telemetry", () => {
     const factory = vi.fn();
     const telemetry = createTelemetry({}, factory);
 
-    telemetry.capture("mcp_server_started", { transport: "stdio" });
+    telemetry.capture("avid_mcp_server_started", { transport: "stdio" });
     await telemetry.shutdown();
 
     expect(telemetry.enabled).toBe(false);
@@ -26,7 +26,7 @@ describe("PostHog telemetry", () => {
       () => ({ capture, _shutdown: shutdown }) as never,
     );
 
-    telemetry.capture("mcp_tool_call", {
+    telemetry.capture("avid_mcp_tool_call", {
       tool: "avid_ping",
       outcome: "succeeded",
       duration_ms: 3,
@@ -36,7 +36,7 @@ describe("PostHog telemetry", () => {
     expect(telemetry.enabled).toBe(true);
     expect(capture).toHaveBeenCalledWith({
       distinctId: "service:test",
-      event: "mcp_tool_call",
+      event: "avid_mcp_tool_call",
       properties: {
         tool: "avid_ping",
         outcome: "succeeded",

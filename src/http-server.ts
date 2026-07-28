@@ -25,7 +25,7 @@ httpServer.listen(port, "0.0.0.0", () => {
   console.error(
     `[avid-media-composer-mcp] Streamable HTTP listening on 0.0.0.0:${selectedPort}`,
   );
-  telemetry.capture("mcp_server_started", {
+  telemetry.capture("avid_mcp_server_started", {
     transport: "streamable-http",
     telemetry_enabled: telemetry.enabled,
   });

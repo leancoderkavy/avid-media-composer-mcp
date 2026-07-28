@@ -91,14 +91,14 @@ async function execute(tool: string, handler: () => Promise<unknown>) {
   const startedAt = performance.now();
   try {
     const result = success(tool, await handler());
-    telemetry.capture("mcp_tool_call", {
+    telemetry.capture("avid_mcp_tool_call", {
       tool,
       outcome: "succeeded",
       duration_ms: Math.round(performance.now() - startedAt),
     });
     return result;
   } catch (error) {
-    telemetry.capture("mcp_tool_call", {
+    telemetry.capture("avid_mcp_tool_call", {
       tool,
       outcome: "failed",
       error_code: errorDetails(error).code,

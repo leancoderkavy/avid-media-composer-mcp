@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const server = createServer(config);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  telemetry.capture("mcp_server_started", {
+  telemetry.capture("avid_mcp_server_started", {
     transport: "stdio",
     telemetry_enabled: telemetry.enabled,
   });

@@ -190,8 +190,10 @@ $env:POSTHOG_DISTINCT_ID = "service:avid-media-composer-mcp"
 npm run start:http
 ```
 
-The server records starts, authenticated or rejected connection attempts, HTTP route/status
-and duration, and MCP tool name/outcome/duration/error code. It does not send prompts, tool
+The server records `avid_mcp_server_started`, `avid_mcp_connection_attempt`,
+`avid_mcp_request`, and `avid_mcp_tool_call` events for starts, authenticated or rejected
+connection attempts, HTTP route/status/duration, and MCP tool name/outcome/duration/error
+code. It does not send prompts, tool
 arguments or results, paths, media or project names, bearer tokens, IP addresses, or person
 profiles. Use a deployment secret for `POSTHOG_API_KEY`; never commit it.
 

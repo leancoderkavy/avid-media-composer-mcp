@@ -1,10 +1,10 @@
 import { PostHog } from "posthog-node";
 
 export type TelemetryEvent =
-  | "mcp_server_started"
-  | "mcp_connection_attempt"
-  | "mcp_request"
-  | "mcp_tool_call";
+  | "avid_mcp_server_started"
+  | "avid_mcp_connection_attempt"
+  | "avid_mcp_request"
+  | "avid_mcp_tool_call";
 
 export type TelemetryProperties = Record<string, boolean | number | string | null>;
 

@@ -154,7 +154,7 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     const now = Date.now();
     const requestStartedAt = performance.now();
     response.once("finish", () => {
-      telemetry.capture("mcp_request", {
+      telemetry.capture("avid_mcp_request", {
         transport: "streamable-http",
         method: request.method ?? "UNKNOWN",
         route:
@@ -210,7 +210,7 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     }
 
     if (!isAuthorized(request, options.authToken)) {
-      telemetry.capture("mcp_connection_attempt", {
+      telemetry.capture("avid_mcp_connection_attempt", {
         transport: "streamable-http",
         outcome: "unauthorized",
       });
@@ -222,7 +222,7 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
       );
       return;
     }
-    telemetry.capture("mcp_connection_attempt", {
+    telemetry.capture("avid_mcp_connection_attempt", {
       transport: "streamable-http",
       outcome: "authorized",
     });
