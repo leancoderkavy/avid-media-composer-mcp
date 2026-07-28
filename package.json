@@ -48,7 +48,7 @@
   "bugs": {
     "url": "https://github.com/leancoderkavy/avid-media-composer-mcp/issues"
   },
-  "homepage": "https://leancoderkavy.github.io/avid-media-composer-mcp/",
+  "homepage": "https://avid-media-composer-mcp.vercel.app/",
   "keywords": [
     "avid",
     "avid-media-composer",
