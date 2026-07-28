@@ -6,6 +6,9 @@ describe("release and deployment policy", () => {
     const fly = await readFile("fly.toml", "utf8");
     expect(fly).toContain('AVID_MCP_CAPABILITIES = "inspect"');
     expect(fly).toContain('AVID_MCP_ALLOWED_ROOTS = "/data"');
+    expect(fly).toContain('POSTHOG_HOST = "https://us.i.posthog.com"');
+    expect(fly).toContain('POSTHOG_DISTINCT_ID = "service:avid-media-composer-mcp"');
+    expect(fly).not.toContain("POSTHOG_API_KEY");
     expect(fly).not.toContain("unsafe-automation");
   });
 

@@ -25,6 +25,7 @@ import {
   evaluateCompatibility,
 } from "./compatibility/releases.js";
 import { detectInstallations } from "./compatibility/installations.js";
+import { telemetry } from "./telemetry.js";
 
 const SERVER_VERSION = "0.2.0";
 
@@ -87,9 +88,22 @@ function failure(tool: string, error: unknown) {
 }
 
 async function execute(tool: string, handler: () => Promise<unknown>) {
+  const startedAt = performance.now();
   try {
-    return success(tool, await handler());
+    const result = success(tool, await handler());
+    telemetry.capture("mcp_tool_call", {
+      tool,
+      outcome: "succeeded",
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return result;
   } catch (error) {
+    telemetry.capture("mcp_tool_call", {
+      tool,
+      outcome: "failed",
+      error_code: errorDetails(error).code,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
     return failure(tool, error);
   }
 }

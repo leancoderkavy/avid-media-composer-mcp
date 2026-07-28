@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHttpServer } from "./http-app.js";
+import { telemetry } from "./telemetry.js";
 
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 const authToken = process.env.MCP_AUTH_TOKEN ?? "";
@@ -24,10 +25,16 @@ httpServer.listen(port, "0.0.0.0", () => {
   console.error(
     `[avid-media-composer-mcp] Streamable HTTP listening on 0.0.0.0:${selectedPort}`,
   );
+  telemetry.capture("mcp_server_started", {
+    transport: "streamable-http",
+    telemetry_enabled: telemetry.enabled,
+  });
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    httpServer.close(() => process.exit(0));
+    httpServer.close(() => {
+      void telemetry.shutdown().finally(() => process.exit(0));
+    });
   });
 }

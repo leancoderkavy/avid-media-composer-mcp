@@ -178,6 +178,23 @@ Large projects are bounded by explicit limits:
 
 Reports always identify truncation and per-format analyzed/unavailable/failed counts.
 
+## Optional PostHog operations telemetry
+
+Set `POSTHOG_API_KEY` on the server to enable privacy-safe operational telemetry. It is
+disabled by default and becomes a no-op when the key is absent.
+
+```powershell
+$env:POSTHOG_API_KEY = "<PostHog project API key>"
+$env:POSTHOG_HOST = "https://us.i.posthog.com"
+$env:POSTHOG_DISTINCT_ID = "service:avid-media-composer-mcp"
+npm run start:http
+```
+
+The server records starts, authenticated or rejected connection attempts, HTTP route/status
+and duration, and MCP tool name/outcome/duration/error code. It does not send prompts, tool
+arguments or results, paths, media or project names, bearer tokens, IP addresses, or person
+profiles. Use a deployment secret for `POSTHOG_API_KEY`; never commit it.
+
 ## Safe edit workflow
 
 1. Call `avid_get_bridge_status`.

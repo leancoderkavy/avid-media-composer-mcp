@@ -5,6 +5,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { ServerConfig } from "./config.js";
 import { loadConfig } from "./config.js";
 import { createServer } from "./server.js";
+import { telemetry } from "./telemetry.js";
 
 export interface HttpServerOptions {
   authToken: string;
@@ -151,6 +152,17 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
   const httpServer = http.createServer(async (request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
     const now = Date.now();
+    const requestStartedAt = performance.now();
+    response.once("finish", () => {
+      telemetry.capture("mcp_request", {
+        transport: "streamable-http",
+        method: request.method ?? "UNKNOWN",
+        route:
+          pathname === "/mcp" || pathname === "/health" || pathname === "/" ? pathname : "other",
+        status_code: response.statusCode,
+        duration_ms: Math.round(performance.now() - requestStartedAt),
+      });
+    });
     const client = request.socket.remoteAddress ?? "unknown";
     const priorWindow = rateWindows.get(client);
     const rateWindow =
@@ -198,6 +210,10 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     }
 
     if (!isAuthorized(request, options.authToken)) {
+      telemetry.capture("mcp_connection_attempt", {
+        transport: "streamable-http",
+        outcome: "unauthorized",
+      });
       sendJson(
         response,
         401,
@@ -206,6 +222,10 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
       );
       return;
     }
+    telemetry.capture("mcp_connection_attempt", {
+      transport: "streamable-http",
+      outcome: "authorized",
+    });
 
     if (activeRequests >= maxConcurrentRequests) {
       sendJson(response, 503, { error: "Server busy" }, { "Retry-After": "1" });

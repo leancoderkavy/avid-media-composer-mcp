@@ -9,6 +9,9 @@ primary_region = "lax"
   AVID_MCP_CAPABILITIES = "inspect"
   AVID_MCP_PYTHON = "python"
   AVID_MCP_FFPROBE = "ffprobe"
+  NODE_ENV = "production"
+  POSTHOG_HOST = "https://us.i.posthog.com"
+  POSTHOG_DISTINCT_ID = "service:avid-media-composer-mcp"
 
 [http_service]
   internal_port = 3000
