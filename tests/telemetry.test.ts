@@ -14,7 +14,7 @@ describe("PostHog telemetry", () => {
   });
 
   it("captures only supplied bounded operational metadata and disables profiles", async () => {
-    const capture = vi.fn();
+    const captureImmediate = vi.fn(async () => undefined);
     const shutdown = vi.fn(async () => undefined);
     const telemetry = createTelemetry(
       {
@@ -23,7 +23,7 @@ describe("PostHog telemetry", () => {
         POSTHOG_DISTINCT_ID: "service:test",
         NODE_ENV: "test",
       },
-      () => ({ capture, _shutdown: shutdown }) as never,
+      () => ({ captureImmediate, _shutdown: shutdown }) as never,
     );
 
     telemetry.capture("avid_mcp_tool_call", {
@@ -34,7 +34,7 @@ describe("PostHog telemetry", () => {
     await telemetry.shutdown();
 
     expect(telemetry.enabled).toBe(true);
-    expect(capture).toHaveBeenCalledWith({
+    expect(captureImmediate).toHaveBeenCalledWith({
       distinctId: "service:test",
       event: "avid_mcp_tool_call",
       properties: {

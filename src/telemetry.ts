@@ -45,19 +45,27 @@ export function createTelemetry(
   return {
     enabled: true,
     capture(event, properties = {}) {
-      client.capture({
-        distinctId,
-        event,
-        properties: {
-          ...properties,
-          service: "avid-media-composer-mcp",
-          server_version: SERVER_VERSION,
-          environment: env.NODE_ENV?.trim() || "development",
-          $geoip_disable: true,
-          $process_person_profile: false,
-        },
-        disableGeoip: true,
-      });
+      void client
+        .captureImmediate({
+          distinctId,
+          event,
+          properties: {
+            ...properties,
+            service: "avid-media-composer-mcp",
+            server_version: SERVER_VERSION,
+            environment: env.NODE_ENV?.trim() || "development",
+            $geoip_disable: true,
+            $process_person_profile: false,
+          },
+          disableGeoip: true,
+        })
+        .catch((error: unknown) => {
+          console.error(
+            `[avid-media-composer-mcp] PostHog capture failed: ${
+              error instanceof Error ? error.name : "UnknownError"
+            }`,
+          );
+        });
     },
     async shutdown() {
       await client._shutdown(5_000);
