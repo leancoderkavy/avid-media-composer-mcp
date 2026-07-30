@@ -20,8 +20,8 @@ Status vocabulary:
 | EDL analysis | Implemented | CMX-style events, transitions, comments, clip names, motion lines |
 | Clip/container metadata | Dependency | `ffprobe`; raw output plus normalized video/audio/timecode summary |
 | Full project aggregate report | Implemented | Per-format coverage, dependency health, truncation, source-safety statement |
-| Live project/bin/sequence inspection | Bridge contract | `inspect.getState` request/response contract exists |
-| Project and bin editing | Bridge contract | Catalog, token, capability, expected-state, and audit layers exist |
+| Live project/bin/sequence inspection | Bridge contract | Runtime-validated `inspect.getState` contract requires revision evidence |
+| Project and bin editing | Bridge contract | Catalog, token, capability, expected-state, per-operation result, undo, partial-apply, and audit layers exist |
 | Timeline editing and trimming | Bridge contract | Cataloged; requires per-operation Extension implementation and validation |
 | Tracks, effects, transitions | Bridge contract | Cataloged; requires per-operation Extension implementation and validation |
 | Audio, color, titles, captions | Bridge contract | Cataloged; requires per-operation Extension implementation and validation |

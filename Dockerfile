@@ -9,6 +9,10 @@ RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime
 
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.source="https://github.com/leancoderkavy/avid-media-composer-mcp" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV PATH="/opt/avid-mcp-venv/bin:${PATH}"

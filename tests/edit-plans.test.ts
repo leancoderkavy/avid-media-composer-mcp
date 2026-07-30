@@ -120,7 +120,23 @@ describe("guarded edit plans", () => {
               operationId: request.operationId,
               completedAt: new Date().toISOString(),
               ok: true,
-              data: { createdBin: "Selects" },
+              data: {
+                applied: 1,
+                partialApply: false,
+                preStateRevision: "before-1",
+                postStateRevision: "after-1",
+                undoGroupId: "undo-1",
+                results: [
+                  {
+                    index: 0,
+                    action: "bin.create",
+                    status: "verified",
+                    targetId: "bin-selects",
+                    verified: true,
+                  },
+                ],
+                outputs: { createdBin: "Selects" },
+              },
             }),
             "utf8",
           );
@@ -140,6 +156,13 @@ describe("guarded edit plans", () => {
       ),
       simulator(),
     ]);
-    expect(result).toMatchObject({ applied: true, result: { createdBin: "Selects" } });
+    expect(result).toMatchObject({
+      applied: true,
+      result: {
+        applied: 1,
+        partialApply: false,
+        outputs: { createdBin: "Selects" },
+      },
+    });
   });
 });

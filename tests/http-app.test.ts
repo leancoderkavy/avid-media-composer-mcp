@@ -1,6 +1,7 @@
 import type http from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { createHttpServer } from "../src/http-app.js";
+import packageJson from "../package.json" with { type: "json" };
 
 const servers: http.Server[] = [];
 const TEST_TOKEN = "unit-test-token-32-bytes-minimum!";
@@ -45,7 +46,7 @@ describe("remote HTTP application", () => {
     expect(await health.json()).toEqual({
       status: "ok",
       service: "avid-media-composer-mcp",
-      version: "0.2.0",
+      version: packageJson.version,
       transport: "streamable-http",
       liveAvidBridge: false,
     });
@@ -115,12 +116,69 @@ describe("remote HTTP application", () => {
     expect(oversized.status).toBe(413);
   });
 
-  it("rate limits repeated requests from one client", async () => {
-    const base = await startServer(TEST_TOKEN, { rateLimitPerMinute: 2 });
+  it("rate limits public requests without consuming the authenticated MCP quota", async () => {
+    const base = await startServer(TEST_TOKEN, {
+      publicRateLimitPerMinute: 2,
+      authenticatedRateLimitPerMinute: 1,
+    });
     expect((await fetch(`${base}/health`)).status).toBe(200);
     expect((await fetch(`${base}/health`)).status).toBe(200);
     const limited = await fetch(`${base}/health`);
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("60");
+
+    const authenticated = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TEST_TOKEN}`,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ invalid: "json-rpc" }),
+    });
+    expect(authenticated.status).toBe(400);
+  });
+
+  it("keeps unauthorized traffic out of the authenticated MCP quota", async () => {
+    const base = await startServer(TEST_TOKEN, {
+      unauthorizedRateLimitPerMinute: 1,
+      authenticatedRateLimitPerMinute: 1,
+    });
+    expect(
+      (
+        await fetch(`${base}/mcp`, {
+          method: "POST",
+          headers: { Authorization: "Bearer wrong" },
+        })
+      ).status,
+    ).toBe(401);
+    const limited = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: { Authorization: "Bearer wrong" },
+    });
+    expect(limited.status).toBe(429);
+
+    const authenticated = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TEST_TOKEN}`,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ invalid: "json-rpc" }),
+    });
+    expect(authenticated.status).toBe(400);
+    expect(
+      (
+        await fetch(`${base}/mcp`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${TEST_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: "{}",
+        })
+      ).status,
+    ).toBe(429);
   });
 });

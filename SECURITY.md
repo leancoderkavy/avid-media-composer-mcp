@@ -33,7 +33,9 @@ control. The hosted configuration is a read-only inspection and compatibility se
 - `MCP_AUTH_TOKEN` must contain at least 32 bytes; generate it with a cryptographically secure random source.
 - `/mcp` uses a constant-time bearer-token comparison.
 - JSON request bodies are capped at 1 MiB by default, including chunked requests.
-- The server applies per-client request limits, a concurrent-request cap, body/header timeouts, and bounded HTTP headers.
+- Public metadata, unauthorized MCP attempts, and authenticated MCP traffic use independent
+  rate-limit buckets. Public or unauthorized traffic cannot consume authenticated MCP capacity.
+- The server also applies a concurrent-request cap, body/header timeouts, and bounded HTTP headers.
 - `/health` and `/` expose no project data and remain unauthenticated for provider health checks.
 - The Fly.io configuration grants only `inspect` authority and restricts reads to `/data`.
 - The hosted service cannot see editor workstations, local projects, or an Extension bridge unless
@@ -49,6 +51,12 @@ control. The hosted configuration is a read-only inspection and compatibility se
 - The MCP SDK currently pulls `@hono/node-server` through a range that previously contained a
   Windows path-traversal advisory. The project overrides it to patched `2.0.11` and tests both stdio
   and Streamable HTTP transports.
+- Bridge capability and response documents are runtime-validated. Successful live-state responses
+  require a state revision; successful edits require per-operation, partial-apply, undo, and
+  pre/post-state evidence.
+- The static landing deployment sets CSP, clickjacking, MIME, referrer, and permissions headers.
+  Its source-controlled Next.js hydration requires inline script/style execution; it permits no
+  external script origins and does not permit `unsafe-eval`.
 
 ## Reporting
 

@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { evaluateCompatibility } from "../compatibility/releases.js";
 import { AvidMcpError } from "../errors.js";
+import { bridgeCapabilitiesSchema, parseBridgeResponse } from "./schemas.js";
 import {
   AVID_BRIDGE_PROTOCOL_VERSION,
   type BridgeCapabilities,
@@ -12,36 +13,6 @@ import {
 } from "./types.js";
 
 const HEARTBEAT_MAX_AGE_MS = 15_000;
-
-function isCapabilities(value: unknown): value is BridgeCapabilities {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<BridgeCapabilities>;
-  return (
-    candidate.protocolVersion === AVID_BRIDGE_PROTOCOL_VERSION &&
-    typeof candidate.extensionVersion === "string" &&
-    typeof candidate.mediaComposerVersion === "string" &&
-    (candidate.platform === "windows" || candidate.platform === "macos") &&
-    typeof candidate.operatingSystemVersion === "string" &&
-    (candidate.architecture === "x64" || candidate.architecture === "arm64") &&
-    typeof candidate.sessionId === "string" &&
-    typeof candidate.heartbeatAt === "string" &&
-    Array.isArray(candidate.supportedActions) &&
-    candidate.supportedActions.every((action) => typeof action === "string") &&
-    Array.isArray(candidate.supportedEditOperations) &&
-    candidate.supportedEditOperations.every((action) => typeof action === "string")
-  );
-}
-
-function isResponse(value: unknown, operationId: string): value is BridgeResponse {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<BridgeResponse>;
-  return (
-    candidate.protocolVersion === AVID_BRIDGE_PROTOCOL_VERSION &&
-    candidate.operationId === operationId &&
-    typeof candidate.completedAt === "string" &&
-    typeof candidate.ok === "boolean"
-  );
-}
 
 async function readJson(filePath: string): Promise<unknown> {
   return JSON.parse(await readFile(filePath, "utf8"));
@@ -58,8 +29,8 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
 
   const capabilitiesPath = path.join(bridgeDir, "state", "capabilities.json");
   try {
-    const raw = await readJson(capabilitiesPath);
-    if (!isCapabilities(raw)) {
+    const parsedCapabilities = bridgeCapabilitiesSchema.safeParse(await readJson(capabilitiesPath));
+    if (!parsedCapabilities.success) {
       return {
         configured: true,
         connected: false,
@@ -67,6 +38,7 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
         reason: "Bridge capability document is invalid or uses a different protocol version",
       };
     }
+    const raw = parsedCapabilities.data as BridgeCapabilities;
     const heartbeat = Date.parse(raw.heartbeatAt);
     if (!Number.isFinite(heartbeat)) {
       return {
@@ -119,20 +91,21 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
 async function waitForResponse(
   responsePath: string,
   operationId: string,
+  action: string,
   timeoutMs: number,
 ): Promise<BridgeResponse> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const raw = await readJson(responsePath);
-      if (!isResponse(raw, operationId)) {
+      const response = parseBridgeResponse(await readJson(responsePath), operationId, action);
+      if (!response) {
         throw new AvidMcpError(
           "BRIDGE_INVALID_RESPONSE",
           "Media Composer Extension returned an invalid response",
           { operationId },
         );
       }
-      return raw;
+      return response;
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT") throw error;
@@ -190,7 +163,7 @@ export async function sendBridgeCommand(
   });
   await rename(temporaryPath, requestPath);
 
-  const response = await waitForResponse(responsePath, operationId, timeoutMs);
+  const response = await waitForResponse(responsePath, operationId, action, timeoutMs);
   if (!response.ok) {
     throw new AvidMcpError(
       response.error?.code ?? "BRIDGE_COMMAND_FAILED",

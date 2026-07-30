@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-rc.1 - 2026-07-30
+
+- Separated public, unauthorized, and authenticated HTTP rate limits so unauthenticated traffic
+  cannot exhaust authenticated MCP capacity.
+- Added runtime schemas for bridge capabilities, live state, edit results, partial application,
+  undo groups, and state revisions while preserving protocol v2.
+- Added a clean-tarball installation smoke test across the supported CI matrix.
+- Added dedicated landing CI and Dependabot coverage, resolved its development dependency advisory,
+  and added CSP and browser hardening headers for the static Vercel deployment.
+- Added distribution-tag-aware npm publishing and a decision-complete release checklist.
+- Kept live Media Composer editing provider-gated until a sanctioned `.avpi` Extension is built and
+  validated against disposable projects.
+
 ## 0.2.0 - 2026-07-25
 
 - Added executable compatibility rules for Media Composer 2025.12.x, 2025.6, and 2024.12.x.

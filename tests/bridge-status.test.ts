@@ -58,6 +58,11 @@ describe("Media Composer bridge status", () => {
     const status = await getBridgeStatus(root);
     expect(status.connected).toBe(false);
     expect(status.reason).toContain("different protocol version");
+
+    const unknownOperation = await bridgeDirectory(
+      capability({ supportedEditOperations: ["timeline.magic"] }),
+    );
+    expect((await getBridgeStatus(unknownOperation)).connected).toBe(false);
   });
 
   it("rejects invalid and stale heartbeats", async () => {
@@ -107,7 +112,13 @@ describe("Media Composer bridge status", () => {
     await mkdir(path.join(root, "responses"), { recursive: true });
     await writeFile(
       path.join(root, "responses", "malformed.json"),
-      JSON.stringify({ protocolVersion: 2, operationId: "someone-else", ok: true }),
+      JSON.stringify({
+        protocolVersion: 2,
+        operationId: "malformed",
+        completedAt: new Date().toISOString(),
+        ok: true,
+        data: { project: { id: "missing-revision" }, state: {} },
+      }),
       "utf8",
     );
 
@@ -137,7 +148,11 @@ describe("Media Composer bridge status", () => {
         operationId: "success",
         completedAt: new Date().toISOString(),
         ok: true,
-        result: { project: "Demo" },
+        data: {
+          stateRevision: "revision-1",
+          project: { id: "project-1", name: "Demo" },
+          state: {},
+        },
       }),
       "utf8",
     );
@@ -147,7 +162,95 @@ describe("Media Composer bridge status", () => {
     ).rejects.toMatchObject({ code: "AVID_REJECTED" });
     await expect(
       sendBridgeCommand(root, "inspect.getState", {}, 100, "success"),
-    ).resolves.toMatchObject({ ok: true, result: { project: "Demo" } });
+    ).resolves.toMatchObject({
+      ok: true,
+      data: { stateRevision: "revision-1", project: { name: "Demo" } },
+    });
+  });
+
+  it("rejects edit responses without complete per-operation evidence", async () => {
+    const root = await bridgeDirectory(
+      capability({
+        supportedActions: ["edit.applyPlan"],
+        supportedEditOperations: ["bin.create"],
+      }),
+    );
+    await mkdir(path.join(root, "responses"), { recursive: true });
+    await writeFile(
+      path.join(root, "responses", "incomplete-edit.json"),
+      JSON.stringify({
+        protocolVersion: 2,
+        operationId: "incomplete-edit",
+        completedAt: new Date().toISOString(),
+        ok: true,
+        data: { applied: 1 },
+      }),
+      "utf8",
+    );
+    await expect(
+      sendBridgeCommand(root, "edit.applyPlan", {}, 100, "incomplete-edit"),
+    ).rejects.toMatchObject({ code: "BRIDGE_INVALID_RESPONSE" });
+  });
+
+  it("accepts explicit partial-apply evidence and surfaces locked-bin denial", async () => {
+    const root = await bridgeDirectory(
+      capability({
+        supportedActions: ["edit.applyPlan"],
+        supportedEditOperations: ["bin.create", "bin.rename"],
+      }),
+    );
+    await mkdir(path.join(root, "responses"), { recursive: true });
+    await writeFile(
+      path.join(root, "responses", "partial-edit.json"),
+      JSON.stringify({
+        protocolVersion: 2,
+        operationId: "partial-edit",
+        completedAt: new Date().toISOString(),
+        ok: true,
+        data: {
+          applied: 1,
+          partialApply: true,
+          preStateRevision: "before",
+          postStateRevision: "after",
+          undoGroupId: "undo-1",
+          results: [
+            {
+              index: 0,
+              action: "bin.create",
+              status: "verified",
+              targetId: "bin-1",
+              verified: true,
+            },
+            {
+              index: 1,
+              action: "bin.rename",
+              status: "failed",
+              verified: false,
+              error: { code: "BIN_LOCKED", message: "The bin is locked by another editor" },
+            },
+          ],
+        },
+      }),
+      "utf8",
+    );
+    await writeFile(
+      path.join(root, "responses", "locked-bin.json"),
+      JSON.stringify({
+        protocolVersion: 2,
+        operationId: "locked-bin",
+        completedAt: new Date().toISOString(),
+        ok: false,
+        error: { code: "BIN_LOCKED", message: "The bin is locked by another editor" },
+      }),
+      "utf8",
+    );
+
+    await expect(
+      sendBridgeCommand(root, "edit.applyPlan", {}, 100, "partial-edit"),
+    ).resolves.toMatchObject({ ok: true, data: { applied: 1, partialApply: true } });
+    await expect(
+      sendBridgeCommand(root, "edit.applyPlan", {}, 100, "locked-bin"),
+    ).rejects.toMatchObject({ code: "BIN_LOCKED" });
   });
 
   it("times out when the extension does not produce a response", async () => {

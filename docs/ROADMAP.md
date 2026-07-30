@@ -13,6 +13,10 @@
 - [x] 167-action editing taxonomy.
 - [x] Preview/token/apply and local bridge protocol.
 - [x] TypeScript, Python, simulated bridge, and MCP protocol tests.
+- [x] Independent authenticated, unauthorized, and public HTTP quotas.
+- [x] Runtime-validated bridge capability, live-state, and edit-result evidence.
+- [x] Clean-install package smoke test and npm provenance workflow.
+- [x] Landing dependency audit, CI coverage, and browser security headers.
 
 ## Phase 2 — sanctioned Media Composer Extension
 
@@ -22,8 +26,9 @@
 - [ ] Implement full live-state inspection.
 - [ ] Map every catalog action to a supported SDK method or mark it unsupported.
 - [ ] Add stable target IDs and expected-state validation.
-- [ ] Add undo grouping and partial-apply reporting.
-- [ ] Validate on disposable projects in Media Composer 2023.8, 2024.x, and 2025.12+ as access permits.
+- [x] Define and validate undo grouping and partial-apply reporting in protocol v2.
+- [ ] Implement undo grouping and partial-apply reporting in a sanctioned Extension.
+- [ ] Validate on disposable projects in supported 2024.12.x, 2025.6, and 2025.12.x hosts as access permits.
 
 ## Phase 3 — deeper analysis
 

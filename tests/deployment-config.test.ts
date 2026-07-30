@@ -16,6 +16,8 @@ describe("release and deployment policy", () => {
     const dockerfile = await readFile("Dockerfile", "utf8");
     expect(dockerfile).toContain('CMD ["node", "dist/http-server.js"]');
     expect(dockerfile).toContain("USER node");
+    expect(dockerfile).toContain("ARG GIT_COMMIT=unknown");
+    expect(dockerfile).toContain('org.opencontainers.image.revision="${GIT_COMMIT}"');
     expect(dockerfile).not.toContain("ALLOW_UNAUTHENTICATED");
   });
 
@@ -24,6 +26,18 @@ describe("release and deployment policy", () => {
     expect(workflow).toContain("npm run check");
     expect(workflow).toContain("Refuse duplicate version");
     expect(workflow).toContain("npm publish --access public --provenance");
+    expect(workflow).toContain('--tag "$NPM_TAG"');
     expect(workflow).toContain("id-token: write");
+  });
+
+  it("audits and builds the static landing in CI and Dependabot", async () => {
+    const [workflow, dependabot] = await Promise.all([
+      readFile(".github/workflows/ci.yml", "utf8"),
+      readFile(".github/dependabot.yml", "utf8"),
+    ]);
+    expect(workflow).toContain("landing:");
+    expect(workflow).toContain("npm audit --audit-level=high");
+    expect(workflow).toContain("working-directory: landing");
+    expect(dependabot).toContain("directory: /landing");
   });
 });
