@@ -38,7 +38,8 @@ const structuredData = {
       name: "Avid Media Composer MCP",
       url: "https://avid-media-composer-mcp.vercel.app/",
       description: "Source-safe Avid Media Composer project intelligence for MCP-compatible AI clients.",
-      inLanguage: "en-US"
+      inLanguage: "en-US",
+      publisher: { "@id": "https://avid-media-composer-mcp.vercel.app/#software" }
     },
     {
       "@type": "SoftwareSourceCode",
@@ -48,10 +49,23 @@ const structuredData = {
       description: "Open-source MCP server for read-only Avid project analysis and guarded editing automation.",
       url: "https://avid-media-composer-mcp.vercel.app/",
       codeRepository: repo,
+      sameAs: [
+        repo,
+        "https://www.npmjs.com/package/avid-media-composer-mcp"
+      ],
       programmingLanguage: ["TypeScript", "Python"],
       runtimePlatform: "Node.js 20 or newer",
       license: "https://opensource.org/license/mit",
-      isAccessibleForFree: true
+      isAccessibleForFree: true,
+      keywords: [
+        "Avid Media Composer MCP",
+        "Model Context Protocol",
+        "AVB analysis",
+        "AAF analysis",
+        "ALE parser",
+        "EDL parser",
+        "post-production automation"
+      ]
     },
     {
       "@type": "FAQPage",
@@ -91,7 +105,7 @@ export default function Home() {
         <div className="grid-bg" />
         <div className="hero-copy">
           <div className="overline"><Sparkles /> Open-source Model Context Protocol server</div>
-          <h1>Avid project intelligence for <em>AI workflows.</em></h1>
+          <h1>Avid Media Composer MCP for <em>AI workflows.</em></h1>
           <p>Inspect Media Composer projects, AVB bins, AAF, ALE, EDL, locks, configurations, and media metadata with source-safe tools built for post-production.</p>
           <div className="actions">
             <a className="button primary" href={`${repo}#quick-start`}><Code2 /> View setup guide</a>

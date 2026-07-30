@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: title, template: "%s | Avid Media Composer MCP" },
   description,
+  verification: {
+    google: "7_CWvFtMrOF4ll4pOAAGN0Qx1mo5ZkQOPSPEhjU5gmY"
+  },
   applicationName: "Avid Media Composer MCP",
   category: "developer tools",
   authors: [{ name: "Avid Media Composer MCP contributors", url: "https://github.com/leancoderkavy/avid-media-composer-mcp/graphs/contributors" }],

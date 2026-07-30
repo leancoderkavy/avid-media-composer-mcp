@@ -3,173 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Avid Media Composer MCP Server | AI Project Analysis</title>
-  <meta name="description" content="Open-source MCP server for read-only Avid Media Composer project, AVB, AAF, ALE, EDL, and media analysis with guarded editing automation.">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <meta name="google-site-verification" content="7_CWvFtMrOF4ll4pOAAGN0Qx1mo5ZkQOPSPEhjU5gmY">
-  <link rel="canonical" href="https://leancoderkavy.github.io/avid-media-composer-mcp/">
-  <link rel="stylesheet" href="./styles.css">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Avid Media Composer MCP Server">
-  <meta property="og:description" content="Source-safe Avid project analysis and guarded editing automation for MCP-compatible AI clients.">
-  <meta property="og:url" content="https://leancoderkavy.github.io/avid-media-composer-mcp/">
-  <meta property="og:site_name" content="Avid Media Composer MCP">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Avid Media Composer MCP Server">
-  <meta name="twitter:description" content="Open-source MCP tools for source-safe Avid project and post-production analysis.">
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "SoftwareSourceCode",
-        "@id": "https://leancoderkavy.github.io/avid-media-composer-mcp/#software",
-        "name": "Avid Media Composer MCP Server",
-        "description": "An open-source Model Context Protocol server for source-safe Avid Media Composer project analysis and guarded editing automation.",
-        "url": "https://leancoderkavy.github.io/avid-media-composer-mcp/",
-        "codeRepository": "https://github.com/leancoderkavy/avid-media-composer-mcp",
-        "license": "https://opensource.org/license/mit",
-        "programmingLanguage": ["TypeScript", "Python"],
-        "runtimePlatform": "Node.js 20 or newer",
-        "keywords": "Avid Media Composer, MCP server, Model Context Protocol, AVB, AAF, ALE, EDL, video editing, post-production"
-      },
-      {
-        "@type": "WebSite",
-        "@id": "https://leancoderkavy.github.io/avid-media-composer-mcp/#website",
-        "url": "https://leancoderkavy.github.io/avid-media-composer-mcp/",
-        "name": "Avid Media Composer MCP Server",
-        "description": "Project site and documentation for the Avid Media Composer MCP server."
-      },
-      {
-        "@type": "FAQPage",
-        "@id": "https://leancoderkavy.github.io/avid-media-composer-mcp/#faq",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "Is there an MCP server for Avid Media Composer?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Yes. This open-source server provides read-only Avid Media Composer project analysis. Guarded live editing requires a compatible Avid Extension bridge."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Which Avid file formats can it analyze?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "It analyzes AVB, AAF, ALE, EDL, AVP and AVS configuration evidence, project trees, locks, and media metadata through bounded tools."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Does the MCP server modify source media?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "No. Offline analysis is read-only and does not modify source media. Live changes require explicit capabilities, an exact confirmation token, and a connected bridge."
-            }
-          }
-        ]
-      }
-    ]
-  }
+  <title>Avid Media Composer MCP has moved</title>
+  <meta name="description" content="The Avid Media Composer MCP project website has moved to its canonical home.">
+  <meta name="robots" content="noindex, follow">
+  <meta http-equiv="refresh" content="0; url=https://avid-media-composer-mcp.vercel.app/">
+  <link rel="canonical" href="https://avid-media-composer-mcp.vercel.app/">
+  <meta property="og:title" content="Avid Media Composer MCP">
+  <meta property="og:description" content="Source-safe Avid project analysis and guarded automation for MCP-compatible AI clients.">
+  <meta property="og:url" content="https://avid-media-composer-mcp.vercel.app/">
+  <script>
+    window.location.replace("https://avid-media-composer-mcp.vercel.app/" + window.location.hash);
   </script>
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="shell">
-    <a class="brand" href="./" aria-label="Avid Media Composer MCP home">Avid MCP</a>
-    <nav aria-label="Primary navigation">
-      <a href="#capabilities">Capabilities</a>
-      <a href="#install">Install</a>
-      <a href="#faq">FAQ</a>
-      <a href="https://github.com/leancoderkavy/avid-media-composer-mcp">GitHub</a>
-    </nav>
-  </header>
-
-  <main id="main">
-    <section class="hero shell">
-      <p class="eyebrow">Open-source Model Context Protocol server</p>
-      <h1>Avid project intelligence for AI workflows.</h1>
-      <p class="lede">
-        Inspect Media Composer projects, AVB bins, AAF, ALE, EDL, configurations, locks,
-        and media metadata with source-safe tools for Claude, ChatGPT, Codex, and other MCP clients.
-      </p>
-      <div class="actions">
-        <a class="button primary" href="https://github.com/leancoderkavy/avid-media-composer-mcp#quick-start">Install from GitHub</a>
-        <a class="button" href="https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md">View capability matrix</a>
-      </div>
-    </section>
-
-    <section id="capabilities">
-      <div class="shell">
-        <p class="eyebrow">What works now</p>
-        <h2>Structured evidence, not screen scraping.</h2>
-        <div class="grid">
-          <article class="card">
-            <h3>Project and bin analysis</h3>
-            <p>Inventory project trees, detect locks, and inspect AVB object graphs, clips, sequences, tracks, and metadata.</p>
-          </article>
-          <article class="card">
-            <h3>Interchange validation</h3>
-            <p>Parse AAF, ALE, and CMX-style EDL evidence while clearly identifying unavailable, malformed, or opaque data.</p>
-          </article>
-          <article class="card">
-            <h3>Guarded automation</h3>
-            <p>Preview editing plans, classify risk, bind approval to an exact token, and fail closed when the required bridge is absent.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="install">
-      <div class="shell">
-        <p class="eyebrow">Quick start</p>
-        <h2>Run beside your Avid project.</h2>
-        <p class="status">Read-only inspection is available now</p>
-        <pre><code>git clone https://github.com/leancoderkavy/avid-media-composer-mcp.git
-cd avid-media-composer-mcp
-npm install
-python -m pip install -r python/requirements.txt
-npm run build
-node dist/index.js</code></pre>
-        <p class="muted">
-          Requires Node.js 20 or newer. Python is used for AVB and AAF analysis, and
-          <code>ffprobe</code> is optional for media metadata.
-        </p>
-      </div>
-    </section>
-
-    <section id="faq">
-      <div class="shell">
-        <p class="eyebrow">Frequently asked questions</p>
-        <h2>Clear boundaries for Avid automation.</h2>
-        <details>
-          <summary>Is there an MCP server for Avid Media Composer?</summary>
-          <p>Yes. This project provides a working MCP server for read-only project analysis. Guarded live editing requires a compatible Avid Extension bridge.</p>
-        </details>
-        <details>
-          <summary>Which Avid file formats can it analyze?</summary>
-          <p>AVB, AAF, ALE, EDL, AVP and AVS configuration evidence, project trees, locks, and media metadata are supported through bounded tools.</p>
-        </details>
-        <details>
-          <summary>Does it modify source media?</summary>
-          <p>No. Offline analysis is read-only. Live changes require explicit authority, an exact confirmation token, and a connected extension bridge.</p>
-        </details>
-        <details>
-          <summary>Is this an official Avid product?</summary>
-          <p>No. It is an independent MIT-licensed project and is not affiliated with or endorsed by Avid Technology, Inc.</p>
-        </details>
-      </div>
-    </section>
-  </main>
-
-  <footer class="shell">
-    <p>
-      Independent open-source software. Avid and Media Composer are trademarks of Avid Technology, Inc.
-      <a href="https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/SECURITY.md">Security</a>
-      · <a href="https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/CONTRIBUTING.md">Contributing</a>
-      · <a href="https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/LICENSE">MIT License</a>
+  <main>
+    <h1>Avid Media Composer MCP has moved</h1>
+    <p>The canonical project website is now
+      <a href="https://avid-media-composer-mcp.vercel.app/">avid-media-composer-mcp.vercel.app</a>.
     </p>
-  </footer>
+    <p><a href="https://github.com/leancoderkavy/avid-media-composer-mcp">View the source and documentation on GitHub</a>.</p>
+  </main>
 </body>
 </html>
