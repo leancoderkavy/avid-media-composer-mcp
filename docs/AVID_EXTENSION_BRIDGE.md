@@ -23,7 +23,7 @@ The extension rewrites `state/capabilities.json` at least every 10 seconds:
 ```json
 {
   "protocolVersion": 2,
-  "extensionVersion": "0.2.0",
+  "extensionVersion": "1.0.0-rc.1",
   "mediaComposerVersion": "2025.12.1",
   "platform": "windows",
   "operatingSystemVersion": "Windows 11 24H2",
@@ -71,6 +71,30 @@ The extension should return stable identities, not UI row numbers, whenever the 
 - media creation, render, import, export, audio, color, and site/user/project settings;
 - current selection and modal/busy state.
 
+A successful inspection response must include a bounded `stateRevision`, an optional stable project
+identity, and a JSON `state` object. The MCP rejects unversioned or malformed state as
+`BRIDGE_INVALID_RESPONSE`.
+
+```json
+{
+  "protocolVersion": 2,
+  "operationId": "uuid",
+  "completedAt": "2026-07-30T22:00:01.000Z",
+  "ok": true,
+  "data": {
+    "stateRevision": "revision-id",
+    "project": {
+      "id": "avid-project-id",
+      "name": "Episode_101"
+    },
+    "state": {
+      "busy": false,
+      "selection": []
+    }
+  }
+}
+```
+
 ## Edit request
 
 ```json
@@ -117,18 +141,29 @@ Before mutation, the extension must:
   "ok": true,
   "data": {
     "applied": 1,
+    "partialApply": false,
+    "preStateRevision": "revision-before",
     "results": [
       {
         "index": 0,
         "action": "bin.create",
+        "status": "verified",
         "targetId": "new-bin-id",
         "verified": true
       }
     ],
-    "postStateRevision": "revision-id"
+    "postStateRevision": "revision-after",
+    "undoGroupId": "undo-group-id",
+    "outputs": {
+      "createdBin": "Selects"
+    }
   }
 }
 ```
+
+`status` is one of `applied`, `verified`, `failed`, or `skipped`. `partialApply` must agree with
+the per-operation failure evidence. The MCP rejects unknown catalog actions, duplicate advertised
+operations, missing revisions, incomplete edit results, or non-JSON error details.
 
 Failure responses use:
 

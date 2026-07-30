@@ -6,6 +6,17 @@ import { telemetry } from "./telemetry.js";
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 const authToken = process.env.MCP_AUTH_TOKEN ?? "";
 
+function optionalPositiveInteger(name: string): number | undefined {
+  const value = process.env[name]?.trim();
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    console.error(`[avid-media-composer-mcp] ${name} must be a positive integer`);
+    process.exit(1);
+  }
+  return parsed;
+}
+
 if (!Number.isSafeInteger(port) || port < 0 || port > 65_535) {
   console.error("[avid-media-composer-mcp] PORT must be an integer from 0 to 65535");
   process.exit(1);
@@ -18,7 +29,24 @@ if (Buffer.byteLength(authToken, "utf8") < 32) {
   process.exit(1);
 }
 
-const httpServer = createHttpServer({ authToken });
+const publicRateLimitPerMinute = optionalPositiveInteger(
+  "AVID_MCP_PUBLIC_RATE_LIMIT_PER_MINUTE",
+);
+const unauthorizedRateLimitPerMinute = optionalPositiveInteger(
+  "AVID_MCP_UNAUTHORIZED_RATE_LIMIT_PER_MINUTE",
+);
+const authenticatedRateLimitPerMinute = optionalPositiveInteger(
+  "AVID_MCP_AUTHENTICATED_RATE_LIMIT_PER_MINUTE",
+);
+
+const httpServer = createHttpServer({
+  authToken,
+  ...(publicRateLimitPerMinute !== undefined ? { publicRateLimitPerMinute } : {}),
+  ...(unauthorizedRateLimitPerMinute !== undefined ? { unauthorizedRateLimitPerMinute } : {}),
+  ...(authenticatedRateLimitPerMinute !== undefined
+    ? { authenticatedRateLimitPerMinute }
+    : {}),
+});
 httpServer.listen(port, "0.0.0.0", () => {
   const address = httpServer.address();
   const selectedPort = typeof address === "object" && address ? address.port : port;

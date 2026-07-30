@@ -7,10 +7,14 @@ import { createInterface } from "node:readline/promises";
 import process from "node:process";
 import packageJson from "../package.json" with { type: "json" };
 
-const flags = new Set(process.argv.slice(2));
+const commandArguments = process.argv.slice(2);
+const flags = new Set(commandArguments);
 const dryRun = flags.has("--dry-run");
 const skipTests = flags.has("--skip-tests");
 const nonInteractive = flags.has("--yes") || process.env.CI === "true";
+const requestedTag =
+  commandArguments.find((argument) => argument.startsWith("--tag="))?.slice("--tag=".length) ??
+  "latest";
 
 function npmInvocation(args) {
   const npmCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
@@ -70,6 +74,11 @@ async function prompt(question) {
 }
 
 async function main() {
+  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(requestedTag)) {
+    throw new Error(
+      "npm distribution tag must use lowercase letters, digits, dots, underscores, or hyphens.",
+    );
+  }
   console.log(
     `Preparing ${packageJson.name}@${packageJson.version} for ${dryRun ? "dry run" : "publication"}...`,
   );
@@ -94,12 +103,12 @@ async function main() {
 
   if (!nonInteractive) {
     const confirmation = await prompt(
-      `Publish ${packageJson.name}@${packageJson.version} as latest? Type yes: `,
+      `Publish ${packageJson.name}@${packageJson.version} as ${requestedTag}? Type yes: `,
     );
     if (confirmation.toLowerCase() !== "yes") throw new Error("Publication cancelled.");
   }
 
-  const args = ["publish", "--access", "public"];
+  const args = ["publish", "--access", "public", "--tag", requestedTag];
   if (process.env.CI === "true") args.push("--provenance");
   if (process.env.NPM_OTP) args.push(`--otp=${process.env.NPM_OTP}`);
   await runNpm(
@@ -107,11 +116,22 @@ async function main() {
     false,
     process.env.NPM_TOKEN ? { NODE_AUTH_TOKEN: process.env.NPM_TOKEN } : {},
   );
-  const latest = await runNpm(["view", packageJson.name, "version"], true);
-  if (latest.stdout !== packageJson.version) {
-    throw new Error(`Registry verification returned '${latest.stdout}'.`);
+  const published = await runNpm(
+    ["view", `${packageJson.name}@${packageJson.version}`, "version"],
+    true,
+  );
+  if (published.stdout !== packageJson.version) {
+    throw new Error(`Registry verification returned '${published.stdout}'.`);
   }
-  console.log(`Verified ${packageJson.name}@${latest.stdout} on npm.`);
+  const distTag = await runNpm(["view", packageJson.name, `dist-tags.${requestedTag}`], true);
+  if (distTag.stdout !== packageJson.version) {
+    throw new Error(
+      `npm tag '${requestedTag}' resolved to '${distTag.stdout}', not '${packageJson.version}'.`,
+    );
+  }
+  console.log(
+    `Verified ${packageJson.name}@${published.stdout} on npm tag '${requestedTag}'.`,
+  );
 }
 
 main().catch((error) => {

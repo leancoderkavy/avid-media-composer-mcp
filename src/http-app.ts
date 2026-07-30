@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
@@ -6,20 +6,27 @@ import type { ServerConfig } from "./config.js";
 import { loadConfig } from "./config.js";
 import { createServer } from "./server.js";
 import { telemetry } from "./telemetry.js";
+import packageJson from "../package.json" with { type: "json" };
 
 export interface HttpServerOptions {
   authToken: string;
   config?: ServerConfig;
   maxRequestBytes?: number;
   maxConcurrentRequests?: number;
+  /** @deprecated Use authenticatedRateLimitPerMinute. */
   rateLimitPerMinute?: number;
+  publicRateLimitPerMinute?: number;
+  unauthorizedRateLimitPerMinute?: number;
+  authenticatedRateLimitPerMinute?: number;
   requestBodyTimeoutMs?: number;
 }
 
 const MIN_AUTH_TOKEN_BYTES = 32;
 const DEFAULT_MAX_REQUEST_BYTES = 1024 * 1024;
 const DEFAULT_MAX_CONCURRENT_REQUESTS = 32;
-const DEFAULT_RATE_LIMIT_PER_MINUTE = 120;
+const DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE = 300;
+const DEFAULT_UNAUTHORIZED_RATE_LIMIT_PER_MINUTE = 30;
+const DEFAULT_AUTHENTICATED_RATE_LIMIT_PER_MINUTE = 120;
 const DEFAULT_REQUEST_BODY_TIMEOUT_MS = 15_000;
 
 interface RateWindow {
@@ -68,6 +75,20 @@ function positiveLimit(value: number | undefined, fallback: number, name: string
     throw new Error(`${name} must be a positive integer`);
   }
   return selected;
+}
+
+function consumeRateLimit(
+  windows: Map<string, RateWindow>,
+  key: string,
+  limit: number,
+  now: number,
+): boolean {
+  const prior = windows.get(key);
+  const window =
+    !prior || now - prior.startedAt >= 60_000 ? { count: 0, startedAt: now } : prior;
+  window.count += 1;
+  windows.set(key, window);
+  return window.count <= limit;
 }
 
 async function readJsonBody(
@@ -136,10 +157,20 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     DEFAULT_MAX_CONCURRENT_REQUESTS,
     "maxConcurrentRequests",
   );
-  const rateLimitPerMinute = positiveLimit(
-    options.rateLimitPerMinute,
-    DEFAULT_RATE_LIMIT_PER_MINUTE,
-    "rateLimitPerMinute",
+  const publicRateLimitPerMinute = positiveLimit(
+    options.publicRateLimitPerMinute,
+    DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE,
+    "publicRateLimitPerMinute",
+  );
+  const unauthorizedRateLimitPerMinute = positiveLimit(
+    options.unauthorizedRateLimitPerMinute,
+    DEFAULT_UNAUTHORIZED_RATE_LIMIT_PER_MINUTE,
+    "unauthorizedRateLimitPerMinute",
+  );
+  const authenticatedRateLimitPerMinute = positiveLimit(
+    options.authenticatedRateLimitPerMinute ?? options.rateLimitPerMinute,
+    DEFAULT_AUTHENTICATED_RATE_LIMIT_PER_MINUTE,
+    "authenticatedRateLimitPerMinute",
   );
   const requestBodyTimeoutMs = positiveLimit(
     options.requestBodyTimeoutMs,
@@ -147,6 +178,7 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     "requestBodyTimeoutMs",
   );
   const rateWindows = new Map<string, RateWindow>();
+  const authFingerprint = createHash("sha256").update(options.authToken).digest("hex").slice(0, 16);
   let activeRequests = 0;
 
   const httpServer = http.createServer(async (request, response) => {
@@ -163,21 +195,24 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
         duration_ms: Math.round(performance.now() - requestStartedAt),
       });
     });
-    const client = request.socket.remoteAddress ?? "unknown";
-    const priorWindow = rateWindows.get(client);
-    const rateWindow =
-      !priorWindow || now - priorWindow.startedAt >= 60_000
-        ? { count: 0, startedAt: now }
-        : priorWindow;
-    rateWindow.count += 1;
-    rateWindows.set(client, rateWindow);
-    if (rateWindow.count > rateLimitPerMinute) {
-      sendJson(response, 429, { error: "Too many requests" }, { "Retry-After": "60" });
-      return;
-    }
     if (rateWindows.size > 10_000) {
-      for (const [address, window] of rateWindows) {
-        if (now - window.startedAt >= 60_000) rateWindows.delete(address);
+      for (const [key, window] of rateWindows) {
+        if (now - window.startedAt >= 60_000) rateWindows.delete(key);
+      }
+    }
+
+    const client = request.socket.remoteAddress ?? "unknown";
+    if (pathname !== "/mcp") {
+      if (
+        !consumeRateLimit(
+          rateWindows,
+          `public:${client}`,
+          publicRateLimitPerMinute,
+          now,
+        )
+      ) {
+        sendJson(response, 429, { error: "Too many requests" }, { "Retry-After": "60" });
+        return;
       }
     }
 
@@ -185,7 +220,7 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
       sendJson(response, 200, {
         status: "ok",
         service: "avid-media-composer-mcp",
-        version: "0.2.0",
+        version: packageJson.version,
         transport: "streamable-http",
         liveAvidBridge: false,
       });
@@ -195,7 +230,7 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     if (request.method === "GET" && pathname === "/") {
       sendJson(response, 200, {
         service: "avid-media-composer-mcp",
-        version: "0.2.0",
+        version: packageJson.version,
         mcpEndpoint: "/mcp",
         authentication: "Bearer token required",
         scope:
@@ -209,7 +244,19 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
       return;
     }
 
-    if (!isAuthorized(request, options.authToken)) {
+    const authorized = isAuthorized(request, options.authToken);
+    if (!authorized) {
+      if (
+        !consumeRateLimit(
+          rateWindows,
+          `unauthorized:${client}`,
+          unauthorizedRateLimitPerMinute,
+          now,
+        )
+      ) {
+        sendJson(response, 429, { error: "Too many requests" }, { "Retry-After": "60" });
+        return;
+      }
       telemetry.capture("avid_mcp_connection_attempt", {
         transport: "streamable-http",
         outcome: "unauthorized",
@@ -220,6 +267,17 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
         { error: "Unauthorized" },
         { "WWW-Authenticate": 'Bearer realm="avid-media-composer-mcp"' },
       );
+      return;
+    }
+    if (
+      !consumeRateLimit(
+        rateWindows,
+        `authenticated:${authFingerprint}`,
+        authenticatedRateLimitPerMinute,
+        now,
+      )
+    ) {
+      sendJson(response, 429, { error: "Too many requests" }, { "Retry-After": "60" });
       return;
     }
     telemetry.capture("avid_mcp_connection_attempt", {

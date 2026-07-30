@@ -22,6 +22,19 @@ updates:
       timezone: America/Los_Angeles
     open-pull-requests-limit: 3
 
+  - package-ecosystem: npm
+    directory: /landing
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:10"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    groups:
+      development-dependencies:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

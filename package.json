@@ -1,6 +1,6 @@
 {
   "name": "avid-media-composer-mcp",
-  "version": "0.2.0",
+  "version": "1.0.0-rc.1",
   "description": "MCP server for source-safe Avid Media Composer project, AVB bin, AAF, ALE, EDL, and media analysis with guarded editing automation.",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,6 +29,7 @@
     "dev": "tsx src/index.ts",
     "smoke": "npm run build && node scripts/smoke-built.mjs",
     "smoke:http": "npm run build && node scripts/smoke-http.mjs",
+    "smoke:package": "node scripts/smoke-package-install.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -39,7 +40,7 @@
     "pack:dry-run": "npm pack --dry-run",
     "publish:npm": "node scripts/publish-npm.mjs",
     "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run",
-    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run"
+    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run && npm run smoke:package"
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,6 @@
 # Security audit
 
-Audit date: 2026-07-26
+Audit date: 2026-07-30
 
 Scope: TypeScript MCP server, local stdio and Streamable HTTP transports, filesystem policy, Python AVB/AAF sidecar, `ffprobe` execution, file-mailbox Extension bridge, edit-plan confirmation, dependencies, GitHub Actions, and contributor controls.
 
@@ -8,12 +8,16 @@ Scope: TypeScript MCP server, local stdio and Streamable HTTP transports, filesy
 
 The server already had strong source-safe defaults: read-only inspection authority, canonical allowed-root checks, skipped symlinks during traversal, shell-free subprocess execution, bounded subprocess output and time, a fail-closed bridge, exact edit-plan confirmation, destructive opt-in, and audit events.
 
-This audit fixed four gaps:
+The original audit fixed four gaps, and the 1.0 release-candidate pass fixed four more:
 
 1. The remote transport accepted weak bearer tokens and did not bound chunked request bodies.
 2. Text and configuration analyzers truncated only after reading the entire input into memory.
 3. Edit-plan values allowed excessive nesting and prototype-sensitive object keys.
 4. GitHub Actions used mutable major-version tags, and the npm publish tag was interpolated directly into a shell script.
+5. Public and unauthorized requests could consume a proxy-shared authenticated request quota.
+6. Landing dependencies were absent from CI and Dependabot and contained a development-only advisory.
+7. The static landing deployment lacked browser hardening headers.
+8. Bridge response validation accepted successful payloads without action-specific evidence.
 
 No known vulnerable npm dependency remains according to `npm audit`. Full project checks and GitHub security workflows are required before release.
 
@@ -54,6 +58,57 @@ No known vulnerable npm dependency remains according to `npm audit`. Full projec
 - Impact: Mutable action tags increase workflow supply-chain risk, and direct workflow-input interpolation can create shell-injection hazards.
 - Fix: Pin all actions to full commit SHAs, disable persisted checkout credentials, validate the npm distribution tag through an environment variable, add CodeQL, and configure Dependabot for npm, pip, and Actions.
 - Evidence: `.github/workflows/ci.yml:22-42`, `.github/workflows/npm-publish.yml:17-52`, `.github/workflows/codeql.yml:1-38`, and `.github/dependabot.yml:1-31`.
+
+### SEC-005: Proxy-shared authenticated request quota
+
+- Severity: Medium
+- Status: Fixed
+- Affected boundary: Public or unauthorized traffic to authenticated Streamable HTTP capacity
+- Impact: Requests sharing a reverse-proxy socket address could exhaust one common quota and deny
+  legitimate authenticated MCP requests.
+- Fix: Use independent public, unauthorized, and authenticated buckets. Public and unauthorized
+  buckets use the direct socket identity without trusting forwarded headers; the authenticated
+  bucket uses a bounded, non-logged token fingerprint.
+- Evidence: `src/http-app.ts`, `src/http-server.ts`, and `tests/http-app.test.ts`.
+
+### SEC-006: Landing dependency coverage
+
+- Severity: Medium
+- Status: Fixed
+- Affected boundary: Landing build and dependency supply chain
+- Impact: A development-only `brace-expansion` denial-of-service advisory and future landing
+  advisories could bypass the root-only dependency gate.
+- Fix: Upgrade the compatible ESLint line, override the patched `minimatch` and `brace-expansion`
+  releases, add a dedicated landing audit/lint/build job, and add `/landing` Dependabot coverage.
+- Evidence: `landing/package.json`, `landing/package-lock.json`, `.github/workflows/ci.yml`, and
+  `.github/dependabot.yml`.
+
+### SEC-007: Missing static landing headers
+
+- Severity: Low
+- Status: Fixed
+- Affected boundary: Browser to static Vercel landing page
+- Impact: The site lacked defense in depth against framing, MIME confusion, referrer leakage, and
+  future injection defects.
+- Fix: Apply CSP, `frame-ancestors`, frame denial, `nosniff`, referrer, and permissions headers to
+  every route through Vercel configuration.
+- Evidence: `landing/vercel.json` and `tests/landing-config.test.ts`.
+- Residual: Next.js static export emits source-controlled inline hydration and styles, so CSP permits
+  `unsafe-inline` for scripts/styles. It permits only same-origin scripts, no third-party scripts,
+  and no `unsafe-eval`. Revisit hash/nonce enforcement if the landing gains dynamic or untrusted data.
+
+### SEC-008: Incomplete bridge success evidence
+
+- Severity: Medium
+- Status: Fixed
+- Affected boundary: Local Extension mailbox to MCP result
+- Impact: A malformed or underspecified Extension response could be mistaken for successful live
+  inspection or editing.
+- Fix: Runtime-validate protocol-v2 capabilities and action-specific responses. Require state
+  revisions for inspection and per-operation status, partial-apply consistency, undo evidence, and
+  pre/post revisions for edits.
+- Evidence: `src/bridge/schemas.ts`, `src/bridge/file-bridge.ts`,
+  `tests/bridge-status.test.ts`, and `tests/edit-plans.test.ts`.
 
 ## Existing controls confirmed
 

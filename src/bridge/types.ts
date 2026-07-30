@@ -42,12 +42,45 @@ export interface BridgeRequest {
   payload: Record<string, unknown>;
 }
 
+export interface BridgeInspectStateData {
+  stateRevision: string;
+  project?: {
+    id?: string;
+    name?: string;
+    path?: string;
+  };
+  state: Record<string, unknown>;
+}
+
+export interface BridgeEditOperationResult {
+  index: number;
+  action: string;
+  status: "applied" | "verified" | "failed" | "skipped";
+  targetId?: string;
+  verified: boolean;
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+}
+
+export interface BridgeEditPlanData {
+  applied: number;
+  partialApply: boolean;
+  preStateRevision: string;
+  postStateRevision?: string;
+  undoGroupId?: string;
+  results: BridgeEditOperationResult[];
+  outputs?: Record<string, unknown>;
+}
+
 export interface BridgeResponse {
   protocolVersion: number;
   operationId: string;
   completedAt: string;
   ok: boolean;
-  data?: unknown;
+  data?: BridgeInspectStateData | BridgeEditPlanData;
   error?: {
     code: string;
     message: string;

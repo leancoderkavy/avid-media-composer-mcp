@@ -45,14 +45,11 @@ const structuredData = {
       "@type": "SoftwareSourceCode",
       "@id": "https://avid-media-composer-mcp.vercel.app/#software",
       name: "Avid Media Composer MCP Server",
-      version: "0.2.0",
+      version: "1.0.0-rc.1",
       description: "Open-source MCP server for read-only Avid project analysis and guarded editing automation.",
       url: "https://avid-media-composer-mcp.vercel.app/",
       codeRepository: repo,
-      sameAs: [
-        repo,
-        "https://www.npmjs.com/package/avid-media-composer-mcp"
-      ],
+      sameAs: [repo],
       programmingLanguage: ["TypeScript", "Python"],
       runtimePlatform: "Node.js 20 or newer",
       license: "https://opensource.org/license/mit",
@@ -159,7 +156,7 @@ export default function Home() {
             <li><b>2</b><span><strong>Set allowed project roots</strong><small>Keep authority scoped to known folders</small></span></li>
             <li><b>3</b><span><strong>Connect your MCP client</strong><small>Use the local stdio command</small></span></li>
           </ol>
-          <pre><code><span className="muted"># PowerShell</span>{"\n"}git clone {repo}{"\n"}cd avid-media-composer-mcp{"\n"}npm install{"\n"}python -m pip install -r python/requirements.txt{"\n"}npm run build{"\n\n"}<span className="prompt">$env:AVID_MCP_CAPABILITIES = &quot;inspect&quot;</span>{"\n"}node .\dist\index.js</code></pre>
+          <pre><code><span className="muted"># PowerShell</span>{"\n"}git clone {repo}{"\n"}cd avid-media-composer-mcp{"\n"}npm ci{"\n"}python -m pip install -r python/requirements.txt{"\n"}npm run build{"\n\n"}<span className="prompt">$env:AVID_MCP_CAPABILITIES = &quot;inspect&quot;</span>{"\n"}node .\dist\index.js</code></pre>
         </div>
         <p className="boundary"><ShieldCheck /> Live Media Composer editing requires a separately installed, compatible Avid Extension bridge. The server does not claim edits from previews or catalog entries.</p>
       </section>
