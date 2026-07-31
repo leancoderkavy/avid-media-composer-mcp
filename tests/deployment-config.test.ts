@@ -27,6 +27,7 @@ describe("release and deployment policy", () => {
     expect(workflow).toContain("Refuse duplicate version");
     expect(workflow).toContain("npm publish --access public --provenance");
     expect(workflow).toContain('--tag "$NPM_TAG"');
+    expect(workflow).toContain('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}');
     expect(workflow).toContain("id-token: write");
   });
 

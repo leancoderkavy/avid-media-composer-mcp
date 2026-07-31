@@ -44,6 +44,9 @@ jobs:
       - name: Publish with provenance
         env:
           NPM_TAG: ${{ inputs.tag }}
+          # Required only to bootstrap a package that does not yet exist. Delete
+          # this environment secret and revoke its token before verifying OIDC.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [[ ! "$NPM_TAG" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]]; then
             echo "Invalid npm distribution tag."

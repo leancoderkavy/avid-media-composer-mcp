@@ -10,6 +10,14 @@ verification, and real Media Composer validation. A later state must identify th
 3. Push a pull request and require the Windows/macOS Node 20/24 matrix, landing job, and CodeQL.
 4. Merge without bypassing checks, then verify remote `main` contains the reviewed SHA.
 5. Publish `1.0.0-rc.1` with npm provenance under the `next` tag.
+   - For the first publication only, create a short-lived granular npm token authorized to publish
+     new public packages and save it as the `NPM_TOKEN` secret in the protected GitHub `npm`
+     environment.
+   - After the package exists, configure its GitHub Actions trusted publisher for user
+     `leancoderkavy`, repository `avid-media-composer-mcp`, workflow `npm-publish.yml`,
+     environment `npm`, with `npm publish` allowed.
+   - Delete the GitHub secret, revoke the bootstrap token, and then verify the next publication uses
+     OIDC. Do not retain a token that bypasses 2FA.
 6. Install `avid-media-composer-mcp@next` in clean Windows and macOS environments and call
    `avid_ping` plus tool discovery.
 7. Deploy the exact merged SHA to Fly, Vercel, and GitHub Pages; verify canonical aliases, headers,
