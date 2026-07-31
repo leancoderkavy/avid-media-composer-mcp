@@ -75,7 +75,7 @@ try {
   const installedPackage = JSON.parse(
     await readFile(path.join(installedRoot, "package.json"), "utf8"),
   );
-  if (installedPackage.bin?.["avid-media-composer-mcp"] !== "./dist/index.js") {
+  if (installedPackage.bin?.["avid-media-composer-mcp"] !== "dist/index.js") {
     throw new Error("Installed package does not expose the expected CLI entry point");
   }
 
