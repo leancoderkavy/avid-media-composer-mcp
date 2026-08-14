@@ -1,4 +1,5 @@
 import { PostHog } from "posthog-node";
+import { SERVER_VERSION } from "./version.js";
 
 export type TelemetryEvent =
   | "avid_mcp_server_started"
@@ -14,7 +15,6 @@ export interface Telemetry {
   shutdown(): Promise<void>;
 }
 
-const SERVER_VERSION = "0.2.0";
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 
 const noopTelemetry: Telemetry = {

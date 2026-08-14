@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-rc.2 - 2026-08-13
+
+- Derived MCP handshake, ping, readiness-log, and telemetry versions from package metadata so
+  installed releases report their actual published version.
+
 ## 1.0.0-rc.1 - 2026-07-30
 
 - Separated public, unauthorized, and authenticated HTTP rate limits so unauthenticated traffic
