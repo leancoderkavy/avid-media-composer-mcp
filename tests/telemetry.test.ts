@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import packageJson from "../package.json" with { type: "json" };
 import { createTelemetry } from "../src/telemetry.js";
 
 describe("PostHog telemetry", () => {
@@ -42,7 +43,7 @@ describe("PostHog telemetry", () => {
         outcome: "succeeded",
         duration_ms: 3,
         service: "avid-media-composer-mcp",
-        server_version: "0.2.0",
+        server_version: packageJson.version,
         environment: "test",
         $geoip_disable: true,
         $process_person_profile: false,

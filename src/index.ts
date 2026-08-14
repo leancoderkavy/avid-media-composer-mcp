@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadConfig } from "./config.js";
 import { createServer } from "./server.js";
 import { telemetry } from "./telemetry.js";
+import { SERVER_VERSION } from "./version.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -16,7 +17,7 @@ async function main(): Promise<void> {
   console.error(
     JSON.stringify({
       type: "avid-media-composer-mcp-ready",
-      version: "0.2.0",
+      version: SERVER_VERSION,
       transport: "stdio",
       capabilities: [...config.capabilities].sort(),
       allowedRoots: config.allowedRoots,

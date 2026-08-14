@@ -26,8 +26,7 @@ import {
 } from "./compatibility/releases.js";
 import { detectInstallations } from "./compatibility/installations.js";
 import { telemetry } from "./telemetry.js";
-
-const SERVER_VERSION = "0.2.0";
+import { SERVER_VERSION } from "./version.js";
 
 const INSTRUCTIONS = `Avid Media Composer MCP separates verified capability from aspiration.
 

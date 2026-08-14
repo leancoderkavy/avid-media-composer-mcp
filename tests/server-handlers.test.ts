@@ -1,5 +1,6 @@
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import packageJson from "../package.json" with { type: "json" };
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ServerConfig } from "../src/config.js";
@@ -50,7 +51,7 @@ describe("MCP tool handlers", () => {
     const client = await clientServer();
     expect(
       data(await client.callTool({ name: "avid_ping", arguments: {} })),
-    ).toMatchObject({ version: "0.2.0", sourceMediaPolicy: "read-only" });
+    ).toMatchObject({ version: packageJson.version, sourceMediaPolicy: "read-only" });
 
     const capabilities = data(
       await client.callTool({ name: "avid_get_capabilities", arguments: {} }),
