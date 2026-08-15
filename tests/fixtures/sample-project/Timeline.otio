@@ -1,0 +1,38 @@
+{
+  "OTIO_SCHEMA": "Timeline.1",
+  "name": "Conform test",
+  "tracks": {
+    "OTIO_SCHEMA": "Stack.1",
+    "children": [
+      {
+        "OTIO_SCHEMA": "Track.1",
+        "kind": "Video",
+        "children": [
+          {
+            "OTIO_SCHEMA": "Clip.2",
+            "name": "Retimed external clip",
+            "effects": [{ "OTIO_SCHEMA": "LinearTimeWarp.1", "time_scalar": 2 }],
+            "media_reference": {
+              "OTIO_SCHEMA": "ExternalReference.1",
+              "target_url": "file:///media/A001_C001.mov"
+            }
+          },
+          { "OTIO_SCHEMA": "Transition.1", "name": "Dissolve" }
+        ]
+      },
+      {
+        "OTIO_SCHEMA": "Track.1",
+        "kind": "Audio",
+        "metadata": { "audio_channels": 4 },
+        "children": [
+          {
+            "OTIO_SCHEMA": "Clip.2",
+            "name": "Offline audio",
+            "media_reference": { "OTIO_SCHEMA": "MissingReference.1" }
+          }
+        ]
+      },
+      { "OTIO_SCHEMA": "Timeline.1", "name": "Nested timeline" }
+    ]
+  }
+}
