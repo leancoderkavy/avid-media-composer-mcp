@@ -68,7 +68,27 @@ export interface BridgeInspectStateData {
     name?: string;
     path?: string;
   };
-  state: Record<string, unknown>;
+  state: BridgeLiveState;
+}
+
+export interface BridgeLiveState {
+  activeBin?: { id: string; name?: string; locked?: boolean };
+  activeSequence?: { id: string; name?: string; durationFrames?: number; editRate?: number };
+  selection?: { ids: string[]; kind?: string };
+  playhead?: { frame?: number; timecode?: string };
+  marks?: { inFrame?: number; outFrame?: number };
+  tracks?: Array<{
+    id: string;
+    name?: string;
+    kind?: "video" | "audio" | "data" | "unknown";
+    enabled?: boolean;
+    targeted?: boolean;
+    locked?: boolean;
+    muted?: boolean;
+    solo?: boolean;
+  }>;
+  busy?: boolean;
+  modal?: boolean;
 }
 
 export interface BridgeEditOperationResult {

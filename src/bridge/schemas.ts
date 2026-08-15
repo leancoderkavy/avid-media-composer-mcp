@@ -101,7 +101,63 @@ const inspectStateDataSchema = z
   .object({
     stateRevision: boundedIdentifier,
     project: projectIdentity.optional(),
-    state: jsonObject,
+    state: z
+      .object({
+        activeBin: z
+          .object({ id: boundedIdentifier, name: boundedText.optional(), locked: z.boolean().optional() })
+          .strict()
+          .optional(),
+        activeSequence: z
+          .object({
+            id: boundedIdentifier,
+            name: boundedText.optional(),
+            durationFrames: z.number().int().nonnegative().optional(),
+            editRate: z.number().positive().finite().optional(),
+          })
+          .strict()
+          .optional(),
+        selection: z
+          .object({
+            ids: z.array(boundedIdentifier).max(10_000),
+            kind: boundedIdentifier.optional(),
+          })
+          .strict()
+          .optional(),
+        playhead: z
+          .object({
+            frame: z.number().int().nonnegative().optional(),
+            timecode: boundedIdentifier.optional(),
+          })
+          .strict()
+          .optional(),
+        marks: z
+          .object({
+            inFrame: z.number().int().nonnegative().optional(),
+            outFrame: z.number().int().nonnegative().optional(),
+          })
+          .strict()
+          .optional(),
+        tracks: z
+          .array(
+            z
+              .object({
+                id: boundedIdentifier,
+                name: boundedText.optional(),
+                kind: z.enum(["video", "audio", "data", "unknown"]).optional(),
+                enabled: z.boolean().optional(),
+                targeted: z.boolean().optional(),
+                locked: z.boolean().optional(),
+                muted: z.boolean().optional(),
+                solo: z.boolean().optional(),
+              })
+              .strict(),
+          )
+          .max(1_024)
+          .optional(),
+        busy: z.boolean().optional(),
+        modal: z.boolean().optional(),
+      })
+      .strict(),
   })
   .strict();
 

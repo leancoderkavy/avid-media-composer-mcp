@@ -12,6 +12,9 @@ import { analyzeEdl } from "./analysis/edl.js";
 import { inventoryFiles } from "./analysis/file-inventory.js";
 import { analyzeMediaFile, probeFfprobe } from "./analysis/media.js";
 import { analyzeOtio } from "./analysis/otio.js";
+import { analyzeDnxTurnover } from "./analysis/dnx.js";
+import { validateSourceMarkerPackage } from "./analysis/markers.js";
+import { compareTranscriptRevisions } from "./analysis/transcript.js";
 import {
   analyzeAafWithPython,
   analyzeAvbWithPython,
@@ -19,6 +22,13 @@ import {
 } from "./analysis/python-sidecar.js";
 import { analyzeProject, discoverProjects } from "./analysis/project.js";
 import { EDIT_ACTION_CATALOG } from "./edit/catalog.js";
+import {
+  EXTENSION_CAPABILITY_MANIFEST,
+  validateExtensionCapabilityManifest,
+} from "./compatibility/extension-capabilities.js";
+import { previewOtioHandoff, otioHandoffDigest } from "./interchange/otio-handoff.js";
+import { diagnoseAvidIntegrations } from "./integrations/avid-diagnostics.js";
+import { CtmsReadClient, type CtmsFetch } from "./integrations/ctms.js";
 import { applyEditPlan, previewEditPlan } from "./edit/plans.js";
 import {
   AVID_RELEASE_TRACKS,
@@ -65,6 +75,38 @@ const EDIT_ANNOTATIONS = {
   idempotentHint: false,
   openWorldHint: false,
 } as const;
+
+const NETWORK_READ_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true,
+} as const;
+
+function createCtmsFetcher(maxResponseBytes: number): CtmsFetch {
+  return async (url, init) => {
+    const response = await fetch(url, {
+      method: init.method,
+      headers: init.headers,
+      redirect: "error",
+    });
+    const declaredLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
+      throw new Error("CTMS response exceeds the configured byte limit");
+    }
+    const text = await response.text();
+    if (Buffer.byteLength(text, "utf8") > maxResponseBytes) {
+      throw new Error("CTMS response exceeds the configured byte limit");
+    }
+    let body: unknown;
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error("CTMS response was not valid JSON");
+    }
+    return { status: response.status, body };
+  };
+}
 
 function jsonText(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -113,6 +155,22 @@ function requireInspect(config: ServerConfig): void {
 }
 
 export function createServer(config: ServerConfig = loadConfig()): McpServer {
+  let ctmsClient: CtmsReadClient | undefined;
+  const getCtmsClient = (): CtmsReadClient => {
+    if (!config.ctmsRegistryUrl || !config.ctmsAccessToken || !config.ctmsAllowedOrigins?.length) {
+      throw new Error(
+        "CTMS is not configured; set AVID_MCP_CTMS_REGISTRY_URL, AVID_MCP_CTMS_ALLOWED_ORIGINS, and AVID_MCP_CTMS_ACCESS_TOKEN",
+      );
+    }
+    ctmsClient ??= new CtmsReadClient({
+      registryUrl: config.ctmsRegistryUrl,
+      allowedOrigins: config.ctmsAllowedOrigins,
+      accessToken: config.ctmsAccessToken,
+      maxResponseBytes: config.ctmsMaxResponseBytes ?? 2 * 1024 * 1024,
+      fetcher: createCtmsFetcher(config.ctmsMaxResponseBytes ?? 2 * 1024 * 1024),
+    });
+    return ctmsClient;
+  };
   const server = new McpServer(
     { name: "avid-media-composer-mcp", version: SERVER_VERSION },
     { instructions: INSTRUCTIONS },
@@ -182,6 +240,11 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
               "AAF analysis through pyaaf2 when installed",
               "ALE and CMX-style EDL parsing",
               "bounded OTIO structural analysis and interchange-fidelity warnings",
+              "OTIO handoff manifests and local-media checksum previews",
+              "source-marker and static SVG-overlay validation",
+              "privacy-safe transcript revision QC",
+              "metadata-only DNx 4.0 turnover QC",
+              "SDK capability and Avid integration diagnostics",
               "clip/container/stream analysis through ffprobe",
               "guarded edit-plan preview",
             ],
@@ -191,6 +254,10 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
             ],
             providerGate:
               "Avid Media Composer Extensions SDK access/onboarding and a locally installed bridge extension",
+            optionalEnterprise:
+              config.ctmsRegistryUrl && config.ctmsAccessToken
+                ? "MediaCentral CTMS read adapter configured"
+                : "MediaCentral CTMS requires an allowlisted HTTPS registry and scoped token",
           },
         };
       }),
@@ -522,6 +589,245 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           maxDepth: max_depth,
           maxItems: max_items,
         });
+      }),
+  );
+
+  server.registerTool(
+    "avid_preview_otio_handoff",
+    {
+      title: "Preview an OTIO handoff",
+      description:
+        "Build a non-mutating OTIO import/relink manifest with bounded local-media checks and optional checksums.",
+      inputSchema: {
+        otio_path: z.string().min(1),
+        media_roots: z.array(z.string().min(1)).max(32).default([]),
+        include_checksums: z.boolean().default(false),
+        max_media_references: z.number().int().min(1).max(10_000).default(500),
+        max_checksum_bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(4 * 1024 * 1024 * 1024),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ otio_path, media_roots, include_checksums, max_media_references, max_checksum_bytes }) =>
+      execute("avid_preview_otio_handoff", async () => {
+        requireInspect(config);
+        const filePath = await resolveReadablePath(otio_path, config.allowedRoots, "file");
+        const roots = await Promise.all(
+          (media_roots.length ? media_roots : config.allowedRoots).map((root) =>
+            resolveReadablePath(root, config.allowedRoots, "directory"),
+          ),
+        );
+        const preview = await previewOtioHandoff(filePath, {
+          allowedMediaRoots: roots,
+          includeChecksums: include_checksums,
+          maxMediaReferences: max_media_references,
+          maxChecksumBytes: max_checksum_bytes,
+        });
+        return { ...preview, digest: otioHandoffDigest(preview) };
+      }),
+  );
+
+  server.registerTool(
+    "avid_validate_marker_package",
+    {
+      title: "Validate source markers and SVG overlays",
+      description:
+        "Validate a bounded source-marker package and reject unsafe SVG without importing anything into Media Composer.",
+      inputSchema: {
+        markers: z
+          .array(
+            z.object({
+              id: z.string().max(256).optional(),
+              timecode: z.string().min(1).max(64),
+              text: z.string().max(16_384).optional(),
+              color: z.string().max(128).optional(),
+              svg_overlay: z.string().max(64 * 1024).optional(),
+            }),
+          )
+          .max(10_000),
+        source_start_timecode: z.string().max(64).optional(),
+        source_end_timecode: z.string().max(64).optional(),
+        frame_rate: z.number().positive().max(120).optional(),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ markers, source_start_timecode, source_end_timecode, frame_rate }) =>
+      execute("avid_validate_marker_package", async () => {
+        requireInspect(config);
+        return validateSourceMarkerPackage({
+          markers: markers.map((marker) => ({
+            timecode: marker.timecode,
+            ...(marker.id === undefined ? {} : { id: marker.id }),
+            ...(marker.text === undefined ? {} : { text: marker.text }),
+            ...(marker.color === undefined ? {} : { color: marker.color }),
+            ...(marker.svg_overlay === undefined ? {} : { svgOverlay: marker.svg_overlay }),
+          })),
+          ...(source_start_timecode === undefined ? {} : { sourceStartTimecode: source_start_timecode }),
+          ...(source_end_timecode === undefined ? {} : { sourceEndTimecode: source_end_timecode }),
+          ...(frame_rate === undefined ? {} : { frameRate: frame_rate }),
+        });
+      }),
+  );
+
+  const transcriptTokenSchema = z.object({
+    text: z.string().min(1).max(16_384),
+    start_seconds: z.number().nonnegative().finite(),
+    end_seconds: z.number().finite(),
+    speaker: z.string().max(1_024).optional(),
+    confidence: z.number().min(0).max(1).optional(),
+  });
+  server.registerTool(
+    "avid_compare_transcripts",
+    {
+      title: "Compare transcript revisions",
+      description:
+        "Run bounded, local timing/speaker/revision QC and return aggregate findings without transcript text.",
+      inputSchema: {
+        baseline: z.array(transcriptTokenSchema).max(10_000),
+        candidate: z.array(transcriptTokenSchema).max(10_000),
+        gap_threshold_seconds: z.number().nonnegative().finite().default(0.5),
+        max_comparison_cells: z.number().int().min(1).max(4_000_000).default(1_000_000),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ baseline, candidate, gap_threshold_seconds, max_comparison_cells }) =>
+      execute("avid_compare_transcripts", async () => {
+        requireInspect(config);
+        const mapTokens = (tokens: typeof baseline) =>
+          tokens.map((token) => ({
+            text: token.text,
+            startSeconds: token.start_seconds,
+            endSeconds: token.end_seconds,
+            ...(token.speaker === undefined ? {} : { speaker: token.speaker }),
+            ...(token.confidence === undefined ? {} : { confidence: token.confidence }),
+          }));
+        return compareTranscriptRevisions(
+          { tokens: mapTokens(baseline) },
+          { tokens: mapTokens(candidate) },
+          { gapThresholdSeconds: gap_threshold_seconds, maxComparisonCells: max_comparison_cells },
+        );
+      }),
+  );
+
+  server.registerTool(
+    "avid_analyze_dnx_turnover",
+    {
+      title: "Analyze DNx turnover metadata",
+      description:
+        "Assess supplied DNx/DNx 4.0 metadata and target-version risks without decoding or transcoding essence.",
+      inputSchema: {
+        codec: z.string().max(256).optional(),
+        profile: z.string().max(256).optional(),
+        dnx_generation: z.enum(["legacy", "4.0", "unknown"]).optional(),
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+        frame_rate: z.number().positive().max(120).optional(),
+        bit_depth: z.number().int().positive().max(64).optional(),
+        chroma_subsampling: z.string().max(128).optional(),
+        pixel_format: z.string().max(128).optional(),
+        color_space: z.string().max(128).optional(),
+        color_transfer: z.string().max(128).optional(),
+        target_media_composer_version: z.string().max(128).optional(),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async (args) =>
+      execute("avid_analyze_dnx_turnover", async () => {
+        requireInspect(config);
+        return analyzeDnxTurnover({
+          ...(args.codec === undefined ? {} : { codec: args.codec }),
+          ...(args.profile === undefined ? {} : { profile: args.profile }),
+          ...(args.dnx_generation === undefined ? {} : { dnxGeneration: args.dnx_generation }),
+          ...(args.width === undefined ? {} : { width: args.width }),
+          ...(args.height === undefined ? {} : { height: args.height }),
+          ...(args.frame_rate === undefined ? {} : { frameRate: args.frame_rate }),
+          ...(args.bit_depth === undefined ? {} : { bitDepth: args.bit_depth }),
+          ...(args.chroma_subsampling === undefined ? {} : { chromaSubsampling: args.chroma_subsampling }),
+          ...(args.pixel_format === undefined ? {} : { pixelFormat: args.pixel_format }),
+          ...(args.color_space === undefined ? {} : { colorSpace: args.color_space }),
+          ...(args.color_transfer === undefined ? {} : { colorTransfer: args.color_transfer }),
+          ...(args.target_media_composer_version === undefined
+            ? {}
+            : { targetMediaComposerVersion: args.target_media_composer_version }),
+        });
+      }),
+  );
+
+  server.registerTool(
+    "avid_get_extension_capability_manifest",
+    {
+      title: "Get Extension SDK capability manifest",
+      description:
+        "Return the product-scoped SDK/onboarding/implementation/evidence status for cataloged edit operations.",
+      inputSchema: { category: z.string().max(256).optional() },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ category }) =>
+      execute("avid_get_extension_capability_manifest", async () => {
+        requireInspect(config);
+        const issues = validateExtensionCapabilityManifest();
+        return {
+          ...EXTENSION_CAPABILITY_MANIFEST,
+          capabilities: EXTENSION_CAPABILITY_MANIFEST.capabilities.filter(
+            (entry) => category === undefined || entry.category === category,
+          ),
+          validationIssues: issues,
+          liveSupportClaimed: false,
+        };
+      }),
+  );
+
+  server.registerTool(
+    "avid_diagnose_integrations",
+    {
+      title: "Diagnose Avid integration surfaces",
+      description:
+        "Distinguish AMA, AMT, AVX, AAX, NEXIS, and Distributed Processing prerequisites without treating them as timeline APIs.",
+      inputSchema: {
+        installed_paths: z
+          .record(
+            z.enum(["ama", "amt", "avx", "aax", "nexis", "distributed-processing"]),
+            z.string().min(1),
+          )
+          .optional(),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ installed_paths }) =>
+      execute("avid_diagnose_integrations", async () => {
+        requireInspect(config);
+        const safePaths: Record<string, string> = {};
+        for (const [surface, candidate] of Object.entries(installed_paths ?? {})) {
+          safePaths[surface] = await resolveReadablePath(candidate, config.allowedRoots);
+        }
+        return diagnoseAvidIntegrations(safePaths);
+      }),
+  );
+
+  server.registerTool(
+    "avid_ctms_read",
+    {
+      title: "Read MediaCentral CTMS",
+      description:
+        "Discover the configured CTMS HAL registry or follow one advertised relation using scoped read-only credentials.",
+      inputSchema: {
+        relation: z.string().min(1).max(512).optional(),
+        clear_session: z.boolean().default(false),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: NETWORK_READ_ANNOTATIONS,
+    },
+    async ({ relation, clear_session }) =>
+      execute("avid_ctms_read", async () => {
+        requireInspect(config);
+        const client = getCtmsClient();
+        if (clear_session) client.clearSession();
+        return relation ? client.readRelation(relation) : client.discover();
       }),
   );
 

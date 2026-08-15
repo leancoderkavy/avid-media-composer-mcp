@@ -4,7 +4,7 @@ An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextp
 
 [Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
 
-Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The stable `1.0.0` release provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.otio`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
+Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The `1.1.0-rc.1` release candidate adds marker/SVG, transcript, DNx turnover, OTIO handoff, CTMS, and integration diagnostics to the stable 1.0 analysis foundation. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
 
 The server also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible Avid Extension is connected and advertises each supported operation.
 
@@ -30,6 +30,11 @@ The server also defines a 167-action editing catalog and a tested bridge protoco
 - Analyze AAF mobs, slots, components, essence, descriptors, definitions, and metadata through `pyaaf2`.
 - Parse every ALE heading, column, and row.
 - Parse CMX-style EDL events, transitions, comments, clip names, and motion-effect lines.
+- Validate source-marker packages and a strict static SVG-overlay subset before import.
+- Compare transcript revisions locally without returning transcript text.
+- Assess supplied DNx/DNx 4.0 turnover metadata and compatibility risks without transcoding.
+- Preview conservative OTIO handoffs with local-media manifests, optional checksums, and relink blockers.
+- Read an explicitly configured, allowlisted MediaCentral CTMS HAL registry without mutation.
 - Read OTIO JSON structurally with bounded input/depth/object limits, flagging transitions, effects, retimes, nested timelines, media references, and audio-routing risks that need Media Composer confirmation.
 - Decode text-like AVP/AVS/configuration files; fingerprint, measure, and string-extract opaque binary files without pretending their semantics are known.
 - Inspect container and stream metadata through `ffprobe`, with optional frame/packet counting and SHA-256 hashing.
@@ -170,6 +175,13 @@ configuration and never place it in project files, logs, or source control.
 | `avid_analyze_ale` | Parse ALE headings, columns, and rows | None |
 | `avid_analyze_edl` | Parse CMX-style EDL data | None |
 | `avid_analyze_otio` | Validate bounded OTIO JSON structure and report interchange-fidelity risks; does not import or relink media | None |
+| `avid_preview_otio_handoff` | Build a local-media manifest, checksums, blockers, and manual-import readiness report | None |
+| `avid_validate_marker_package` | Validate source markers and reject unsafe SVG overlays | None |
+| `avid_compare_transcripts` | Compare transcript revisions locally and return aggregate timing/speaker QC without text | None |
+| `avid_analyze_dnx_turnover` | Assess supplied DNx/DNx 4.0 turnover metadata and target-version risks | None |
+| `avid_get_extension_capability_manifest` | Report SDK/onboarding/implementation/host-evidence status for all catalog actions | None |
+| `avid_diagnose_integrations` | Distinguish AMA, AMT, AVX, AAX, NEXIS, and Distributed Processing prerequisites | None |
+| `avid_ctms_read` | Discover or follow one allowlisted read-only MediaCentral CTMS HAL relation | Network read |
 | `avid_analyze_configuration` | Decode or fingerprint AVP/AVS/configuration files | None |
 | `avid_analyze_clip` | Full `ffprobe` metadata and editorial summary | None |
 | `avid_get_live_state` | Read live state through an Extension bridge | Bridge request only |

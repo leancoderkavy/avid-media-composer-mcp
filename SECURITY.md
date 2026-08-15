@@ -63,3 +63,11 @@ control. The hosted configuration is a read-only inspection and compatibility se
 Please report security issues privately through GitHub's security advisory flow rather than opening a public issue with exploit details.
 
 See the latest [security audit](docs/SECURITY_AUDIT.md) for reviewed surfaces, fixed findings, and residual risks.
+
+## MediaCentral CTMS
+
+The optional CTMS adapter is read-only and disabled until a registry URL, explicit HTTPS origin
+allowlist, and bearer token are configured. It rejects redirects and HAL links outside the allowlist,
+bounds JSON responses, caches discovered links only in memory for the current server process, and
+removes credential-like response keys. Use a least-privilege CTMS account and keep its token out of
+MCP arguments, project files, logs, telemetry, and source control. CTMS mutations are not exposed.

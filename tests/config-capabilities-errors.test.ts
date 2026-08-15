@@ -20,6 +20,10 @@ describe("server configuration", () => {
       AVID_MCP_MAX_BINS: "5",
       AVID_MCP_MAX_MEDIA_FILES: "7",
       AVID_MCP_COMMAND_TIMEOUT_MS: "1234",
+      AVID_MCP_CTMS_REGISTRY_URL: "https://ctms.example.test/registry",
+      AVID_MCP_CTMS_ALLOWED_ORIGINS: "https://ctms.example.test, https://assets.example.test",
+      AVID_MCP_CTMS_ACCESS_TOKEN: "test-only-token",
+      AVID_MCP_CTMS_MAX_RESPONSE_BYTES: "4096",
     });
     expect(config).toMatchObject({
       allowedRoots: roots,
@@ -30,6 +34,10 @@ describe("server configuration", () => {
       maxBins: 5,
       maxMediaFiles: 7,
       commandTimeoutMs: 1234,
+      ctmsRegistryUrl: "https://ctms.example.test/registry",
+      ctmsAllowedOrigins: ["https://ctms.example.test", "https://assets.example.test"],
+      ctmsAccessToken: "test-only-token",
+      ctmsMaxResponseBytes: 4096,
     });
     expect([...config.capabilities].sort()).toEqual(["edit", "inspect"]);
   });
@@ -38,6 +46,13 @@ describe("server configuration", () => {
     expect(() => loadConfig({ AVID_MCP_MAX_FILES: value })).toThrow(
       "AVID_MCP_MAX_FILES must be a positive integer",
     );
+  });
+
+  it("does not configure CTMS credentials by default", () => {
+    const config = loadConfig({});
+    expect(config.ctmsRegistryUrl).toBeUndefined();
+    expect(config.ctmsAccessToken).toBeUndefined();
+    expect(config.ctmsAllowedOrigins).toEqual([]);
   });
 });
 

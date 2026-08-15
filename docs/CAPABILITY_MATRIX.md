@@ -22,6 +22,10 @@ is proof that a live host action exists.
 | AAF analysis | Dependency | `pyaaf2==1.7.1`; mobs, slots, components, essence, descriptors, definitions |
 | ALE analysis | Implemented | Headings, columns, rows, warnings |
 | EDL analysis | Implemented | CMX-style events, transitions, comments, clip names, motion lines |
+| OTIO handoff preview | Implemented | Bounded analysis, local-media manifest, checksums, relink/fidelity blockers; no host import claim |
+| Source marker/SVG validation | Implemented | Timecode/range validation and strict static SVG allowlist; no host import claim |
+| Transcript revision QC | Implemented | Local aggregate timing, confidence, speaker, insertion/removal comparison; no transcript text returned |
+| DNx turnover QC | Implemented | Supplied-metadata assessment only; no essence decode/transcode or host-support claim |
 | Clip/container metadata | Dependency | `ffprobe`; raw output plus normalized video/audio/timecode summary |
 | Full project aggregate report | Implemented | Per-format coverage, dependency health, truncation, source-safety statement |
 | Live project/bin/sequence inspection | Extension contract | Runtime-validated `inspect.getState` contract requires a real Extension plus revision evidence |
@@ -31,8 +35,10 @@ is proof that a live host action exists.
 | Audio, color, titles, captions | Extension contract | Cataloged; requires per-operation Extension implementation and real-host validation |
 | Multicam, markers, playback | Extension contract | Cataloged; requires per-operation Extension implementation and real-host validation |
 | Export/mixdown/output | Extension contract | Cataloged as external-risk operations; requires Extension implementation, output-file verification, and real-host validation |
-| MediaCentral asset operations | Provider-gated | Requires a configured MediaCentral environment, credentials, and applicable Avid rights |
+| MediaCentral CTMS reads | Dependency | Allowlisted HTTPS HAL discovery/read client; requires configured environment, token, and applicable rights |
+| MediaCentral asset mutations | Provider-gated | Not exposed; requires a separate authority and threat review |
 | Avid Media Toolkit essence writes | Provider-gated | Requires licensed SDK and a separate adapter |
+| AMA/AMT/AVX/AAX/NEXIS diagnostics | Implemented | Reports public/provider/local-path evidence and prevents cross-product version inference |
 | Arbitrary scripts/raw UI automation | Not claimed | No initial unsafe escape hatch |
 
 ## Editing catalog coverage
