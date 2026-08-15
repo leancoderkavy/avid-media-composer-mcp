@@ -104,11 +104,6 @@ export async function previewOtioHandoff(
       warnings.push(`Media reference at ${reference.path} is not a local file URL and was not fetched.`);
       continue;
     }
-    if (!allowedRoots.some((root) => isWithin(mediaPath, root))) {
-      mediaManifest.push({ referencePath: reference.path, targetUrl: reference.targetUrl, status: "outside-allowed-roots" });
-      blockers.push(`Media reference at ${reference.path} is outside the allowed media roots.`);
-      continue;
-    }
     try {
       const link = await lstat(mediaPath);
       if (link.isSymbolicLink()) {
@@ -116,14 +111,20 @@ export async function previewOtioHandoff(
         blockers.push(`Media reference at ${reference.path} is a symlink and was not followed.`);
         continue;
       }
-      const info = await stat(mediaPath);
+      const canonicalMediaPath = await realpath(mediaPath);
+      if (!allowedRoots.some((root) => isWithin(canonicalMediaPath, root))) {
+        mediaManifest.push({ referencePath: reference.path, targetUrl: reference.targetUrl, status: "outside-allowed-roots" });
+        blockers.push(`Media reference at ${reference.path} is outside the allowed media roots.`);
+        continue;
+      }
+      const info = await stat(canonicalMediaPath);
       if (!info.isFile()) {
         mediaManifest.push({ referencePath: reference.path, targetUrl: reference.targetUrl, status: "not-file" });
         blockers.push(`Media reference at ${reference.path} is not a regular file.`);
         continue;
       }
       if (options.includeChecksums && info.size <= maxChecksumBytes) {
-        mediaManifest.push({ referencePath: reference.path, targetUrl: reference.targetUrl, status: "linked-file", sizeBytes: info.size, sha256: await sha256File(mediaPath) });
+        mediaManifest.push({ referencePath: reference.path, targetUrl: reference.targetUrl, status: "linked-file", sizeBytes: info.size, sha256: await sha256File(canonicalMediaPath) });
       } else {
         mediaManifest.push({ referencePath: reference.path, targetUrl: reference.targetUrl, status: options.includeChecksums ? "checksum-skipped" : "linked-file", sizeBytes: info.size });
         if (options.includeChecksums) warnings.push(`Checksum skipped for ${reference.path}: file exceeds configured limit.`);
