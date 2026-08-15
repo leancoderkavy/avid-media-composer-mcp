@@ -3,9 +3,23 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ServerConfig } from "../src/config.js";
+import { createBridgeAuthentication } from "../src/bridge/security.js";
 import { applyEditPlan, confirmationToken, previewEditPlan, validateEditPlan } from "../src/edit/plans.js";
 
 const temporary: string[] = [];
+const bridgeAuth = {
+  keyId: "edit-plan-tests",
+  secret: "edit-plan-tests-secret-that-is-long-enough",
+};
+process.env.AVID_MCP_BRIDGE_AUTH_SECRET = bridgeAuth.secret;
+process.env.AVID_MCP_BRIDGE_AUTH_KEY_ID = bridgeAuth.keyId;
+
+function signed<T extends Record<string, unknown>>(document: T): T {
+  return {
+    ...document,
+    authentication: createBridgeAuthentication(document, bridgeAuth),
+  };
+}
 
 afterEach(async () => {
   await Promise.all(temporary.splice(0).map((entry) => rm(entry, { recursive: true, force: true })));
@@ -69,6 +83,15 @@ describe("guarded edit plans", () => {
     ).toThrow("unsafe object key");
   });
 
+  it("requires expected-state guards before a live edit is considered", async () => {
+    const plan = {
+      operations: [{ action: "bin.create", arguments: { name: "Selects" } }],
+    };
+    await expect(
+      applyEditPlan(plan, confirmationToken(validateEditPlan(plan)), config({ capabilities: new Set(["inspect", "edit"]) })),
+    ).rejects.toMatchObject({ code: "EXPECTED_STATE_GUARD_REQUIRED" });
+  });
+
   it("applies an exact token only through a live bridge advertising the operation", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "avid-mcp-bridge-"));
     temporary.push(root);
@@ -79,8 +102,11 @@ describe("guarded edit plans", () => {
     ]);
     await writeFile(
       path.join(root, "state", "capabilities.json"),
-      JSON.stringify({
-        protocolVersion: 2,
+      JSON.stringify(signed({
+        protocolVersion: 3,
+        supportedProtocolVersions: [3],
+        extensionId: "com.example.avid-mcp.test",
+        installationId: "edit-plan-installation",
         extensionVersion: "0.1.0-test",
         mediaComposerVersion: "2025.12.1",
         platform: "windows",
@@ -88,9 +114,10 @@ describe("guarded edit plans", () => {
         architecture: "x64",
         sessionId: "test-session",
         heartbeatAt: new Date().toISOString(),
+        stateRevision: "state-before-1",
         supportedActions: ["edit.applyPlan"],
         supportedEditOperations: ["bin.create"],
-      }),
+      })),
       "utf8",
     );
 
@@ -105,6 +132,7 @@ describe("guarded edit plans", () => {
       ],
     });
 
+    let emittedPayload: Record<string, unknown> | undefined;
     const simulator = async () => {
       for (let attempt = 0; attempt < 100; attempt += 1) {
         const files = await readdir(path.join(root, "requests"));
@@ -112,12 +140,22 @@ describe("guarded edit plans", () => {
         if (requestName) {
           const request = JSON.parse(
             await readFile(path.join(root, "requests", requestName), "utf8"),
-          ) as { operationId: string };
+          ) as {
+            operationId: string;
+            clientSessionId: string;
+            requestSequence: number;
+            nonce: string;
+            payload: Record<string, unknown>;
+          };
+          emittedPayload = request.payload;
           await writeFile(
             path.join(root, "responses", `${request.operationId}.json`),
-            JSON.stringify({
-              protocolVersion: 2,
+            JSON.stringify(signed({
+              protocolVersion: 3,
               operationId: request.operationId,
+              clientSessionId: request.clientSessionId,
+              requestSequence: request.requestSequence,
+              requestNonce: request.nonce,
               completedAt: new Date().toISOString(),
               ok: true,
               data: {
@@ -137,7 +175,7 @@ describe("guarded edit plans", () => {
                 ],
                 outputs: { createdBin: "Selects" },
               },
-            }),
+            })),
             "utf8",
           );
           return;
@@ -162,6 +200,13 @@ describe("guarded edit plans", () => {
         applied: 1,
         partialApply: false,
         outputs: { createdBin: "Selects" },
+      },
+    });
+    expect(emittedPayload).toMatchObject({
+      bridgePrecondition: {
+        installationId: "edit-plan-installation",
+        sessionId: "test-session",
+        stateRevision: "state-before-1",
       },
     });
   });

@@ -232,7 +232,7 @@ export async function applyEditPlan(
         { operationId },
       );
     }
-    const destructive = plan.operations.filter(
+  const destructive = plan.operations.filter(
       (operation) => EDIT_ACTIONS.get(operation.action)?.destructive,
     );
     if (destructive.length > 0 && plan.allowDestructive !== true) {
@@ -240,6 +240,17 @@ export async function applyEditPlan(
         "DESTRUCTIVE_OPT_IN_REQUIRED",
         "Destructive operations require allowDestructive: true in the confirmed plan",
         { operationId, actions: destructive.map((operation) => operation.action) },
+      );
+    }
+    const missingExpectedState = plan.operations
+      .map((operation, index) => ({ operation, index }))
+      .filter(({ operation }) => operation.expectedState === undefined)
+      .map(({ index }) => index);
+    if (missingExpectedState.length > 0) {
+      throw new AvidMcpError(
+        "EXPECTED_STATE_GUARD_REQUIRED",
+        "Every live edit operation requires an expectedState guard",
+        { operationId, operationIndexes: missingExpectedState },
       );
     }
     const bridge = await getBridgeStatus(config.bridgeDir);
@@ -251,6 +262,21 @@ export async function applyEditPlan(
       );
     }
     const bridgeCapabilities = bridge.capabilities;
+    if (
+      plan.projectId &&
+      bridgeCapabilities.project?.id &&
+      plan.projectId !== bridgeCapabilities.project.id
+    ) {
+      throw new AvidMcpError(
+        "ACTIVE_PROJECT_MISMATCH",
+        "The active bridge project does not match the confirmed edit plan",
+        {
+          operationId,
+          requestedProjectId: plan.projectId,
+          activeProjectId: bridgeCapabilities.project.id,
+        },
+      );
+    }
     const unsupported = plan.operations
       .map((operation) => operation.action)
       .filter((action) => !bridgeCapabilities.supportedEditOperations.includes(action));
@@ -274,7 +300,18 @@ export async function applyEditPlan(
     const response = await sendBridgeCommand(
       config.bridgeDir,
       "edit.applyPlan",
-      { plan, confirmationToken: expectedToken },
+      {
+        plan,
+        confirmationToken: expectedToken,
+        bridgePrecondition: {
+          installationId: bridgeCapabilities.installationId,
+          sessionId: bridgeCapabilities.sessionId,
+          ...(bridgeCapabilities.stateRevision
+            ? { stateRevision: bridgeCapabilities.stateRevision }
+            : {}),
+          ...(bridgeCapabilities.project?.id ? { projectId: bridgeCapabilities.project.id } : {}),
+        },
+      },
       config.commandTimeoutMs,
       operationId,
     );

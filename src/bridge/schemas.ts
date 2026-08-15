@@ -7,6 +7,7 @@ const boundedText = z.string().max(16_384);
 const timestamp = z.string().refine((value) => Number.isFinite(Date.parse(value)), {
   message: "Expected an ISO-compatible timestamp",
 });
+const nonce = z.string().uuid();
 const jsonObject = z.record(z.string().max(256), z.json());
 
 const projectIdentity = z
@@ -17,9 +18,31 @@ const projectIdentity = z
   })
   .strict();
 
+const authenticationSchema = z
+  .object({
+    algorithm: z.literal("hmac-sha256"),
+    keyId: boundedIdentifier,
+    nonce,
+    signedAt: timestamp,
+    signature: z.string().min(20).max(512),
+  })
+  .strict();
+
 export const bridgeCapabilitiesSchema = z
   .object({
     protocolVersion: z.literal(AVID_BRIDGE_PROTOCOL_VERSION),
+    supportedProtocolVersions: z
+      .array(z.number().int().positive())
+      .min(1)
+      .max(8)
+      .refine((versions) => new Set(versions).size === versions.length, {
+        message: "Supported protocol versions must be unique",
+      })
+      .refine((versions) => versions.includes(AVID_BRIDGE_PROTOCOL_VERSION), {
+        message: "Bridge does not negotiate protocol v3",
+      }),
+    extensionId: boundedIdentifier,
+    installationId: boundedIdentifier,
     extensionVersion: boundedIdentifier,
     mediaComposerVersion: boundedIdentifier,
     platform: z.enum(["windows", "macos"]),
@@ -27,6 +50,7 @@ export const bridgeCapabilitiesSchema = z
     architecture: z.enum(["x64", "arm64"]),
     sessionId: boundedIdentifier,
     heartbeatAt: boundedText,
+    stateRevision: boundedIdentifier.optional(),
     supportedActions: z
       .array(z.enum(["inspect.getState", "edit.applyPlan"]))
       .max(2)
@@ -43,6 +67,7 @@ export const bridgeCapabilitiesSchema = z
         message: "Bridge advertised an unknown edit operation",
       }),
     project: projectIdentity.optional(),
+    authentication: authenticationSchema,
   })
   .strict();
 
@@ -57,7 +82,11 @@ const bridgeErrorSchema = z
 const responseBase = {
   protocolVersion: z.literal(AVID_BRIDGE_PROTOCOL_VERSION),
   operationId: boundedIdentifier,
+  clientSessionId: nonce,
+  requestSequence: z.number().int().positive(),
+  requestNonce: nonce,
   completedAt: timestamp,
+  authentication: authenticationSchema,
 };
 
 const failureResponseSchema = z
