@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-rc.3 - 2026-08-15
+
+- Added bounded, read-only OTIO analysis with explicit interchange-fidelity warnings.
+- Hardened the local Extension mailbox as authenticated protocol v3 with signed envelopes,
+  replay/expiry bindings, atomic publication, link rejection, and host-state preconditions.
+- Refreshed Media Composer 2025.12 compatibility and Extensions terminology from current Avid
+  documentation while retaining explicit SDK and real-host validation gates.
+- Added a reproducible real-host validation protocol for future Extension operations.
+
 ## 1.0.0-rc.2 - 2026-08-13
 
 - Derived MCP handshake, ping, readiness-log, and telemetry versions from package metadata so

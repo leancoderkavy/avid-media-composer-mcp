@@ -4,7 +4,7 @@ An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextp
 
 [Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · npm publication pending
 
-Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The `1.0.0-rc.2` release candidate provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.otio`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
+Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The `1.0.0-rc.3` release candidate provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.otio`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
 
 The server also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible Avid Extension is connected and advertises each supported operation.
 
@@ -145,7 +145,11 @@ Keep `AVID_MCP_CAPABILITIES=inspect` until a bridge has been installed and teste
 ```powershell
 $env:AVID_MCP_CAPABILITIES = "inspect,edit"
 $env:AVID_MCP_BRIDGE_DIR = "$env:LOCALAPPDATA\avid-media-composer-mcp\bridge"
+$env:AVID_MCP_BRIDGE_AUTH_SECRET = "<the same unique 32+ character secret configured in the Extension>"
 ```
+
+Protocol v3 rejects unauthenticated legacy bridge documents. Keep the secret in protected local
+configuration and never place it in project files, logs, or source control.
 
 ## Tools
 
