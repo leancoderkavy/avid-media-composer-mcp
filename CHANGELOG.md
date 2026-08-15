@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0 - 2026-08-15
+
+- Promoted the verified RC.3 read-only analysis and guarded-automation foundation to stable 1.0.
+- Kept live Media Composer editing fail-closed until a sanctioned Avid Extension is installed and
+  validated against a real supported host.
+
 ## 1.0.0-rc.3 - 2026-08-15
 
 - Added bounded, read-only OTIO analysis with explicit interchange-fidelity warnings.

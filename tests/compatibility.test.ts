@@ -4,6 +4,11 @@ import {
   evaluateCompatibility,
   resolveReleaseTrack,
 } from "../src/compatibility/releases.js";
+import {
+  EXTENSION_CAPABILITY_MANIFEST,
+  validateExtensionCapabilityManifest,
+} from "../src/compatibility/extension-capabilities.js";
+import { EDIT_ACTION_CATALOG } from "../src/edit/catalog.js";
 
 describe("Media Composer release compatibility", () => {
   it("tracks the latest three supported release lines", () => {
@@ -89,7 +94,7 @@ describe("Media Composer release compatibility", () => {
     expect(current).toMatchObject({
       extensionSurface: "extensions",
       verifiedOn: "2026-08-15",
-      source: "https://kb.avid.com/pkb/articles/compatibility/en267087",
+      source: "https://kb.avid.com/pkb/articles/en_US/compatibility/en267087",
     });
     expect(resolveReleaseTrack("2025.6")?.extensionSurface).toBe("panel-sdk");
   });
@@ -101,5 +106,32 @@ describe("Media Composer release compatibility", () => {
         platform: "macos",
       }).status,
     ).toBe("unknown");
+  });
+
+  it("keeps compatibility provenance product-scoped and rejects cross-product release evidence", () => {
+    for (const track of AVID_RELEASE_TRACKS) {
+      expect(track.provenance.product).toBe("Media Composer");
+      expect(track.provenance.sourceTitle).toContain("Media Composer");
+      expect(track.provenance.sourceTitle).not.toMatch(/Pro Tools|Distributed Processing/i);
+      expect(track.provenance.sourceUrl).toMatch(/^https:\/\/kb\.avid\.com\//);
+      expect(track.provenance.evidence.releaseLine).toBe(track.release);
+      expect(track.provenance.evidence.latestPatch).toBe(track.latestQualifiedPatch);
+    }
+    expect(resolveReleaseTrack("2025.12.2")?.provenance.evidence.latestPatch).toBe("2025.12.2");
+  });
+
+  it("covers every catalog action in the SDK capability manifest without claiming live support", () => {
+    expect(EDIT_ACTION_CATALOG).toHaveLength(167);
+    expect(EXTENSION_CAPABILITY_MANIFEST.catalogActionCount).toBe(167);
+    expect(EXTENSION_CAPABILITY_MANIFEST.capabilities).toHaveLength(167);
+    expect(validateExtensionCapabilityManifest()).toEqual([]);
+    for (const capability of EXTENSION_CAPABILITY_MANIFEST.capabilities) {
+      expect(capability.documentation).toBe("internal-catalog");
+      expect(capability.sdkAccess).toBe("pending-avid-onboarding");
+      expect(capability.implementation).toBe("not-started");
+      expect(capability.sdkMethod).toBeNull();
+      expect(capability.minimumHostVersion).toBeNull();
+      expect(capability.hostEvidence).toHaveLength(0);
+    }
   });
 });
