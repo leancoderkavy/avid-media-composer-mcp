@@ -2,9 +2,9 @@
 
 An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
 
-[Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · npm publication pending
+[Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
 
-Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The `1.0.0-rc.3` release candidate provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.otio`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
+Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The stable `1.0.0` release provides working offline analysis for project trees, `.avb` bins, `.aaf`, `.ale`, `.edl`, `.otio`, `.avp`/`.avs` configuration evidence, and media clips. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
 
 The server also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible Avid Extension is connected and advertises each supported operation.
 
@@ -83,14 +83,14 @@ Requirements:
 - Node.js 20 or newer
 - Python 3.9 or newer for AVB/AAF analysis
 - `ffprobe` on `PATH` for clip analysis
-- Media Composer 2025.12.x, 2025.6, or 2024.12.x plus a protocol v2 Extension bridge for live control
+- Media Composer 2025.12.x, 2025.6, or 2024.12.x plus a protocol v3 Extension bridge for live control
 
-After the release-candidate workflow publishes the `next` tag, run it directly:
+Install and run the stable release directly:
 
 ```powershell
 $env:AVID_MCP_ALLOWED_ROOTS = "C:\Users\you\Documents\Avid Projects"
 $env:AVID_MCP_CAPABILITIES = "inspect"
-npx -y avid-media-composer-mcp@next
+npx -y avid-media-composer-mcp@latest
 ```
 
 AVB and AAF inspection additionally needs Python plus the pinned packages in
@@ -130,7 +130,7 @@ Example MCP client configuration:
   "mcpServers": {
     "avid-media-composer": {
       "command": "npx",
-      "args": ["-y", "avid-media-composer-mcp@next"],
+      "args": ["-y", "avid-media-composer-mcp@latest"],
       "env": {
         "AVID_MCP_ALLOWED_ROOTS": "C:\\Users\\you\\Documents\\Avid Projects",
         "AVID_MCP_CAPABILITIES": "inspect"
