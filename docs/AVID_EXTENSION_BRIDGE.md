@@ -84,7 +84,11 @@ Each request contains a unique `operationId`, `nonce`, `clientSessionId`, strict
 
 For `edit.applyPlan`, the MCP sends the exact confirmation token plus `bridgePrecondition` containing the connected installation ID, host session ID, optional state revision, and active project ID. Before a mutation, the Extension must validate this binding, the active project, all expected-state guards, supported actions, modal/busy state, and shared-bin ownership. It must create an undo group where supported, stop at the first failure, and return per-operation and post-state evidence. The MCP refuses live edits that lack an `expectedState` guard.
 
-Successful inspection responses carry a bounded `stateRevision`; edit responses carry `preStateRevision`, `postStateRevision` after any mutation, and exact per-operation evidence. The established data schemas for inspection and edit results remain unchanged apart from the authenticated response envelope.
+Successful inspection responses carry a bounded `stateRevision` plus typed, bounded optional fields for
+the active bin, active sequence, selection, playhead, marks, tracks, and modal/busy state. An empty
+state remains valid while an Extension is incrementally implemented, but arbitrary undeclared keys are
+rejected. Edit responses carry `preStateRevision`, `postStateRevision` after any mutation, and exact
+per-operation evidence.
 
 ## Operational limits
 

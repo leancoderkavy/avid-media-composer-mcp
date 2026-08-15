@@ -13,6 +13,10 @@ export interface ServerConfig {
   maxBins: number;
   maxMediaFiles: number;
   commandTimeoutMs: number;
+  ctmsRegistryUrl?: string;
+  ctmsAllowedOrigins?: string[];
+  ctmsAccessToken?: string;
+  ctmsMaxResponseBytes?: number;
 }
 
 function positiveInteger(value: string | undefined, fallback: number, name: string): number {
@@ -34,6 +38,8 @@ function allowedRoots(value: string | undefined): string[] {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const capabilities = resolveCapabilities(env.AVID_MCP_CAPABILITIES);
   const bridgeDir = env.AVID_MCP_BRIDGE_DIR?.trim();
+  const ctmsRegistryUrl = env.AVID_MCP_CTMS_REGISTRY_URL?.trim();
+  const ctmsAccessToken = env.AVID_MCP_CTMS_ACCESS_TOKEN?.trim();
   const localPython = path.resolve(
     process.cwd(),
     ".venv",
@@ -53,6 +59,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       env.AVID_MCP_COMMAND_TIMEOUT_MS,
       30_000,
       "AVID_MCP_COMMAND_TIMEOUT_MS",
+    ),
+    ...(ctmsRegistryUrl ? { ctmsRegistryUrl } : {}),
+    ctmsAllowedOrigins: (env.AVID_MCP_CTMS_ALLOWED_ORIGINS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+    ...(ctmsAccessToken ? { ctmsAccessToken } : {}),
+    ctmsMaxResponseBytes: positiveInteger(
+      env.AVID_MCP_CTMS_MAX_RESPONSE_BYTES,
+      2 * 1024 * 1024,
+      "AVID_MCP_CTMS_MAX_RESPONSE_BYTES",
     ),
   };
 }

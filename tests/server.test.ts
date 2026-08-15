@@ -32,12 +32,19 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(20);
+      expect(tools.tools).toHaveLength(27);
       expect(tools.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining([
           "avid_get_compatibility_matrix",
           "avid_check_compatibility",
           "avid_detect_installations",
+          "avid_preview_otio_handoff",
+          "avid_validate_marker_package",
+          "avid_compare_transcripts",
+          "avid_analyze_dnx_turnover",
+          "avid_get_extension_capability_manifest",
+          "avid_diagnose_integrations",
+          "avid_ctms_read",
         ]),
       );
       expect(tools.tools.map((tool) => tool.name)).toContain("avid_analyze_project");
@@ -68,6 +75,27 @@ describe("MCP server surface", () => {
       expect(result.structuredContent).toMatchObject({
         ok: true,
         tool: "avid_analyze_ale",
+      });
+
+      const markerResult = await client.callTool({
+        name: "avid_validate_marker_package",
+        arguments: {
+          frame_rate: 24,
+          markers: [{ timecode: "00:00:01:00", text: "Review" }],
+        },
+      });
+      expect(markerResult.structuredContent).toMatchObject({
+        ok: true,
+        tool: "avid_validate_marker_package",
+      });
+
+      const manifestResult = await client.callTool({
+        name: "avid_get_extension_capability_manifest",
+        arguments: {},
+      });
+      expect(manifestResult.structuredContent).toMatchObject({
+        ok: true,
+        tool: "avid_get_extension_capability_manifest",
       });
     } finally {
       await client.close();

@@ -42,17 +42,20 @@ writing with Avid before committing to a live-control date.
 
 - [ ] Timecode continuity, VFR, field-order, color-space, channel-layout, and offline-media QC.
 - [ ] Optional loudness, silence, black/freeze frame, slate/clap, and sync analysis.
-- [ ] Transcript and shot-analysis sidecars with explicit opt-in.
+- [x] Privacy-safe local transcript revision/timing/speaker QC.
 - [ ] Project snapshot/diff reports.
 - [ ] Cross-bin mob/source usage graph.
 - [ ] Sequence complexity, effect, render, relink, and turnover reports.
-- [ ] Add conservative OTIO inspection and Media Composer handoff validation. OTIO import/export is an interchange lane, not live timeline control; report unsupported effects, nested timelines, retimes, and multichannel-audio fidelity rather than silently altering them.
+- [x] Add conservative OTIO inspection and handoff preview with local-media manifest, checksums, and fidelity blockers. Real-host import/relink validation remains required.
+- [x] Add source-marker and strict static SVG-overlay validation.
+- [x] Add metadata-only DNx 4.0 turnover QC.
 
 ## Phase 4 — enterprise adapters
 
-- [ ] MediaCentral CTMS read adapter.
+- [x] MediaCentral CTMS read adapter with HTTPS origin allowlisting and session-scoped HAL discovery.
 - [ ] Optional Production Management operations with scoped credentials.
 - [ ] Licensed Avid Media Toolkit adapter when authorized.
+- [x] AMA/AMT/AVX/AAX/NEXIS/Distributed Processing prerequisite diagnostics without administration.
 - [ ] NEXIS/shared-storage health and path mapping without bypassing locks.
 
 ## Release evidence required

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0-rc.1 - 2026-08-15
+
+- Added product-scoped Avid compatibility provenance, weekly documentation-drift detection, and a
+  validated 167-action Extensions SDK capability manifest.
+- Added local marker/SVG validation, privacy-safe transcript revision QC, and metadata-only DNx 4.0
+  turnover analysis.
+- Added conservative OTIO handoff manifests, a scoped read-only MediaCentral CTMS client, and
+  AMA/AMT/AVX/AAX/NEXIS/Distributed Processing diagnostics.
+- Added a bounded typed live-state contract for the future read-only Media Composer Extension.
+
 ## 1.0.0 - 2026-08-15
 
 - Promoted the verified RC.3 read-only analysis and guarded-automation foundation to stable 1.0.

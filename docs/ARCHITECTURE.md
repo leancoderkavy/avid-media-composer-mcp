@@ -11,7 +11,7 @@
 
 ### MCP server
 
-`src/server.ts` exposes 20 tools, one resource, and two workflow prompts over local stdio. Tool results use a stable structured envelope:
+`src/server.ts` exposes 27 tools, one resource, and two workflow prompts over local stdio. Tool results use a stable structured envelope:
 
 ```json
 {
