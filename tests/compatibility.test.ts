@@ -13,6 +13,7 @@ describe("Media Composer release compatibility", () => {
       "2024.12",
     ]);
     expect(resolveReleaseTrack("2025.12.1")?.release).toBe("2025.12");
+    expect(resolveReleaseTrack("2025.12.2")?.latestQualifiedPatch).toBe("2025.12.2");
     expect(resolveReleaseTrack("2024.12.6")?.supportTier).toBe("long-term-maintenance");
   });
 
@@ -67,12 +68,30 @@ describe("Media Composer release compatibility", () => {
     ).toBe("unqualified");
     expect(
       evaluateCompatibility({
-        mediaComposerVersion: "2025.12.1",
+        mediaComposerVersion: "2025.12.2",
         platform: "macos",
-        operatingSystemVersion: "26.2",
+        operatingSystemVersion: "26.6",
         architecture: "arm64",
       }).status,
     ).toBe("qualified");
+    expect(
+      evaluateCompatibility({
+        mediaComposerVersion: "2025.12.2",
+        platform: "macos",
+        operatingSystemVersion: "26.7",
+        architecture: "arm64",
+      }).status,
+    ).toBe("unqualified");
+  });
+
+  it("keeps the current extension terminology tied to the 2025.12 line", () => {
+    const current = resolveReleaseTrack("2025.12.2");
+    expect(current).toMatchObject({
+      extensionSurface: "extensions",
+      verifiedOn: "2026-08-15",
+      source: "https://kb.avid.com/pkb/articles/compatibility/en267087",
+    });
+    expect(resolveReleaseTrack("2025.6")?.extensionSurface).toBe("panel-sdk");
   });
 
   it("returns unknown when qualification inputs are incomplete", () => {

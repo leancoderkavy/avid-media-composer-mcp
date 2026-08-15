@@ -7,6 +7,8 @@ export type CompatibilityStatus = "qualified" | "unqualified" | "unknown";
 export interface AvidReleaseTrack {
   release: "2025.12" | "2025.6" | "2024.12";
   latestQualifiedPatch: string;
+  /** Date on which this repository last checked Avid's version matrix. */
+  verifiedOn: string;
   supportTier: "current" | "previous" | "long-term-maintenance";
   extensionSurface: "extensions" | "panel-sdk";
   operatingSystems: {
@@ -28,7 +30,8 @@ export interface AvidReleaseTrack {
 export const AVID_RELEASE_TRACKS: readonly AvidReleaseTrack[] = [
   {
     release: "2025.12",
-    latestQualifiedPatch: "2025.12.1",
+    latestQualifiedPatch: "2025.12.2",
+    verifiedOn: "2026-08-15",
     supportTier: "current",
     extensionSurface: "extensions",
     operatingSystems: {
@@ -39,7 +42,7 @@ export const AVID_RELEASE_TRACKS: readonly AvidReleaseTrack[] = [
         { major: 13, qualifiedThrough: "13.7.x" },
         { major: 14, qualifiedThrough: "14.8.x" },
         { major: 15, qualifiedThrough: "15.7.x" },
-        { major: 26, qualifiedThrough: "26.x" },
+        { major: 26, qualifiedThrough: "26.6" },
       ],
     },
     architectures: { windows: ["x64"], macos: ["x64", "arm64"] },
@@ -48,12 +51,12 @@ export const AVID_RELEASE_TRACKS: readonly AvidReleaseTrack[] = [
       "Windows 10 is not qualified for releases newer than 2025.6.",
       "License dongles are not supported on Apple silicon.",
     ],
-    source:
-      "https://resources.avid.com/SupportFiles/attach/Media_Composer/2025.12/Media_Composer_v2025.12_ReadMe.pdf",
+    source: "https://kb.avid.com/pkb/articles/compatibility/en267087",
   },
   {
     release: "2025.6",
     latestQualifiedPatch: "2025.6",
+    verifiedOn: "2026-08-15",
     supportTier: "previous",
     extensionSurface: "panel-sdk",
     operatingSystems: {
@@ -73,12 +76,12 @@ export const AVID_RELEASE_TRACKS: readonly AvidReleaseTrack[] = [
       "macOS Monterey 12.x and earlier are not supported.",
       "License dongles are not supported on Apple silicon.",
     ],
-    source:
-      "https://resources.avid.com/SupportFiles/attach/Media_Composer/Media_Composer_v2025.6_ReadMe.pdf",
+    source: "https://kb.avid.com/pkb/articles/compatibility/en267087",
   },
   {
     release: "2024.12",
     latestQualifiedPatch: "2024.12.6",
+    verifiedOn: "2026-08-15",
     supportTier: "long-term-maintenance",
     extensionSurface: "panel-sdk",
     operatingSystems: {
@@ -98,7 +101,7 @@ export const AVID_RELEASE_TRACKS: readonly AvidReleaseTrack[] = [
       "Apple silicon support includes M1 through M4 families according to Avid's version matrix.",
       "License dongles are not supported on Apple silicon.",
     ],
-    source: "https://resources.avid.com/SupportFiles/attach/README_Avid_Editor_v24.12.pdf",
+    source: "https://kb.avid.com/pkb/articles/compatibility/en267087",
   },
 ] as const;
 

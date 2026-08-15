@@ -27,6 +27,7 @@ describe("Media Composer installation discovery", () => {
             "AvidMediaComposer.exe",
           ),
           exists: false,
+          applicationBundle: false,
         }),
       ]),
     );
@@ -41,6 +42,27 @@ describe("Media Composer installation discovery", () => {
       "/Applications/Avid Media Composer/AvidMediaComposer.app",
       "/Applications/Avid Media Composer.app",
     ]);
+    expect(result.candidates.every((candidate) => candidate.applicationBundle)).toBe(true);
+  });
+
+  it("labels a configured macOS application bundle without inventing a binary path", async () => {
+    const configured = path.resolve("fixtures", "Avid Media Composer.APP");
+    const result = await detectInstallations(
+      "macos",
+      { AVID_MCP_APPLICATION_PATH: configured },
+      async (candidate) => {
+        if (candidate !== configured) throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      },
+    );
+    expect(result.detected).toEqual([configured]);
+    expect(result.candidates).toContainEqual(
+      expect.objectContaining({
+        path: configured,
+        source: "environment",
+        applicationBundle: true,
+        exists: true,
+      }),
+    );
   });
 
   it("deduplicates an environment path matching a standard location", async () => {

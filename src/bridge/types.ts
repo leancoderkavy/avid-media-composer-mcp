@@ -4,10 +4,21 @@ import type {
   CompatibilityResult,
 } from "../compatibility/releases.js";
 
-export const AVID_BRIDGE_PROTOCOL_VERSION = 2;
+export const AVID_BRIDGE_PROTOCOL_VERSION = 3;
+
+export interface BridgeAuthentication {
+  algorithm: "hmac-sha256";
+  keyId: string;
+  nonce: string;
+  signedAt: string;
+  signature: string;
+}
 
 export interface BridgeCapabilities {
   protocolVersion: number;
+  supportedProtocolVersions: number[];
+  extensionId: string;
+  installationId: string;
   extensionVersion: string;
   mediaComposerVersion: string;
   platform: AvidPlatform;
@@ -15,6 +26,7 @@ export interface BridgeCapabilities {
   architecture: AvidArchitecture;
   sessionId: string;
   heartbeatAt: string;
+  stateRevision?: string;
   supportedActions: string[];
   supportedEditOperations: string[];
   project?: {
@@ -22,6 +34,7 @@ export interface BridgeCapabilities {
     name?: string;
     path?: string;
   };
+  authentication: BridgeAuthentication;
 }
 
 export interface BridgeStatus {
@@ -32,14 +45,20 @@ export interface BridgeStatus {
   heartbeatAgeMs?: number;
   capabilities?: BridgeCapabilities;
   compatibility?: CompatibilityResult;
+  negotiatedProtocolVersion?: number;
 }
 
 export interface BridgeRequest {
   protocolVersion: number;
   operationId: string;
+  clientSessionId: string;
+  requestSequence: number;
+  nonce: string;
   createdAt: string;
+  expiresAt: string;
   action: string;
   payload: Record<string, unknown>;
+  authentication: BridgeAuthentication;
 }
 
 export interface BridgeInspectStateData {
@@ -78,6 +97,9 @@ export interface BridgeEditPlanData {
 export interface BridgeResponse {
   protocolVersion: number;
   operationId: string;
+  clientSessionId: string;
+  requestSequence: number;
+  requestNonce: string;
   completedAt: string;
   ok: boolean;
   data?: BridgeInspectStateData | BridgeEditPlanData;
@@ -86,4 +108,5 @@ export interface BridgeResponse {
     message: string;
     details?: Record<string, unknown>;
   };
+  authentication: BridgeAuthentication;
 }

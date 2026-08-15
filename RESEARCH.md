@@ -1,7 +1,7 @@
 # Research: Avid Media Composer MCP
 
-Research date: 2026-07-25
-Method: focused Tavily searches and extraction across Avid documentation, GitHub, package registries, and comparable NLE/DAW MCP projects.
+Research date: 2026-08-15
+Method: focused Tavily searches and extraction across current official Avid documentation, GitHub, package registries, and comparable NLE/DAW MCP projects.
 
 ## Executive conclusion
 
@@ -18,14 +18,16 @@ The central constraint is access: Avid publicly describes its Extensions SDK, bu
 
 ### Media Composer Extensions
 
-Avid says Media Composer Extensions integrate tools directly into the editor and can work with the project, bin, or timeline. Media Composer 2025.12 renamed the Panel SDK surface to Extensions and added an Extensions menu.
+Avid says Media Composer Extensions integrate tools directly into the editor and can work with the project, bin, or timeline. Media Composer 2025.12 renamed third-party Panels to Media Composer Extensions and added an Extensions menu. The current 2025 documentation index lists 2025.12.2, while the Avid version matrix identifies it as the current 2025.12 patch and records the qualified operating-system ranges.
 
-The current developer landing page links to the SDK but states that partner onboarding is paused. This makes Extensions the correct target architecture, but not a dependency this repository can truthfully claim to have obtained or live-validated.
+The current developer landing page presents Extensions as a development surface, while the older onboarding page says new partner onboarding is paused. This unresolved public conflict makes Extensions the correct target architecture, but not a dependency this repository can truthfully claim to have obtained, packaged, signed, or live-validated. SDK access, license/redistribution terms, package format, and signing requirements must be confirmed directly with Avid.
 
 Sources:
 
 - [Avid Media Composer Extensions](https://connect.avid.com/media_composer_extensions.html)
 - [Avid Extensions / former Panel SDK onboarding](https://connect.avid.com/23-q4-global-mc-panel-sdk-lp.html)
+- [Media Composer 2025 Documentation](https://kb.avid.com/pkb/articles/en_US/User_Guide/Media-Composer-2025-Documentation)
+- [Avid Media Composer documentation and version matrix](https://kb.avid.com/pkb/articles/compatibility/en267087)
 - [Media Composer 2025.12 What's New](https://resources.avid.com/SupportFiles/attach/Media_Composer/2025.12/Media_Composer_v2025.12_What's_New.pdf)
 - [Avid overview of Media Composer Extensions](https://www.avid.com/resource-center/media-composer-extensions)
 
@@ -53,9 +55,12 @@ Avid documentation identifies AAF, ALE, and EDL as supported project/sequence/me
 
 AVB/AVP specifications are not public. This is why the implementation reports a distinction between decoded structures, independent `pyavb` results, and opaque binary evidence.
 
+Media Composer 2025.6 added OTIO import alongside export. OTIO is therefore a valuable, supported interchange lane for future handoff packages, but it is not evidence of live control over an open project or timeline. The implementation should validate conservative OTIO output and report documented loss or relink constraints instead of treating a successful export as an in-host edit.
+
 Sources:
 
 - [Media Composer 2025.x Editing Guide](https://resources.avid.com/SupportFiles/attach/Media_Composer/Media_Composer_v2025.x_Editing_Guide.pdf)
+- [Media Composer 2025.6 What's New](https://www.avid.com/resource-center/whats-new-avid-media-composer-20256)
 - [Avid File-based Workflows Guide](https://resources.avid.com/SupportFiles/attach/FileBased_WorkflowsGuide.pdf)
 - [pyavb](https://github.com/markreidvfx/pyavb)
 - [pyaaf2](https://github.com/markreidvfx/pyaaf2)

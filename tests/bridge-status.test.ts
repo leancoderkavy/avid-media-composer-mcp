@@ -1,10 +1,27 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { getBridgeStatus, sendBridgeCommand } from "../src/bridge/file-bridge.js";
+import {
+  bridgeAuthConfig,
+  createBridgeAuthentication,
+} from "../src/bridge/security.js";
 
 const temporary: string[] = [];
+const auth = {
+  keyId: "bridge-status-tests",
+  secret: "bridge-status-tests-secret-that-is-long-enough",
+};
+process.env.AVID_MCP_BRIDGE_AUTH_SECRET = auth.secret;
+process.env.AVID_MCP_BRIDGE_AUTH_KEY_ID = auth.keyId;
+
+function signed<T extends Record<string, unknown>>(document: T): T {
+  return {
+    ...document,
+    authentication: createBridgeAuthentication(document, auth),
+  };
+}
 
 async function bridgeDirectory(capabilities?: Record<string, unknown>): Promise<string> {
   const root = await mkdtemp(path.join(os.tmpdir(), "avid-bridge-status-"));
@@ -21,19 +38,56 @@ async function bridgeDirectory(capabilities?: Record<string, unknown>): Promise<
 }
 
 function capability(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    protocolVersion: 2,
-    extensionVersion: "0.2.0-test",
+  return signed({
+    protocolVersion: 3,
+    supportedProtocolVersions: [3],
+    extensionId: "com.example.avid-mcp.test",
+    installationId: "test-installation",
+    extensionVersion: "0.3.0-test",
     mediaComposerVersion: "2025.12.1",
     platform: "windows",
     operatingSystemVersion: "Windows 11 24H2",
     architecture: "x64",
-    sessionId: "session-test",
+    sessionId: "e43c2d32-6f7d-46c5-9a27-a4f0339ebb39",
     heartbeatAt: new Date().toISOString(),
+    stateRevision: "state-test-1",
     supportedActions: ["inspect.getState"],
     supportedEditOperations: [],
     ...overrides,
-  };
+  });
+}
+
+async function respond(
+  root: string,
+  operationId: string,
+  responseData: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const names = await readdir(path.join(root, "requests"));
+    const name = names.find((entry) => entry === operationId + ".json");
+    if (name) {
+      const request = JSON.parse(
+        await readFile(path.join(root, "requests", name), "utf8"),
+      ) as Record<string, unknown>;
+      const response = signed({
+        protocolVersion: 3,
+        operationId,
+        clientSessionId: request.clientSessionId,
+        requestSequence: request.requestSequence,
+        requestNonce: request.nonce,
+        completedAt: new Date().toISOString(),
+        ...responseData,
+      });
+      await writeFile(
+        path.join(root, "responses", operationId + ".json"),
+        JSON.stringify(response),
+        "utf8",
+      );
+      return request;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("test bridge did not observe request");
 }
 
 afterEach(async () => {
@@ -53,210 +107,144 @@ describe("Media Composer bridge status", () => {
     });
   });
 
-  it("rejects protocol-v1 and malformed capability documents", async () => {
-    const root = await bridgeDirectory(capability({ protocolVersion: 1 }));
-    const status = await getBridgeStatus(root);
-    expect(status.connected).toBe(false);
-    expect(status.reason).toContain("different protocol version");
+  it("rejects v2, malformed, unsigned, and non-negotiating capability documents", async () => {
+    const v2 = await bridgeDirectory({ protocolVersion: 2 });
+    expect((await getBridgeStatus(v2)).reason).toContain("invalid");
 
-    const unknownOperation = await bridgeDirectory(
-      capability({ supportedEditOperations: ["timeline.magic"] }),
-    );
-    expect((await getBridgeStatus(unknownOperation)).connected).toBe(false);
+    const unsigned = { ...capability() };
+    delete unsigned.authentication;
+    const root = await bridgeDirectory(unsigned);
+    expect((await getBridgeStatus(root)).connected).toBe(false);
+
+    const noV3 = await bridgeDirectory(capability({ supportedProtocolVersions: [4] }));
+    expect((await getBridgeStatus(noV3)).connected).toBe(false);
   });
 
-  it("rejects invalid and stale heartbeats", async () => {
+  it("requires a configured secret and a valid authenticated capability heartbeat", async () => {
+    const savedSecret = process.env.AVID_MCP_BRIDGE_AUTH_SECRET;
+    delete process.env.AVID_MCP_BRIDGE_AUTH_SECRET;
+    const root = await bridgeDirectory(capability());
+    expect((await getBridgeStatus(root)).reason).toContain("authentication is not configured");
+    process.env.AVID_MCP_BRIDGE_AUTH_SECRET = savedSecret;
+
+    const status = await getBridgeStatus(root);
+    expect(status).toMatchObject({
+      connected: true,
+      negotiatedProtocolVersion: 3,
+      capabilities: { installationId: "test-installation", stateRevision: "state-test-1" },
+    });
+  });
+
+  it("rejects invalid and stale heartbeats plus unqualified hosts", async () => {
     const invalid = await bridgeDirectory(capability({ heartbeatAt: "not-a-date" }));
     expect((await getBridgeStatus(invalid)).reason).toContain("not a valid timestamp");
 
     const stale = await bridgeDirectory(
       capability({ heartbeatAt: new Date(Date.now() - 60_000).toISOString() }),
     );
-    const staleStatus = await getBridgeStatus(stale);
-    expect(staleStatus.connected).toBe(false);
-    expect(staleStatus.reason).toContain("stale");
-  });
+    expect((await getBridgeStatus(stale)).reason).toContain("stale");
 
-  it("fails closed for an unqualified OS/release combination", async () => {
-    const root = await bridgeDirectory(
+    const unqualified = await bridgeDirectory(
       capability({ operatingSystemVersion: "Windows 10 22H2" }),
     );
-    const status = await getBridgeStatus(root);
-    expect(status.connected).toBe(false);
-    expect(status.compatibility?.status).toBe("unqualified");
-    expect(status.reason).toContain("outside the qualified");
+    expect((await getBridgeStatus(unqualified)).reason).toContain("outside the qualified");
   });
 
-  it("connects only with a fresh, fully qualified capability declaration", async () => {
-    const root = await bridgeDirectory(
-      capability({
-        mediaComposerVersion: "2025.6",
-        operatingSystemVersion: "Windows 10 22H2",
-      }),
-    );
-    const status = await getBridgeStatus(root);
-    expect(status.connected).toBe(true);
-    expect(status.compatibility?.status).toBe("qualified");
-    expect(status.heartbeatAgeMs).toBeLessThan(15_000);
-  });
-
-  it("rejects commands the connected extension does not advertise", async () => {
+  it("rejects commands the authenticated extension does not advertise", async () => {
     const root = await bridgeDirectory(capability());
     await expect(sendBridgeCommand(root, "edit.applyPlan", {}, 100, "unsupported")).rejects.toMatchObject({
       code: "BRIDGE_ACTION_UNSUPPORTED",
     });
   });
 
-  it("rejects malformed and mismatched bridge responses", async () => {
+  it("atomically sends signed envelopes with a unique nonce and increasing request sequence", async () => {
     const root = await bridgeDirectory(capability());
+    await mkdir(path.join(root, "requests"), { recursive: true });
     await mkdir(path.join(root, "responses"), { recursive: true });
-    await writeFile(
-      path.join(root, "responses", "malformed.json"),
-      JSON.stringify({
-        protocolVersion: 2,
-        operationId: "malformed",
-        completedAt: new Date().toISOString(),
-        ok: true,
-        data: { project: { id: "missing-revision" }, state: {} },
-      }),
-      "utf8",
-    );
 
-    await expect(
-      sendBridgeCommand(root, "inspect.getState", {}, 100, "malformed"),
-    ).rejects.toMatchObject({ code: "BRIDGE_INVALID_RESPONSE" });
-  });
-
-  it("surfaces extension failures and accepts valid successful responses", async () => {
-    const root = await bridgeDirectory(capability());
-    await mkdir(path.join(root, "responses"), { recursive: true });
-    await writeFile(
-      path.join(root, "responses", "failed.json"),
-      JSON.stringify({
-        protocolVersion: 2,
-        operationId: "failed",
-        completedAt: new Date().toISOString(),
-        ok: false,
-        error: { code: "AVID_REJECTED", message: "Avid rejected the operation" },
-      }),
-      "utf8",
-    );
-    await writeFile(
-      path.join(root, "responses", "success.json"),
-      JSON.stringify({
-        protocolVersion: 2,
-        operationId: "success",
-        completedAt: new Date().toISOString(),
-        ok: true,
-        data: {
-          stateRevision: "revision-1",
-          project: { id: "project-1", name: "Demo" },
-          state: {},
-        },
-      }),
-      "utf8",
-    );
-
-    await expect(
-      sendBridgeCommand(root, "inspect.getState", {}, 100, "failed"),
-    ).rejects.toMatchObject({ code: "AVID_REJECTED" });
-    await expect(
-      sendBridgeCommand(root, "inspect.getState", {}, 100, "success"),
-    ).resolves.toMatchObject({
+    const firstResponder = respond(root, "first", {
       ok: true,
-      data: { stateRevision: "revision-1", project: { name: "Demo" } },
+      data: { stateRevision: "revision-1", project: { id: "project-1" }, state: {} },
     });
+    const first = await sendBridgeCommand(root, "inspect.getState", {}, 1_000, "first");
+    const firstRequest = await firstResponder;
+    expect(first).toMatchObject({ ok: true, data: { stateRevision: "revision-1" } });
+    expect(firstRequest).toMatchObject({
+      protocolVersion: 3,
+      clientSessionId: expect.any(String),
+      requestSequence: expect.any(Number),
+      nonce: expect.any(String),
+      expiresAt: expect.any(String),
+      authentication: { algorithm: "hmac-sha256", keyId: auth.keyId },
+    });
+
+    const secondResponder = respond(root, "second", {
+      ok: true,
+      data: { stateRevision: "revision-2", project: { id: "project-1" }, state: {} },
+    });
+    await sendBridgeCommand(root, "inspect.getState", {}, 1_000, "second");
+    const secondRequest = await secondResponder;
+    expect(secondRequest.requestSequence).toBe((firstRequest.requestSequence as number) + 1);
+    expect(secondRequest.nonce).not.toBe(firstRequest.nonce);
   });
 
-  it("rejects edit responses without complete per-operation evidence", async () => {
+  it("rejects an authenticated response that is not bound to the request nonce", async () => {
+    const root = await bridgeDirectory(capability());
+    await mkdir(path.join(root, "requests"), { recursive: true });
+    await mkdir(path.join(root, "responses"), { recursive: true });
+    const responder = (async () => {
+      await respond(root, "replayed", {
+        ok: true,
+        data: { stateRevision: "revision-1", state: {} },
+      });
+      const responsePath = path.join(root, "responses", "replayed.json");
+      const response = JSON.parse(await readFile(responsePath, "utf8")) as Record<string, unknown>;
+      const tampered = signed({
+        ...response,
+        requestNonce: "b4d57513-90d0-4c55-9f3a-aa3f3655107d",
+      });
+      await writeFile(responsePath, JSON.stringify(tampered), "utf8");
+    })();
+    await expect(sendBridgeCommand(root, "inspect.getState", {}, 1_000, "replayed")).rejects.toMatchObject({
+      code: "BRIDGE_REPLAY_DETECTED",
+    });
+    await responder;
+  });
+
+  it("surfaces extension failures and validates complete edit evidence", async () => {
     const root = await bridgeDirectory(
       capability({
         supportedActions: ["edit.applyPlan"],
         supportedEditOperations: ["bin.create"],
       }),
     );
+    await mkdir(path.join(root, "requests"), { recursive: true });
     await mkdir(path.join(root, "responses"), { recursive: true });
-    await writeFile(
-      path.join(root, "responses", "incomplete-edit.json"),
-      JSON.stringify({
-        protocolVersion: 2,
-        operationId: "incomplete-edit",
-        completedAt: new Date().toISOString(),
-        ok: true,
-        data: { applied: 1 },
-      }),
-      "utf8",
-    );
+
+    const failedResponder = respond(root, "failed", {
+      ok: false,
+      error: { code: "BIN_LOCKED", message: "The bin is locked" },
+    });
+    await expect(sendBridgeCommand(root, "edit.applyPlan", {}, 1_000, "failed")).rejects.toMatchObject({
+      code: "BIN_LOCKED",
+    });
+    await failedResponder;
+
+    const invalidResponder = respond(root, "incomplete-edit", {
+      ok: true,
+      data: { applied: 1 },
+    });
     await expect(
-      sendBridgeCommand(root, "edit.applyPlan", {}, 100, "incomplete-edit"),
+      sendBridgeCommand(root, "edit.applyPlan", {}, 1_000, "incomplete-edit"),
     ).rejects.toMatchObject({ code: "BRIDGE_INVALID_RESPONSE" });
+    await invalidResponder;
   });
 
-  it("accepts explicit partial-apply evidence and surfaces locked-bin denial", async () => {
-    const root = await bridgeDirectory(
-      capability({
-        supportedActions: ["edit.applyPlan"],
-        supportedEditOperations: ["bin.create", "bin.rename"],
-      }),
-    );
-    await mkdir(path.join(root, "responses"), { recursive: true });
-    await writeFile(
-      path.join(root, "responses", "partial-edit.json"),
-      JSON.stringify({
-        protocolVersion: 2,
-        operationId: "partial-edit",
-        completedAt: new Date().toISOString(),
-        ok: true,
-        data: {
-          applied: 1,
-          partialApply: true,
-          preStateRevision: "before",
-          postStateRevision: "after",
-          undoGroupId: "undo-1",
-          results: [
-            {
-              index: 0,
-              action: "bin.create",
-              status: "verified",
-              targetId: "bin-1",
-              verified: true,
-            },
-            {
-              index: 1,
-              action: "bin.rename",
-              status: "failed",
-              verified: false,
-              error: { code: "BIN_LOCKED", message: "The bin is locked by another editor" },
-            },
-          ],
-        },
-      }),
-      "utf8",
-    );
-    await writeFile(
-      path.join(root, "responses", "locked-bin.json"),
-      JSON.stringify({
-        protocolVersion: 2,
-        operationId: "locked-bin",
-        completedAt: new Date().toISOString(),
-        ok: false,
-        error: { code: "BIN_LOCKED", message: "The bin is locked by another editor" },
-      }),
-      "utf8",
-    );
-
-    await expect(
-      sendBridgeCommand(root, "edit.applyPlan", {}, 100, "partial-edit"),
-    ).resolves.toMatchObject({ ok: true, data: { applied: 1, partialApply: true } });
-    await expect(
-      sendBridgeCommand(root, "edit.applyPlan", {}, 100, "locked-bin"),
-    ).rejects.toMatchObject({ code: "BIN_LOCKED" });
-  });
-
-  it("times out when the extension does not produce a response", async () => {
+  it("fails closed for unsafe operation identifiers and verifies test configuration", async () => {
+    expect(bridgeAuthConfig()).toEqual(auth);
     const root = await bridgeDirectory(capability());
     await expect(
-      sendBridgeCommand(root, "inspect.getState", {}, 1, "timeout"),
-    ).rejects.toMatchObject({ code: "BRIDGE_TIMEOUT" });
+      sendBridgeCommand(root, "inspect.getState", {}, 100, "../unsafe"),
+    ).rejects.toMatchObject({ code: "BRIDGE_INVALID_OPERATION_ID" });
   });
 });

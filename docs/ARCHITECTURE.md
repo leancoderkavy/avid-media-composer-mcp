@@ -11,7 +11,7 @@
 
 ### MCP server
 
-`src/server.ts` exposes 19 tools, one resource, and two workflow prompts over local stdio. Tool results use a stable structured envelope:
+`src/server.ts` exposes 20 tools, one resource, and two workflow prompts over local stdio. Tool results use a stable structured envelope:
 
 ```json
 {
@@ -50,7 +50,7 @@ The Node process launches it without a shell, applies a timeout and output ceili
 
 ### Extension bridge
 
-The live bridge uses an explicitly configured local mailbox:
+The live bridge uses an explicitly configured, authenticated local mailbox:
 
 ```text
 bridge/
@@ -59,10 +59,14 @@ bridge/
   responses/<operation-id>.json
 ```
 
-The extension publishes a fresh heartbeat plus Media Composer version, host platform, OS version,
-architecture, supported bridge commands, and supported edit operations. Protocol v2 rejects hosts
-outside the qualified three-release matrix. The MCP still does not infer operation support from
-Media Composer version alone.
+The extension publishes a signed fresh heartbeat plus extension/installation/session identity,
+optional state revision, Media Composer version, host platform, OS version, architecture,
+supported bridge commands, and supported edit operations. Protocol v3 authenticates capability,
+request, and response envelopes with an installation secret; it includes request nonce, expiry,
+client session, and monotonically increasing sequence binding, and rejects v1/v2 downgrade,
+symlinked mailbox paths, replayed responses, and hosts outside the qualified three-release matrix.
+The MCP still does not infer operation support from Media Composer version alone. This is a contract
+for a future sanctioned Extension, not evidence that an Avid host bridge exists.
 
 ### Version and platform compatibility
 
@@ -79,6 +83,7 @@ An edit plan contains:
 - operation arguments;
 - expected-state guards;
 - explicit destructive opt-in.
+- a per-operation expected-state guard required before a live mutation request.
 
 Canonical key ordering produces a stable SHA-256 confirmation token. Any plan change invalidates the token.
 

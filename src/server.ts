@@ -11,6 +11,7 @@ import { analyzeConfigurationFile } from "./analysis/configuration.js";
 import { analyzeEdl } from "./analysis/edl.js";
 import { inventoryFiles } from "./analysis/file-inventory.js";
 import { analyzeMediaFile, probeFfprobe } from "./analysis/media.js";
+import { analyzeOtio } from "./analysis/otio.js";
 import {
   analyzeAafWithPython,
   analyzeAvbWithPython,
@@ -180,6 +181,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
               "AVB bin analysis through pyavb when installed",
               "AAF analysis through pyaaf2 when installed",
               "ALE and CMX-style EDL parsing",
+              "bounded OTIO structural analysis and interchange-fidelity warnings",
               "clip/container/stream analysis through ffprobe",
               "guarded edit-plan preview",
             ],
@@ -493,6 +495,33 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
         requireInspect(config);
         const filePath = await resolveReadablePath(edl_path, config.allowedRoots, "file");
         return analyzeEdl(filePath);
+      }),
+  );
+
+  server.registerTool(
+    "avid_analyze_otio",
+    {
+      title: "Analyze OTIO",
+      description:
+        "Perform bounded, read-only structural validation of an OpenTimelineIO JSON file and report Media Composer interchange-fidelity risks without importing or modifying it.",
+      inputSchema: {
+        otio_path: z.string().min(1),
+        max_bytes: z.number().int().min(1_024).max(64 * 1024 * 1024).default(16 * 1024 * 1024),
+        max_depth: z.number().int().min(1).max(64).default(32),
+        max_items: z.number().int().min(1).max(10_000).default(500),
+      },
+      outputSchema: TOOL_OUTPUT_SCHEMA,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async ({ otio_path, max_bytes, max_depth, max_items }) =>
+      execute("avid_analyze_otio", async () => {
+        requireInspect(config);
+        const filePath = await resolveReadablePath(otio_path, config.allowedRoots, "file");
+        return analyzeOtio(filePath, {
+          maxBytes: max_bytes,
+          maxDepth: max_depth,
+          maxItems: max_items,
+        });
       }),
   );
 
