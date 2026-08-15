@@ -6,6 +6,8 @@ export interface AvidInstallationCandidate {
   platform: AvidPlatform;
   path: string;
   source: "environment" | "standard-location";
+  /** Whether this candidate is an application bundle rather than an executable. */
+  applicationBundle: boolean;
   exists: boolean;
 }
 
@@ -18,7 +20,15 @@ export async function detectInstallations(
   const paths =
     platform === "windows"
       ? [
-          ...(configured ? [{ path: path.resolve(configured), source: "environment" as const }] : []),
+          ...(configured
+            ? [
+                {
+                  path: path.resolve(configured),
+                  source: "environment" as const,
+                  applicationBundle: false,
+                },
+              ]
+            : []),
           {
             path: path.join(
               env.ProgramFiles ?? "C:\\Program Files",
@@ -27,6 +37,7 @@ export async function detectInstallations(
               "AvidMediaComposer.exe",
             ),
             source: "standard-location" as const,
+            applicationBundle: false,
           },
           {
             path: path.join(
@@ -36,17 +47,28 @@ export async function detectInstallations(
               "Avid Media Composer.exe",
             ),
             source: "standard-location" as const,
+            applicationBundle: false,
           },
         ]
       : [
-          ...(configured ? [{ path: path.resolve(configured), source: "environment" as const }] : []),
+          ...(configured
+            ? [
+                {
+                  path: path.resolve(configured),
+                  source: "environment" as const,
+                  applicationBundle: configured.toLowerCase().endsWith(".app"),
+                },
+              ]
+            : []),
           {
             path: "/Applications/Avid Media Composer/AvidMediaComposer.app",
             source: "standard-location" as const,
+            applicationBundle: true,
           },
           {
             path: "/Applications/Avid Media Composer.app",
             source: "standard-location" as const,
+            applicationBundle: true,
           },
         ];
   const unique = [...new Map(paths.map((item) => [item.path, item])).values()];

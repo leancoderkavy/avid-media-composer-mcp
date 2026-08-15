@@ -20,8 +20,15 @@
 
 ## Phase 2 — sanctioned Media Composer Extension
 
+Media Composer 2025.12 renamed the former Panel SDK/panels surface to **Media Composer
+Extensions** and introduced an Extensions menu. This is the correct integration target, but it
+does not grant this project SDK access, packaging rights, signing authority, or a verified host
+bridge. Avid's current public product page encourages extension development while an older
+onboarding page says new partner onboarding is paused; the team must resolve that conflict in
+writing with Avid before committing to a live-control date.
+
 - [ ] Obtain Avid Extensions SDK access and confirm license/redistribution terms.
-- [ ] Scaffold the `.avpi` extension without committing proprietary SDK material.
+- [ ] Scaffold an Avid-supported Extension package without committing proprietary SDK material or guessing a `.avpi` layout.
 - [ ] Implement heartbeat and capability negotiation.
 - [ ] Implement full live-state inspection.
 - [ ] Map every catalog action to a supported SDK method or mark it unsupported.
@@ -29,6 +36,7 @@
 - [x] Define and validate undo grouping and partial-apply reporting in protocol v2.
 - [ ] Implement undo grouping and partial-apply reporting in a sanctioned Extension.
 - [ ] Validate on disposable projects in supported 2024.12.x, 2025.6, and 2025.12.x hosts as access permits.
+- [ ] Record separate evidence for Extension installed, MCP connected, read state matched, host mutation visible, post-state matched, save/reopen persisted, and undo/recovery succeeded.
 
 ## Phase 3 — deeper analysis
 
@@ -38,6 +46,7 @@
 - [ ] Project snapshot/diff reports.
 - [ ] Cross-bin mob/source usage graph.
 - [ ] Sequence complexity, effect, render, relink, and turnover reports.
+- [ ] Add conservative OTIO inspection and Media Composer handoff validation. OTIO import/export is an interchange lane, not live timeline control; report unsupported effects, nested timelines, retimes, and multichannel-audio fidelity rather than silently altering them.
 
 ## Phase 4 — enterprise adapters
 
@@ -58,3 +67,10 @@ For each live operation:
 6. post-state capture;
 7. undo/rollback evidence where applicable;
 8. supported Media Composer version record.
+
+## Current release boundary
+
+The offline analyzer and interchange work can ship independently. The 167-action catalog,
+file-bridge protocol, or a simulated test result must never be presented as an edit performed by
+Media Composer. A live-control release additionally requires confirmed Avid SDK terms, an
+Avid-supported installed Extension, and the real-host evidence above for every advertised action.
