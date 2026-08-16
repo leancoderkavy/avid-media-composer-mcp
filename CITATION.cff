@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If this software supports your research or workflow, cite the repository using this metadata."
 title: "Avid Media Composer MCP Server"
 type: software
-version: 0.2.0
-date-released: 2026-07-25
+version: 1.1.0
+date-released: 2026-08-15
 authors:
   - name: "Avid Media Composer MCP contributors"
 repository-code: "https://github.com/leancoderkavy/avid-media-composer-mcp"

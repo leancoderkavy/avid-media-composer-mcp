@@ -18,14 +18,14 @@ verification, and real Media Composer validation. A later state must identify th
 7. Deploy the exact merged SHA to Fly, Vercel, and GitHub Pages; verify canonical aliases, headers,
    unauthenticated `401`, authenticated MCP discovery, and production telemetry receipt.
 
-## Stable 1.0
+## Stable release
 
 1. Promote only after the release-candidate install and production checks pass.
-2. Change package, lockfile, changelog, README, and landing metadata from the verified release
-   candidate to `1.0.0`/`latest`.
+2. Change package, lockfile, changelog, README, citation, and landing metadata from the verified
+   release candidate to the stable version and `latest`.
 3. Repeat every required check on the final commit and merge through protected `main`.
 4. Publish with provenance under `latest`, create the matching GitHub release/tag, and verify both
-   `npm view avid-media-composer-mcp@1.0.0 version` and the `latest` distribution tag.
+   the exact stable version and the `latest` distribution tag.
 5. Recheck production aliases, remote `main`, CI, CodeQL, open pull requests, and npm metadata.
 
 ## Explicit non-gates

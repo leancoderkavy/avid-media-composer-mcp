@@ -4,7 +4,7 @@ An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextp
 
 [Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
 
-Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The `1.1.0-rc.1` release candidate adds marker/SVG, transcript, DNx turnover, OTIO handoff, CTMS, and integration diagnostics to the stable 1.0 analysis foundation. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
+Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The stable `1.1.0` release adds marker/SVG, transcript, DNx turnover, OTIO handoff, CTMS, and integration diagnostics to the 1.0 analysis foundation. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
 
 The server also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible Avid Extension is connected and advertises each supported operation.
 

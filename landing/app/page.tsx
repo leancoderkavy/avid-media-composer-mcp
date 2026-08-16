@@ -45,7 +45,7 @@ const structuredData = {
       "@type": "SoftwareSourceCode",
       "@id": "https://avid-media-composer-mcp.vercel.app/#software",
       name: "Avid Media Composer MCP Server",
-      version: "1.1.0-rc.1",
+      version: "1.1.0",
       description: "Open-source MCP server for read-only Avid project analysis and guarded editing automation.",
       url: "https://avid-media-composer-mcp.vercel.app/",
       codeRepository: repo,
