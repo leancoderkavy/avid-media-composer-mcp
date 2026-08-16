@@ -51,4 +51,34 @@ describe("configuration analysis", () => {
     expect(result.truncated).toBe(true);
     expect(result.binary?.magicHex).toHaveLength(64);
   });
+
+  it("parses JSON configurations and tolerates JSON-looking plain text", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "avid-mcp-json-config-"));
+    temporary.push(root);
+    const valid = path.join(root, "valid.avp");
+    const invalid = path.join(root, "invalid.avp");
+    await Promise.all([
+      writeFile(valid, '{"format":"1080p24","enabled":true}', "utf8"),
+      writeFile(invalid, "{not-json}\nRate: 24\n# ignored=true\n", "utf8"),
+    ]);
+    const parsed = await analyzeConfigurationFile(valid);
+    expect(parsed.text?.parsedJson).toEqual({ format: "1080p24", enabled: true });
+    const fallback = await analyzeConfigurationFile(invalid);
+    expect(fallback.text?.parsedJson).toBeUndefined();
+    expect(fallback.text?.keyValues).toEqual({ Rate: "24" });
+  });
+
+  it("extracts unique ASCII and UTF-16 strings from binary prefixes", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "avid-mcp-string-config-"));
+    temporary.push(root);
+    const filePath = path.join(root, "strings.avs");
+    const binary = Buffer.concat([
+      Buffer.from([0, 1, 2, 0, 3, 4, 0, 5]), Buffer.from("ASCII_VALUE"), Buffer.from([0, 0, 0, 255, 0]),
+    ]);
+    await writeFile(filePath, binary);
+    const result = await analyzeConfigurationFile(filePath);
+    expect(result.binary?.asciiStrings).toContain("ASCII_VALUE");
+    expect(result.binary?.utf16LeStrings).toBeDefined();
+    expect(result.binary?.entropyBitsPerByte).toBeGreaterThan(0);
+  });
 });

@@ -34,4 +34,23 @@ describe("local transcript revision QC", () => {
     const revision = { tokens: Array.from({ length: 3 }, (_, index) => ({ text: String(index), startSeconds: index, endSeconds: index + 0.5 })) };
     expect(() => compareTranscriptRevisions(revision, revision, { maxComparisonCells: 4 })).toThrow(/bounded-work/i);
   });
+
+  it("rejects invalid text, timing, confidence, and QC limits", () => {
+    expect(() => inspectTranscriptRevision({ tokens: [{ text: "  ", startSeconds: 0, endSeconds: 1 }] })).toThrow(/non-empty/);
+    expect(() => inspectTranscriptRevision({ tokens: [{ text: "x", startSeconds: -1, endSeconds: 1 }] })).toThrow(/timing/);
+    expect(() => inspectTranscriptRevision({ tokens: [{ text: "x", startSeconds: 0, endSeconds: Number.NaN }] })).toThrow(/timing/);
+    expect(() => inspectTranscriptRevision({ tokens: [{ text: "x", startSeconds: 0, endSeconds: 1, confidence: 2 }] })).toThrow(/confidence/);
+    expect(() => inspectTranscriptRevision({ tokens: [], }, { gapThresholdSeconds: -1 })).toThrow(/gapThresholdSeconds/);
+    expect(() => compareTranscriptRevisions({ tokens: [] }, { tokens: [] }, { maxComparisonCells: 0 })).toThrow(/positive integer/);
+  });
+
+  it("reports invalid durations and follows both LCS backtracking directions", () => {
+    const qc = inspectTranscriptRevision({ tokens: [{ text: "x", startSeconds: 2, endSeconds: 1, speaker: " " }] });
+    expect(qc).toMatchObject({ invalidDurationCount: 1, speakerLabelCount: 0 });
+    const comparison = compareTranscriptRevisions(
+      { tokens: [{ text: "a", startSeconds: 0, endSeconds: 1 }, { text: "b", startSeconds: 1, endSeconds: 2 }] },
+      { tokens: [{ text: "b", startSeconds: 1, endSeconds: 2 }, { text: "c", startSeconds: 2, endSeconds: 3 }] },
+    );
+    expect(comparison).toMatchObject({ commonTokenCount: 1, insertedTokenCount: 1, removedTokenCount: 1 });
+  });
 });
