@@ -64,6 +64,53 @@ describe("guarded edit plans", () => {
     ).toThrow("Unknown edit action");
   });
 
+  it("rejects malformed plans and non-JSON operation values at every boundary", () => {
+    const invalidPlans: Array<[unknown, RegExp]> = [
+      [null, /must be an object/],
+      [{}, /at least one operation/],
+      [{ operations: Array.from({ length: 101 }, () => ({ action: "bin.create", arguments: {} })) }, /limited to 100/],
+      [{ operations: [null] }, /requires an action/],
+      [{ operations: [{ action: "bin.create", arguments: [] }] }, /arguments must be an object/],
+      [{ operations: [{ action: "bin.create", arguments: { bad: Number.NaN } }] }, /only JSON values/],
+      [{ operations: [{ action: "bin.create", arguments: { bad: new Date() } }] }, /only JSON values/],
+      [{ operations: [{ action: "bin.create", arguments: {}, expectedState: [] }] }, /expectedState must be an object/],
+    ];
+    for (const [value, message] of invalidPlans) expect(() => validateEditPlan(value)).toThrow(message);
+  });
+
+  it("enforces aggregate node and string budgets and retains optional plan fields", () => {
+    expect(() => validateEditPlan({
+      operations: [{ action: "bin.create", arguments: { values: Array.from({ length: 10_001 }, () => null) } }],
+    })).toThrow(/node limit/);
+    expect(() => validateEditPlan({
+      operations: [{ action: "bin.create", arguments: { value: "x".repeat(1024 * 1024 + 1) } }],
+    })).toThrow(/string-size limit/);
+    expect(() => validateEditPlan({
+      rationale: "x".repeat(16_385), operations: [{ action: "bin.create", arguments: {} }],
+    })).toThrow(/rationale exceeds/);
+
+    expect(validateEditPlan({
+      projectId: "p1", projectPath: "/project", rationale: "test", allowDestructive: false,
+      ignored: 1, operations: [{ action: "bin.create", arguments: { enabled: true, value: null, list: [1, "a"] }, expectedState: {} }],
+    })).toMatchObject({ projectId: "p1", projectPath: "/project", rationale: "test", allowDestructive: false });
+  });
+
+  it("rejects bad tokens, destructive plans without opt-in, and guarded plans without a bridge", async () => {
+    const guarded = { operations: [{ action: "bin.create", arguments: {}, expectedState: { projectId: "p1" } }] };
+    await expect(applyEditPlan(guarded, "bad", config({ capabilities: new Set(["inspect", "edit"]) }), () => undefined))
+      .rejects.toMatchObject({ code: "CONFIRMATION_TOKEN_MISMATCH" });
+
+    const destructive = validateEditPlan({
+      operations: [{ action: "bin.delete", arguments: {}, expectedState: { projectId: "p1" } }],
+    });
+    await expect(applyEditPlan(destructive, confirmationToken(destructive), config({ capabilities: new Set(["inspect", "edit"]) }), () => undefined))
+      .rejects.toMatchObject({ code: "DESTRUCTIVE_OPT_IN_REQUIRED" });
+
+    const validated = validateEditPlan(guarded);
+    await expect(applyEditPlan(validated, confirmationToken(validated), config({ capabilities: new Set(["inspect", "edit"]) }), () => undefined))
+      .rejects.toMatchObject({ code: "BRIDGE_NOT_CONNECTED" });
+  });
+
   it("rejects deeply nested, cyclic, or prototype-sensitive plan values", () => {
     let nested: Record<string, unknown> = {};
     for (let depth = 0; depth < 25; depth += 1) nested = { child: nested };

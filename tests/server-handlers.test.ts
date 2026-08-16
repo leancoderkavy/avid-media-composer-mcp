@@ -2,14 +2,14 @@ import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import packageJson from "../package.json" with { type: "json" };
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerConfig } from "../src/config.js";
 import { createServer } from "../src/server.js";
 
 const fixture = path.resolve("tests/fixtures/sample-project");
 const cleanup: Array<() => Promise<void>> = [];
 
-function config(): ServerConfig {
+function config(overrides: Partial<ServerConfig> = {}): ServerConfig {
   return {
     allowedRoots: [fixture],
     capabilities: new Set(["inspect"]),
@@ -19,11 +19,12 @@ function config(): ServerConfig {
     maxBins: 20,
     maxMediaFiles: 20,
     commandTimeoutMs: 2_000,
+    ...overrides,
   };
 }
 
-async function clientServer(): Promise<Client> {
-  const server = createServer(config());
+async function clientServer(overrides: Partial<ServerConfig> = {}): Promise<Client> {
+  const server = createServer(config(overrides));
   const client = new Client({ name: "avid-handler-tests", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -44,6 +45,7 @@ function data(result: Awaited<ReturnType<Client["callTool"]>>): Record<string, u
 
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((close) => close()));
+  vi.unstubAllGlobals();
 });
 
 describe("MCP tool handlers", () => {
@@ -209,5 +211,114 @@ describe("MCP tool handlers", () => {
       type: "text",
       text: expect.stringContaining("Create a selects bin"),
     });
+  });
+
+  it("dispatches every remaining read-only analysis handler", async () => {
+    const client = await clientServer();
+    const calls: Array<{ name: string; arguments: Record<string, unknown> }> = [
+      { name: "avid_detect_installations", arguments: { platform: "windows" } },
+      {
+        name: "avid_analyze_bin",
+        arguments: { bin_path: path.join(fixture, "Editorial.avb"), max_depth: 2, max_items: 10 },
+      },
+      {
+        name: "avid_analyze_aaf",
+        arguments: { aaf_path: path.join(fixture, "Editorial.avb"), max_depth: 2, max_items: 10 },
+      },
+      {
+        name: "avid_analyze_otio",
+        arguments: { otio_path: path.join(fixture, "Timeline.otio"), max_bytes: 1_000_000, max_depth: 16, max_items: 100 },
+      },
+      {
+        name: "avid_preview_otio_handoff",
+        arguments: {
+          otio_path: path.join(fixture, "Timeline.otio"),
+          media_roots: [fixture],
+          include_checksums: false,
+          max_media_references: 100,
+          max_checksum_bytes: 1_000_000,
+        },
+      },
+      {
+        name: "avid_validate_marker_package",
+        arguments: {
+          markers: [{ id: "m1", timecode: "01:00:00:00", text: "Review", color: "red", svg_overlay: "<svg><rect/></svg>" }],
+          source_start_timecode: "01:00:00:00",
+          source_end_timecode: "01:00:10:00",
+          frame_rate: 24,
+        },
+      },
+      {
+        name: "avid_compare_transcripts",
+        arguments: {
+          baseline: [{ text: "one", start_seconds: 0, end_seconds: 0.5, speaker: "A", confidence: 0.9 }],
+          candidate: [{ text: "one", start_seconds: 0.1, end_seconds: 0.6, speaker: "B", confidence: 0.8 }],
+          gap_threshold_seconds: 0.25,
+          max_comparison_cells: 100,
+        },
+      },
+      {
+        name: "avid_analyze_dnx_turnover",
+        arguments: {
+          codec: "dnxhd", profile: "DNxHR HQX", dnx_generation: "4.0", width: 3840, height: 2160,
+          frame_rate: 24, bit_depth: 12, chroma_subsampling: "4:2:2", pixel_format: "yuv422p12le",
+          color_space: "bt2020", color_transfer: "smpte2084", target_media_composer_version: "2025.6",
+        },
+      },
+      { name: "avid_get_extension_capability_manifest", arguments: { category: "bin" } },
+      { name: "avid_diagnose_integrations", arguments: {} },
+      {
+        name: "avid_analyze_clip",
+        arguments: { clip_path: path.join(fixture, "Sequence.edl"), deep: true, include_hash: true },
+      },
+    ];
+
+    for (const call of calls) {
+      const result = await client.callTool(call);
+      expect(result.structuredContent, call.name).toMatchObject({ tool: call.name });
+    }
+  });
+
+  it("reports CTMS configuration failures through the structured error boundary", async () => {
+    const client = await clientServer();
+    const result = await client.callTool({ name: "avid_ctms_read", arguments: { clear_session: true } });
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, tool: "avid_ctms_read" },
+    });
+  });
+
+  it("performs bounded CTMS JSON reads without redirects", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ _links: {} }), {
+      status: 200,
+      headers: { "content-length": "13", "content-type": "application/hal+json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = await clientServer({
+      ctmsRegistryUrl: "https://ctms.example.test/registry",
+      ctmsAllowedOrigins: ["https://ctms.example.test"],
+      ctmsAccessToken: "secret",
+      ctmsMaxResponseBytes: 1024,
+    });
+    const result = await client.callTool({ name: "avid_ctms_read", arguments: {} });
+    expect(result.structuredContent).toMatchObject({ ok: true, tool: "avid_ctms_read" });
+    expect(fetchMock).toHaveBeenCalledWith("https://ctms.example.test/registry", expect.objectContaining({ method: "GET", redirect: "error" }));
+  });
+
+  it("rejects oversized and malformed CTMS responses", async () => {
+    const settings = {
+      ctmsRegistryUrl: "https://ctms.example.test/registry",
+      ctmsAllowedOrigins: ["https://ctms.example.test"],
+      ctmsAccessToken: "secret",
+      ctmsMaxResponseBytes: 8,
+    } satisfies Partial<ServerConfig>;
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 200, headers: { "content-length": "9" } })));
+    const oversized = await clientServer(settings);
+    expect(await oversized.callTool({ name: "avid_ctms_read", arguments: {} })).toMatchObject({ isError: true });
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not-json", { status: 200 })));
+    const malformed = await clientServer({ ...settings, ctmsMaxResponseBytes: 1024 });
+    expect(await malformed.callTool({ name: "avid_ctms_read", arguments: {} })).toMatchObject({ isError: true });
   });
 });

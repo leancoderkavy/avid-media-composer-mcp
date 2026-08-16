@@ -52,4 +52,37 @@ describe("source marker package validation", () => {
       expect.objectContaining({ code: "MARKER_DROP_FRAME_RATE_UNVERIFIED" }),
     ]));
   });
+
+  it("rejects invalid package ranges and frame rates", () => {
+    expect(() => validateSourceMarkerPackage({ markers: null as never })).toThrow(/markers must be an array/);
+    expect(() => validateSourceMarkerPackage({ markers: [], frameRate: Number.NaN })).toThrow(/frameRate/);
+    expect(() => validateSourceMarkerPackage({ markers: [], sourceStartTimecode: "bad" })).toThrow(/sourceStartTimecode/);
+    expect(() => validateSourceMarkerPackage({ markers: [], sourceEndTimecode: "00:99:00:00" })).toThrow(/sourceEndTimecode/);
+    expect(() => validateSourceMarkerPackage({
+      markers: [], frameRate: 24, sourceStartTimecode: "01:00:10:00", sourceEndTimecode: "01:00:00:00",
+    })).toThrow(/precedes/);
+    expect(parseMarkerTimecode("00:60:00:00", 24)).toBeUndefined();
+    expect(parseMarkerTimecode("00:00:60:00", 24)).toBeUndefined();
+    expect(parseMarkerTimecode("00:00:00:99")).toBe(99);
+  });
+
+  it("rejects malformed, oversized, and non-static SVG variants", () => {
+    const cases = [
+      "",
+      `<svg>${"x".repeat(64 * 1024)}</svg>`,
+      "<rect/>",
+      "<svg><filter/></svg>",
+      "<svg><use href=\"https://example.test/item\"/></svg>",
+      "<svg><use xlink:href=\"local\"/></svg>",
+      "<?xml version=\"1.0\"?><svg></svg>",
+    ];
+    for (const svg of cases) expect(sanitizeMarkerSvg(svg).valid, svg.slice(0, 30)).toBe(false);
+    expect(sanitizeMarkerSvg("\uFEFF <svg><defs><path id=\"p\" href=\"#p\"/></defs></svg>")).toMatchObject({ valid: true });
+  });
+
+  it("keeps optional marker metadata without inventing frame numbers", () => {
+    const result = validateSourceMarkerPackage({ markers: [{ id: "m", timecode: "00:00:01:00", text: "note", color: "blue" }] });
+    expect(result).toMatchObject({ valid: true, markers: [{ id: "m", timecode: "00:00:01:00", text: "note", color: "blue" }] });
+    expect(result.markers[0]?.frameNumber).toBeUndefined();
+  });
 });

@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { previewOtioHandoff } from "../src/interchange/otio-handoff.js";
+import { otioHandoffDigest, previewOtioHandoff } from "../src/interchange/otio-handoff.js";
 
 const temporary: string[] = [];
 afterEach(async () => { await Promise.all(temporary.splice(0).map((entry) => rm(entry, { recursive: true, force: true }))); });
@@ -39,5 +39,39 @@ describe("OTIO handoff preview", () => {
     expect(result.readyForManualImport).toBe(false);
     expect(result.mediaManifest[0]).toMatchObject({ status: "outside-allowed-roots" });
     expect(result.blockers.join(" ")).toContain("outside the allowed media roots");
+  });
+
+  it("validates bounds before reading the timeline", async () => {
+    await expect(previewOtioHandoff("missing.otio", { allowedMediaRoots: [], maxMediaReferences: 0 }))
+      .rejects.toMatchObject({ code: "OTIO_HANDOFF_MAX_REFERENCES_INVALID" });
+    await expect(previewOtioHandoff("missing.otio", { allowedMediaRoots: [], maxChecksumBytes: -1 }))
+      .rejects.toMatchObject({ code: "OTIO_HANDOFF_MAX_CHECKSUM_BYTES_INVALID" });
+  });
+
+  it("classifies remote, missing, directory, and checksum-bounded media", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "avid-otio-handoff-"));
+    temporary.push(root);
+    const cases: Array<[string, string, string]> = [
+      ["remote.otio", "https://example.test/clip.mov", "non-file-reference"],
+      ["missing.otio", new URL(`file:///${path.join(root, "missing.mov").replace(/\\/g, "/")}`).toString(), "not-found"],
+      ["directory.otio", new URL(`file:///${root.replace(/\\/g, "/")}`).toString(), "not-file"],
+    ];
+    for (const [name, target, status] of cases) {
+      const timeline = path.join(root, name);
+      await writeFile(timeline, otio(target), "utf8");
+      const result = await previewOtioHandoff(timeline, { allowedMediaRoots: [root] });
+      expect(result.mediaManifest[0]?.status).toBe(status);
+    }
+
+    const media = path.join(root, "large.mov");
+    const timeline = path.join(root, "bounded.otio");
+    await writeFile(media, "picture", "utf8");
+    await writeFile(timeline, otio(new URL(`file:///${media.replace(/\\/g, "/")}`).toString()), "utf8");
+    const bounded = await previewOtioHandoff(timeline, {
+      allowedMediaRoots: [path.join(root, "not-present"), root], includeChecksums: true, maxChecksumBytes: 1,
+    });
+    expect(bounded.mediaManifest[0]).toMatchObject({ status: "checksum-skipped", sizeBytes: 7 });
+    expect(bounded.warnings.join(" ")).toContain("Checksum skipped");
+    expect(otioHandoffDigest(bounded)).toMatch(/^[a-f0-9]{64}$/);
   });
 });
