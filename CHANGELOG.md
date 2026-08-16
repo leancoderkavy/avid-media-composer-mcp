@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0-rc.1 - 2026-08-15
+## 1.1.0 - 2026-08-15
 
 - Added product-scoped Avid compatibility provenance, weekly documentation-drift detection, and a
   validated 167-action Extensions SDK capability manifest.
@@ -9,6 +9,8 @@
 - Added conservative OTIO handoff manifests, a scoped read-only MediaCentral CTMS client, and
   AMA/AMT/AVX/AAX/NEXIS/Distributed Processing diagnostics.
 - Added a bounded typed live-state contract for the future read-only Media Composer Extension.
+- Raised enforced unit coverage to 90% statements, 79% branches, 95% functions, and 92% lines.
+- Refreshed compatible runtime, telemetry, tooling, React, and Next.js dependencies for the stable release.
 
 ## 1.0.0 - 2026-08-15
 
