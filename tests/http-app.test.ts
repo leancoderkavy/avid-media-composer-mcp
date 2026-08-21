@@ -43,6 +43,7 @@ describe("remote HTTP application", () => {
     const health = await fetch(`${base}/health`);
     expect(health.status).toBe(200);
     expect(health.headers.get("cache-control")).toBe("no-store");
+    expect(health.headers.get("strict-transport-security")).toBe("max-age=31536000");
     expect(await health.json()).toEqual({
       status: "ok",
       service: "avid-media-composer-mcp",
