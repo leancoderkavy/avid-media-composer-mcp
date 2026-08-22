@@ -61,6 +61,8 @@ async function respond(
   root: string,
   operationId: string,
   responseData: Record<string, unknown>,
+  transformResponse: (response: Record<string, unknown>) => Record<string, unknown> = (response) =>
+    response,
 ): Promise<Record<string, unknown>> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const names = await readdir(path.join(root, "requests"));
@@ -69,7 +71,7 @@ async function respond(
       const request = JSON.parse(
         await readFile(path.join(root, "requests", name), "utf8"),
       ) as Record<string, unknown>;
-      const response = signed({
+      const response = transformResponse(signed({
         protocolVersion: 3,
         operationId,
         clientSessionId: request.clientSessionId,
@@ -77,7 +79,7 @@ async function respond(
         requestNonce: request.nonce,
         completedAt: new Date().toISOString(),
         ...responseData,
-      });
+      }));
       await writeFile(
         path.join(root, "responses", operationId + ".json"),
         JSON.stringify(response),
@@ -192,19 +194,18 @@ describe("Media Composer bridge status", () => {
     const root = await bridgeDirectory(capability());
     await mkdir(path.join(root, "requests"), { recursive: true });
     await mkdir(path.join(root, "responses"), { recursive: true });
-    const responder = (async () => {
-      await respond(root, "replayed", {
+    const responder = respond(
+      root,
+      "replayed",
+      {
         ok: true,
         data: { stateRevision: "revision-1", state: {} },
-      });
-      const responsePath = path.join(root, "responses", "replayed.json");
-      const response = JSON.parse(await readFile(responsePath, "utf8")) as Record<string, unknown>;
-      const tampered = signed({
+      },
+      (response) => signed({
         ...response,
         requestNonce: "b4d57513-90d0-4c55-9f3a-aa3f3655107d",
-      });
-      await writeFile(responsePath, JSON.stringify(tampered), "utf8");
-    })();
+      }),
+    );
     await expect(sendBridgeCommand(root, "inspect.getState", {}, 1_000, "replayed")).rejects.toMatchObject({
       code: "BRIDGE_REPLAY_DETECTED",
     });
