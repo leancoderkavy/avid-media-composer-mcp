@@ -214,3 +214,17 @@ QC stream selection: `avid_media_qc` accepts `options.videoStream` and `options.
 QC timestamp handling preserves each stream's delay relative to the file timeline. It decodes preceding media and trims at the requested range before measurement, avoiding demuxer seek behavior that can skip early audio when video starts later. This can cost additional decoding time for late ranges in long files; the command timeout still applies. Timestamp correctness on delayed synthetic tracks is not evidence of perceptual audio/video synchronization.
 
 QC reports include `streamDetails` for the selected video/audio streams: codec, dimensions, pixel format, range, matrix, transfer, primaries, declared sample depth, frame/time bases and audio layout/rate. Missing fields remain null. These are probe metadata declarations, not measurements of display brightness, gamut, actual transfer behavior or mastering compliance. The field provenance follows [FFmpeg's stream reporting implementation](https://github.com/FFmpeg/FFmpeg/blob/master/fftools/ffprobe.c). No HDR delivery pass/fail is inferred from these tags.
+
+## Isolated package installation
+
+Install an explicitly chosen local npm tarball into a new directory with:
+
+```powershell
+node dist/cli.js --package-install "D:\Downloads\avid-media-composer-mcp.tgz" --package-root "D:\Avid MCP Packages" --package-sha256 "EXPECTED_64_CHARACTER_LOWERCASE_SHA256"
+```
+
+Use the checksum from your chosen build/release verification. A checksum identifies the selected bytes; it does not establish publisher trust. The command requires Node with its adjacent npm CLI, copies and rechecks the archive, installs npm dependencies with lifecycle scripts disabled, performs the high-severity dependency audit, and runs the installed server's MCP ping. Dependency installation and audit use npm's configured registry/network settings. A successful installation writes `installation.json` and returns an absolute `setupCommand` for that installation.
+
+Run the returned setup CLI with the existing `--client`, `--config` and `--install`/`--update` options to select that installation in a client configuration. The previous package stays in its own directory; the configuration's checksum-checked `--restore` operation can point back to it. Each package operation creates a UUID directory, even for the same version. Failed operations retain their directory for inspection and never create a success receipt or change client configuration.
+
+The receipt records archive, entry, setup and lockfile hashes plus protocol/audit results. It is not a hash inventory of every dependency. Node, FFmpeg, Python, optional model/runtime installation, automated package removal, cross-version compatibility and actual named-client application qualification remain separate work. In particular, removing an Avid client entry does not delete its package directory.

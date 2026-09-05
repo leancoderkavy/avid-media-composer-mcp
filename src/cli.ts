@@ -11,11 +11,17 @@ const { values } = parseArgs({ options: {
   speech:{type:"boolean"},"speech-model":{type:"string"},
   faces:{type:"boolean"}, summaries:{type:"boolean"},
   "config-status":{type:"boolean"},update:{type:"boolean"},remove:{type:"boolean"},restore:{type:"string"},"expected-sha256":{type:"string"},
+  "package-install":{type:"string"},"package-root":{type:"string"},"package-sha256":{type:"string"},
 } });
 try {
+  if((values["package-root"]||values["package-sha256"])&&!values["package-install"])throw new Error("Package options require --package-install ARCHIVE.tgz");
   if(values["speech-model"]&&(!values.speech||!values["download-models"]))throw new Error("--speech-model requires --download-models --speech");
-  if([values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
-  if(values["config-status"]){
+  if([values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore,values["package-install"]].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
+  if(values["package-install"]){
+    if(!values["package-root"]||!values["package-sha256"])throw new Error("--package-install requires --package-root and --package-sha256");
+    const {installPackage}=await import("./package-install.js");
+    console.log(JSON.stringify(await installPackage(values["package-install"],values["package-root"],values["package-sha256"]),null,2));
+  }else if(values["config-status"]){
     if(!values.config)throw new Error("--config-status requires --config FILE");
     console.log(JSON.stringify(await configurationStatus(values.config),null,2));
   }else if(values.update||values.remove||values.restore){
@@ -54,5 +60,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }
