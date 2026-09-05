@@ -53,15 +53,16 @@ export class TranscriptRevisions {
   private async locked<T>(id:string,operation:(assertOwner:()=>Promise<void>)=>Promise<T>){
     requireCapability(this.config.capabilities,"project-write");await this.library.metadata([id]);
     const lock=path.join(await this.library.directory(),`${id}.transcripts.lock`),handle=await open(lock,"wx",0o600);
-    const owner=JSON.stringify({pid:process.pid,operation:randomUUID(),createdAt:new Date().toISOString()}),identity=await handle.stat();
+    const owner=JSON.stringify({pid:process.pid,operation:randomUUID(),createdAt:new Date().toISOString()});
+    const identity=await (async()=>{try{const identity=await handle.stat();await handle.writeFile(owner);return identity;}finally{await handle.close();}})();
     const assertOwner=async()=>{
       try{
         const current=await lstat(lock);
         if(!current.isFile()||current.dev!==identity.dev||current.ino!==identity.ino||(await readBoundedFile(lock,16384)).toString("utf8")!==owner)throw new Error("ownership mismatch");
       }catch{throw new Error("Transcript lock changed or unavailable; replacement retained. Inspect revisions before retrying: an operation may already have completed.");}
     };
-    try{await handle.writeFile(owner);return await operation(assertOwner);}
-    finally{await handle.close();await assertOwner();await unlink(lock);}
+    try{await assertOwner();return await operation(assertOwner);}
+    finally{await assertOwner();await unlink(lock);}
   }
   async correct(id:string,revision:string,expectedSha256:string,input:z.infer<typeof transcriptEdits>,speakerAssignment?:z.infer<typeof speakerAssignmentProvenance>){
     const edits=transcriptEdits.parse(input);
