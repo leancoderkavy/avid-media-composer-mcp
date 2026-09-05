@@ -198,7 +198,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
     inputSchema: { operation: nativeActionSchema }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: {...READ_ONLY_ANNOTATIONS,readOnlyHint:false,idempotentHint:false},
   }, async ({ operation }) => execute("avid_native_preview", () => native.preview(operation)));
   server.registerTool("avid_native_apply", {
-    description: "Apply the exact reviewed native token once. Requires edit, project-write, or export authority for the chosen action; AAF import requires edit plus export. MP4 export and AAF import verify post-state under the native lock; uncertain outcomes retain that lock for inspection. No automatic undo.",
+    description: "Apply the exact reviewed native token once. Requires edit, project-write, or export authority for the chosen action; AAF import requires edit plus export. MP4/reference-AAF export and AAF import verify post-state under the native lock; uncertain outcomes retain that lock for inspection. No automatic undo.",
     inputSchema: { token: z.string().uuid() }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: EDIT_ANNOTATIONS,
   }, async ({ token }) => execute("avid_native_apply", () => native.apply(token)));
 

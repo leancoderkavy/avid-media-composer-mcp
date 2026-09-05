@@ -11,12 +11,14 @@ import { NativeClient, QUALIFIED_BUILD } from "./client.js";
 import {renderContract,verifyNativeRender} from "./render-verifier.js";
 import {NativeExportUncertain,NativeImportUncertain} from "./lock.js";
 import {AafBuilder} from "../library/aaf-builder.js";
+import {verifyNativeAafMaster} from "./aaf-verifier.js";
 
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
 const id = z.string().min(1).max(256);
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("export_aaf_master"),bin:z.string().min(1),mobId:id,preset:name,sourceFile:z.string().min(1),expectedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
   z.object({action:z.literal("import_aaf_selects"),bin:z.string().min(1),file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),preset:name}).strict(),
   z.object({action:z.literal("export_mp4"),bin:z.string().min(1),mobId:id,preset:name,expected:renderContract}).strict().refine(value=>value.expected.videoCodec==="h264"&&value.expected.width===1920&&value.expected.height===1080&&value.expected.rate.num===30&&value.expected.rate.den===1,"Native MP4 qualification currently requires H.264 1080p30"),
   z.object({ action: z.literal("create_bin"), name }).strict(),
@@ -93,6 +95,22 @@ export class NativeAdapter {
     const media = action.action === "link_media" ? await resolveReadablePath(action.media, this.config.allowedRoots, "file") : undefined;
     let subclipSource:unknown;
     let exportState:unknown;
+    let aafExportState:{outputRoot:string;info:Record<string,any>[];presets:Record<string,any>[];sourceFile:string;sourceSha256:string;frames:number}|undefined;
+    if(action.action==="export_aaf_master"){
+      requireCapability(this.config.capabilities,"export");
+      if(!this.config.outputRoot)throw new Error("AAF export output root required");
+      const outputRoot=await resolveReadablePath(this.config.outputRoot,[this.config.outputRoot],"directory");
+      const presets=await this.client.call("GetListOfExportSettings");
+      if(!presets.some(value=>value.setting_names?.includes(action.preset)))throw new Error("Requested AAF export preset is missing");
+      const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value]));
+      const frames=Number(columns["Frame Count Duration"]);
+      if(project.frame_rate?.num!==30||project.frame_rate?.den!==1||Number(columns.FPS)!==30||!Number.isInteger(frames)||frames<1||frames>2147483647||typeof columns["Source File"]!=="string"||typeof columns["Source Path"]!=="string")throw new Error("AAF export requires a linked 30 fps source master with file/path metadata");
+      const sourceFile=await resolveReadablePath(action.sourceFile,this.config.allowedRoots,"file");
+      const hostSource=await resolveReadablePath(path.resolve(columns["Source Path"],columns["Source File"]),this.config.allowedRoots,"file");
+      if(hostSource!==sourceFile)throw new Error("Native master source does not match the requested file");
+      const sourceSha256=await sha256File(sourceFile);if(sourceSha256!==action.expectedSourceSha256)throw new Error("AAF source checksum changed; inspect again");
+      aafExportState={outputRoot,info,presets,sourceFile,sourceSha256,frames};
+    }
     let importState: {inspection:Awaited<ReturnType<AafBuilder["inspectSelects"]>>;presets:Record<string,any>[];outputRoot:string}|undefined;
     if(action.action==="import_aaf_selects"){
       requireCapability(this.config.capabilities,"edit");requireCapability(this.config.capabilities,"export");
@@ -134,7 +152,7 @@ export class NativeAdapter {
       subclipSource=info;
     }
     return { project: project.path, owner:this.client.ownerIdentity, bin, binSha256:await sha256File(bin), clips, markers, media,
-      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), ...(importState?{importState}:{}), action };
+      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), ...(importState?{importState}:{}), ...(aafExportState?{aafExportState}:{}), action };
   }
   async preview(input: Action) {
     const action = nativeActionSchema.parse(input);
@@ -152,7 +170,7 @@ export class NativeAdapter {
       const plan = this.plans.get(token);
       this.plans.delete(token); // consume before any write; never replay uncertain operations
       if (!plan || plan.expires < Date.now()) throw new Error("Native plan expired or already consumed");
-      requireCapability(this.config.capabilities, plan.action.action === "export_mp4" ? "export" : plan.action.action === "create_bin" ? "project-write" : "edit");
+      requireCapability(this.config.capabilities, ["export_mp4","export_aaf_master"].includes(plan.action.action) ? "export" : plan.action.action === "create_bin" ? "project-write" : "edit");
       const { withNativeLock } = await import("./lock.js");
       return withNativeLock(async () => {
         const observedState=await this.state(plan.action);
@@ -160,6 +178,21 @@ export class NativeAdapter {
         const action = plan.action;
         const project = await this.project();
         let result;
+        if(action.action==="export_aaf_master"){
+          if(!("aafExportState" in observedState)||!observedState.aafExportState)throw new Error("Missing AAF export evidence");
+          if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("AAF export host or project changed before dispatch");
+          const state=observedState.aafExportState,directory=path.join(state.outputRoot,`native-export-${randomUUID()}`);await mkdir(directory);
+          const output=path.join(directory,"export","reference.aaf"),owner=this.client.ownerIdentity;
+          await writeFile(path.join(directory,"attempt.json"),JSON.stringify({action,project:project.path,owner,output,expectedState:plan.state,sourceFile:state.sourceFile,sourceSha256:state.sourceSha256,frames:state.frames}),{flag:"wx"});
+          try{
+            result=await this.client.call("ExportFile",{mob_id:action.mobId,file_name:"reference",export_settings_name:action.preset,destination_path:directory,in_directory:"export",option_flags:["Export_StopIf_OfflineMedia","Export_StopIf_UnknownFX"]},owner);
+            const verification=await verifyNativeAafMaster(output,this.config,state,{assertOwner:async()=>{
+              const current=await this.project();if(current.path!==project.path||this.client.ownerIdentity!==owner)throw new Error("AAF export host or project changed");
+            }});
+            const receipt={operationId:randomUUID(),action,result,applicationCompleted:true,outputVerified:true,verification,sourceFidelityVerified:false,limitations:["Reference-master metadata and source locators checked, not downstream descriptor semantics or media decoding","Preset contents are not fingerprinted"]};
+            await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return receipt;
+          }catch(error){throw new NativeExportUncertain(output,(error as Error).message);}
+        }
         if(action.action==="import_aaf_selects"){
           if(!("importState" in observedState)||!observedState.importState)throw new Error("Missing AAF inspection state");
           if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Import host or project changed before dispatch");

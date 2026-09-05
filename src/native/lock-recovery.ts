@@ -64,10 +64,11 @@ export class NativeLockRecovery {
     const directory=await resolveReadablePath(path.dirname(path.dirname(retained.output)),[this.config.outputRoot],"directory");
     // Validate the leaf layout separately from the canonical parent: realpath can
     // expand /var aliases or Windows short/case variants without changing scope.
-    if(path.basename(retained.output)!=="render.mp4"||path.basename(path.dirname(retained.output))!=="export")throw new Error("Retained export output path is not the expected attempt output");
+    const exportKind=path.basename(retained.output)==="render.mp4"?"export_mp4":path.basename(retained.output)==="reference.aaf"?"export_aaf_master":undefined;
+    if(!exportKind||path.basename(path.dirname(retained.output))!=="export")throw new Error("Retained export output path is not the expected attempt output");
     const attemptFile=await resolveReadablePath(path.join(directory,"attempt.json"),[directory],"file");
     const attempt=await readBoundedJson(attemptFile,65536) as {output?:string;project?:string;action?:{action?:string}};
-    if(attempt.output!==retained.output||attempt.action?.action!=="export_mp4"||typeof attempt.project!=="string")throw new Error("Retained lock does not match an export attempt");
+    if(attempt.output!==retained.output||attempt.action?.action!==exportKind||typeof attempt.project!=="string")throw new Error("Retained lock does not match an export attempt");
     await resolveReadablePath(attempt.project,this.config.allowedRoots,"directory");
     return {locked:true as const,recoverable:true as const,sha256,owner,...retained,directory,requirement:"Avid must be stopped; release does not retry export or remove its output"};
   }

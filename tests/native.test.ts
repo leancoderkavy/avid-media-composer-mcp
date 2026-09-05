@@ -5,17 +5,21 @@ import { nativeActionSchema, NativeAdapter } from "../src/native/adapter.js";
 import { loadConfig } from "../src/config.js";
 import { withNativeLock } from "../src/native/lock.js";
 import {verifyNativeRender} from "../src/native/render-verifier.js";
+import {verifyNativeAafMaster} from "../src/native/aaf-verifier.js";
+import {sha256File} from "../src/analysis/file-inventory.js";
 import {mkdtemp,writeFile} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 vi.mock("../src/native/render-verifier.js",async(importOriginal)=>({...await importOriginal<typeof import("../src/native/render-verifier.js")>(),verifyNativeRender:vi.fn()}));
+vi.mock("../src/native/aaf-verifier.js",()=>({verifyNativeAafMaster:vi.fn()}));
 beforeEach(async()=>{vi.spyOn(os,"homedir").mockReturnValue(await mkdtemp(path.join(os.tmpdir(),"avid-native-lock-test-")));vi.mocked(verifyNativeRender).mockReset();});
 afterEach(()=>vi.restoreAllMocks());
 
 async function hostFixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));
   await writeFile(path.join(root,"fixture.avb"),"saved bin");
+  const source=path.join(root,"source.mov");await writeFile(source,"media");
   const calls:{method:string;body:Record<string,unknown>}[]=[];
   const marker={guid:"marker",name:"original",user:"editor",track_label:{type:"TRACKTYPE_PICTURE",number:1},comment:"before",color:"Green"};
   let failPost=false;
@@ -25,17 +29,28 @@ async function hostFixture(){
     if(method==="GetAppInfo")return [{app_busy_status:"Idle"}];
     if(method==="GetListOfExportSettings")return [{setting_names:["Fixture"]}];
     if(method==="GetListOfBinItems")return [{mob_id:"clip"}];
-    if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"}];
+    if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"},{column_name:"Frame Count Duration",column_value:"5726"},{column_name:"Source File",column_value:"source.mov"},{column_name:"Source Path",column_value:root}];
     if(method==="GetMarkers"){if(failPost)throw new Error("post-read unavailable");return [{info:[marker]}];}
     if(method==="ChangeMarker")Object.assign(marker,body.info);
     if(method==="LoadMobsIntoViewer")failPost=true;
     return [];
   }};
   const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,edit,project-write,export"}),client as unknown as NativeClient);
-  return {adapter,client,calls,marker};
+  return {adapter,client,calls,marker,source};
 }
 
 describe("native boundaries", () => {
+  it("exports AAF references once and retains the lock if structural verification fails",async()=>{
+    const {adapter,calls,source}=await hostFixture();const action={action:"export_aaf_master" as const,bin:"fixture.avb",mobId:"clip",preset:"Fixture",sourceFile:source,expectedSourceSha256:await sha256File(source)};
+    vi.mocked(verifyNativeAafMaster).mockImplementation(async()=>{await expect(withNativeLock(async()=>1)).rejects.toThrow();return {masterContractVerified:true} as any;});
+    const plan=await adapter.preview(action);expect(await adapter.apply(plan.token)).toMatchObject({outputVerified:true,sourceFidelityVerified:false});await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");
+    expect(calls.filter(call=>call.method==="ExportFile")).toHaveLength(1);
+    const second=await adapter.preview(action);vi.mocked(verifyNativeAafMaster).mockRejectedValue(new Error("AAF source contract mismatch"));
+    await expect(adapter.apply(second.token)).rejects.toMatchObject({code:"NATIVE_EXPORT_UNCERTAIN"});await expect(withNativeLock(async()=>1)).rejects.toThrow();
+  });
+  it("refuses an AAF source checksum mismatch before exporting",async()=>{
+    const {adapter,calls,source}=await hostFixture();await expect(adapter.preview({action:"export_aaf_master",bin:"fixture.avb",mobId:"clip",preset:"Fixture",sourceFile:source,expectedSourceSha256:"0".repeat(64)})).rejects.toThrow("checksum changed");expect(calls.some(call=>call.method==="ExportFile")).toBe(false);
+  });
   const exportAction={action:"export_mp4" as const,bin:"fixture.avb",mobId:"clip",preset:"Fixture",expected:{videoCodec:"h264",width:1920,height:1080,frames:5726,rate:{num:30,den:1},audio:[]}};
   it("exports only once and keeps the lock through output verification",async()=>{
     const {adapter,calls}=await hostFixture();

@@ -25,6 +25,13 @@ it("keeps the lock when Avid is running or the checksum changed",async()=>{
   const {config,file}=await fixture(),recovery=new NativeLockRecovery(config,async()=>{throw new Error("Avid running");}),status=await recovery.inspect();if(!status.locked)throw new Error("Missing fixture");
   await expect(recovery.release(status.sha256)).rejects.toThrow("Avid running");await access(file);await expect(recovery.release("0".repeat(64))).rejects.toThrow("changed");await access(file);
 });
+it("recovers a scoped AAF reference export without deleting its output",async()=>{
+ const {root,config,file,owner}=await fixture();const output=path.join(root,"attempt/export/reference.aaf");await writeFile(output,"AAF fixture");
+ await writeFile(path.join(root,"attempt/attempt.json"),JSON.stringify({project:root,output,action:{action:"export_aaf_master"}}));
+ await writeFile(file,JSON.stringify(owner)+"\n"+JSON.stringify({state:"export-unresolved",output,cause:"fixture"}));
+ const recovery=new NativeLockRecovery(config,async()=>{}),status=await recovery.inspect();if(!status.locked)throw new Error("Missing lock");
+ expect(status).toMatchObject({recoverable:true,output});await recovery.release(status.sha256);expect(await readFile(output,"utf8")).toBe("AAF fixture");
+});
 it("refuses active/generic abandoned locks and attempts outside current project scope",async()=>{
   const {config,file,owner}=await fixture();await expect(new NativeLockRecovery({...config,allowedRoots:[]},async()=>{}).inspect()).rejects.toThrow();
   await writeFile(file,JSON.stringify(owner));const recovery=new NativeLockRecovery(config,async()=>{}),status=await recovery.inspect();expect(status).toMatchObject({locked:true,recoverable:false});
