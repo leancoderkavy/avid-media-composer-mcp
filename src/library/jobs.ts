@@ -10,6 +10,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("index"),files:z.array(z.string()).min(1).max(100)}).strict(),
   z.object({kind:z.literal("visual"),ids:z.array(id).min(1).max(100),samples:z.number().int().min(1).max(12)}).strict(),
   z.object({kind:z.literal("speech"),id,start:z.number().nonnegative(),end:z.number().positive()}).strict(),
+  z.object({kind:z.literal("people"),ids:z.array(id).min(1).max(20),samples:z.number().int().min(1).max(24),threshold:z.number().min(0).max(1).default(0.45)}).strict(),
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
@@ -23,7 +24,7 @@ export class AnalysisJobs {
     requireCapability(this.config.capabilities,"inspect");
     const spec=jobSchema.parse(input);
     if(spec.kind!=="index")requireCapability(this.config.capabilities,"export");
-    if(spec.kind==="speech")requireCapability(this.config.capabilities,"project-write");
+    if(spec.kind==="speech"||spec.kind==="people")requireCapability(this.config.capabilities,"project-write");
     if([...this.jobs.values()].filter(job=>["queued","running"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
     if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};

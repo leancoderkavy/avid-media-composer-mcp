@@ -12,7 +12,7 @@ This ledger preserves the complete requested scope across increments. It is not 
 | Visual/text/image/frame similarity and bounded results | Pinned local CLIP, text/image smoke tests on Sonoma | Dense/shot/range samples, reference-frame tool, scope discovery, ranking/resource benchmark |
 | Transcript search/read/ranges/export | Immutable revisions; substring/range tests; five formats; English Whisper runtime smoke | Speech accuracy fixtures, additional languages/model selection, diarization, correction/deletion |
 | Hierarchical summaries and node drill-down | Extractive transcript outline | Grounded generated summaries, provenance validation and whole-media/node queries |
-| People collections | Not implemented | Licensed face detection/embeddings, bounded jobs/clusters/samples/pages/names/merge/move/recluster, correction/deletion and accuracy tests |
+| People collections | Pinned YuNet/SFace runtime; bounded indexing, pagination, names/merge/move/recluster/removal; real Sonoma crop and deletion workflow | Accuracy/resource benchmarks, dense sampling, interrupted-job recovery and broader media qualification |
 | Watch folders/shared media cache | Polling CRUD/start/stop/checkpoints and moved-source aliases; synthetic MP4 runtime proof | More failure/concurrency/resource qualification; interrupted analysis resume and offline/relinked paths |
 | QC/reports/thumbnails/exports/copies | Seven-file Sonoma report/contact sheet, thumbnails/clips/copy with hashes | Thumbnail strips, camera/QC report depth, loudness/silence/black/freeze/VFR/sync, output QA and presets |
 | Project snapshots/source usage/complexity | Existing bounded structural inspectors | Semantic snapshots/diffs and cross-bin graph, complexity/effect/render/relink/turnover reports |
@@ -34,3 +34,5 @@ Evidence statuses distinguish implementation, offline tests, simulated adapters,
 - `5b956c1`: persistent watches/cache aliases; complete local package check, 139 TypeScript tests, 56 tools; pushed.
 - Native subclip increment: all-track 30 fps source bounds qualified through MCP and bin persistence; saved AVB confirmed `_START`/`_END` and picture/sound tracks. Initial track-selection discrepancy isolated to native numeric track indexing.
 - Saved snapshot increment: real Sonoma bin indexed into 32 mobs; the new subclip mapped exactly to source frames 2850–2880 on three tracks; identical saved snapshots had no semantic differences. Native live sequence reading/creation and Avid interchange remain open.
+
+- People increment: 12 real Sonoma samples produced three face crops; naming, merge, move, recluster, individual removal and whole-index deletion passed with the source SHA unchanged. This proves the workflow, not recognition accuracy.

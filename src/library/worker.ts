@@ -1,6 +1,7 @@
 import {MediaLibrary} from "./media-library.js";
 import {VisualSearch} from "./visual.js";
 import {SpeechAnalysis} from "./speech.js";
+import {People} from "./people.js";
 import {jobSchema} from "./jobs.js";
 import type {ServerConfig} from "../config.js";
 let input="";
@@ -15,6 +16,7 @@ try{
     case "index":result=await library.index(spec.files);break;
     case "visual":result=await new VisualSearch(config).index(spec.ids,spec.samples);break;
     case "speech":result=await new SpeechAnalysis(config).transcribe(spec.id,spec.start,spec.end);break;
+    case "people":result=await new People(config).index(spec.ids,spec.samples,spec.threshold);break;
     case "artifact":result=await library.artifact(spec.id,spec.format,spec.start,spec.end);break;
   }
   console.log(JSON.stringify(result));

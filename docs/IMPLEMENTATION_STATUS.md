@@ -45,7 +45,7 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 
 ### Latest complete check
 
-`npm run check` passed on 2026-09-05: 142 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 60 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 60 tools include the pre-existing read-only/bridge tools; this count is not 60 newly qualified native editor operations.
+`npm run check` passed on 2026-09-05: 147 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 65 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 65 tools include the pre-existing read-only/bridge tools; this count is not 65 newly qualified native editor operations.
 
 ## Remaining delivery work
 
@@ -53,10 +53,12 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 - Extend progressive-project qualification to playback/render, application restart, original Premiere source media and successful Avid timeline interchange.
 - Complete live project/timeline range search and AAF/Avid OTIO round trips. Local collection ranges are implemented but are not live editor ranges.
 - Add grounded generated hierarchical summaries, deeper watch/cache qualification and resumable analysis jobs.
-- Add properly licensed face detection/clustering with correction/deletion controls, and expand local model management/languages with measured resource limits.
+- Benchmark face grouping accuracy/resources, qualify failure recovery, and expand local model management/languages.
 - Add separately enabled Windows UI actions, focus/shortcut diagnostics and real-host checks; do not map unimplemented catalog actions to success.
 - Finish installers, update/rollback/uninstall, bundled/managed dependencies and actual named-client clean-machine tests. Complete model license notices/release review.
 - Add original workflow skills, optional Jumper provider integration, and remaining enterprise adapter improvements.
 - Mac implementation and host qualification remain deferred until work is on a Mac, as requested by the user.
 
 The baseline was committed/pushed as `0d382aa`. No release, npm publication, deployment or PR has been created for these changes yet. Existing production version remains 1.1.0; new work is unreleased.
+
+People collections now implement local YuNet/SFace detection, complete-link similarity grouping, pagination, user names, merge/move/recluster and revision-checked deletion. `scripts/research/qualify-people.mjs` passed against the Sonoma preview: three faces from 12 frames, five correction operations and full index deletion, source SHA unchanged. Recognition accuracy and broad runtime/platform support remain unqualified.

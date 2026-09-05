@@ -13,6 +13,7 @@
     "dist",
     "python/avid_inspector.py",
     "python/avid_timeline.py",
+    "python/avid_faces.py",
     "python/requirements.txt",
     "docs",
     "README.md",

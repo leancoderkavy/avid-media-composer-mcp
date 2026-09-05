@@ -8,11 +8,16 @@ const { values } = parseArgs({ options: {
   output:{type:"string"}, native:{type:"string"}, config:{type:"string"}, install:{type:"boolean"},
   "download-models":{type:"boolean"}, "model-dir":{type:"string"},
   speech:{type:"boolean"},
+  faces:{type:"boolean"},
 } });
 try {
   if (values["download-models"]) {
+    if(values.faces&&values.speech)throw new Error("Choose either --faces or --speech per download command");
     if(!values["model-dir"])throw new Error("--download-models requires --model-dir PATH");
-    if(values.speech){
+    if(values.faces){
+      const {faceRuntime}=await import("./library/face-runtime.js");
+      console.log(JSON.stringify(await faceRuntime(values["model-dir"],loadConfig().pythonExecutable,true)));
+    }else if(values.speech){
       const {loadSpeechModel,SPEECH_MODEL,SPEECH_REVISION}=await import("./library/speech.js");
       const model=await loadSpeechModel(values["model-dir"],true); await model.dispose();
       console.log(JSON.stringify({downloaded:SPEECH_MODEL,revision:SPEECH_REVISION}));
@@ -30,5 +35,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\nWithout --install, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech | --faces]\nWithout --install, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }

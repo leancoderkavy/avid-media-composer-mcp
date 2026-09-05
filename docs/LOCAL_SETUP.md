@@ -49,7 +49,7 @@ Libraries and weights retain their own licenses; downloaded models are not relic
 1. `avid_index_media` produces content IDs. Use metadata/facets and substring search within a selected scope.
 2. Enable `export` for artifacts, reports, contact sheets and visual-frame caching. Outputs use unique names and source integrity checks.
 3. `avid_index_visual` creates a sampled-frame index. `avid_search_visual` supports text and reference images; scores are similarity, not probability. It does not detect every shot.
-4. Enable `project-write` and `export` for local transcription. Use the returned revision for search, range reads, extractive outlines or TXT/JSON/CSV/SRT/VTT export. Machine transcription requires review; face recognition and diarization are not implemented.
+4. Enable `project-write` and `export` for local transcription. Use the returned revision for search, range reads, extractive outlines or TXT/JSON/CSV/SRT/VTT export. Machine transcription requires review; similarity-based face collections are available separately; diarization is not implemented.
 5. Longer operations can run through the analysis-job tools. There is one worker per queue, a bounded queue and explicit cancellation. Partial artifacts remain for inspection; jobs are session-owned and do not resume automatically after restart.
 6. Save selected ranges with `avid_save_collection`, then read them or query their stringout positions with `avid_collection_range`. `avid_export_collection_otio` produces a single-video-track OTIO file with local references and source identity metadata. It does not import into Avid or create audio tracks. OpenTimelineIO round-trip validation is separate from Avid import verification.
 7. `avid_configure_watch_folder` stores a scoped folder and traversal limits. Run `avid_scan_watch_folder` twice for initial stability checks, or explicitly start `avid_watch_service`. Checkpoints survive sessions; the polling service does not restart automatically. `stop` allows the current file to finish. Cross-process lock conflicts are reported without stealing locks. Removal deletes the watch configuration only.
@@ -61,3 +61,14 @@ For saved editorial structure, use `avid_snapshot_saved_bins`, then `avid_saved_
 Metadata, transcripts and images returned to a cloud-backed AI client may reach its model provider. Local processing alone does not make that client offline. Telemetry stays off unless a PostHog key is configured.
 
 See [implementation status](IMPLEMENTATION_STATUS.md) for the substantial remaining plan. This is not full Jumper parity or a finished installer.
+
+
+## Optional local people collections
+
+Run `avid-mcp --download-models --faces --model-dir PATH`, then set `AVID_MCP_MODEL_DIR` to that path. This explicitly downloads an isolated Python runtime (OpenCV headless 4.12.0.88 and NumPy 2.2.6), YuNet detection and SFace embedding weights. Normal inference makes no network requests. Python must already be installed; model downloads require internet access.
+
+Weights come from [OpenCV Zoo](https://github.com/opencv/opencv_zoo/tree/47534e27c9851bb1128ccc0102f1145e27f23f98/models), pinned at `47534e27c9851bb1128ccc0102f1145e27f23f98`. YuNet 2023mar is MIT; SFace 2021dec is Apache-2.0. Their license files are downloaded alongside the weights. Exact sizes and SHA-256 hashes are checked during installation and loading; weights are not bundled or relicensed under this project's MIT license.
+
+With `project-write` and `export` enabled, use `avid_index_people` (or a people job) on up to 20 indexed media files, with up to 24 samples each. `avid_people_clusters` and `avid_people_faces` provide paginated groups and crops. These are visual similarity groups, not verified identities. Names are supplied by the user. Sparse sampling can miss people and recognition accuracy has not been benchmarked.
+
+`avid_edit_people` supports naming, merging, moving, removing a face and reclustering with an expected revision. Reclustering resets names. Removing a face deletes its crop and embedding; sampled source frames remain. `avid_delete_people_index` deletes all generated frames, crops and embeddings in that index after validating its contents. Source MP4s remain untouched. Unexpected files or stale revisions stop deletion. Failed jobs may leave a partial directory for inspection; automatic interrupted-job cleanup remains unfinished.

@@ -9,6 +9,7 @@ import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
 import {ProjectSnapshots} from "./project-snapshots.js";
+import {People,peopleEditSchema} from "./people.js";
 
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const library = new MediaLibrary(config);
@@ -18,6 +19,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const collections = new Collections(config);
   const watches = new WatchFolders(config);
   const snapshots = new ProjectSnapshots(config);
+  const people = new People(config);
   const previousClose=server.server.onclose;
   server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
@@ -88,4 +90,14 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({revision,mobId,start,end,trackOrdinal,after,limit})=>result("avid_saved_timeline_range",()=>snapshots.range(revision,mobId,start,end,trackOrdinal,after,limit)));
   server.registerTool("avid_saved_source_usage", {description:"Find direct source-mob uses across snapshot bins and tracks. Opaque effects/retimes are explicitly incomplete.",inputSchema:{revision:z.string().uuid(),sourceMobId:z.string().min(1)},annotations:read},
     ({revision,sourceMobId})=>result("avid_saved_source_usage",()=>snapshots.usage(revision,sourceMobId)));
+  server.registerTool("avid_index_people", {description:"Detect and group similar faces from sampled local frames using explicitly installed YuNet/SFace models. Requires export and project-write. Groups need review; names are never inferred. For long work use a people analysis job.",inputSchema:{ids:z.array(id).min(1).max(20),samples:z.number().int().min(1).max(24).default(12),threshold:z.number().min(0).max(1).default(0.45)},annotations:write},
+    ({ids,samples,threshold})=>result("avid_index_people",()=>people.index(ids,samples,threshold)));
+  server.registerTool("avid_people_clusters", {description:"Read paginated similarity groups and user-supplied names. These are not verified identities.",inputSchema:{indexId:z.string().uuid(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+    ({indexId,after,limit})=>result("avid_people_clusters",()=>people.list(indexId,after,limit)));
+  server.registerTool("avid_people_faces", {description:"Read bounded source timestamps, face boxes and local crop paths, optionally by cluster. Embeddings are not returned.",inputSchema:{indexId:z.string().uuid(),clusterId:z.string().uuid().optional(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+    ({indexId,clusterId,after,limit})=>result("avid_people_faces",()=>people.faces(indexId,clusterId,after,limit)));
+  server.registerTool("avid_edit_people", {description:"Name, merge, move, remove a face, or recluster a reviewed people index with revision checking. Reclustering resets names. Face removal deletes its crop/embedding; sampled frames remain until whole-index deletion.",inputSchema:{indexId:z.string().uuid(),expectedRevision:z.string().uuid(),operation:peopleEditSchema},annotations:{...write,destructiveHint:true}},
+    ({indexId,expectedRevision,operation})=>result("avid_edit_people",()=>people.edit(indexId,expectedRevision,operation)));
+  server.registerTool("avid_delete_people_index", {description:"Delete this index's face embeddings, crops and sampled frames after revision validation. Source media and other analysis indexes remain.",inputSchema:{indexId:z.string().uuid(),expectedRevision:z.string().uuid()},annotations:{...write,destructiveHint:true}},
+    ({indexId,expectedRevision})=>result("avid_delete_people_index",()=>people.remove(indexId,expectedRevision)));
 }
