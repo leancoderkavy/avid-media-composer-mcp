@@ -364,3 +364,6 @@ The child is self-contained and remains readable if its parent is explicitly del
 ## Diarization pip bootstrap revision
 
 Fresh diarization installations now create a venv without Python's bundled pip and bootstrap checksum-pinned pip 26.2.1 from a verified wheel. This fixes the old setup's inherited pip 23.2.1, which has listed advisories. Status reports `bootstrapCurrent` independently of `unchanged`. An older receipt can therefore describe an unchanged tree with an outdated bootstrap. Explicit setup refuses reusing that older bootstrap; use a fresh model directory. Existing files and cached inference are preserved, and automatic migration/rollback remains open. See [dependency audit and evidence](DIARIZATION_DEPENDENCY_AUDIT.md) for the point-in-time advisory scan and remaining native-library/notice review.
+
+
+The optional sherpa wheels contain more native functionality than the diarization worker uses. The [native audit](DIARIZATION_NATIVE_AUDIT.md) records ONNX Runtime/OpenBLAS versions and evidence of eSpeak/phonemizer code with separately licensed source. Preserve upstream component terms; the wrapper package's Apache metadata is not a complete native notice inventory. Optional-wheel redistribution and cross-platform native qualification remain unfinished.

@@ -33,3 +33,6 @@ Full local checks passed with 268 TypeScript tests, 12 Python tests, 119 tools, 
 
 
 Actual inference regression on the new cache also passed: synthetic alternating voices grouped A/B/A/B in automatic and supplied-two modes, both modes processed the full Sonoma preview, reuse did not require a base Python command, deliberate tree modification was refused, and source/runtime hashes were unchanged after restoring only the test's own extra file. Evidence: `.avid-mcp-analysis/diarization-runtime-607758fe-35dd-4508-ab4e-09fbb37d203a/evidence.json`. `qualify-diarization-runtime.mjs` now accepts an optional model-cache argument so new isolated installations can be qualified without changing older caches.
+
+
+The [native follow-up](DIARIZATION_NATIVE_AUDIT.md) now records imported ONNX Runtime 1.27.1 and OpenBLAS 0.3.29 build identifiers, 28 binary-file hashes, matching source/notice captures and four source-commit advisory queries. It also found phonemizer/eSpeak code indicators and GPLv3 terms in the selected eSpeak source, so Apache metadata alone cannot describe the general-purpose wheel's full dependency terms. Native coverage and redistribution acceptance remain open; the ONNX Runtime exact-version PyPI request was unavailable rather than clean.
