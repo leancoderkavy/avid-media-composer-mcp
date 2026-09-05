@@ -14,7 +14,7 @@ def substitute(value,mapping):
  return value
 results=[]
 assert sys.argv[1:] in ([],['--original-copy'])
-fixtures=['aaf-reference-copy-93585096-4725-4e1c-9268-4b7b45e287e6','aaf-reference-copy-ba781b6d-adfa-4568-abe5-12d67f64a63b'] if '--original-copy' in sys.argv else ['aaf-reference-copy-9cf54d05-d15f-4b5a-b936-ca42650a9a45','aaf-reference-copy-f41a11c6-55f2-494b-b711-3e4912b30ec0']
+fixtures=['aaf-reference-copy-93585096-4725-4e1c-9268-4b7b45e287e6','aaf-reference-copy-ba781b6d-adfa-4568-abe5-12d67f64a63b'] if '--original-copy' in sys.argv else ['aaf-reference-copy-9cf54d05-d15f-4b5a-b936-ca42650a9a45','aaf-reference-copy-f41a11c6-55f2-494b-b711-3e4912b30ec0','aaf-reference-copy-0ee70ca5-4193-4330-987d-ce902e81d9d1']
 for name in fixtures:
  prior=json.loads((base/'.avid-mcp-analysis'/name/'evidence.json').read_text())
  output=base/'.avid-mcp-analysis'/name/'references.aaf';before=sha(output)
