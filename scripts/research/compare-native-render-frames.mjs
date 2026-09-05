@@ -9,7 +9,8 @@ import {sha256File} from '../../dist/analysis/file-inventory.js';
 
 const render = path.resolve(process.argv[2] ?? '');
 assert.ok(process.argv[2] && path.extname(render).toLowerCase() === '.mp4', 'Supply the existing four-second Sonoma render');
-assert.ok(process.argv.slice(3).every(value=>value==='--render-range-full'),'Only the diagnostic --render-range-full override is supported');
+assert.ok(process.argv.slice(3).every(value=>['--render-range-full','--repeat-first-cut'].includes(value)),'Unsupported diagnostic option');
+const sourceStarts=process.argv.includes('--repeat-first-cut')?[2850,2850]:[2850,3300];
 const renderRangeFull=process.argv.includes('--render-range-full');
 const source = 'D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
 const sourceSha256 = await sha256File(source), renderSha256 = await sha256File(render);
@@ -54,7 +55,7 @@ function compare(a,b) {
 }
 const frames=[];
 for(let index=0;index<120;index++) {
-  const expectedSourceFrame=(index<60 ? 2850 : 3300)+(index%60);
+  const expectedSourceFrame=sourceStarts[index<60?0:1]+(index%60);
   const candidates=[];
   for(let offset=-3;offset<=3;offset++) {
     const sourceFrame=expectedSourceFrame+offset;
@@ -74,7 +75,7 @@ await writeFile(path.join(root,'decoded.framemd5'),checksums,{flag:'wx'});
 assert.equal(await sha256File(source),sourceSha256);
 assert.equal(await sha256File(render),renderSha256);
 const audio = streams=>streams.filter(stream=>stream.codec_type==='audio').map(({codec_name,channels,sample_rate})=>({codec:codec_name,channels,sampleRate:sample_rate}));
-const report={source,render,sourceSha256,renderSha256,sourceUnchanged:true,renderUnchanged:true,
+const report={source,render,sourceSha256,renderSha256,sourceStarts,sourceUnchanged:true,renderUnchanged:true,
   renderDecodeRange:renderRangeFull?'forced-full-diagnostic':'declared-metadata',
   method:'Zero-based decoded frames, 96x54 area-resampled RGB, expected source plus/minus three frames; highest Pearson correlation across RGB samples. Diagnostic ranking, not a fidelity pass or automatic correction.',
   expectedBestCount:frames.filter(frame=>frame.best.offset===0).length,
