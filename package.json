@@ -16,6 +16,8 @@
     "python/avid_faces.py",
     "python/avid_diarization.py",
     "python/avid_aaf_builder.py",
+    "python/avid_aaf_merge.py",
+    "python/avid_aaf_graph.py",
     "python/requirements.txt",
     "docs",
     "skills",

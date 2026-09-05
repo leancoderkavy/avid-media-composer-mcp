@@ -187,7 +187,8 @@ def build(request):
     return {'output':str(output),'mobId':mob_id,'frames':total,'rate':str(rate),'tracks':len(tracks),'cuts':len(selects),'conformanceVerified':True,'hostImportVerified':False}
 
 if __name__=='__main__':
+    from avid_aaf_merge import merge
     with open(sys.argv[1],encoding='utf8') as stream:request=json.loads(stream.read(1024*1024+1))
-    actions={'inspect':lambda:inspect(request['source']),'inspect_selects':lambda:inspect_selects(request['source']),'build':lambda:build(request)}
+    actions={'inspect':lambda:inspect(request['source']),'inspect_selects':lambda:inspect_selects(request['source']),'build':lambda:build(request),'merge':lambda:merge(request)}
     if request['action'] not in actions:raise ValueError('Unsupported AAF action')
     print(json.dumps(actions[request['action']](),ensure_ascii=True))
