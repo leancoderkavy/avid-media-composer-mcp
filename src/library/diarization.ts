@@ -1,4 +1,6 @@
-import {mkdir,writeFile,unlink,readdir,rmdir,opendir,link} from "node:fs/promises";
+import {constants} from "node:fs";
+import {speakerSpan,speakerEdits,applySpeakerEdits} from "./speaker-edits.js";
+import {mkdir,writeFile,unlink,readdir,rmdir,opendir,link,copyFile} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID,createHash} from "node:crypto";
 import * as z from "zod/v4";
@@ -22,7 +24,13 @@ export const diarizationOutput=z.object({schema:z.literal(1),recipe:z.literal(1)
     if(!labels.has(span.speaker)){if(span.speaker!==`speaker-${labels.size+1}`)ctx.addIssue({code:"custom",message:"Invalid anonymous speaker label order"});labels.add(span.speaker);}}
   if(labels.size!==value.speakerCount||(value.options.speakers!==-1&&labels.size>value.options.speakers))ctx.addIssue({code:"custom",message:"Speaker count mismatch"});
 });
-const recordSchema=z.object({schema:z.literal(1),analysisId:uuid,id:sha,start:z.number().nonnegative(),end:z.number().positive(),audioRecipe:z.literal(3),workerSha256:sha,runtimeTreeSha256:sha,createdAt:z.string(),machine:diarizationOutput}).strict().refine(value=>value.end>value.start&&value.end-value.start<=600&&value.machine.spans.every(span=>span.start<value.end-value.start)&&value.machine.duration<=Math.ceil((value.end-value.start)*16000)/16000,"Invalid diarization source range");
+const reviewSchema=z.object({parentAnalysisId:uuid,parentSha256:sha,spans:z.array(speakerSpan).max(5000)}).strict();
+const recordSchema=z.object({schema:z.union([z.literal(1),z.literal(2)]),review:reviewSchema.optional(),analysisId:uuid,id:sha,start:z.number().nonnegative(),end:z.number().positive(),audioRecipe:z.literal(3),workerSha256:sha,runtimeTreeSha256:sha,createdAt:z.string(),machine:diarizationOutput}).strict().refine(value=>value.end>value.start&&value.end-value.start<=600&&value.machine.spans.every(span=>span.start<value.end-value.start)&&value.machine.duration<=Math.ceil((value.end-value.start)*16000)/16000,"Invalid diarization source range").superRefine((value,ctx)=>{
+  if((value.schema===2)!==!!value.review)ctx.addIssue({code:"custom",message:"Speaker review recipe mismatch"});
+  if(value.review){const spans=value.review.spans;if(value.review.parentAnalysisId===value.analysisId||new Set(spans.map(span=>span.spanId)).size!==spans.length||spans.some((span,index)=>span.start<value.start||span.end>value.end||(index>0&&span.start<spans[index-1]!.start)))ctx.addIssue({code:"custom",message:"Invalid reviewed speaker intervals or parent"});}
+});
+function machineSpans(record:z.infer<typeof recordSchema>){return record.machine.spans.map((span,index)=>({spanId:`span-${index+1}`,speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)}));}
+function effectiveSpans(record:z.infer<typeof recordSchema>){return record.review?.spans??machineSpans(record);}
 export class SpeakerAnalysis{
   private tail:Promise<unknown>=Promise.resolve();
   constructor(private config:ServerConfig){}
@@ -30,22 +38,22 @@ export class SpeakerAnalysis{
   private async source(id:string){sha.parse(id);const [entry]=await new MediaLibrary(this.config).metadata([id]);if(!entry)throw new Error("Unknown speaker media");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Speaker source changed; reindex");return {source,entry};}
   private async directory(analysisId:string){uuid.parse(analysisId);const root=await new MediaLibrary(this.config).directory();return resolveReadablePath(path.join(root,`speakers-${analysisId}`),[root],"directory");}
   private async record(analysisId:string){
-    const directory=await this.directory(analysisId),file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),bytes=await readBoundedFile(file,1024*1024),record=recordSchema.parse(JSON.parse(bytes.toString("utf8")));
+    const directory=await this.directory(analysisId),file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),bytes=await readBoundedFile(file,2*1024*1024),record=recordSchema.parse(JSON.parse(bytes.toString("utf8")));
     if(record.analysisId!==analysisId)throw new Error("Speaker analysis identity mismatch");const {entry}=await this.source(record.id);if(record.end>Number(entry.metadata.format?.duration))throw new Error("Speaker range exceeds source");
     const audio=await resolveReadablePath(path.join(directory,"speech.f32"),[directory],"file"),pcm=await readBoundedFile(audio,Math.ceil((record.end-record.start)*16000)*4);
     if(pcm.length!==Math.round(record.machine.duration*16000)*4||createHash("sha256").update(pcm).digest("hex")!==record.machine.audioSha256)throw new Error("Speaker audio changed");
     return {record,directory,file,audio,sha256:createHash("sha256").update(bytes).digest("hex")};
   }
-  async read(analysisId:string,offset=0,limit=100){
-    z.number().int().min(0).max(5000).parse(offset);z.number().int().min(1).max(500).parse(limit);const {record,sha256}=await this.record(analysisId),{machine,...metadata}=record;
-    const spans=machine.spans.slice(offset,offset+limit).map((span,index)=>({spanId:`span-${offset+index+1}`,speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)}));
-    return {...metadata,sha256,options:machine.options,versions:machine.versions,audioSha256:machine.audioSha256,analyzedSeconds:machine.duration,speakerCount:machine.speakerCount,totalSpans:machine.spans.length,spans,nextOffset:offset+limit<machine.spans.length?offset+limit:null,reviewRequired:true,identitiesInferred:false,accuracyVerified:false,note:"Anonymous labels apply only to this analysis. Intervals may overlap; clustering can split one voice or combine different voices. Source-time ranges are model estimates, not verified word/speaker alignment."};
+  async read(analysisId:string,offset=0,limit=100,view:"effective"|"machine"="effective"){
+    z.number().int().min(0).max(5000).parse(offset);z.number().int().min(1).max(500).parse(limit);z.enum(["effective","machine"]).parse(view);const {record,sha256}=await this.record(analysisId),{machine,review,...metadata}=record;
+    const all=view==="machine"?machineSpans(record):effectiveSpans(record),spans=all.slice(offset,offset+limit);
+    return {...metadata,sha256,view,edited:!!review,parentAnalysisId:review?.parentAnalysisId,parentSha256:review?.parentSha256,machineSpeakerCount:machine.speakerCount,options:machine.options,versions:machine.versions,audioSha256:machine.audioSha256,analyzedSeconds:machine.duration,speakerCount:new Set(all.map(span=>span.speaker)).size,totalSpans:all.length,spans,nextOffset:offset+limit<all.length?offset+limit:null,reviewRequired:true,identitiesInferred:false,accuracyVerified:false,note:"Anonymous labels apply only to this analysis. Intervals may overlap; clustering can split one voice or combine different voices. Source-time ranges are model estimates, not verified word/speaker alignment."};
   }
   async align(analysisId:string,analysisSha256:string,transcriptRevision:string,transcriptSha256:string,after=-1,limit=100,candidateLimit=20){
     sha.parse(analysisSha256);sha.parse(transcriptSha256);z.number().int().min(-1).max(100000).parse(after);z.number().int().min(1).max(100).parse(limit);z.number().int().min(1).max(100).parse(candidateLimit);
     const saved=await this.record(analysisId);if(saved.sha256!==analysisSha256)throw new Error("Speaker analysis changed; reload its checksum");
     const transcript=await new TranscriptRevisions(this.config).snapshot(saved.record.id,transcriptRevision);if(transcript.sha256!==transcriptSha256)throw new Error("Transcript changed; reload its checksum");
-    const {record}=saved,spans=record.machine.spans.map(span=>({speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)}));
+    const {record}=saved,spans=effectiveSpans(record);
     const matching=transcript.record.segments.map((segment,index)=>({segment,index})).filter(({segment,index})=>index>after&&segment.start<record.end&&segment.end>record.start);
     const segments=matching.slice(0,limit).map(({segment,index})=>({index,segment,...alignSpeakerSegment(segment,record,spans,candidateLimit)}));
     if(await sha256File(saved.file)!==analysisSha256||await sha256File(transcript.file)!==transcriptSha256)throw new Error("Speaker analysis or transcript changed during alignment");await this.source(record.id);
@@ -54,7 +62,7 @@ export class SpeakerAnalysis{
   assign(analysisId:string,analysisSha256:string,transcriptRevision:string,transcriptSha256:string,input:z.input<typeof speakerAssignments>){return this.serialize(async()=>{
     requireCapability(this.config.capabilities,"project-write");sha.parse(analysisSha256);sha.parse(transcriptSha256);const assignments=speakerAssignments.parse(input),saved=await this.record(analysisId);
     if(saved.sha256!==analysisSha256)throw new Error("Speaker analysis changed; reload its checksum");const revisions=new TranscriptRevisions(this.config),transcript=await revisions.snapshot(saved.record.id,transcriptRevision);if(transcript.sha256!==transcriptSha256)throw new Error("Transcript changed; reload its checksum");
-    const record=saved.record,spans=record.machine.spans.map(span=>({speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)})),names=new Map<string,string>();
+    const record=saved.record,spans=effectiveSpans(record),names=new Map<string,string>();
     const decisions=assignments.map(assignment=>{
       const segment=transcript.record.segments[assignment.index];if(!segment)throw new Error("Transcript segment index missing");
       const {candidates,candidatesTruncated,...coverage}=alignSpeakerSegment(segment,record,spans,1),candidate=alignSpeakerSegment(segment,record,spans.filter(span=>span.speaker===assignment.speaker),1).candidates[0],overlap={...coverage,selectedCandidate:candidate};if(!candidate)throw new Error(`Speaker ${assignment.speaker} does not overlap transcript segment ${assignment.index}`);
@@ -67,6 +75,14 @@ export class SpeakerAnalysis{
     const provenance=speakerAssignmentProvenance.parse({schema:1,kind:"caller-selected-speaker-candidates",analysisId,analysisSha256,transcriptRevision,transcriptSha256,assignments,identityVerified:false,wordAlignmentVerified:false});
     const updated=await revisions.correct(record.id,transcriptRevision,transcriptSha256,decisions.map(decision=>({action:"replace" as const,index:decision.index,segment:decision.segment})),provenance);
     return {...updated,id:record.id,sha256:await sha256File(updated.path),speakerAssignment:provenance,decisions:decisions.map(({segment,...decision})=>decision),reviewRequired:true,note:"Caller-selected segment attribution saved in a new transcript revision. Interval overlap and provided display names do not verify identity or word-level alignment. Source media, speaker analysis and previous transcript revision are retained."};
+  });}
+  correct(analysisId:string,expectedSha256:string,input:z.input<typeof speakerEdits>){return this.serialize(async()=>{
+    requireCapability(this.config.capabilities,"project-write");sha.parse(expectedSha256);const saved=await this.record(analysisId);if(saved.sha256!==expectedSha256)throw new Error("Speaker analysis changed; reload its checksum");
+    const spans=applySpeakerEdits(effectiveSpans(saved.record),input,saved.record),childId=randomUUID();
+    const record=recordSchema.parse({...saved.record,schema:2,analysisId:childId,createdAt:new Date().toISOString(),review:{parentAnalysisId:analysisId,parentSha256:expectedSha256,spans}}),content=JSON.stringify(record);if(Buffer.byteLength(content)>2*1024*1024)throw new Error("Corrected speaker record exceeds byte limit");
+    const directory=path.join(await new MediaLibrary(this.config).directory(),`speakers-${childId}`);await mkdir(directory);const audio=path.join(directory,"speech.f32");await copyFile(saved.audio,audio,constants.COPYFILE_EXCL);
+    if(await sha256File(audio)!==record.machine.audioSha256||await sha256File(saved.file)!==expectedSha256||await sha256File(saved.audio)!==record.machine.audioSha256)throw new Error("Speaker parent or PCM changed during correction");await this.source(record.id);
+    const temporary=path.join(directory,"analysis.tmp");await writeFile(temporary,content,{flag:"wx",mode:0o600});await link(temporary,path.join(directory,"analysis.json"));await unlink(temporary);return {...await this.read(childId),previousAnalysisRetained:true,sourceModified:false,note:"Caller-corrected intervals saved in a self-contained child analysis. Original model output and copied PCM are retained; view=machine reads original model spans. Corrections do not establish identity or accuracy."};
   });}
   generate(id:string,start:number,end:number,input:z.input<typeof diarizationOptions>={}){return this.serialize(async()=>{
     requireCapability(this.config.capabilities,"export");requireCapability(this.config.capabilities,"project-write");const options=diarizationOptions.parse(input);
@@ -85,7 +101,7 @@ export class SpeakerAnalysis{
   async list(id:string,after?:string,limit=20){
     await this.source(id);if(after)uuid.parse(after);z.number().int().min(1).max(100).parse(limit);const root=await new MediaLibrary(this.config).directory(),matching=[];let scanned=0;
     for await(const entry of await opendir(root)){if(++scanned>10000)throw new Error("Speaker discovery limit exceeded");if(!entry.isDirectory()||!/^speakers-[a-f0-9-]{36}$/.test(entry.name))continue;const analysisId=entry.name.slice(9);if(after&&analysisId<=after)continue;
-      try{const directory=await this.directory(analysisId),file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),record=recordSchema.parse(JSON.parse((await readBoundedFile(file,1024*1024)).toString("utf8")));if(record.id===id)matching.push(analysisId);}catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}}
+      try{const directory=await this.directory(analysisId),file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),record=recordSchema.parse(JSON.parse((await readBoundedFile(file,2*1024*1024)).toString("utf8")));if(record.id===id)matching.push(analysisId);}catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}}
     matching.sort();const analyses=[];for(const analysisId of matching.slice(0,limit)){try{const value=await this.read(analysisId,0,1);const {spans,nextOffset,...summary}=value;analyses.push(summary);}catch(error){analyses.push({analysisId,state:"unavailable",message:(error as Error).message});}}
     return {analyses,nextAfter:matching.length>limit?matching[limit-1]:null};
   }

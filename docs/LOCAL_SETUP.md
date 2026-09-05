@@ -303,7 +303,7 @@ Actual generated commands in all five formats indexed/read the Sonoma preview. T
 
 ## Optional diarization runtime
 
-The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Read-only transcript overlap alignment is available; explicit transcript speaker assignment is available; correcting the underlying diarization labels and boundaries remains under implementation.
+The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Read-only transcript overlap alignment is available; explicit transcript speaker assignment is available; underlying diarization labels and boundaries can be corrected in new analysis revisions.
 
 ```powershell
 $env:AVID_MCP_PYTHON = "C:\Python312\python.exe"
@@ -342,4 +342,20 @@ Results include transcript segments intersecting the analyzed source range, thei
 
 A segment with multiple interval candidates requires `allowAmbiguous: true` for that assignment. A segment extending outside the analyzed source range requires `allowPartialRange: true`. Neither flag permits selecting a label with no overlap. These flags record explicit choices; they do not establish human review or identity verification. The operation requires project-write, preserves every segment's text/timing, changes only selected speaker fields, and saves a new immutable transcript revision with its parent link and assignment provenance. Source media, speaker analysis and previous transcript are retained. A later correction starts from whichever revision is explicitly selected; there is no automatically overwritten latest transcript.
 
-`avid_transcript_speaker_assignments` reads the persisted provenance using `id`, `revision` and `expectedSha256`. Pages use `offset` and `limit` (default 100, maximum 500), with `nextOffset` and `totalAssignments`. Ordinary revisions without an assignment record return `speakerAssignment: null`. This read works with inspect-only access and requires no models. Generic transcript corrections can still remove or change speaker fields; their parent revision links retain the history. Correcting diarization cluster membership/boundaries, word-level attribution and broad speaker accuracy remain open.
+`avid_transcript_speaker_assignments` reads the persisted provenance using `id`, `revision` and `expectedSha256`. Pages use `offset` and `limit` (default 100, maximum 500), with `nextOffset` and `totalAssignments`. Ordinary revisions without an assignment record return `speakerAssignment: null`. This read works with inspect-only access and requires no models. Generic transcript corrections can still remove or change speaker fields; their parent revision links retain the history. Diarization cluster/boundary corrections are described below. Word-level attribution and broad speaker accuracy remain open.
+
+
+## Correcting speaker intervals and clusters
+
+`avid_correct_speaker_analysis` takes an `analysisId`, its `expectedSha256`, and 1–1,000 ordered edits. It requires project-write, but no models or export capability. Supported edits:
+
+- `replace`: select an existing `spanId` and provide its complete new source-time `start`, `end` and `speaker` label. Assigning a new label splits that interval from its previous cluster.
+- `remove`: remove an existing `spanId`.
+- `add`: provide source-time `start`, `end` and `speaker`; the returned span receives an `added-UUID` identity.
+- `merge`: supply distinct existing `from` and `into` labels; all current spans with the first label move to the second.
+
+Labels use `speaker-1` through `speaker-9999`; they are anonymous identifiers, not names. Edits execute in order, then spans are sorted by source start/end and ID. Referenced spans/merge labels must exist at that step, intervals must remain inside the analyzed source range, and results may contain at most 5,000 spans. Removing every span is supported. Edits do not run model inference or certify accuracy.
+
+Each correction creates a new analysis ID with its parent ID/checksum, a corrected span snapshot and an independent verified PCM copy. The original machine result remains embedded unchanged. `avid_speaker_analysis` defaults to `view: "effective"`; `view: "machine"` returns the original model spans. Reads report `edited`, the parent reference and `machineSpeakerCount`. Alignment and transcript assignment use the effective view of the explicitly selected analysis. Previous analyses remain unchanged; there is no implicitly updated current analysis.
+
+The child is self-contained and remains readable if its parent is explicitly deleted later. Parent references then identify a historical artifact whose contents may no longer be present. Deletion of a child follows the same checksum/known-file checks as other speaker analyses. Interrupted correction may retain unpublished files; automatic cleanup, publication/deletion interruption recovery and broader concurrency/resource qualification remain open.

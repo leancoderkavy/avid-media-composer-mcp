@@ -68,3 +68,20 @@ it("requires explicit partial-range choices and rejects duplicates, name conflic
   await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:1,speaker:"speaker-1"}])).rejects.toThrow();
   expect(await f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:0,speaker:"speaker-1",allowPartialRange:true}])).toMatchObject({parentRevision:parent.revision});
 });
+it("forks boundary and cluster corrections, preserves machine output and aligns corrected labels without models",async()=>{
+  const f=await fixture(),original=await f.speakers.generate(f.id,10,12),review=new SpeakerAnalysis({...f.config,modelDirectory:undefined});
+  const child=await review.correct(original.analysisId,original.sha256,[{action:"replace",spanId:"span-1",start:10.1,end:10.6,speaker:"speaker-3"},{action:"remove",spanId:"span-2"},{action:"add",start:10.8,end:11.1,speaker:"speaker-4"}]);
+  expect(child).toMatchObject({schema:2,edited:true,parentAnalysisId:original.analysisId,parentSha256:original.sha256,previousAnalysisRetained:true,machineSpeakerCount:2,speakerCount:2});expect(child.spans.map(span=>span.speaker)).toEqual(["speaker-3","speaker-4"]);expect((await review.read(child.analysisId,0,100,"machine")).spans).toEqual(original.spans);expect((await review.read(original.analysisId)).sha256).toBe(original.sha256);
+  const merged=await review.correct(child.analysisId,child.sha256,[{action:"merge",from:"speaker-4",into:"speaker-3"}]);expect(merged.speakerCount).toBe(1);expect(merged.spans.map(span=>span.spanId)).toEqual(child.spans.map(span=>span.spanId));
+  const transcript=await new MediaLibrary(f.config).importTranscript(f.id,[{start:10.2,end:10.4,text:"reviewed range"}]),hash=await sha256File(transcript.path);expect((await review.align(merged.analysisId,merged.sha256,transcript.revision,hash)).segments[0]?.candidates[0]?.speaker).toBe("speaker-3");expect((await review.assign(merged.analysisId,merged.sha256,transcript.revision,hash,[{index:0,speaker:"speaker-3"}])).decisions[0]?.assignedSpeaker).toBe("speaker-3");
+  await review.remove(child.analysisId,child.sha256);expect((await review.read(merged.analysisId)).sha256).toBe(merged.sha256);expect((await review.read(merged.analysisId,0,100,"machine")).spans).toEqual(original.spans);expect(await sha256File(f.source)).toBe(f.id);
+});
+it("rejects stale, out-of-range, missing and malformed speaker corrections",async()=>{
+  const f=await fixture(),original=await f.speakers.generate(f.id,10,12);
+  await expect(f.speakers.correct(original.analysisId,"0".repeat(64),[{action:"remove",spanId:"span-1"}])).rejects.toThrow("changed");
+  await expect(f.speakers.correct(original.analysisId,original.sha256,[{action:"replace",spanId:"span-1",start:9,end:11,speaker:"speaker-1"}])).rejects.toThrow("source range");
+  await expect(f.speakers.correct(original.analysisId,original.sha256,[{action:"remove",spanId:"span-99"}])).rejects.toThrow("missing");
+  await expect(f.speakers.correct(original.analysisId,original.sha256,[{action:"merge",from:"speaker-99",into:"speaker-1"}])).rejects.toThrow("existing");
+  await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).correct(original.analysisId,original.sha256,[{action:"remove",spanId:"span-1"}])).rejects.toThrow();
+  const child=await f.speakers.correct(original.analysisId,original.sha256,[{action:"merge",from:"speaker-2",into:"speaker-1"}]),file=path.join(f.base,`speakers-${child.analysisId}`,"analysis.json"),record=JSON.parse(await readFile(file,"utf8"));record.review.spans.push(record.review.spans[0]);await writeFile(file,JSON.stringify(record));await expect(f.speakers.read(child.analysisId)).rejects.toThrow("reviewed speaker intervals");
+});
