@@ -55,3 +55,22 @@ The subsequent visual-summary implementation accepts explicit caption/checksum p
 Actual MCP evidence: `.avid-mcp-analysis/visual-summary-cee6df48-f7b8-4620-85e6-c931d8ade1f8/evidence.json`. Twelve Sonoma captions produced 16 nodes. Reconnect reads/discovery, source/caption/image checks, exact leaf text, duplicate/checksum rejection and summary-only deletion passed. Sources/captions were preserved.
 
 Quality did not pass: the overview repeated sky details and omitted later scenes, ending mid-sentence. The "3D image" vineyard characterization originated in the Florence caption at 80 seconds and propagated into the root. Directly inspecting its saved JPEG showed vineyard rows, a central tree and shadows without evidence for that characterization. This is a concrete example of caption error propagation through an otherwise traceable hierarchy. The generated root is marked for review and factual entailment remains unverified. This increment implements integration; it does not close unattended visual-summary accuracy, per-node recovery or broader resource/coverage requirements.
+
+## Separating caption errors from summary errors
+
+`scripts/research/benchmark-visual-summary-quality.mjs` compares the same four-child hierarchy using the 12 retained machine captions and a separate set of reference descriptions. The assistant visually inspected all 12 saved JPEGs before writing `scripts/research/sonoma-caption-review.json`; these are development references, not independently labelled held-out data. Original media, captions and images were not edited.
+
+Evidence: `.avid-mcp-analysis/visual-summary-quality-2faaee97-da6b-4948-89ac-4b143bbbcfb3/evidence.json`. The cached Qwen3-1.7B ONNX q4 candidate uses revision `cc6a06a21d614e9b8e92a6adfab1074d4e7d2438`, a non-thinking chat template and deterministic generation capped at 384 new tokens. Parent prompts request every distinct scene in supplied order without inferred identities, intentions or continuity. DistilBART comparisons use the reviewed captions and both 80- and 384-token limits with greedy generation. All inputs and intermediate outputs are retained.
+
+| Condition | Observed overview result |
+| --- | --- |
+| Qwen, machine captions | Retained the first four scenes only; the later eight scenes were omitted from the root despite their source indices remaining in the graph. |
+| Qwen, reviewed captions | Retained 11 of 12 main scenes in order. The sidewalk scene with white tablecloths and yellow chairs was already omitted by its first generated parent, then remained absent at the root. Wording such as "another person" and "a third person" also implies distinct identities that the descriptions do not establish. |
+| DistilBART, reviewed captions, 80 tokens | Retained sidewalk dining, patio and phone details but omitted most scenes, repeated "restaurants", reordered details and ended without terminal punctuation. |
+| DistilBART, reviewed captions, 384 tokens | Exact same overview and intermediate text as the 80-token variant; a larger requested budget did not fix this failure. |
+
+The 11/12 scene count is a manual main-scene coverage observation on this development set, not factual accuracy or a general acceptance rate. In particular, a valid graph can retain every source index while generated text omits their content. The reviewed-caption condition changes both correctness and length/detail of the input, so this experiment does not isolate those two factors.
+
+Qwen cached loading took 4.274 seconds; its eight parent calls took 5.661–22.699 seconds each, with sampled generation process RSS reaching 4,809,457,664 bytes (about 4.48 GiB). DistilBART parent calls took 1.616–2.046 seconds here. The memory sampling excludes unsampled load peaks and is not a clean-machine requirement. Source/image hashes were unchanged.
+
+Neither candidate nor a larger production output budget is adopted from this result. Next quality work needs better preservation of short, distinct input scenes, explicit checks against unsupported identity/continuity claims, and independent footage/reference sets. Caption review remains necessary but alone does not prevent later summary omissions.
