@@ -10,6 +10,7 @@ import {resolveReadablePath} from "../security/path-policy.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 import {SummaryCheckpoints,summaryNodeSchema,type SummaryNode} from "./summary-checkpoints.js";
 import {AvidMcpError,errorDetails} from "../errors.js";
+import {validateSummaryTree} from "./summary-tree.js";
 export const SUMMARY_MODEL="Xenova/distilbart-cnn-6-6";
 export const SUMMARY_REVISION="6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9";
 export async function loadSummaryModel(cache:string,download=false){const {pipeline}=await modelRuntime(cache,download);return pipeline("summarization",SUMMARY_MODEL,{cache_dir:cache,revision:SUMMARY_REVISION,local_files_only:!download,dtype:"q8"});}
@@ -88,6 +89,7 @@ export class MediaSummaries{
     }
     if((await this.source(id,transcriptRevision)).sourceHash!==source.sourceHash)throw new Error("Transcript changed during generation");
     const record=recordSchema.parse({schema:1,id,transcriptRevision,sourceHash:source.sourceHash,model:SUMMARY_MODEL,modelRevision:SUMMARY_REVISION,root:level[0]!.nodeId,nodes});
+    validateSummaryTree(record.root,record.nodes,source.segments);
     const revision=randomUUID();await writeFile(path.join(await this.library.directory(),`summary-${revision}.json`),JSON.stringify(record),{flag:"wx"});
     await this.checkpoints.finish(runId,revision);
     return {revision,runId,parentRunId,reusedNodes,root:record.root,nodes:nodes.length,reviewRequired:true,grounding:"Source transcript indices and checksum; factual entailment is not automatically verified"};
@@ -98,8 +100,7 @@ export class MediaSummaries{
     const record=recordSchema.parse(await readBoundedJson(file,4*1024*1024)),source=verify?await this.source(record.id,record.transcriptRevision):{segments:[],sourceHash:record.sourceHash};
     await this.library.metadata([record.id]);
     if(source.sourceHash!==record.sourceHash)throw new Error("Summary transcript provenance changed");
-    const ids=new Set(record.nodes.map(n=>n.nodeId));if(ids.size!==record.nodes.length||!ids.has(record.root))throw new Error("Invalid summary node identities");
-    for(const node of record.nodes)if(node.children.some(id=>!ids.has(id))||(verify&&node.sourceIndices.some(index=>!source.segments.some(s=>s.index===index))))throw new Error("Invalid summary source references");
+    validateSummaryTree(record.root,record.nodes,verify?source.segments:undefined);
     return {file,record,source,sha256:hash(record)};
   }
   async node(revision:string,nodeId?:string){const {record,source,sha256}=await this.read(revision),node=record.nodes.find(n=>n.nodeId===(nodeId??record.root));if(!node)throw new Error("Unknown summary node");return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>record.nodes.find(n=>n.nodeId===id)),sources:source.segments.filter(s=>node.sourceIndices.includes(s.index)),reviewRequired:true,factualEntailmentVerified:false};}
