@@ -27,3 +27,11 @@ it("refuses an active lifecycle lock and invalid JSON without replacing them",as
 it("does not expose other entries or environment values through status",async()=>{
   const {file}=await fixture();await writeFile(file,JSON.stringify({mcpServers:{[name]:{env:{SECRET:"fixture-secret-8d1e7c"}}}}));const status=await configurationStatus(file);expect(JSON.stringify(status)).not.toContain("fixture-secret-8d1e7c");expect(status.sha256).toMatch(/^[a-f0-9]{64}$/);
 });
+
+it("binds an older server entry to its supplied checksum before configuration generation",async()=>{
+  const {resolveSetupEntry,clientConfiguration}=await import("../src/setup.js"),{sha256File}=await import("../src/analysis/file-inventory.js");
+  const {root}=await fixture(),file=path.join(root,"older-server.js");await writeFile(file,"// original server");const hash=await sha256File(file),entry=await resolveSetupEntry(file,hash);
+  expect(clientConfiguration("generic",[root],undefined,undefined,entry)).toMatchObject({mcpServers:{[name]:{args:[entry]}}});
+  await writeFile(file,"// changed server");await expect(resolveSetupEntry(file,hash)).rejects.toThrow(/checksum mismatch/);
+  await expect(resolveSetupEntry("relative.js",hash)).rejects.toThrow(/absolute/);
+});

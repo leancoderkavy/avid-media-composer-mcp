@@ -1,4 +1,5 @@
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 import {packageTreeHash} from "./package-lifecycle.js";
 import {mkdir,writeFile,realpath,stat} from "node:fs/promises";
 import {randomUUID} from "node:crypto";
@@ -31,15 +32,15 @@ export async function installPackage(archive:string,root:string,expectedSha256:s
   await npm(["install","--ignore-scripts","--no-audit","--no-fund","--save-exact",staged]);
   await npm(["audit","--omit=dev","--audit-level=high"]);
   const installed=path.join(directory,"node_modules","avid-media-composer-mcp"),metadata=await readBoundedJson(path.join(installed,"package.json"),1024*1024) as {name?:string;version?:string;bin?:Record<string,string>};
-  if(metadata.name!=="avid-media-composer-mcp"||typeof metadata.version!=="string"||metadata.bin?.["avid-media-composer-mcp"]!=="dist/index.js"||metadata.bin?.["avid-mcp"]!=="dist/cli.js")throw new Error(`Unexpected package identity or entry points; installation retained at ${directory}`);
-  const entry=path.join(installed,"dist","index.js"),setup=path.join(installed,"dist","cli.js"),client=new Client({name:"avid-managed-install-check",version:"1.0"});
+  if(metadata.name!=="avid-media-composer-mcp"||typeof metadata.version!=="string"||metadata.bin?.["avid-media-composer-mcp"]!=="dist/index.js"||(metadata.bin?.["avid-mcp"]!==undefined&&metadata.bin["avid-mcp"]!=="dist/cli.js"))throw new Error(`Unexpected package identity or entry points; installation retained at ${directory}`);
+  const entry=path.join(installed,"dist","index.js"),setup=metadata.bin?.["avid-mcp"]?path.join(installed,"dist","cli.js"):null,client=new Client({name:"avid-managed-install-check",version:"1.0"});
   let toolsCount=0;
   try{
     await client.connect(new StdioClientTransport({command:process.execPath,args:[entry],stderr:"pipe",env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:directory,AVID_MCP_OUTPUT_ROOT:directory,AVID_MCP_CAPABILITIES:"inspect"}}));
     const ping=await client.callTool({name:"avid_ping",arguments:{}},undefined,{timeout:30000});if(ping.isError)throw new Error("Installed MCP ping failed");
     toolsCount=(await client.listTools()).tools.length;if(!toolsCount)throw new Error("Installed MCP exposes no tools");
   }finally{await client.close();}
-  const receipt={schema:1,treeSha256:await packageTreeHash(directory),installationId,version:metadata.version,directory,archiveSha256:expectedSha256,entry,entrySha256:await sha256File(entry),setup,setupSha256:await sha256File(setup),lockSha256:await sha256File(path.join(directory,"package-lock.json")),node:process.execPath,nodeVersion:process.versions.node,tools:toolsCount,checkedAt:new Date().toISOString(),checks:{lifecycleScriptsDisabled:true,auditHighPassed:true,stdioPingPassed:true},limitations:["Node, FFmpeg, Python and optional models are not installed by this command","No named-client or Avid host qualification","Tree hash records installed files and links for later change detection; it is not publisher authentication"]};
+  const receipt={schema:1,treeSha256:await packageTreeHash(directory),installationId,version:metadata.version,directory,archiveSha256:expectedSha256,entry,entrySha256:await sha256File(entry),setup,setupSha256:setup?await sha256File(setup):null,lockSha256:await sha256File(path.join(directory,"package-lock.json")),node:process.execPath,nodeVersion:process.versions.node,tools:toolsCount,checkedAt:new Date().toISOString(),checks:{lifecycleScriptsDisabled:true,auditHighPassed:true,stdioPingPassed:true},limitations:["Node, FFmpeg, Python and optional models are not installed by this command","No named-client or Avid host qualification","Tree hash records installed files and links for later change detection; it is not publisher authentication"]};
   await writeFile(path.join(directory,"installation.json"),JSON.stringify(receipt,null,2),{flag:"wx"});
-  return {...receipt,setupCommand:{command:process.execPath,args:[setup]},note:"Use this installed setup CLI to generate or update your client entry. Keep the previous installation for configuration rollback. No existing client entry was changed."};
+  return {...receipt,setupCommand:{command:process.execPath,args:setup?[setup]:[fileURLToPath(new URL("./cli.js",import.meta.url)),"--server-entry",entry,"--server-entry-sha256",receipt.entrySha256]},usesBootstrapSetup:!setup,note:"Use this installed setup CLI to generate or update your client entry. Keep the previous installation for configuration rollback. No existing client entry was changed."};
 }

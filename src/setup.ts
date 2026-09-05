@@ -1,5 +1,6 @@
 import path from "node:path";
-import { realpath } from "node:fs/promises";
+import { realpath,stat } from "node:fs/promises";
+import {sha256File} from "./analysis/file-inventory.js";
 import {changeConfiguration} from "./setup-lifecycle.js";
 import { fileURLToPath } from "node:url";
 import type { ServerConfig } from "./config.js";
@@ -8,9 +9,15 @@ import { probeFfprobe } from "./analysis/media.js";
 import { probePythonInspector } from "./analysis/python-sidecar.js";
 
 export type SetupClient = "claude" | "cursor" | "vscode" | "lmstudio" | "generic";
-export function clientConfiguration(client: SetupClient, roots: string[], outputRoot?: string, nativeBinary?: string) {
+export async function resolveSetupEntry(file:string,expectedSha256:string){
+  if(!path.isAbsolute(file)||!/^[a-f0-9]{64}$/.test(expectedSha256))throw new Error("Server entry requires an absolute path and lowercase SHA-256");
+  const entry=await realpath(file);if(!(await stat(entry)).isFile())throw new Error("Server entry must be a file");
+  if(await sha256File(entry)!==expectedSha256)throw new Error("Server entry checksum mismatch");return entry;
+}
+export function clientConfiguration(client: SetupClient, roots: string[], outputRoot?: string, nativeBinary?: string,serverEntry=fileURLToPath(new URL("./index.js", import.meta.url))) {
   if (!roots.length || roots.some(root => !path.isAbsolute(root))) throw new Error("Absolute allowed roots are required");
-  const entry = { command: process.execPath, args: [fileURLToPath(new URL("./index.js", import.meta.url))], env: {
+  if(!path.isAbsolute(serverEntry))throw new Error("Server entry must be absolute");
+  const entry = { command: process.execPath, args: [serverEntry], env: {
     AVID_MCP_ALLOWED_ROOTS: roots.join(path.delimiter), AVID_MCP_CAPABILITIES: "inspect",
     ...(outputRoot ? { AVID_MCP_OUTPUT_ROOT: path.resolve(outputRoot) } : {}),
     ...(nativeBinary ? { AVID_MCP_NATIVE_BINARY: path.resolve(nativeBinary) } : {}),
