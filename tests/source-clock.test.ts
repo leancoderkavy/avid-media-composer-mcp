@@ -2,7 +2,7 @@ import {it,expect,vi} from "vitest";
 import {mkdtemp,writeFile,readFile,readdir,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets} from "../src/library/source-clock.js";
+import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets,verifyVideoPacketClock} from "../src/library/source-clock.js";
 import {loadConfig} from "../src/config.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 const mock=vi.hoisted(()=>({run:vi.fn()}));
@@ -26,7 +26,7 @@ async function fixture(mode="pass"){
   let stdout="";
   if(args.includes("-n")){await writeFile(args.at(-1)!,"prepared");if(mode==="source-change")await writeFile(source,"changed");}
   else if(args.includes("-show_streams")){const original=args.at(-1)===source,hasTimecode=mode.includes("timecode"),selectedVideo={...video,...(hasTimecode?{tags:{timecode:"10:00:00:00"}}:{})};stdout=JSON.stringify({streams:original?[selectedVideo,audio]:[{...selectedVideo,index:0,...(mode==="truncated"?{nb_frames:"1"}:{})},{...audio,index:1,codec_name:"pcm_s24le",sample_rate:"48000"},...(hasTimecode?[{index:2,codec_type:"data",codec_tag_string:"tmcd",tags:{timecode:mode==="bad-timecode"?"11:00:00:00":"10:00:00:00"}}]:[])]});}
-  else if(args.includes("-show_packets"))stdout=JSON.stringify({packets:[{pts_time:0,duration_time:2}]});
+  else if(args.includes("-show_packets"))stdout=JSON.stringify({packets:args.includes("a:0")?[{pts_time:0,duration_time:2}]:Array.from({length:60},(_,i)=>({pts_time:i/30+(mode==="clock-change"&&args.includes("v:0")&&i===20?0.01:0),dts_time:(i-2)/30,duration_time:1/30}))});
   else if(args.includes("hash")){const pcm=args.includes("pcm_s24le");stdout="SHA256="+(pcm?"b":mode==="video-mismatch"&&args.includes("0:v:0")?"c":"a").repeat(64);}
   return {exitCode:0,stdout,stderr:""};
  });
@@ -49,6 +49,15 @@ it("permits only the source timecode declaration on an additional tmcd stream",a
  const bad=await fixture("bad-timecode");await expect(new SourceClockMedia(bad.config).prepare(bad.options)).rejects.toThrow("timecode");
 });
 it("retains failed artifacts without a success receipt when video or source changes",async()=>{
- for(const mode of ["video-mismatch","source-change","truncated"]){const f=await fixture(mode);await expect(new SourceClockMedia(f.config).prepare(f.options)).rejects.toThrow(mode==="video-mismatch"?"essence mismatch":mode==="truncated"?"Changed video field":"Source changed");
+ for(const mode of ["video-mismatch","source-change","truncated","clock-change"]){const f=await fixture(mode);await expect(new SourceClockMedia(f.config).prepare(f.options)).rejects.toThrow(mode==="clock-change"?"Changed video packet clock":mode==="video-mismatch"?"essence mismatch":mode==="truncated"?"Changed video field":"Source changed");
  const base=path.join(f.root,"avid-mcp-library"),dir=path.join(base,(await readdir(base))[0]!);expect(await readdir(dir)).toEqual(expect.arrayContaining(["attempt.json","prepared.mov","failure.json"]));expect(await readdir(dir)).not.toContain("receipt.json");}
+});
+it("checks every packet clock including reordered presentation times and negative decode times",()=>{
+ const packets=[{pts_time:0,dts_time:-0.08,duration_time:0.04},{pts_time:0.08,dts_time:-0.04,duration_time:0.04},{pts_time:0.04,dts_time:0,duration_time:0.04}];
+ expect(verifyVideoPacketClock(packets,packets,3)).toEqual({packets:3,maxDifferenceSeconds:0});
+ for(const field of ["pts_time","dts_time","duration_time"]){
+  expect(()=>verifyVideoPacketClock(packets,packets.map((p,i)=>i===1?{...p,[field]:0.5}:p),3)).toThrow("Changed video packet clock");
+  expect(()=>verifyVideoPacketClock(packets,packets.map((p,i)=>i===1?{...p,[field]:null}:p),3)).toThrow("Unsupported");
+ }
+ expect(()=>verifyVideoPacketClock(packets,packets.slice(1),3)).toThrow("count");
 });

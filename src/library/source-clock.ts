@@ -31,6 +31,20 @@ export function contiguousPcmPackets(packets:{pts_time?:unknown;duration_time?:u
   if(maxGap>=1/48000)throw new Error("PCM packets are not contiguous from zero");
   return {packets:packets.length,endSeconds:end,maxGapSeconds:maxGap};
 }
+export function verifyVideoPacketClock(source:Stream[],output:Stream[],frames:number){
+  if(!source.length||source.length!==frames||source.length!==output.length||source.length>100000)throw new Error("Video packet count mismatch or unsupported count");
+  let maxDifferenceSeconds=0;
+  for(let index=0;index<source.length;index++){
+    for(const field of ["pts_time","dts_time","duration_time"]){
+      const before=number(source[index]![field]),after=number(output[index]![field]);
+      if(!Number.isFinite(before)||!Number.isFinite(after)||(field==="duration_time"&&(before<=0||after<=0)))throw new Error("Unsupported video packet clock");
+      const difference=Math.abs(before-after);maxDifferenceSeconds=Math.max(maxDifferenceSeconds,difference);
+      // ffprobe formats time fields to six decimal places.
+      if(difference>0.0000011)throw new Error(`Changed video packet clock at ${index}: ${field}`);
+    }
+  }
+  return {packets:source.length,maxDifferenceSeconds};
+}
 export class SourceClockMedia {
   constructor(private config:ServerConfig){}
   async prepare(input:z.infer<typeof sourceClockOptions>){
@@ -67,13 +81,15 @@ export class SourceClockMedia {
       };
       const videoHash=await hash(source,`0:${options.videoStream}`,"copy");
       if(await hash(output,"0:v:0","copy")!==videoHash)throw new Error("Copied video essence mismatch");
+      const videoPackets=async(file:string,stream:string)=>JSON.parse(await run(this.config.ffprobeExecutable,["-v","error","-protocol_whitelist","file,pipe","-select_streams",stream,"-show_packets","-show_entries","packet=pts_time,dts_time,duration_time","-of","json",file])).packets as Stream[];
+      const videoClock=verifyVideoPacketClock(await videoPackets(source,String(options.videoStream)),await videoPackets(output,"v:0"),number(selected.video.nb_frames));
       const pcmHash=await hash(source,`0:${options.audioStream}`,"pcm_s24le",CLOCK);
       if(await hash(output,"0:a:0","pcm_s24le")!==pcmHash)throw new Error("Source-clock PCM mismatch");
       const packets=JSON.parse(await run(this.config.ffprobeExecutable,["-v","error","-protocol_whitelist","file,pipe","-select_streams","a:0","-show_packets","-show_entries","packet=pts_time,duration_time","-of","json",output]));
       const continuity=contiguousPcmPackets(packets.packets);
       if(await sha256File(await resolveReadablePath(source,this.config.allowedRoots,"file"))!==options.expectedSha256)throw new Error("Source changed during preparation");
       if(await sha256File(await resolveReadablePath(output,[directory],"file"))!==outputBefore)throw new Error("Output changed during verification");
-      const receipt={source,sourceSha256:options.expectedSha256,output,outputSha256:outputBefore,videoStream:options.videoStream,audioStream:options.audioStream,original,prepared,recipe:CLOCK,videoEssenceSha256:videoHash,sourceClockPcmSha256:pcmHash,continuity,sourceUnchanged:true,verified:true,hostImportVerified:false,limitations:["Only selected streams are included","Presentation-clock normalization may insert or remove audio samples","No Avid import, relink, color or perceptual sync qualification"]};
+      const receipt={source,sourceSha256:options.expectedSha256,output,outputSha256:outputBefore,videoStream:options.videoStream,audioStream:options.audioStream,original,prepared,recipe:CLOCK,videoEssenceSha256:videoHash,videoClock,sourceClockPcmSha256:pcmHash,continuity,sourceUnchanged:true,verified:true,hostImportVerified:false,limitations:["Only selected streams are included","Presentation-clock normalization may insert or remove audio samples","No Avid import, relink, color or perceptual sync qualification"]};
       await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return receipt;
     }catch(error){await writeFile(path.join(directory,"failure.json"),JSON.stringify({verified:false,message:error instanceof Error?error.message:String(error),output,attempt}),{flag:"wx"});throw error;}
   }
