@@ -65,15 +65,15 @@ export class MediaQc {
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
     const streams=entry.metadata.streams??[],selected=selectQcStreams(streams,options);
     const {video,audio}=selected;
-    const executable=this.config.ffmpegExecutable??"ffmpeg",span=options.end-options.start;
-    const base=["-hide_banner","-nostdin","-nostats","-xerror","-v","info","-protocol_whitelist","file,pipe","-ss",String(options.start),"-t",String(span),"-i",source];
+    const executable=this.config.ffmpegExecutable??"ffmpeg";
+    const base=["-hide_banner","-nostdin","-nostats","-xerror","-v","info","-protocol_whitelist","file,pipe","-t",String(options.end),"-i",source];
     let log="";
     const run=async(args:string[])=>{
       const result=await runProcess(executable,[...base,...args,"-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:4*1024*1024});
       if(result.exitCode!==0)throw new Error(`QC decoding failed: ${result.stderr.slice(-1000)}`);log+=result.stderr;
     };
-    if(video)await run(["-map",`0:${video.index}`,"-an","-vf",`trim=duration=${span},setpts=PTS-STARTPTS,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`]);
-    if(audio)await run(["-map",`0:${audio.index}`,"-vn","-af",`atrim=duration=${span},asetpts=PTS-STARTPTS,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},loudnorm=print_format=json`]);
+    if(video)await run(["-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`]);
+    if(audio)await run(["-map",`0:${audio.index}`,"-vn","-af",`atrim=start=${options.start}:end=${options.end},asetpts=PTS-${options.start}/TB,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},loudnorm=print_format=json`]);
     if(await sha256File(source)!==id)throw new Error("Source changed during QC");
     const findings=parseQcLog(log,options.start,options.end);
     if(video&&!findings.frameTiming)throw new Error("Video QC summary missing; result is incomplete");
