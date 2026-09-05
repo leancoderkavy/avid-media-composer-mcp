@@ -1,0 +1,32 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,writeFile,readFile,readdir,unlink} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id=await sha256File(source),root=path.resolve('.avid-mcp-analysis',`speaker-mcp-${randomUUID()}`);await mkdir(root);
+const connect=async()=>{const client=new Client({name:'speaker-lifecycle-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:['dist/index.js'],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(source),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:path.resolve('.avid-mcp-analysis/models'),AVID_MCP_CAPABILITIES:'inspect,export,project-write',...(process.env.AVID_MCP_FFMPEG?{AVID_MCP_FFMPEG:process.env.AVID_MCP_FFMPEG}:{})}}));return client;};
+let client=await connect();
+const raw=(name,args)=>client.callTool({name,arguments:args},undefined,{timeout:120000});
+const call=async(name,args)=>{const response=await raw(name,args);assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+const until=async(read,accept)=>{const deadline=Date.now()+120000;do{const value=await read();if(accept(value))return value;await new Promise(resolve=>setTimeout(resolve,100));}while(Date.now()<deadline);throw new Error('Expected job state not reached');};
+try{
+  await call('avid_index_media',{files:[source]});
+  const cancelledJob=await call('avid_start_analysis_job',{job:{kind:'diarization',id,start:0,end:180}});
+  await until(()=>readdir(path.join(root,'avid-mcp-library')),files=>files.some(file=>file.startsWith('speakers-')));
+  await call('avid_cancel_analysis_job',{jobId:cancelledJob.id});
+  const cancelled=await until(()=>call('avid_analysis_job_status',{jobId:cancelledJob.id}),value=>['completed','cancelled','failed'].includes(value.status));assert.equal(cancelled.status,'cancelled');
+  assert.deepEqual((await call('avid_speaker_analyses',{id})).analyses,[]);
+  const job=await call('avid_start_analysis_job',{job:{kind:'diarization',id,start:60,end:125,options:{speakers:2,threshold:0.5}}});
+  const completed=await until(()=>call('avid_analysis_job_status',{jobId:job.id}),value=>['completed','cancelled','failed'].includes(value.status));assert.equal(completed.status,'completed',JSON.stringify(completed));
+  const analysisId=completed.result.analysisId,initial=await call('avid_speaker_analysis',{analysisId,limit:3});assert.ok(initial.totalSpans>3);assert.ok(initial.spans.every(span=>span.start>=60&&span.end<=125));
+  await client.close();client=await connect();assert.deepEqual(await call('avid_speaker_analysis',{analysisId,limit:3}),initial);
+  const spans=[];let offset=0;do{const page=await call('avid_speaker_analysis',{analysisId,offset,limit:3});spans.push(...page.spans);offset=page.nextOffset;}while(offset!==null);assert.equal(spans.length,initial.totalSpans);assert.equal(new Set(spans.map(span=>span.spanId)).size,spans.length);
+  const file=path.join(root,'avid-mcp-library',`speakers-${analysisId}`,'analysis.json'),saved=await readFile(file,'utf8');assert.equal(await sha256File(file),initial.sha256);
+  const extra=path.join(path.dirname(file),'qualification-note.txt');await writeFile(extra,'owned test note',{flag:'wx'});assert.equal((await raw('avid_delete_speaker_analysis',{analysisId,expectedSha256:initial.sha256})).isError,true);assert.equal(await readFile(extra,'utf8'),'owned test note');await unlink(extra);
+  assert.equal((await raw('avid_delete_speaker_analysis',{analysisId,expectedSha256:'0'.repeat(64)})).isError,true);
+  const removed=await call('avid_delete_speaker_analysis',{analysisId,expectedSha256:initial.sha256});assert.ok(removed.removed);assert.deepEqual((await call('avid_speaker_analyses',{id})).analyses,[]);assert.equal(await sha256File(source),id);
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({cancelled,completed,initial,spans,savedRecord:JSON.parse(saved),removed,sourceUnchanged:true,scope:'Actual MCP job cancellation, new ranged analysis, pagination, reconnect, retained unexpected file, stale checksum refusal and derived-file deletion. No natural-dialogue accuracy or word-level speaker alignment acceptance.'},null,2));
+  console.log(JSON.stringify({passed:true,spans:spans.length,evidence:path.join(root,'evidence.json')}));
+}finally{await client.close();}

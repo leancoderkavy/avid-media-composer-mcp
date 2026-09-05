@@ -1,6 +1,6 @@
 # Local speaker diarization candidate
 
-This research evaluates an original wrapper around sherpa-onnx, separating speaker intervals from transcription. It does not yet add a shipping MCP tool, identify people, or assign names to voices.
+This research evaluates an original wrapper around sherpa-onnx, separating speaker intervals from transcription. The later implementation sections record packaged runtime and MCP additions. It does not identify people or assign names to voices.
 
 ## Sources and licensing
 
@@ -61,7 +61,7 @@ Remaining implementation following the original research: managed model/runtime 
 
 ## Managed runtime and packaged worker qualification
 
-The branch now packages `python/avid_diarization.py` and provides `--download-models --diarization` plus `--diarization-runtime-status`. The worker retains the pinned model/runtime contract, validates finite bounded PCM and output spans, normalizes anonymous labels by first appearance, and supports automatic or supplied speaker counts. It does not yet expose persisted MCP speaker operations. Preparation downloads only the fixed artifacts above, verifies exact sizes/hashes, and extracts only selected regular archive members; it never executes archive contents.
+The branch now packages `python/avid_diarization.py` and provides `--download-models --diarization` plus `--diarization-runtime-status`. The worker retains the pinned model/runtime contract, validates finite bounded PCM and output spans, normalizes anonymous labels by first appearance, and supports automatic or supplied speaker counts. Persisted MCP speaker operations were added in the subsequent increment below. Preparation downloads only the fixed artifacts above, verifies exact sizes/hashes, and extracts only selected regular archive members; it never executes archive contents.
 
 A fresh Windows Python 3.12 installation passed binary-only dependency installation, pip check, model verification and one-second silence inference. Its completed receipt binds the installation tree and packaged worker. The qualification script reused it with a deliberately nonexistent base Python command, verified tree consistency after inference, rejected a deliberate extra file during setup, retained that file until the script removed its own test file, and verified the restored tree. No automatic dependency or model changes occur during reuse.
 
@@ -75,3 +75,14 @@ Actual worker results using the production source-clock extractor:
 Evidence: `.avid-mcp-analysis/diarization-runtime-19994a23-ddde-41f4-af47-2138a523160b/evidence.json`; fresh-install receipt/output: `.avid-mcp-analysis/diarization-production-install.log`. Reproduce with `node scripts/research/qualify-diarization-runtime.mjs` after building and installing the runtime, using the retained original fixture and configured FFmpeg. Sources and installation tree remained unchanged. The float32 production extractor produces different interval counts from the earlier PCM16 research fixture; neither Sonoma result is a labelled accuracy reference.
 
 Validation passed with 251 TypeScript tests, 12 Python tests, stdio/HTTP checks and fresh-tarball installation/audit. New tests cover setup reuse, changed trees, retained failed installations, existing/replaced locks, invalid receipts, bounded reads, unsupported clustering settings, offline verification and allowlisted regular-file archive extraction. Model/runtime redistribution notices, current vulnerability audit, persisted speaker tools, corrections, transcript alignment, cancellation/recovery and natural-dialogue accuracy remain open.
+
+
+## Persisted MCP speaker analysis
+
+`SpeakerAnalysis` now binds validated worker output to the indexed source, explicit source range, recipe-three PCM extraction and installed runtime/worker checksums. Publication occurs only after rechecking source, PCM and runtime. Saved records support paginated source-time spans, completed-result discovery and checksum-guarded derived-file deletion. Worker validation rejects malformed interval bounds/order, label order, inconsistent speaker counts and mismatched audio/options. Source and extracted-audio checks repeat on reads. These checks establish provenance/consistency, not model accuracy or publisher authentication.
+
+Four MCP tools were added: `avid_diarize_audio`, `avid_speaker_analysis`, `avid_speaker_analyses`, and `avid_delete_speaker_analysis`; `diarization` joins the existing job lifecycle. The job requires export and project-write capabilities. Incomplete runs remain unpublished and currently require a new run; no model checkpoint resume is claimed.
+
+Actual Sonoma MCP qualification cancelled a job before result publication, verified completed-result discovery remained empty, then analyzed source [60,125) with a supplied count of two. The new job returned 14 spans. Three-span pages covered each saved span once, and reconnect returned an identical result. Deletion refused a stale checksum and an unexpected note, retained the note until the script removed its own file, then removed only the verified result and PCM. The source hash was unchanged. Evidence: `.avid-mcp-analysis/speaker-mcp-f8332391-5a97-446a-88bc-89a4fe3aab0d/evidence.json`; reproduce with `scripts/research/qualify-speaker-mcp.mjs` after building and runtime setup.
+
+Full local validation passed with 255 TypeScript tests, 12 Python tests, 115 tools, both MCP transports and fresh-tarball installation/audit. Additional mismatch regression coverage passed afterward. Natural-dialogue accuracy, corrections, transcript alignment, cancellation during each native-model stage, recovery/cleanup and resource/concurrency qualification remain open.

@@ -32,7 +32,7 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(111);
+      expect(tools.tools).toHaveLength(115);
       expect(tools.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining([
           "avid_people_runs", "avid_people_run", "avid_resume_people",
@@ -53,6 +53,10 @@ describe("MCP server surface", () => {
           "avid_get_extension_capability_manifest",
           "avid_diagnose_integrations",
           "avid_ctms_read",
+          "avid_diarize_audio",
+          "avid_speaker_analysis",
+          "avid_speaker_analyses",
+          "avid_delete_speaker_analysis",
         ]),
       );
       expect(tools.tools.map((tool) => tool.name)).toContain("avid_analyze_project");

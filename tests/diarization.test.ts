@@ -1,0 +1,43 @@
+import {mkdtemp,writeFile,readFile,unlink} from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import {it,expect,beforeEach,vi} from "vitest";
+import {SpeakerAnalysis,diarizationOutput} from "../src/library/diarization.js";
+import {MediaLibrary} from "../src/library/media-library.js";
+import {loadConfig} from "../src/config.js";
+import {sha256File} from "../src/analysis/file-inventory.js";
+const mocks=vi.hoisted(()=>({run:vi.fn(),runtime:vi.fn()}));
+vi.mock("../src/process.js",()=>({runProcess:mocks.run}));
+vi.mock("../src/library/diarization-runtime.js",()=>({DIARIZATION_WORKER:"worker.py",diarizationRuntimeStatus:mocks.runtime}));
+const versions={"sherpa-onnx":"1.13.7","sherpa-onnx-core":"1.13.7",numpy:"2.2.6"};
+beforeEach(()=>{
+  mocks.run.mockReset();mocks.runtime.mockReset();mocks.runtime.mockResolvedValue({unchanged:true,treeSha256:"a".repeat(64),receipt:{workerSha256:"b".repeat(64)},executable:"python",directory:"runtime"});
+  mocks.run.mockImplementation(async(_executable:string,args:string[])=>{
+    if(args.includes("-f")){await writeFile(args.at(-1)!,Buffer.alloc(Number(args[args.lastIndexOf("-t")+1])*16000*4));return {exitCode:0};}
+    const file=args[args.indexOf("--audio")+1]!,bytes=await readFile(file);
+    return {exitCode:0,stdout:JSON.stringify({schema:1,recipe:1,versions,audioSha256:await sha256File(file),duration:bytes.length/64000,options:{speakers:Number(args[args.indexOf("--speakers")+1]),threshold:Number(args[args.indexOf("--threshold")+1])},spans:[{start:0.1,end:0.8,speaker:"speaker-1"},{start:0.5,end:1.4,speaker:"speaker-2"}],speakerCount:2,reviewRequired:true,identitiesInferred:false,accuracyVerified:false})};
+  });
+});
+async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-speakers-")),source=path.join(root,"source.mp4");await writeFile(source,"fixture");const id=await sha256File(source),config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:root,AVID_MCP_CAPABILITIES:"inspect,export,project-write"}),base=await new MediaLibrary(config).directory();await writeFile(path.join(base,`${id}.json`),JSON.stringify({id,file:source,metadata:{format:{duration:90}},transcript:[]}));return {source,id,config,base,speakers:new SpeakerAnalysis(config)};}
+it("persists source-time overlapping spans, paginates after reconnect and deletes only derived files",async()=>{
+  const f=await fixture(),result=await f.speakers.generate(f.id,10,12,{speakers:2});expect(result).toMatchObject({speakerCount:2,audioRecipe:3,spans:[{spanId:"span-1",speaker:"speaker-1",start:10.1,end:10.8},{spanId:"span-2",speaker:"speaker-2",start:10.5,end:11.4}]});
+  const reopened=new SpeakerAnalysis(f.config),first=await reopened.read(result.analysisId,0,1);expect(first.nextOffset).toBe(1);expect(first.spans).toHaveLength(1);expect((await reopened.read(result.analysisId,1,1)).spans[0]?.spanId).toBe("span-2");expect((await reopened.list(f.id)).analyses).toHaveLength(1);
+  await expect(reopened.remove(result.analysisId,"0".repeat(64))).rejects.toThrow("changed");await reopened.remove(result.analysisId,result.sha256);expect((await reopened.list(f.id)).analyses).toEqual([]);expect(await sha256File(f.source)).toBe(f.id);
+});
+it("rejects damaged audio and unauthorized sources and reports unavailable saved analyses",async()=>{
+  const f=await fixture(),result=await f.speakers.generate(f.id,0,2);await expect(new SpeakerAnalysis({...f.config,allowedRoots:[]}).read(result.analysisId)).rejects.toThrow();
+  await writeFile(path.join(f.base,`speakers-${result.analysisId}`,"speech.f32"),"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow("audio changed");expect((await f.speakers.list(f.id)).analyses[0]).toMatchObject({state:"unavailable"});
+  await writeFile(f.source,"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow("source changed");
+});
+it("refuses unknown files, missing capabilities and changed runtime before inference",async()=>{
+  const f=await fixture();await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).generate(f.id,0,2)).rejects.toThrow();expect(mocks.run).not.toHaveBeenCalled();
+  mocks.runtime.mockResolvedValueOnce({unchanged:false});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow("runtime changed");expect(mocks.run).not.toHaveBeenCalled();
+  const result=await f.speakers.generate(f.id,0,2),extra=path.join(f.base,`speakers-${result.analysisId}`,"notes.txt");await writeFile(extra,"preserve");await expect(f.speakers.remove(result.analysisId,result.sha256)).rejects.toThrow("Unexpected");expect(await readFile(extra,"utf8")).toBe("preserve");await unlink(extra);
+});
+it("validates worker labels, ordering, counts, ranges and exact input provenance",async()=>{
+  const f=await fixture(),result=await f.speakers.generate(f.id,0,2),record=JSON.parse(await readFile(path.join(f.base,`speakers-${result.analysisId}`,"analysis.json"),"utf8"));
+  for(const machine of [{...record.machine,speakerCount:3},{...record.machine,spans:[...record.machine.spans].reverse()},{...record.machine,spans:[{start:0,end:3,speaker:"speaker-1"}]},{...record.machine,spans:[{start:0,end:1,speaker:"speaker-99"}]}])expect(()=>diarizationOutput.parse(machine)).toThrow();
+  mocks.run.mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow("extraction failed");expect((await f.speakers.list(f.id)).analyses).toHaveLength(1);
+  const normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:0,stdout:JSON.stringify({...record.machine,audioSha256:"0".repeat(64)})});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow("input mismatch");expect((await f.speakers.list(f.id)).analyses).toHaveLength(1);
+  await expect(f.speakers.generate(f.id,0,91)).rejects.toThrow("range");await expect(f.speakers.generate(f.id,0,2,{speakers:0})).rejects.toThrow();
+});

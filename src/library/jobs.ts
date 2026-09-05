@@ -1,3 +1,4 @@
+import {diarizationOptions} from "./diarization.js";
 import {visualSummaryReferences} from "./visual-summaries.js";
 import {captionTimes} from "./caption-batches.js";
 import {spawn, type ChildProcess} from "node:child_process";
@@ -15,6 +16,7 @@ import {peopleRange} from "./people.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("diarization"),id,start:z.number().nonnegative(),end:z.number().positive(),options:diarizationOptions.default({speakers:-1,threshold:0.5})}).strict(),
   z.object({kind:z.literal("visual_summary"),id,references:visualSummaryReferences}).strict(),
   z.object({kind:z.literal("caption_batch"),id,times:captionTimes}).strict(),
   z.object({kind:z.literal("caption_resume"),runId:z.string().uuid()}).strict(),
@@ -47,7 +49,7 @@ export class AnalysisJobs {
     requireCapability(this.config.capabilities,"inspect");
     const spec=jobSchema.parse(input);
     if(!["index","summary","summary_resume","visual_summary"].includes(spec.kind))requireCapability(this.config.capabilities,"export");
-    if(["visual_summary","caption_batch","caption_resume","caption","speech","speech_resume","people","people_resume","summary","summary_resume"].includes(spec.kind))requireCapability(this.config.capabilities,"project-write");
+    if(["diarization","visual_summary","caption_batch","caption_resume","caption","speech","speech_resume","people","people_resume","summary","summary_resume"].includes(spec.kind))requireCapability(this.config.capabilities,"project-write");
     if([...this.jobs.values()].filter(job=>["queued","running","cancelling"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
     if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};

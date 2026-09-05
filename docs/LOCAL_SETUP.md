@@ -303,7 +303,7 @@ Actual generated commands in all five formats indexed/read the Sonoma preview. T
 
 ## Optional diarization runtime
 
-The branch includes a local speaker-analysis worker and explicit setup. Persisted MCP speaker tools and transcript alignment are still being implemented; installing this runtime alone does not enable them.
+The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Transcript alignment and speaker corrections remain under implementation.
 
 ```powershell
 $env:AVID_MCP_PYTHON = "C:\Python312\python.exe"
@@ -316,3 +316,12 @@ Setup creates a uniquely named Python environment beneath the chosen cache's `di
 Status checks the selected installation tree and packaged worker checksum. Explicit setup reuses unchanged installations without running Python or pip again. Changed trees, changed workers, invalid receipts and existing setup locks are refused; choose a fresh model cache when necessary. Failed unique installations are retained and remain unselected. Lock age does not establish process termination. Automatic recovery, update/rollback/removal, Python/system dependency management and clean-machine/Mac qualification remain open. A Python virtual environment still depends on its system interpreter installation. Dependency consistency and prior inference checks are not a current vulnerability audit or model accuracy acceptance.
 
 The worker consumes bounded mono 16 kHz float32 PCM (at most 600 seconds), validates model sizes/hashes, and returns at most 5,000 sorted spans with anonymous per-run labels. Automatic clustering or supplied counts of 1–20 and a threshold in (0,1] are supported. Labels do not identify people and can overlap. See [diarization research and provenance](DIARIZATION_RESEARCH.md) for quality limits and license sources. Neither weights nor the Python runtime are bundled in the package.
+
+
+## Saved speaker analyses
+
+After installing the diarization runtime and configuring `inspect,export,project-write`, use `avid_diarize_audio` with an indexed media ID, source `start`/`end` (up to 600 seconds), and optional `{speakers: -1, threshold: 0.5}`. `-1` requests automatic clustering; a supplied count from 1 to 20 constrains clustering. `avid_start_analysis_job` accepts the same fields under `kind: "diarization"` for cancellable execution.
+
+Completed results retain PCM, model-worker/runtime provenance, source/audio hashes and anonymous speaker spans. `avid_speaker_analysis` reads pages (default 100, maximum 500) using `analysisId` and `offset`. `avid_speaker_analyses` discovers completed results for a media ID. Reads recheck source scope, source content and PCM consistency. Times are in the source media clock; overlapping spans remain overlapping. Anonymous labels apply only within their analysis and do not identify people or establish who spoke individual transcript words.
+
+`avid_delete_speaker_analysis` requires `analysisId` and the current result's `sha256`. It deletes the saved record and extracted PCM after verifying their identity and refuses unexpected files. Source media is preserved. Interrupted execution leaves incomplete artifacts, omits them from completed-result discovery and currently requires a fresh job. A cancellation race near publication may leave a completed artifact even if the job reports cancellation; inspect discovery before retrying. Per-stage recovery, incomplete-artifact cleanup, shared-writer deletion recovery, label corrections and transcript alignment remain open.

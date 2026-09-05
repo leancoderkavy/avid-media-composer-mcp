@@ -1,3 +1,4 @@
+import {SpeakerAnalysis} from "./diarization.js";
 import {VisualSummaries} from "./visual-summaries.js";
 import {CaptionBatches} from "./caption-batches.js";
 import {FrameCaptions} from "./captions.js";
@@ -19,6 +20,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "diarization":result=await new SpeakerAnalysis(config).generate(spec.id,spec.start,spec.end,spec.options);break;
     case "visual_summary":result=await new VisualSummaries(config).generate(spec.id,spec.references);break;
     case "caption_batch":result=await new CaptionBatches(config).generate(spec.id,spec.times);break;
     case "caption_resume":result=await new CaptionBatches(config).resume(spec.runId);break;
