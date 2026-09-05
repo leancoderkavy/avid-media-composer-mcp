@@ -43,3 +43,24 @@ it("preserves the observed mismatch when the final probe exhausts the observatio
  const {file,config}=await fixture();await writeFile(file,"render");mock.probe.streams[0].color_range="tv";mock.probeTimeoutAfter=1;
  await expect(verifyNativeRender(file,config,{...expected,color:{range:"pc"}},{timeoutMs:100,pollMs:2})).rejects.toMatchObject({message:expect.stringContaining("does not match"),cause:{code:"PROCESS_TIMEOUT"}});
 });
+it("checks requested stream starts without accepting missing or coerced zero values",()=>{
+ const contract={...expected,videoStartTime:0,audio:[{...expected.audio[0]!,startTime:0}]};
+ for(const stream of mock.probe.streams)stream.start_time="0.000000";
+ expect(matchesRenderContract(mock.probe,contract)).toBe(true);
+ for(const stream of mock.probe.streams){
+  for(const value of [undefined,null,"", " ",false,"N/A","Infinity",0.25,-0.25]){
+   stream.start_time=value;expect(matchesRenderContract(mock.probe,contract)).toBe(false);
+  }
+  stream.start_time="0.000000";
+ }
+ mock.probe.streams[1].start_time="0.250000";
+ expect(matchesRenderContract(mock.probe,{...contract,audio:[{...contract.audio[0]!,startTime:0.25}]})).toBe(true);
+ expect(matchesRenderContract(mock.probe,expected)).toBe(true);
+});
+it("bounds requested timestamps and permits negative presentation starts",()=>{
+ expect(renderContract.parse({...expected,videoStartTime:-0.25}).videoStartTime).toBe(-0.25);
+ for(const start of [Infinity,NaN,86401,-86401,"0",null]){
+  expect(()=>renderContract.parse({...expected,videoStartTime:start})).toThrow();
+  expect(()=>renderContract.parse({...expected,audio:[{...expected.audio[0]!,startTime:start}]})).toThrow();
+ }
+});

@@ -1,0 +1,27 @@
+// Read-only native fixture check plus a newly generated delayed-audio fixture.
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {loadConfig} from '../../dist/config.js';
+import {verifyNativeRender} from '../../dist/native/render-verifier.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {runProcess} from '../../dist/process.js';
+const native=path.resolve('.avid-mcp-analysis/native-render-mcp-e0f60e5d-67c3-49ac-9ba0-7de71d73453c/native-export-2984bde7-47e5-4d40-a287-886f9aeb454d/export/render.mp4');
+const before=await sha256File(native);
+assert.equal(before,'8fd3fb4c04d24f3fd2200e600dab3e16edb1ad0329384a6814d1cb22d5f85cc0');
+const root=path.resolve('.avid-mcp-analysis',`render-start-times-${randomUUID()}`);await mkdir(root);
+const delayed=path.join(root,'delayed-audio.mov');
+const args=['-nostdin','-v','error','-n','-f','lavfi','-i','testsrc2=size=160x90:rate=30:duration=4','-itsoffset','0.25','-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=4','-map','0:v','-map','1:a','-c:v','libx264','-c:a','pcm_s16le',delayed];
+const generated=await runProcess('ffmpeg',args,{timeoutMs:30000,maxOutputBytes:1024*1024});assert.equal(generated.exitCode,0,generated.stderr);
+const config=file=>loadConfig({AVID_MCP_ALLOWED_ROOTS:path.dirname(file),AVID_MCP_OUTPUT_ROOT:path.dirname(file),AVID_MCP_CAPABILITIES:'inspect'});
+const base={videoCodec:'h264',width:160,height:90,frames:120,rate:{num:30,den:1},audio:[{codec:'pcm_s16le',channels:1,sampleRate:48000}]};
+const legacy=await verifyNativeRender(delayed,config(delayed),base,{pollMs:10});
+const declared={...base,videoStartTime:0,audio:[{...base.audio[0],startTime:0.25}]};
+const delayedResult=await verifyNativeRender(delayed,config(delayed),declared,{pollMs:10});
+let mismatch;
+await assert.rejects(async()=>{try{await verifyNativeRender(delayed,config(delayed),{...declared,audio:[{...base.audio[0],startTime:0}]},{pollMs:10,timeoutMs:2000});}catch(error){mismatch=error.message;throw error;}},/does not match/);
+const nativeResult=await verifyNativeRender(native,config(native),{...base,width:1920,height:1080,videoStartTime:0,audio:[{codec:'pcm_s24le',channels:2,sampleRate:48000,startTime:0}]},{pollMs:10});
+assert.equal(await sha256File(native),before);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({args,legacy,delayedResult,nativeResult,mismatch,sourceUnchanged:true,scope:'Stream presentation-start declarations and complete decode, not perceptual synchronization or packet continuity.'},null,2),{flag:'wx'});
+console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),legacyAccepted:true,declaredDelayAccepted:true,incorrectZeroStartRejected:true,nativeZeroStartsPassed:true,sourceUnchanged:true}));

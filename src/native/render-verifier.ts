@@ -7,18 +7,26 @@ import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
 
 const colorTag=z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/);
+const startTime=z.number().min(-86400).max(86400);
 export const renderContract=z.object({
   videoCodec:z.string().regex(/^[a-z0-9_]+$/),width:z.number().int().positive().max(16384),height:z.number().int().positive().max(16384),
   frames:z.number().int().positive().max(10000000),rate:z.object({num:z.number().int().positive().max(240000),den:z.number().int().positive().max(10000)}).strict(),
-  audio:z.array(z.object({codec:z.string().regex(/^[a-z0-9_]+$/),channels:z.number().int().positive().max(64),sampleRate:z.number().int().positive().max(384000)}).strict()).max(64),
+  videoStartTime:startTime.optional(),
+  audio:z.array(z.object({codec:z.string().regex(/^[a-z0-9_]+$/),channels:z.number().int().positive().max(64),sampleRate:z.number().int().positive().max(384000),startTime:startTime.optional()}).strict()).max(64),
   color:z.object({range:z.enum(["tv","pc"]),space:colorTag.optional(),transfer:colorTag.optional(),primaries:colorTag.optional()}).strict().optional(),
 }).strict();
 type Contract=z.infer<typeof renderContract>;
+function matchesStartTime(value:unknown,expected:number|undefined){
+  if(expected===undefined)return true;
+  if(typeof value!=="number"&&(typeof value!=="string"||value.trim()===""))return false;
+  const actual=Number(value);return Number.isFinite(actual)&&Math.abs(actual-expected)<=0.000001;
+}
 export function matchesRenderContract(probe:any,expected:Contract){
   if(!Array.isArray(probe?.streams))return false;
   const video=probe.streams.filter((s:any)=>s.codec_type==="video"),audio=probe.streams.filter((s:any)=>s.codec_type==="audio");
   if(video.length!==1||audio.length!==expected.audio.length)return false;
   const v=video[0],rate=String(v.avg_frame_rate).split("/").map(Number);
+  if(!matchesStartTime(v.start_time,expected.videoStartTime))return false;
   if(rate.length!==2||!rate[0]||!rate[1]||rate[0]*expected.rate.den!==rate[1]*expected.rate.num)return false;
   const duration=expected.frames*expected.rate.den/expected.rate.num;
   if(v.codec_name!==expected.videoCodec||v.width!==expected.width||v.height!==expected.height||Number(v.nb_frames)!==expected.frames||!Number.isFinite(Number(v.duration))||Math.abs(Number(v.duration)-duration)>0.001)return false;
@@ -27,7 +35,7 @@ export function matchesRenderContract(probe:any,expected:Contract){
       const value=expected.color[key];if(value!==undefined&&v[field]!==value)return false;
     }
   }
-  return audio.every((stream:any,index:number)=>stream.codec_name===expected.audio[index]!.codec&&stream.channels===expected.audio[index]!.channels&&Number(stream.sample_rate)===expected.audio[index]!.sampleRate&&Number.isFinite(Number(stream.duration))&&Math.abs(Number(stream.duration)-duration)<=0.05);
+  return audio.every((stream:any,index:number)=>stream.codec_name===expected.audio[index]!.codec&&stream.channels===expected.audio[index]!.channels&&Number(stream.sample_rate)===expected.audio[index]!.sampleRate&&matchesStartTime(stream.start_time,expected.audio[index]!.startTime)&&Number.isFinite(Number(stream.duration))&&Math.abs(Number(stream.duration)-duration)<=0.05);
 }
 
 /** Readiness is separate from RPC completion. This function never starts or retries an export. */
