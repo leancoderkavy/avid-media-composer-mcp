@@ -8,6 +8,7 @@ const { values } = parseArgs({ options: {
   "server-entry":{type:"string"},"server-entry-sha256":{type:"string"},
   doctor:{type:"boolean"}, client:{type:"string"}, root:{type:"string",multiple:true},
   output:{type:"string"}, native:{type:"string"}, config:{type:"string"}, install:{type:"boolean"},
+  "install-model-runtime":{type:"boolean"},"model-runtime-status":{type:"boolean"},
   "download-models":{type:"boolean"}, "model-dir":{type:"string"},
   speech:{type:"boolean"},"speech-model":{type:"string"},
   captions:{type:"boolean"},faces:{type:"boolean"}, summaries:{type:"boolean"},
@@ -21,8 +22,12 @@ try {
   if(values["package-root"]&&!values["package-install"]&&!values["package-status"]&&!values["package-remove"]&&!values["package-recover"])throw new Error("Package root requires a package operation");
   if(values["package-sha256"]&&!values["package-install"])throw new Error("Package archive checksum requires --package-install");
   if(values["speech-model"]&&(!values.speech||!values["download-models"]))throw new Error("--speech-model requires --download-models --speech");
-  if([values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore,values["package-install"],values["package-status"],values["package-remove"],values["package-recover"]].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
-  if(values["package-status"]||values["package-remove"]||values["package-recover"]){
+  if([values["install-model-runtime"],values["model-runtime-status"],values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore,values["package-install"],values["package-status"],values["package-remove"],values["package-recover"]].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
+  if(values["install-model-runtime"]||values["model-runtime-status"]){
+    if(!values["model-dir"])throw new Error("Model runtime operations require --model-dir PATH");
+    const {installModelRuntime,modelRuntimeStatus}=await import("./library/model-runtime-install.js");
+    console.log(JSON.stringify(await (values["install-model-runtime"]?installModelRuntime(values["model-dir"]):modelRuntimeStatus(values["model-dir"])),null,2));
+  }else if(values["package-status"]||values["package-remove"]||values["package-recover"]){
     if(!values["package-root"])throw new Error("Package status/removal requires --package-root");
     const {packageStatus,removePackage,recoverPackageRemoval}=await import("./package-lifecycle.js");
     if(values["package-recover"]){
@@ -77,5 +82,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }

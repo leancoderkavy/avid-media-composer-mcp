@@ -38,7 +38,7 @@ node dist/cli.js --download-models --speech --speech-model tiny --model-dir 'D:\
 $env:AVID_MCP_MODEL_DIR = 'D:\MCP Models'
 ```
 
-These explicit commands install and audit a separate optional runtime, then download fixed model revisions. npm must be available alongside Node. Model inference loads cached files only; footage is not uploaded. The optional runtime uses Transformers.js 4.2.0 with sharp 0.35.4 and adm-zip 0.6.0 in its own installation root, where override pins apply.
+These explicit commands install and audit a separate optional runtime when needed, or verify and reuse its receipt, then download fixed model revisions. npm must be available alongside Node. Model inference loads cached files only; footage is not uploaded. The optional runtime uses Transformers.js 4.2.0 with sharp 0.35.4 and adm-zip 0.6.0 in its own installation root, where override pins apply.
 
 - CLIP: `Xenova/clip-vit-base-patch32`, revision `d15189d7028b43f1d3e65039190477f6af591c2a`.
 - Whisper English: `onnx-community/whisper-tiny.en`, revision `2575352d61be1bf7225cf8f8b268a4678025fc58`.
@@ -275,3 +275,11 @@ Read the overview with `avid_visual_summary_node` using `revision`, or select a 
 `avid_list_visual_summaries` discovers records with checksums even after caption changes/deletion, with `provenanceVerified:false`. A node read performs provenance verification and rejects changed references. To incorporate a correction, create a new summary using the corrected checksum. `avid_delete_visual_summary` removes only the summary with its current checksum, preserving source media and captions.
 
 Generated overview text remains experimental: the Sonoma test repeated details, omitted later scenes and propagated an unsupported "3D image" description already present in a caption. Caption provenance proves traceability, not factual correctness. Review the original images and leaf text before relying on parent summaries. Parent generation rejects overlong input instead of silently truncating; individual generation is bounded at 80 new tokens. Interrupted visual-summary computation currently requires a fresh job, although saved caption batches remain reusable. Per-node recovery, broader quality/resource/concurrency qualification and cleanup remain open.
+
+## Optional runtime setup and status
+
+Use `avid-mcp --install-model-runtime --model-dir PATH` to prepare the optional JavaScript AI runtime without downloading model weights. `avid-mcp --model-runtime-status --model-dir PATH` checks its manifest and recorded dependency-tree checksum. New installs are staged, audited and import-tested before publication. Reuse leaves dependencies unchanged. Changed or incomplete runtimes require a fresh model directory; setup does not overwrite them.
+
+An older matching runtime can be audited and adopted without reinstalling dependencies. Its receipt does not establish whether its original installation disabled scripts. A setup lock or retained staging directory may remain after interruption; a lock's age is not proof of worker termination. Automatic lock recovery and runtime update/rollback/uninstall remain open.
+
+Cached inference now uses absolute pinned model directories and disables remote model access. This avoids Transformers.js 4.2.0 discovery requests that did not respect the earlier per-call local-only flags. See [runtime qualification and the correction to earlier offline claims](MODEL_RUNTIME_QUALIFICATION.md) for actual fetch-blocked model tests, setup evidence and limitations. Explicit model downloads still require network access.

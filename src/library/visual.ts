@@ -19,10 +19,11 @@ export const VISUAL_TEXT_TOKEN_LIMIT = 77; // Pinned text_config.max_position_em
 export async function loadVisualModels(cache: string, download = false) {
   const {AutoTokenizer,AutoProcessor,CLIPTextModelWithProjection,CLIPVisionModelWithProjection,RawImage} = await modelRuntime(cache,download);
   const options = {cache_dir:cache,revision:VISUAL_REVISION,local_files_only:!download,dtype:"q8" as const};
-  const tokenizer = await AutoTokenizer.from_pretrained(VISUAL_MODEL,options);
-  const processor = await AutoProcessor.from_pretrained(VISUAL_MODEL,options);
-  const text = await CLIPTextModelWithProjection.from_pretrained(VISUAL_MODEL,options);
-  const vision = await CLIPVisionModelWithProjection.from_pretrained(VISUAL_MODEL,options);
+  const location=download?VISUAL_MODEL:path.resolve(cache,VISUAL_MODEL,VISUAL_REVISION);
+  const tokenizer = await AutoTokenizer.from_pretrained(location,options);
+  const processor = await AutoProcessor.from_pretrained(location,options);
+  const text = await CLIPTextModelWithProjection.from_pretrained(location,options);
+  const vision = await CLIPVisionModelWithProjection.from_pretrained(location,options);
   return {tokenizer,processor,text,vision,RawImage};
 }
 export function cosine(a: number[], b: number[]) {
