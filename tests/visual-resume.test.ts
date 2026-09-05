@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,unlink} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,afterEach} from "vitest";
@@ -40,4 +40,13 @@ it("rejects malformed or reordered samples instead of trusting their vectors",as
   const {config,id,directory}=await fixture(),checkpoints=new VisualCheckpoints(config,VISUAL_MODEL,VISUAL_REVISION);
   const run=await checkpoints.create([{id,time:1}]);await writeFile(path.join(directory,`visual-run-${run}`,"0.json"),JSON.stringify({id,time:2,image:"x",imageSha256:id,vector:Array(512).fill(0)}));
   await expect(checkpoints.read(run,true)).rejects.toThrow("planned sample");
+});
+it("never replaces a committed checkpoint and verifies the completed index itself",async()=>{
+  const {visual,id,directory}=await fixture(),completed=await visual.index([id],1);
+  const checkpoint=path.join(directory,`visual-run-${completed.runId}`,"0.json"),original=await readFile(checkpoint,"utf8");
+  await expect(visual.checkpoints.append(completed.runId,0,{...JSON.parse(original),vector:Array(512).fill(0)})).rejects.toMatchObject({code:"EEXIST"});
+  expect(await readFile(checkpoint,"utf8")).toBe(original);
+  const output=path.join(directory,`visual-${completed.indexId}.json`),index=JSON.parse(await readFile(output,"utf8"));index.samples[0].vector[0]=0;
+  await writeFile(output,JSON.stringify(index));await expect(visual.checkpoints.status(completed.runId)).rejects.toThrow("differs");
+  await unlink(output);await expect(visual.checkpoints.status(completed.runId)).rejects.toThrow("does not exist");
 });

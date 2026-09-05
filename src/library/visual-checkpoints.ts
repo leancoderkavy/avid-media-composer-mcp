@@ -1,4 +1,4 @@
-import {mkdir,writeFile,rename,opendir} from "node:fs/promises";
+import {mkdir,writeFile,rename,opendir,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
@@ -13,7 +13,17 @@ const planItem=z.object({id,time:z.number().nonnegative(),shot:z.object({start:z
 export type VisualPlanItem=z.infer<typeof planItem>;
 const sample=planItem.extend({image:z.string(),imageSha256:id,vector:z.array(z.number().finite()).length(512)});
 export type VisualCheckpoint=z.infer<typeof sample>;
-const manifest=z.object({version:z.literal(1),runId:uuid,model:z.string(),revision:z.string(),createdAt:z.string(),parentRunId:uuid.optional(),plan:z.array(planItem).min(1).max(1200)});
+const manifest=z.object({version:z.literal(1),runId:uuid,model:z.string(),revision:z.string(),createdAt:z.string(),parentRunId:uuid.optional(),plan:z.array(planItem).min(1).max(1200)}).refine(value=>value.plan.every(item=>!item.shot||(item.shot.end>item.shot.start&&item.time>=item.shot.start&&item.time<item.shot.end)),"Visual plan sample must lie within its shot");
+const finalIndex=z.object({model:z.string(),revision:z.string(),samples:z.array(sample.omit({imageSha256:true})).max(1200)});
+async function publish(file:string,value:unknown){
+  const temporary=`${file}.${randomUUID()}.tmp`;
+  try{
+    await writeFile(temporary,JSON.stringify(value),{flag:"wx",mode:0o600});
+    // A same-directory hard link publishes the complete file without replacing an
+    // existing checkpoint. Interrupted temporary files are never treated as samples.
+    await link(temporary,file);
+  }finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
+}
 
 /** Random run IDs each have one writer. Resume forks a verified immutable prefix. */
 export class VisualCheckpoints{
@@ -27,15 +37,18 @@ export class VisualCheckpoints{
   }
   async append(runId:string,index:number,value:VisualCheckpoint){
     const directory=await this.directory(runId);z.number().int().min(0).max(1199).parse(index);
-    const temporary=path.join(directory,`${index}.${randomUUID()}.tmp`);
-    await writeFile(temporary,JSON.stringify(sample.parse(value)),{flag:"wx",mode:0o600});
-    await rename(temporary,path.join(directory,`${index}.json`));
+    await publish(path.join(directory,`${index}.json`),sample.parse(value));
   }
-  async finish(runId:string,indexId:string){uuid.parse(indexId);await writeFile(path.join(await this.directory(runId),"complete.json"),JSON.stringify({indexId}),{flag:"wx",mode:0o600});}
+  async finish(runId:string,indexId:string){uuid.parse(indexId);await publish(path.join(await this.directory(runId),"complete.json"),{indexId});}
   async read(runId:string,verifyImages=false){
     const directory=await this.directory(runId),root=await new MediaLibrary(this.config).directory();
     const record=manifest.parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"manifest.json"),[directory],"file"),512*1024));
     if(record.runId!==runId||record.model!==this.model||record.revision!==this.revision)throw new Error("Visual run model/revision or identity mismatch");
+    // Observe completion first. If it arrives while samples are read, this snapshot
+    // stays partial instead of incorrectly diagnosing missing completed samples.
+    let indexId:string|undefined;
+    try{const completed=await readBoundedJson(await resolveReadablePath(path.join(directory,"complete.json"),[directory],"file"),8192) as {indexId?:string};indexId=uuid.parse(completed.indexId);}
+    catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}
     const entries=await new MediaLibrary(this.config).metadata([...new Set(record.plan.map(item=>item.id))]);
     if(verifyImages)for(const entry of entries)if(await sha256File(entry.file)!==entry.id)throw new Error("Visual checkpoint source changed; reindex");
     const samples:VisualCheckpoint[]=[];
@@ -47,10 +60,13 @@ export class VisualCheckpoints{
       if(verifyImages){const image=await resolveReadablePath(saved.image,[root],"file");if(await sha256File(image)!==saved.imageSha256)throw new Error("Visual checkpoint image changed");}
       samples.push(saved);
     }
-    let indexId:string|undefined;
-    try{const completed=await readBoundedJson(await resolveReadablePath(path.join(directory,"complete.json"),[directory],"file"),8192) as {indexId?:string};indexId=uuid.parse(completed.indexId);}
-    catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}
     if(indexId&&samples.length!==record.plan.length)throw new Error("Completed visual run has missing checkpoints");
+    if(indexId){
+      const file=await resolveReadablePath(path.join(root,`visual-${indexId}.json`),[root],"file");
+      const saved=finalIndex.parse(await readBoundedJson(file,32*1024*1024));
+      const expected=finalIndex.parse({model:this.model,revision:this.revision,samples});
+      if(JSON.stringify(saved)!==JSON.stringify(expected))throw new Error("Completed visual index differs from committed checkpoints");
+    }
     return {record,samples,indexId};
   }
   async status(runId:string){const {record,samples,indexId}=await this.read(runId);return {runId,parentRunId:record.parentRunId,plannedSamples:record.plan.length,completedSamples:samples.length,indexId:indexId??null,state:indexId?"completed":"partial",note:"Partial does not establish that the original worker stopped. Resume creates a new run from the observed prefix."};}
