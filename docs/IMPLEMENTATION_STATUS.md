@@ -45,7 +45,7 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 
 ### Latest complete check
 
-`npm run check` passed on 2026-09-05: 153 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 70 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 70 tools include the pre-existing read-only/bridge tools; this count is not 70 newly qualified native editor operations.
+`npm run check` passed on 2026-09-05: 156 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 71 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 71 tools include the pre-existing read-only/bridge tools; this count is not 71 newly qualified native editor operations.
 
 ## Remaining delivery work
 
@@ -66,3 +66,5 @@ People collections now implement local YuNet/SFace detection, complete-link simi
 Transcript review supports paginated revision discovery, immutable corrections with parent ancestry, text/timing/manual speaker edits, and checksum-checked single-revision deletion. `scripts/research/qualify-transcripts.mjs` passed against the real Sonoma library over stdio, including search and SRT verification; synthetic review text was used.
 
 Scoped visual search passed through stdio on Sonoma: 24 samples over seconds 60–90, exact frame self-match (cosine 1), and four results inside [80,85). Total elapsed time was 14.964 seconds on this host, including index and queries. This is a bounded workflow measurement, not a ranking or maximum-memory benchmark.
+
+Media QC now emits JSON/HTML reports for bounded first-stream black, freeze, silence, input loudness and decoded timestamp variation. `scripts/research/qualify-qc.mjs` passed on known generated content and Sonoma seconds 60–90. This is detector/range proof, not broadcast certification or perceptual A/V sync qualification.

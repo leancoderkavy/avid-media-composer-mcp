@@ -1,3 +1,4 @@
+import {MediaQc} from "./qc.js";
 import {MediaLibrary} from "./media-library.js";
 import {VisualSearch} from "./visual.js";
 import {SpeechAnalysis} from "./speech.js";
@@ -13,6 +14,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "qc":result=await new MediaQc(config).analyze(spec.id,spec.options);break;
     case "index":result=await library.index(spec.files);break;
     case "visual":result=await new VisualSearch(config).index(spec.ids,spec.samples,spec.range);break;
     case "speech":result=await new SpeechAnalysis(config).transcribe(spec.id,spec.start,spec.end);break;

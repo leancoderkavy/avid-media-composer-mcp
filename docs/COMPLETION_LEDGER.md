@@ -14,7 +14,7 @@ This ledger preserves the complete requested scope across increments. It is not 
 | Hierarchical summaries and node drill-down | Extractive transcript outline | Grounded generated summaries, provenance validation and whole-media/node queries |
 | People collections | Pinned YuNet/SFace runtime; bounded indexing, pagination, names/merge/move/recluster/removal; real Sonoma crop and deletion workflow | Accuracy/resource benchmarks, dense sampling, interrupted-job recovery and broader media qualification |
 | Watch folders/shared media cache | Polling CRUD/start/stop/checkpoints and moved-source aliases; synthetic MP4 runtime proof | More failure/concurrency/resource qualification; interrupted analysis resume and offline/relinked paths |
-| QC/reports/thumbnails/exports/copies | Seven-file Sonoma report/contact sheet, thumbnails/clips/copy with hashes | Thumbnail strips, camera/QC report depth, loudness/silence/black/freeze/VFR/sync, output QA and presets |
+| QC/reports/thumbnails/exports/copies | Seven-file report/contact sheet; bounded black/freeze/silence/loudness/timestamp QC with generated-fixture and Sonoma evidence | Thumbnail strips, camera report depth, multistream/HDR/offset QC, perceptual sync, output QA and delivery presets |
 | Project snapshots/source usage/complexity | Saved semantic snapshots/diffs and direct cross-bin source usage | Complexity/effect/render/relink/turnover reports and deeper nested/effect graph support |
 | Optional Jumper provider for licensed users | Public OpenAPI contract researched | Separate local authenticated adapter, version/schema checks, runtime with licensed provider |
 | Named Windows UI operations | Computer-use research only | Shipping action adapter, focus/shortcut/dialog checks, failure and post-state tests |
@@ -40,3 +40,5 @@ Evidence statuses distinguish implementation, offline tests, simulated adapters,
 - Transcript review increment: real stdio MCP calls imported synthetic review text for the Sonoma preview, corrected text/timing/speaker, searched the new revision, exported and inspected SRT timing, and deleted the original revision. Source SHA unchanged; this is review workflow evidence, not speech recognition accuracy.
 
 - Scoped visual increment: 24 Sonoma frames over [60,90) indexed and searched through stdio; the reference frame ranked first with cosine 1, and [80,85) filtering returned exactly four samples. Model-loading/sample/query workflow took 14.964 seconds on this Windows host. Shot detection and semantic accuracy benchmarking remain open.
+
+- QC increment: generated black/static/silent-to-moving/tone MP4 validated event source timestamps within 80 ms in a nonzero-start range. Sonoma [60,90) produced JSON/HTML reports, no detected black/freeze/silence or variable timestamp intervals, and measured -22.5 LUFS/-5.81 dBTP. Both source hashes remained unchanged.

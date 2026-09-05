@@ -9,6 +9,7 @@ import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
 import {ProjectSnapshots} from "./project-snapshots.js";
+import {MediaQc,qcOptions} from "./qc.js";
 import {People,peopleEditSchema} from "./people.js";
 import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
 
@@ -21,6 +22,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const watches = new WatchFolders(config);
   const snapshots = new ProjectSnapshots(config);
   const people = new People(config);
+  const qc = new MediaQc(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
   server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
@@ -32,6 +34,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_media_qc", {description:"Decode up to ten minutes of the first video/audio streams for black, freeze, silence, input loudness and timestamp-variation findings. Writes JSON/HTML reports; requires export. Findings need review and are not delivery certification or perceptual sync analysis.",inputSchema:{id,options:qcOptions},annotations:write},
+    ({id,options})=>result("avid_media_qc",()=>qc.analyze(id,options)));
   server.registerTool("avid_index_media", {description:"Index up to 100 local media files by SHA-256 into the configured output directory. No media upload.", inputSchema:{files:z.array(z.string()).min(1).max(100)},annotations:write},
     ({files})=>result("avid_index_media",()=>library.index(files)));
   server.registerTool("avid_library_metadata", {description:"Read indexed technical media metadata.",inputSchema:{ids},annotations:read},

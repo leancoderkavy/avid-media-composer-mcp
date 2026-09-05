@@ -86,3 +86,12 @@ With `project-write` and `export` enabled, use `avid_index_people` (or a people 
 `avid_index_visual` accepts an optional `range: {start, end}` in source seconds and 1–120 uniform samples per file, with 1200 samples total per index. The whole requested range must fit every selected media file. Visual analysis jobs accept the same range and limits. This samples frames; it does not perform shot-boundary detection or guarantee continuous coverage.
 
 `avid_visual_samples` browses sample timestamps and cached images with pagination, without loading the ML model. `avid_search_visual` accepts an optional `scope` containing media IDs and a half-open source-time range. `avid_search_visual_frame` extracts a reference thumbnail at an indexed source's timestamp and searches by its CLIP embedding; it requires `export`. Similarity scores are not probabilities. A reference self-match is a consistency check, not evidence of broad semantic ranking accuracy.
+
+
+## Media QC
+
+`avid_media_qc` (or a `qc` analysis job) decodes a selected range of up to 600 seconds and writes JSON/HTML findings in the library output directory. It requires `export` and uses the first video and audio streams. All thresholds are included in the report: black pixel/picture ratio and minimum duration, freeze noise/duration, and silence dB/duration. Source hashes are checked before and after processing.
+
+The measurements use FFmpeg's [blackdetect](https://ffmpeg.org/ffmpeg-filters.html#blackdetect), [freezedetect](https://ffmpeg.org/ffmpeg-filters.html#freezedetect), [silencedetect](https://ffmpeg.org/ffmpeg-filters.html#silencedetect), [vfrdet](https://ffmpeg.org/ffmpeg-filters.html#vfrdet), and input statistics from [loudnorm](https://ffmpeg.org/ffmpeg-filters.html#loudnorm). The normalized filter output is discarded; no replacement audio or media is written. Silence can have nonfinite loudness, represented as null with the raw `-inf` value retained.
+
+Events use source-second ranges. An unfinished freeze is marked as open at the analyzed range end. Black endings have decoded-frame precision. Timestamp variation may reflect time-base rounding and is not a diagnosis of dropped frames. Container stream-start offsets do not establish perceptual synchronization. Intentional black/static/silent scenes require editorial review. The report does not certify any broadcast/delivery specification. Multistream, HDR, nonzero stream-offset and perceptual sync qualification remain open.

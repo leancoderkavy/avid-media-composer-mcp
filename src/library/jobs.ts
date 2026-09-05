@@ -2,12 +2,14 @@ import {spawn, type ChildProcess} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
+import {qcOptions} from "./qc.js";
 import {visualRange} from "./visual.js";
 import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("qc"),id,options:qcOptions}).strict(),
   z.object({kind:z.literal("index"),files:z.array(z.string()).min(1).max(100)}).strict(),
   z.object({kind:z.literal("visual"),ids:z.array(id).min(1).max(100),samples:z.number().int().min(1).max(120),range:visualRange.optional()}).strict(),
   z.object({kind:z.literal("speech"),id,start:z.number().nonnegative(),end:z.number().positive()}).strict(),
