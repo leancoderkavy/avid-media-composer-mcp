@@ -31,16 +31,20 @@ export function runProcess(
     const stderr: Buffer[] = [];
     let outputBytes = 0;
     let settled = false;
-    let timedOut = false;
+    let failure: AvidMcpError | undefined;
+    let escalation: ReturnType<typeof setTimeout> | undefined;
 
     const finishWithError = (error: AvidMcpError): void => {
-      if (settled) return;
-      settled = true;
+      if (settled || failure) return;
+      failure = error;
+      // A kill request is not evidence of exit; wait for close before rejecting.
       child.kill();
-      reject(error);
+      escalation = setTimeout(() => { if (!settled) child.kill("SIGKILL"); }, 1000);
+      escalation.unref();
     };
 
     const collect = (target: Buffer[], chunk: Buffer): void => {
+      if (failure || settled) return;
       outputBytes += chunk.length;
       if (outputBytes > maxOutputBytes) {
         finishWithError(
@@ -59,7 +63,6 @@ export function runProcess(
     child.stderr.on("data", (chunk: Buffer) => collect(stderr, chunk));
 
     const timer = setTimeout(() => {
-      timedOut = true;
       finishWithError(
         new AvidMcpError("PROCESS_TIMEOUT", `Process exceeded ${options.timeoutMs}ms`, {
           executable,
@@ -69,20 +72,27 @@ export function runProcess(
     timer.unref();
 
     child.on("error", (error: NodeJS.ErrnoException) => {
-      clearTimeout(timer);
-      finishWithError(
-        new AvidMcpError(
-          error.code === "ENOENT" ? "EXECUTABLE_NOT_FOUND" : "PROCESS_START_FAILED",
-          `Could not start ${executable}: ${error.message}`,
+      const wrapped = new AvidMcpError(
+          child.pid ? "PROCESS_RUNTIME_ERROR" : error.code === "ENOENT" ? "EXECUTABLE_NOT_FOUND" : "PROCESS_START_FAILED",
+          child.pid ? `Process error for ${executable}: ${error.message}` : `Could not start ${executable}: ${error.message}`,
           { executable, code: error.code },
-        ),
-      );
+        );
+      if (!child.pid) {
+        clearTimeout(timer);
+        if (escalation) clearTimeout(escalation);
+        if (!settled) { settled = true; reject(wrapped); }
+      } else {
+        // A failed kill can emit error while the child is still running.
+        finishWithError(wrapped);
+      }
     });
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (settled || timedOut) return;
+      if (escalation) clearTimeout(escalation);
+      if (settled) return;
       settled = true;
+      if (failure) { reject(failure); return; }
       resolve({
         exitCode: code ?? -1,
         stdout: Buffer.concat(stdout).toString("utf8"),
