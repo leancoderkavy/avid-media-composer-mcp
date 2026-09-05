@@ -13,6 +13,12 @@ BYTE_ORDER='c0038672-a8cf-11d3-a05b-006094eb75cb'
 EFFECT_ID='93994bd6-a81d-11d3-a05b-006094eb75cb'
 EFFECT_BYTES=list(b'EFF2_AUDIO_CHANNEL_COMBINER\0')
 
+def direct_source_clip(clip):
+    if not isinstance(clip,aaf2.components.SourceClip):raise ValueError('Only direct source clips are supported')
+    allowed={'DataDefinition','Length','StartTime','SourceID','SourceMobSlotID'}
+    if any(p.name not in allowed for p in clip.properties()):
+        raise ValueError('Unsupported source clip modifiers or channel remapping')
+
 def stereo_inputs(component):
     if not isinstance(component,aaf2.components.OperationGroup) or str(component.operation.auid)!=COMBINER:
         raise ValueError('Unsupported stereo operation')
@@ -30,6 +36,7 @@ def stereo_inputs(component):
     clips=list(component.segments)
     if len(clips)!=2 or any(not isinstance(c,aaf2.components.SourceClip) or c.media_kind.lower()!='sound' or c.length!=component.length for c in clips):
         raise ValueError('Unsupported stereo inputs')
+    for clip in clips:direct_source_clip(clip)
     if clips[0].mob_id!=clips[1].mob_id or clips[0].start!=clips[1].start or clips[0].slot_id==clips[1].slot_id:
         raise ValueError('Stereo inputs must be distinct synchronized channels of one master')
     return clips
@@ -106,6 +113,7 @@ def inspect_selects(file):
             for component in components:
                 clips=stereo_inputs(component) if stereo else [component]
                 for channel,clip in enumerate(clips,1):
+                    direct_source_clip(clip)
                     if not isinstance(clip,aaf2.components.SourceClip) or clip.media_kind.lower()!=kind:raise ValueError('Only direct source clips are supported')
                     master=masters.get(str(clip.mob_id))
                     source=next((s for s in master['slots'] if s['slotId']==clip.slot_id),None) if master else None

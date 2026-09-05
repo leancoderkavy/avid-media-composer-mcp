@@ -103,4 +103,17 @@ class AafBuilderTests(unittest.TestCase):
                         operation=f.create.OperationDef('11111111-1111-1111-1111-111111111111','Unknown');operation.media_kind='sound';operation.number_inputs=2;f.dictionary.register_def(operation);component.operation=operation
                 with self.assertRaises(ValueError):inspect_selects(request['output'])
 
+    def test_inspection_refuses_hidden_fades_and_channel_remapping(self):
+        for stereo in [False,True]:
+            for key,value in [('FadeInLength',1),('FadeOutLength',1),('ChannelIDs',[2]),('MonoSourceSlotIDs',[3]),('SubclipFullLength',120)]:
+                with self.subTest(stereo=stereo,key=key),tempfile.TemporaryDirectory() as folder:
+                    request=(self.stereo if stereo else self.fixture)(Path(folder));build(request)
+                    with aaf2.open(request['output'],'rw') as f:
+                        component=list(next(f.content.compositionmobs()).slots)[1].segment.components[0]
+                        clip=component.segments[0] if stereo else component
+                        clip[key].value=value
+                    before=Path(request['output']).read_bytes()
+                    with self.assertRaisesRegex(ValueError,'modifiers or channel remapping'):inspect_selects(request['output'])
+                    self.assertEqual(Path(request['output']).read_bytes(),before)
+
 if __name__=='__main__':unittest.main()
