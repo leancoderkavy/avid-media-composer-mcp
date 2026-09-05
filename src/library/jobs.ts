@@ -3,6 +3,7 @@ import {fileURLToPath} from "node:url";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
 import {qcOptions} from "./qc.js";
+import {shotOptions} from "./shots.js";
 import {visualRange} from "./visual.js";
 import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
@@ -10,6 +11,7 @@ import {JobJournal} from "./job-journal.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("shots"),id,options:shotOptions}).strict(),
   z.object({kind:z.literal("summary"),id,transcriptRevision:z.string().uuid()}).strict(),
   z.object({kind:z.literal("qc"),id,options:qcOptions}).strict(),
   z.object({kind:z.literal("index"),files:z.array(z.string()).min(1).max(100)}).strict(),

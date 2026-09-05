@@ -7,6 +7,8 @@ Start with `avid_get_capabilities` and current tool schemas. Index requested fil
 
 Choose search from the evidence needed: `avid_search_media` for metadata/transcript substrings, `avid_search_visual` for sampled CLIP text/image similarity, or `avid_search_visual_frame` for a reference source frame. Visual search requires an existing index from `avid_index_visual` and separately installed models. Uniform samples can miss shots; similarity scores are not probabilities. Inspect thumbnails and source ranges before curating.
 
+Use `avid_detect_shots` when uniform samples may miss brief shots. It decodes the first video stream at native resolution and returns threshold-based cuts plus representative source timestamps. Inspect candidate cuts before treating them as edit decisions; flashes and motion can trigger false cuts. For long ranges use an analysis job with kind `shots`. Each request covers at most one hour; preserve range-edge and coverage limitations when combining reports.
+
 Save chosen half-open source-time ranges in seconds with `avid_save_collection`, including labels and reasons. Read the returned revision with `avid_read_collection`; use `avid_collection_range` to verify stringout-to-source mapping.
 
 For handoff:
