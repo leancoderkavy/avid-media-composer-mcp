@@ -41,3 +41,9 @@ Retained evidence:
 - `.avid-mcp-analysis/native-render-c64713a0-f2b7-4c98-8b80-977fa4a0258f/`: second isolated export validating the revised output-readiness probe, followed by independent full decoding.
 
 Production work still needs preview/apply state guards, host serialization through output readiness, explicit preset contracts, cancellation/error handling and broader source/sequence qualification.
+
+## Reusable output verification
+
+`src/native/render-verifier.ts` now provides the readiness check used by the render inspection script. It checks output-root scope, stable size/mtime, declared video and audio stream contracts, complete decoding and actual decoded video frame count, then rechecks file identity and SHA-256. Callers can supply a host-owner assertion for checks during polling and after decoding. It does not issue any native RPC or retry an export.
+
+Tests exercise delayed creation, missing files, contract mismatch, failed decoding, a short decode despite complete-looking metadata, host-owner changes and out-of-scope files. The retained second native render passed this verifier with all 120 frames decoded. The production native action still needs to connect preview/apply and lock lifetime to this verifier; this module alone does not qualify that action.
