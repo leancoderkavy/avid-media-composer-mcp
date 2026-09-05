@@ -21,7 +21,8 @@ export function sourceClockStreams(streams:Stream[],videoIndex:number,audioIndex
     const duration=number(stream.duration),start=number(stream.start_time);
     if(!Number.isFinite(duration)||duration<=0||duration>600||!Number.isFinite(start)||start<0||start+duration>600)throw new Error("Selected streams require known nonnegative timestamps and at most 600 seconds of coverage");
   }
-  if(!Number.isInteger(number(video.nb_frames))||number(video.nb_frames)<=0||number(video.width)<=0||number(video.height)<=0)throw new Error("Video requires known geometry and frame count");
+  if([video.nb_frames,video.width,video.height].some(value=>!Number.isSafeInteger(number(value))||number(value)<=0))throw new Error("Video requires known integer geometry and frame count");
+  if(number(video.nb_frames)>100000)throw new Error("Video exceeds 100000-frame verification limit");
   return {video,audio};
 }
 export function contiguousPcmPackets(packets:{pts_time?:unknown;duration_time?:unknown}[]){

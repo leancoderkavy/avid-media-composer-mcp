@@ -14,6 +14,8 @@ it("requires explicitly selected supported streams with bounded known timestamps
  for(const change of [{duration:"N/A"},{duration:601},{start_time:-1},{start_time:null},{start_time:true},{nb_frames:"N/A"},{codec_name:"hevc"}])expect(()=>sourceClockStreams([{...video,...change},audio],2,3)).toThrow();
  expect(()=>sourceClockStreams([video,{...audio,channels:1}],2,3)).toThrow();
  expect(()=>sourceClockStreams([video,audio],0,3)).toThrow();
+ for(const field of ["width","height","nb_frames"])for(const value of [undefined,null,"N/A",Infinity,NaN,0,-1,0.5,Number.MAX_SAFE_INTEGER+1])expect(()=>sourceClockStreams([{...video,[field]:value},audio],2,3)).toThrow();
+ expect(()=>sourceClockStreams([{...video,nb_frames:100001},audio],2,3)).toThrow("verification limit");
 });
 it("detects absent timestamps, nonzero origins, gaps and overlaps in normalized PCM",()=>{
  expect(contiguousPcmPackets([{pts_time:"0",duration_time:"0.1"},{pts_time:"0.1",duration_time:"0.1"}])).toMatchObject({packets:2,endSeconds:0.2,maxGapSeconds:0});
