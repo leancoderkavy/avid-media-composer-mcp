@@ -5,16 +5,17 @@ import {beforeEach,it,expect,vi} from "vitest";
 import {DIARIZATION_VERSIONS,installDiarizationRuntime,diarizationRuntimeStatus} from "../src/library/diarization-runtime.js";
 const runner=vi.hoisted(()=>vi.fn());
 vi.mock("../src/process.js",()=>({runProcess:runner}));
+vi.mock("../src/library/python-bootstrap.js",()=>({PIP_VERSION:"26.2.1",preparePipWheel:async(directory:string)=>{const file=path.join(directory,"pip.whl");await writeFile(file,"qualified wheel fixture");return file;}}));
 const fixture=()=>mkdtemp(path.join(os.tmpdir(),"avid-diarization-"));
 beforeEach(()=>{
   runner.mockReset();runner.mockImplementation(async(_executable:string,args:string[])=>{
     if(args.includes("venv")){const bin=path.join(args.at(-1)!,process.platform==="win32"?"Scripts":"bin");await mkdir(bin,{recursive:true});await writeFile(path.join(bin,process.platform==="win32"?"python.exe":"python"),"fixture executable");}
-    return {exitCode:0,stdout:args.includes("--check")?JSON.stringify({schema:1,recipe:1,duration:1,speakerCount:0,spans:[],versions:DIARIZATION_VERSIONS}):"",stderr:""};
+    return {exitCode:0,stdout:args.some(arg=>arg.includes("importlib.metadata"))?"26.2.1\n":args.includes("--check")?JSON.stringify({schema:1,recipe:1,duration:1,speakerCount:0,spans:[],versions:DIARIZATION_VERSIONS}):"",stderr:""};
   });
 });
 it("publishes a verified fixed-path runtime and reuses it without installers or inference",async()=>{
   const cache=await fixture(),first=await installDiarizationRuntime(cache,"python");expect(first).toMatchObject({unchanged:true,reused:false,receipt:{checks:{binaryOnly:true,dependencyCheckPassed:true,silenceInferencePassed:true}}});
-  const calls=runner.mock.calls.length;expect(calls).toBe(5);expect(runner.mock.calls[1]![1]).toEqual(expect.arrayContaining(["--no-deps","--only-binary=:all:","--no-compile","sherpa-onnx==1.13.7"]));
+  const calls=runner.mock.calls.length;expect(calls).toBe(7);expect(runner.mock.calls[3]![1]).toEqual(expect.arrayContaining(["--no-deps","--only-binary=:all:","--no-compile","sherpa-onnx==1.13.7"]));
   expect((await installDiarizationRuntime(cache,"missing-python")).reused).toBe(true);expect(runner).toHaveBeenCalledTimes(calls);
   await writeFile(path.join(first.directory,"changed.txt"),"retain");expect((await diarizationRuntimeStatus(cache)).unchanged).toBe(false);await expect(installDiarizationRuntime(cache,"python")).rejects.toThrow("tree or worker changed");expect(await readFile(path.join(first.directory,"changed.txt"),"utf8")).toBe("retain");
 });
@@ -28,4 +29,8 @@ it("preserves both existing and replaced setup locks",async()=>{
 });
 it("rejects malformed receipts and does not replace them",async()=>{
   const cache=await fixture(),root=path.join(cache,"diarization");await mkdir(root);await writeFile(path.join(root,"installation.json"),JSON.stringify({installationId:"../../outside"}));await expect(installDiarizationRuntime(cache,"python")).rejects.toThrow();expect(runner).not.toHaveBeenCalled();expect(JSON.parse(await readFile(path.join(root,"installation.json"),"utf8")).installationId).toBe("../../outside");
+});
+it("reports a legacy bootstrap separately from tree consistency and refuses silently reusing it for setup",async()=>{
+  const cache=await fixture(),installed=await installDiarizationRuntime(cache,"python"),file=path.join(installed.root,"installation.json"),receipt=JSON.parse(await readFile(file,"utf8"));delete receipt.pipVersion;await writeFile(file,JSON.stringify(receipt));
+  expect(await diarizationRuntimeStatus(cache)).toMatchObject({unchanged:true,bootstrapCurrent:false});const before=runner.mock.calls.length;await expect(installDiarizationRuntime(cache,"python")).rejects.toThrow("legacy pip");expect(runner).toHaveBeenCalledTimes(before);expect(JSON.parse(await readFile(file,"utf8"))).toEqual(receipt);
 });

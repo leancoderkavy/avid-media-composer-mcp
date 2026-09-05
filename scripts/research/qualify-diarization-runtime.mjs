@@ -7,7 +7,7 @@ import {diarizationRuntimeStatus,installDiarizationRuntime,DIARIZATION_WORKER} f
 import {speechAudioArguments} from '../../dist/library/speech-audio.js';
 import {runProcess} from '../../dist/process.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
-const cache=path.resolve('.avid-mcp-analysis/models'),root=path.resolve('.avid-mcp-analysis',`diarization-runtime-${randomUUID()}`);await mkdir(root);
+const cache=path.resolve(process.argv[2]??'.avid-mcp-analysis/models'),root=path.resolve('.avid-mcp-analysis',`diarization-runtime-${randomUUID()}`);await mkdir(root);
 const status=await diarizationRuntimeStatus(cache);assert.ok(status.unchanged);
 const reuse=await installDiarizationRuntime(cache,'nonexistent-python');assert.ok(reuse.reused&&reuse.unchanged);
 const ffmpeg=process.env.AVID_MCP_FFMPEG??'ffmpeg',results=[];
