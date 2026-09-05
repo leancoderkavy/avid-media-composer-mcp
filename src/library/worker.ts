@@ -1,3 +1,4 @@
+import {MediaSummaries} from "./summaries.js";
 import {MediaQc} from "./qc.js";
 import {MediaLibrary} from "./media-library.js";
 import {VisualSearch} from "./visual.js";
@@ -14,6 +15,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "summary":result=await new MediaSummaries(config).generate(spec.id,spec.transcriptRevision);break;
     case "qc":result=await new MediaQc(config).analyze(spec.id,spec.options);break;
     case "index":result=await library.index(spec.files);break;
     case "visual":result=await new VisualSearch(config).index(spec.ids,spec.samples,spec.range);break;

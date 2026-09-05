@@ -112,3 +112,14 @@ Use `vscode` for the `servers` configuration shape; Claude, Cursor, LM Studio an
 Restore accepts only a backup created for the exact target file and restores its Avid entry into the current document. It preserves later edits to unrelated server entries and other settings. Remove deletes only the Avid client entry; source media, models, reports, backups and the installed npm package remain. Package/dependency version installation, rollback and uninstall are separate unfinished lifecycle work.
 
 Changes use a cooperating-process lock, bounded JSON reads, an exact-byte backup, and a temporary-file replacement. Existing checksums are rechecked before replacement. Close the client while editing its configuration: a client that ignores our lock can still write concurrently. Backups may contain other entries' credentials and belong in the same protected local configuration directory. Lifecycle status/results return paths and hashes, not backup contents. Restart the client after a successful change.
+
+
+## Generated transcript summaries
+
+Download the optional English model with `avid-mcp --download-models --summaries --model-dir PATH`. [Xenova DistilBART CNN 6-6](https://huggingface.co/Xenova/distilbart-cnn-6-6) and its [upstream model](https://huggingface.co/sshleifer/distilbart-cnn-6-6) identify Apache-2.0 licensing. The ONNX revision is pinned to `6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9`; weights remain in the optional model cache, not the MCP package. Inference uses cached local files.
+
+`avid_generate_summary` or a `summary` analysis job creates a hierarchy from a selected transcript revision. Leaves cover bounded text chunks; parent nodes summarize groups of up to four children. Limits are 64 source chunks of 2000 characters, 1000 input tokens per generation and 80 generated tokens per node. Excess input is rejected rather than silently dropped. `mayBeTruncated` flags generated text without a terminal sentence boundary; this heuristic cannot detect every omission or truncation.
+
+`avid_list_summaries` discovers saved hierarchies; `avid_summary_node` reads the overview or a selected child and returns leaf transcript references. Reads validate the transcript checksum and source indices. These checks establish provenance, not factual entailment. The English news-trained model can omit content, repeat text, fabricate details or end mid-sentence, and is not qualified for visual-only descriptions. Review against the transcript before using generated claims.
+
+`avid_delete_summary` removes one checksum-selected summary document while retaining media and transcripts. Discovery/deletion remain available if its transcript was deleted; content reads fail because provenance is unavailable. Generated summaries are derived copies and are not automatically removed when a transcript revision is deleted.

@@ -9,6 +9,7 @@ import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
 import {ProjectSnapshots} from "./project-snapshots.js";
+import {MediaSummaries} from "./summaries.js";
 import {MediaQc,qcOptions} from "./qc.js";
 import {People,peopleEditSchema} from "./people.js";
 import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
@@ -23,9 +24,10 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const snapshots = new ProjectSnapshots(config);
   const people = new People(config);
   const qc = new MediaQc(config);
+  const summaries = new MediaSummaries(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
-  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
+  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
   const ids = z.array(id).min(1).max(100);
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
@@ -34,6 +36,14 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_generate_summary", {description:"Generate a local English transcript summary hierarchy with pinned DistilBART. Requires project-write and explicitly downloaded models. Source references are checked; factual accuracy requires review. Use a summary job for longer transcripts.",inputSchema:{id,transcriptRevision:z.string().uuid()},annotations:write},
+    ({id,transcriptRevision})=>result("avid_generate_summary",()=>summaries.generate(id,transcriptRevision)));
+  server.registerTool("avid_summary_node", {description:"Read a generated summary overview or drill into a node, with children and leaf transcript references. Refuses changed/missing transcript provenance.",inputSchema:{revision:z.string().uuid(),nodeId:z.string().optional()},annotations:read},
+    ({revision,nodeId})=>result("avid_summary_node",()=>summaries.node(revision,nodeId)));
+  server.registerTool("avid_list_summaries", {description:"Discover generated summary hierarchies for indexed media with pagination.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
+    ({id,after,limit})=>result("avid_list_summaries",()=>summaries.list(id,after,limit)));
+  server.registerTool("avid_delete_summary", {description:"Delete a selected generated summary document with checksum validation. Transcript and source media remain. Requires project-write.",inputSchema:{revision:z.string().uuid(),expectedSha256:id},annotations:{...write,destructiveHint:true}},
+    ({revision,expectedSha256})=>result("avid_delete_summary",()=>summaries.remove(revision,expectedSha256)));
   server.registerTool("avid_media_qc", {description:"Decode up to ten minutes of the first video/audio streams for black, freeze, silence, input loudness and timestamp-variation findings. Writes JSON/HTML reports; requires export. Findings need review and are not delivery certification or perceptual sync analysis.",inputSchema:{id,options:qcOptions},annotations:write},
     ({id,options})=>result("avid_media_qc",()=>qc.analyze(id,options)));
   server.registerTool("avid_index_media", {description:"Index up to 100 local media files by SHA-256 into the configured output directory. No media upload.", inputSchema:{files:z.array(z.string()).min(1).max(100)},annotations:write},

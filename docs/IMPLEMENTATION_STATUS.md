@@ -45,7 +45,7 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 
 ### Latest complete check
 
-`npm run check` passed on 2026-09-05: 160 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 71 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 71 tools include the pre-existing read-only/bridge tools; this count is not 71 newly qualified native editor operations.
+`npm run check` passed on 2026-09-05: 163 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 75 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 75 tools include the pre-existing read-only/bridge tools; this count is not 75 newly qualified native editor operations.
 
 ## Remaining delivery work
 
@@ -70,3 +70,5 @@ Scoped visual search passed through stdio on Sonoma: 24 samples over seconds 60–
 Media QC now emits JSON/HTML reports for bounded first-stream black, freeze, silence, input loudness and decoded timestamp variation. `scripts/research/qualify-qc.mjs` passed on known generated content and Sonoma seconds 60–90. This is detector/range proof, not broadcast certification or perceptual A/V sync qualification.
 
 Configuration lifecycle supports checksum-checked entry update/removal and selective backup restore. `scripts/research/qualify-setup-lifecycle.mjs` passed with built CLI operations and generated-command MCP ping for Claude/VS Code JSON shapes. Actual client applications and package/dependency lifecycle remain separate qualification work.
+
+Local generated summaries now provide transcript-linked hierarchy, overview/drill-down, discovery and deletion. The real optional DistilBART runtime generated a three-node synthetic-notes example; source references matched, but the overview ended at the token budget with an incomplete sentence. Missing sentence boundaries are flagged. Factual accuracy, completeness and visual grounding remain unqualified.

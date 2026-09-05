@@ -9,7 +9,7 @@ const { values } = parseArgs({ options: {
   output:{type:"string"}, native:{type:"string"}, config:{type:"string"}, install:{type:"boolean"},
   "download-models":{type:"boolean"}, "model-dir":{type:"string"},
   speech:{type:"boolean"},
-  faces:{type:"boolean"},
+  faces:{type:"boolean"}, summaries:{type:"boolean"},
   "config-status":{type:"boolean"},update:{type:"boolean"},remove:{type:"boolean"},restore:{type:"string"},"expected-sha256":{type:"string"},
 } });
 try {
@@ -25,9 +25,12 @@ try {
     console.log(JSON.stringify(await changeConfiguration(values.config,operation),null,2));
   }else
   if (values["download-models"]) {
-    if(values.faces&&values.speech)throw new Error("Choose either --faces or --speech per download command");
+    if([values.faces,values.speech,values.summaries].filter(Boolean).length>1)throw new Error("Choose one model family per download command");
     if(!values["model-dir"])throw new Error("--download-models requires --model-dir PATH");
-    if(values.faces){
+    if(values.summaries){
+      const {loadSummaryModel,SUMMARY_MODEL,SUMMARY_REVISION}=await import("./library/summaries.js");
+      const model=await loadSummaryModel(values["model-dir"],true);await model.dispose();console.log(JSON.stringify({downloaded:SUMMARY_MODEL,revision:SUMMARY_REVISION}));
+    }else if(values.faces){
       const {faceRuntime}=await import("./library/face-runtime.js");
       console.log(JSON.stringify(await faceRuntime(values["model-dir"],loadConfig().pythonExecutable,true)));
     }else if(values.speech){
@@ -48,5 +51,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech | --faces]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech | --faces | --summaries]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }
