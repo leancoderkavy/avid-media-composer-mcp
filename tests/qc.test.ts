@@ -26,3 +26,10 @@ it("selects absolute stream indices, allows single-type analysis, and rejects mi
   expect(()=>selectQcStreams(streams,{videoStream:null,audioStream:null})).toThrow(/No audio or video/);
   expect(()=>qcOptions.parse({end:5,videoStream:-1})).toThrow();
 });
+
+it("reports declared stream characteristics without inferring absent values or exposing arbitrary tags",async()=>{
+  const {qcStreamDetails}=await import("../src/library/qc.js");
+  const details=qcStreamDetails({index:2,codec_type:"video",pix_fmt:"yuv420p10le",color_transfer:"smpte2084",color_primaries:"bt2020",color_range:"tv",tags:{comment:"private"}});
+  expect(details).toMatchObject({index:2,pix_fmt:"yuv420p10le",color_transfer:"smpte2084",color_primaries:"bt2020",color_range:"tv",bits_per_raw_sample:null});
+  expect(details).not.toHaveProperty("tags");expect(qcStreamDetails(undefined)).toBeNull();
+});

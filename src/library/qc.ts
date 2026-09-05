@@ -17,6 +17,11 @@ export const qcOptions=z.object({
   silenceSeconds:z.number().min(0.1).max(60).default(0.5),silenceDb:z.number().min(-100).max(0).default(-50),
 }).strict().refine(value=>value.end>value.start&&value.end-value.start<=600,"QC range must be at most 600 seconds");
 type Interval={start:number;end:number;openAtRangeEnd?:boolean};
+export function qcStreamDetails(stream:Record<string,unknown>|undefined){
+  if(!stream)return null;
+  const fields=["index","codec_type","codec_name","profile","width","height","pix_fmt","color_range","color_space","color_transfer","color_primaries","chroma_location","field_order","bits_per_raw_sample","bits_per_sample","sample_fmt","sample_rate","channels","channel_layout","time_base","r_frame_rate","avg_frame_rate","start_time","duration"];
+  return Object.fromEntries(fields.map(key=>[key,typeof stream[key]==="string"||typeof stream[key]==="number"?stream[key]:null]));
+}
 export function selectQcStreams<T extends {index?:number;codec_type?:string;start_time?:unknown}>(streams:T[],options:{videoStream?:number|null|undefined;audioStream?:number|null|undefined}){
   const select=(kind:"video"|"audio",index:number|null|undefined)=>{
     if(index===null)return undefined;
@@ -81,6 +86,7 @@ export class MediaQc {
     const optionalNumber=(value:unknown)=>value!==undefined&&Number.isFinite(Number(value))?Number(value):null;
     const videoStart=optionalNumber(video?.start_time),audioStart=optionalNumber(audio?.start_time);
     const report={schema:1,id,range:{start:options.start,end:options.end},options,streams:{video:video?.index??null,audio:audio?.index??null},findings,
+      streamDetails:{video:qcStreamDetails(video),audio:qcStreamDetails(audio),meaning:"Source probe metadata declarations; absent fields are null, not inferred. Tags do not verify mastering, actual transfer behavior, or delivery compliance."},
       timing:{videoStart,audioStart,audioMinusVideoStart:videoStart!==null&&audioStart!==null?audioStart-videoStart:null,meaning:"Container stream offsets only; perceptual audio/video synchronization is not tested"},
       reviewRequired:true,limitations:["Only the reported video/audio stream indices were analyzed; omitted selectors default to the first stream of each type","Black, static and silent scenes can be intentional","Black end timestamps have decoded-frame precision","Findings apply only to the selected range","No delivery-standard pass/fail verdict"],sourceModified:false};
     const revision=randomUUID(),root=await library.directory(),output=path.join(root,`qc-${revision}.json`),html=path.join(root,`qc-${revision}.html`);
