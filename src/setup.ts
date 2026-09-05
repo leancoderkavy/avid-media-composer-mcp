@@ -1,8 +1,7 @@
 import path from "node:path";
-import { readFile, writeFile, copyFile, realpath } from "node:fs/promises";
-import { constants } from "node:fs";
+import { realpath } from "node:fs/promises";
+import {changeConfiguration} from "./setup-lifecycle.js";
 import { fileURLToPath } from "node:url";
-import { randomUUID } from "node:crypto";
 import type { ServerConfig } from "./config.js";
 import { NativeAdapter } from "./native/adapter.js";
 import { probeFfprobe } from "./analysis/media.js";
@@ -20,22 +19,8 @@ export function clientConfiguration(client: SetupClient, roots: string[], output
 }
 
 export async function installConfiguration(file: string, config: ReturnType<typeof clientConfiguration>) {
-  const target = path.resolve(file);
-  await realpath(path.dirname(target));
-  let original: Record<string, any> = {};
-  let backup: string | undefined;
-  try {
-    original = JSON.parse(await readFile(target, "utf8"));
-    if (!original || Array.isArray(original) || typeof original !== "object") throw new Error("Expected a JSON object");
-    backup = `${target}.avid-backup-${randomUUID()}`;
-    await copyFile(target, backup, constants.COPYFILE_EXCL);
-  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   const key = "servers" in config ? "servers" : "mcpServers";
-  if (original[key] !== undefined && (!original[key] || typeof original[key] !== "object" || Array.isArray(original[key]))) throw new Error("Existing server configuration is not an object");
-  if (original[key]?.["avid-media-composer"]) throw new Error("Avid configuration already exists; review it before replacement");
-  const merged = { ...original, [key]: { ...original[key], ...(config as Record<string, any>)[key] } };
-  await writeFile(target, JSON.stringify(merged, null, 2) + "\n", { flag: backup ? "w" : "wx" });
-  return { target, backup, restartClient: true };
+  return changeConfiguration(file,{action:"install",key,entry:(config as Record<string, any>)[key]["avid-media-composer"]});
 }
 
 export async function doctor(config: ServerConfig) {

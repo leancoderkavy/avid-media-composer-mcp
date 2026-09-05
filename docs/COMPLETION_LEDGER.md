@@ -5,7 +5,7 @@ This ledger preserves the complete requested scope across increments. It is not 
 | Requirement | Current evidence | Remaining acceptance work |
 | --- | --- | --- |
 | Original open-source implementation and license/provenance | MIT source; public contracts cited; no competitor implementation incorporated | Audit all additional model/runtime/installer licenses before release |
-| Local MCP installation through AI clients | CLI config generation/backup/merge; stdio/HTTP/fresh-tarball tests | Named-client setup and real Avid reads, managed dependencies, update/rollback/uninstall |
+| Local MCP installation through AI clients | CLI config generation/install/update/entry rollback/removal with checksums and backups; generated-command ping; stdio/HTTP/fresh-tarball tests | Named-client application setup and real Avid reads; managed package/dependency install/update/rollback/uninstall |
 | Native project/bin/clip/marker reads and writes | 17 methods tested on Windows 2024.12, preview/apply MCP, persistence and token regressions | Per-action undo/recovery, restart, lock/shared-project and version matrix |
 | Timeline reading, range/track search, source mapping | Offline AVB/AAF/OTIO inspection; saved semantic snapshots/diffs and direct source mappings; collection range mapping | Live sequence graph and actual editor range queries |
 | Sequences, selects, stringouts, trims, track assignment | Curated collections and OpenTimelineIO round trip | Avid import/export/relink/save/reopen/render; broader subclip/sequence conformance |
@@ -42,3 +42,5 @@ Evidence statuses distinguish implementation, offline tests, simulated adapters,
 - Scoped visual increment: 24 Sonoma frames over [60,90) indexed and searched through stdio; the reference frame ranked first with cosine 1, and [80,85) filtering returned exactly four samples. Model-loading/sample/query workflow took 14.964 seconds on this Windows host. Shot detection and semantic accuracy benchmarking remain open.
 
 - QC increment: generated black/static/silent-to-moving/tone MP4 validated event source timestamps within 80 ms in a nonzero-start range. Sonoma [60,90) produced JSON/HTML reports, no detected black/freeze/silence or variable timestamp intervals, and measured -22.5 LUFS/-5.81 dBTP. Both source hashes remained unchanged.
+
+- Configuration lifecycle increment: built CLI installed, updated, restored and removed Avid entries in temporary Claude/VS Code JSON formats; generated commands completed real MCP ping. Rollback preserved unrelated edits. This does not prove either named client UI or package/dependency lifecycle.
