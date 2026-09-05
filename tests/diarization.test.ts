@@ -99,3 +99,22 @@ it("rejects stale, out-of-range, missing and malformed speaker corrections",asyn
   await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).correct(original.analysisId,original.sha256,[{action:"remove",spanId:"span-1"}])).rejects.toThrow();
   const child=await f.speakers.correct(original.analysisId,original.sha256,[{action:"merge",from:"speaker-2",into:"speaker-1"}]),file=path.join(f.base,`speakers-${child.analysisId}`,"analysis.json"),record=JSON.parse(await readFile(file,"utf8"));record.review.spans.push(record.review.spans[0]);await writeFile(file,JSON.stringify(record));await expect(f.speakers.read(child.analysisId)).rejects.toThrow("reviewed speaker intervals");
 });
+it("resumes verified extracted audio after inference failure without re-extracting and retains parent provenance",async()=>{
+  const f=await fixture(),normal=mocks.run.getMockImplementation()!;
+  mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,10,12,{speakers:2})).rejects.toThrow("incomplete files retained");
+  const discovery=await f.speakers.list(f.id),parentId=discovery.discovery.unpublishedAnalysisIds[0]!;
+  const reopened=new SpeakerAnalysis(f.config),checkpoint=await reopened.checkpoint(parentId),parentFile=path.join(f.base,`speakers-${parentId}`,"audio.json"),before=await readFile(parentFile,"utf8");
+  expect(checkpoint.published).toBe(false);mocks.run.mockClear();const resumed=await reopened.resume(parentId,checkpoint.sha256);
+  expect(mocks.run).toHaveBeenCalledTimes(1);expect(mocks.run.mock.calls[0]![1]).toContain("--audio");expect(resumed.analysisId).not.toBe(parentId);expect(resumed.recovery).toEqual({parentAnalysisId:parentId,parentCheckpointSha256:checkpoint.sha256,reusedAudio:true});
+  expect(await readFile(parentFile,"utf8")).toBe(before);expect(await reopened.read(resumed.analysisId)).toMatchObject({recovery:resumed.recovery});
+  const completed=await reopened.checkpoint(resumed.analysisId);await expect(reopened.resume(resumed.analysisId,completed.sha256)).rejects.toThrow("already published");await reopened.remove(resumed.analysisId,resumed.sha256);expect(await reopened.checkpoint(parentId)).toEqual(checkpoint);
+});
+it("rejects stale checkpoints, changed runtime/audio/source and insufficient resume access",async()=>{
+  const f=await fixture(),normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow();
+  const parentId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!,checkpoint=await f.speakers.checkpoint(parentId);mocks.run.mockClear();
+  await expect(f.speakers.resume(parentId,"0".repeat(64))).rejects.toThrow("checkpoint changed");
+  await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).resume(parentId,checkpoint.sha256)).rejects.toThrow();
+  mocks.runtime.mockResolvedValueOnce({unchanged:true,treeSha256:"c".repeat(64),receipt:{workerSha256:"b".repeat(64)}});await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("runtime changed");expect(mocks.run).not.toHaveBeenCalled();
+  const audio=path.join(f.base,`speakers-${parentId}`,"speech.f32"),original=await readFile(audio);await writeFile(audio,"corrupt");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("audio changed");await writeFile(audio,original);
+  await writeFile(f.source,"changed");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("source changed");expect(mocks.run).not.toHaveBeenCalled();
+});
