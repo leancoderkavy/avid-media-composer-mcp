@@ -9,6 +9,8 @@ import {sha256File} from '../../dist/analysis/file-inventory.js';
 
 const render = path.resolve(process.argv[2] ?? '');
 assert.ok(process.argv[2] && path.extname(render).toLowerCase() === '.mp4', 'Supply the existing four-second Sonoma render');
+assert.ok(process.argv.slice(3).every(value=>value==='--render-range-full'),'Only the diagnostic --render-range-full override is supported');
+const renderRangeFull=process.argv.includes('--render-range-full');
 const source = 'D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
 const sourceSha256 = await sha256File(source), renderSha256 = await sha256File(render);
 assert.equal(sourceSha256, '3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca');
@@ -28,13 +30,13 @@ assert.equal(video.avg_frame_rate, '30/1');
 assert.equal(video.width, 1920); assert.equal(video.height, 1080);
 const sourceFrames = [...Array.from({length:66}, (_,i) => 2847+i), ...Array.from({length:66}, (_,i) => 3297+i)];
 const selection = 'select=between(n\\,2847\\,2912)+between(n\\,3297\\,3362),';
-const extract = async (input, name, filter) => {
+const extract = async (input, name, filter, forceFull=false) => {
   const destination = path.join(root, name);
-  await run('ffmpeg', ['-nostdin','-v','error','-n','-i',input,'-map','0:v:0','-an','-vf',`${filter}scale=96:54:flags=area,format=rgb24`,'-fps_mode','passthrough','-f','rawvideo',destination]);
+  await run('ffmpeg', ['-nostdin','-v','error','-n','-i',input,'-map','0:v:0','-an','-vf',`${filter}scale=96:54:flags=area${forceFull?':in_range=pc':''},format=rgb24`,'-fps_mode','passthrough','-f','rawvideo',destination]);
   return readFile(destination);
 };
 const sourcePixels = await extract(source, 'source.rgb', selection);
-const renderPixels = await extract(render, 'render.rgb', '');
+const renderPixels = await extract(render, 'render.rgb', '',renderRangeFull);
 const sourceTimestamps=JSON.parse(await run('ffprobe',['-v','error','-select_streams','v:0','-show_frames','-show_entries','frame=best_effort_timestamp_time','-of','json',source])).frames;
 const frameBytes = 96*54*3;
 assert.equal(sourcePixels.length, sourceFrames.length*frameBytes);
@@ -73,6 +75,7 @@ assert.equal(await sha256File(source),sourceSha256);
 assert.equal(await sha256File(render),renderSha256);
 const audio = streams=>streams.filter(stream=>stream.codec_type==='audio').map(({codec_name,channels,sample_rate})=>({codec:codec_name,channels,sampleRate:sample_rate}));
 const report={source,render,sourceSha256,renderSha256,sourceUnchanged:true,renderUnchanged:true,
+  renderDecodeRange:renderRangeFull?'forced-full-diagnostic':'declared-metadata',
   method:'Zero-based decoded frames, 96x54 area-resampled RGB, expected source plus/minus three frames; highest Pearson correlation across RGB samples. Diagnostic ranking, not a fidelity pass or automatic correction.',
   expectedBestCount:frames.filter(frame=>frame.best.offset===0).length,
   bestOffsets:frames.reduce((counts,frame)=>{counts[frame.best.offset]=(counts[frame.best.offset]??0)+1;return counts;},{}),
@@ -86,4 +89,4 @@ const report={source,render,sourceSha256,renderSha256,sourceUnchanged:true,rende
   decodedFrameChecksumSha256:await sha256File(path.join(root,'decoded.framemd5')),
   limitations:['Downsampling and correlation cannot establish exact frame or color conformance.','Repeated or near-identical frames can make rankings ambiguous.','Audio waveform, channel routing and perceptual sync are not compared.'],frames};
 await writeFile(path.join(root,'evidence.json'),JSON.stringify(report,null,2),{flag:'wx'});
-console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),expectedBestCount:report.expectedBestCount,bestOffsets:report.bestOffsets,maxBestTimestampResidualSeconds:report.maxBestTimestampResidualSeconds,meanExpectedRmse:report.meanExpectedRmse,meanExpectedRgbShift:report.meanExpectedRgbShift,sourceAudio:report.sourceAudio,renderAudio:report.renderAudio,decodedFrameChecksumSha256:report.decodedFrameChecksumSha256}));
+console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),renderDecodeRange:report.renderDecodeRange,expectedBestCount:report.expectedBestCount,bestOffsets:report.bestOffsets,maxBestTimestampResidualSeconds:report.maxBestTimestampResidualSeconds,meanBestRmse:report.meanBestRmse,meanBestRgbShift:report.meanBestRgbShift,meanExpectedRmse:report.meanExpectedRmse,meanExpectedRgbShift:report.meanExpectedRgbShift,sourceAudio:report.sourceAudio,renderAudio:report.renderAudio,decodedFrameChecksumSha256:report.decodedFrameChecksumSha256}));
