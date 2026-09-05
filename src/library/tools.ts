@@ -41,7 +41,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
-  server.registerTool("avid_summary_runs",{description:"Discover persisted summary computation runs for a media ID. Partial does not prove worker termination. Transcript provenance must remain available.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
+  server.registerTool("avid_summary_runs",{description:"Discover persisted summary computation runs for a media ID. Partial does not prove worker termination. Runs with invalid or missing provenance are returned as unavailable with an error.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
     ({id,after,limit})=>result("avid_summary_runs",()=>summaries.runs(id,after,limit)));
   server.registerTool("avid_summary_run",{description:"Read persisted summary node counts and verify transcript provenance and completed output.",inputSchema:{runId:z.string().uuid()},annotations:read},
     ({runId})=>result("avid_summary_run",()=>summaries.runStatus(runId)));

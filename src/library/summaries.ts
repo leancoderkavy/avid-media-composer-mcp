@@ -9,7 +9,7 @@ import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 import {SummaryCheckpoints,summaryNodeSchema,type SummaryNode} from "./summary-checkpoints.js";
-import {AvidMcpError} from "../errors.js";
+import {AvidMcpError,errorDetails} from "../errors.js";
 export const SUMMARY_MODEL="Xenova/distilbart-cnn-6-6";
 export const SUMMARY_REVISION="6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9";
 export async function loadSummaryModel(cache:string,download=false){const {pipeline}=await modelRuntime(cache,download);return pipeline("summarization",SUMMARY_MODEL,{cache_dir:cache,revision:SUMMARY_REVISION,local_files_only:!download,dtype:"q8"});}
@@ -50,7 +50,14 @@ export class MediaSummaries{
     if(saved.revision){const completed=await this.read(saved.revision);if(completed.record.id!==saved.record.id||completed.record.transcriptRevision!==saved.record.transcriptRevision||completed.record.sourceHash!==saved.record.sourceHash||completed.record.root!==saved.nodes.at(-1)?.node.nodeId||JSON.stringify(completed.record.nodes)!==JSON.stringify(saved.nodes.map(value=>value.node)))throw new Error("Completed summary differs from checkpoints");}
     return {runId,parentRunId:saved.record.parentRunId,id:saved.record.id,transcriptRevision:saved.record.transcriptRevision,plannedNodes:saved.record.plannedNodes,completedNodes:saved.nodes.length,revision:saved.revision??null,state:saved.revision?"completed":"partial",note:"Partial does not establish worker termination; explicit resume creates a new run."};
   }
-  async runs(id:string,after?:string,limit=20){z.number().int().min(1).max(100).parse(limit);const names=await this.checkpoints.discover(id,after),runs=[];for(const name of names.slice(0,limit))runs.push(await this.runStatus(name));return {runs,nextAfter:names.length>limit?names[limit-1]:null};}
+  async runs(id:string,after?:string,limit=20){
+    z.number().int().min(1).max(100).parse(limit);const names=await this.checkpoints.discover(id,after),runs=[];
+    for(const name of names.slice(0,limit)){
+      try{const status=await this.runStatus(name);if(status.id!==id)throw new Error("Summary run media identity changed during discovery");runs.push(status);}
+      catch(error){const {code,message}=errorDetails(error);runs.push({runId:name,state:"unavailable" as const,problem:{code,message}});}
+    }
+    return {runs,nextAfter:names.length>limit?names[limit-1]:null};
+  }
   async generate(id:string,transcriptRevision:string,parentRunId?:string){
     requireCapability(this.config.capabilities,"project-write");
     const source=await this.source(id,transcriptRevision),chunks=summaryChunks(source.segments);

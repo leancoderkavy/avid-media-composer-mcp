@@ -48,3 +48,11 @@ it("rejects incompatible transcript, input checkpoints and scope without rewriti
   await expect(summaries.resume(run)).rejects.toThrow("input changed");await writeFile(file,original);
   await writeFile(transcript.path,JSON.stringify({id,segments:[{start:0,end:2,text:"Different transcript"}]}));await expect(summaries.resume(run)).rejects.toThrow("changed");expect(await readFile(file,"utf8")).toBe(original);
 });
+it("keeps healthy runs discoverable after an older transcript is deleted",async()=>{
+  const {id,config,transcript,summaries}=await fixture(),old=await summaries.generate(id,transcript.revision);
+  const newer=await new MediaLibrary(config).importTranscript(id,[{start:0,end:10,text:"New editorial notes."}]),current=await summaries.generate(id,newer.revision);
+  await unlink(transcript.path);
+  const first=await summaries.runs(id,undefined,1);expect(first.nextAfter).not.toBeNull();const second=await summaries.runs(id,first.nextAfter!,1);expect(second.nextAfter).toBeNull();
+  const rows=[...first.runs,...second.runs];expect(rows).toHaveLength(2);expect(rows.find(run=>run.runId===old.runId)).toMatchObject({state:"unavailable",problem:{code:"PATH_NOT_FOUND"}});expect(rows.find(run=>run.runId===current.runId)).toMatchObject({state:"completed"});
+  await expect(summaries.runStatus(old.runId)).rejects.toThrow();await expect(new MediaSummaries({...config,allowedRoots:[]}).runs(id)).rejects.toThrow();
+});

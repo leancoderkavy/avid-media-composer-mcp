@@ -144,6 +144,8 @@ Summary generation checkpoints every completed node, including parent nodes. Use
 
 Real MCP qualification cancelled generation from synthetic editorial notes attached to Sonoma, reconnected, and resumed one committed node into a nine-node hierarchy with original checkpoint/source unchanged. This is recovery evidence, not summary accuracy: `scripts/research/qualify-summary-resume.mjs`. Deleting a completed summary document or its transcript leaves the separate computation records; status then fails because output/provenance is missing. Use the existing summary discovery/deletion tools for the final documents.
 
+`avid_summary_runs` preserves pagination when a run's transcript or output is unavailable: it returns that run as `state: "unavailable"` with a problem code/message and continues listing other runs for the authorized media. It does not hide the failure or permit reuse. Direct status/resume still rejects invalid provenance. An unreadable manifest that cannot be attributed to a media ID still fails discovery. Real MCP coverage of a deleted older transcript alongside a healthy newer summary is in `scripts/research/qualify-summary-discovery.mjs`.
+
 
 ## Reference-preserving AAF selects
 
