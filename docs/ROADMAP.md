@@ -1,5 +1,14 @@
 # Roadmap
 
+## Updated delivery direction — 2026-09-05
+
+The [competitor review and staged plan additions](COMPETITOR_RESEARCH.md) supplement the original phases below. Deliver Windows local setup and a separately qualified native adapter first, then richer media/interchange workflows, optional analysis providers and named UI automation. Mac code follows on a Mac. The user cannot obtain Avid SDK access; it is not a prerequisite for the native research route. A sanctioned Extension remains a separate optional path with its own SDK requirements.
+
+- [ ] Package the 16 demonstrated native operations behind individual capability and host-version checks; research smoke tests alone are not production support.
+- [ ] Add bounded timeline/source queries, local reports, verified outputs and reusable workflow skills as described in the competitor review.
+- [ ] Qualify the seven Sonoma MP4 exports in a disposable Windows project; original Premiere media and Mac qualification remain later work.
+- [ ] Evaluate optional Jumper search integration using its public API without making it a core dependency.
+
 ## Phase 1 — research and offline foundation
 
 - [x] Research Avid APIs and comparable editing MCPs with Tavily.
@@ -63,7 +72,7 @@ writing with Avid before committing to a live-control date.
 For each live operation:
 
 1. catalog entry;
-2. SDK implementation;
+2. implementation in the explicitly selected native, Extension, interchange or UI adapter;
 3. disposable fixture;
 4. pre-state capture;
 5. action response;
@@ -75,5 +84,6 @@ For each live operation:
 
 The offline analyzer and interchange work can ship independently. The 167-action catalog,
 file-bridge protocol, or a simulated test result must never be presented as an edit performed by
-Media Composer. A live-control release additionally requires confirmed Avid SDK terms, an
-Avid-supported installed Extension, and the real-host evidence above for every advertised action.
+Media Composer. Every live-control release requires the real-host evidence above for each
+advertised action and adapter. An Extension release additionally requires confirmed SDK terms
+and an Avid-supported installed Extension. Native research does not establish Extension support.

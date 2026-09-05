@@ -1,0 +1,69 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import * as z from "zod/v4";
+import type { ServerConfig } from "../config.js";
+import { errorDetails } from "../errors.js";
+import { MediaLibrary, transcriptSchema } from "./media-library.js";
+import { VisualSearch } from "./visual.js";
+import { SpeechAnalysis } from "./speech.js";
+import { AnalysisJobs, jobSchema } from "./jobs.js";
+import {Collections, collectionSchema} from "./collections.js";
+
+export function registerLibraryTools(server: McpServer, config: ServerConfig) {
+  const library = new MediaLibrary(config);
+  const visual = new VisualSearch(config);
+  const speech = new SpeechAnalysis(config);
+  const jobs = new AnalysisJobs(config);
+  const collections = new Collections(config);
+  const previousClose=server.server.onclose;
+  server.server.onclose=()=>{jobs.close();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
+  const id = z.string().regex(/^[a-f0-9]{64}$/);
+  const ids = z.array(id).min(1).max(100);
+  const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
+  const write = {readOnlyHint:false, destructiveHint:false, openWorldHint:false, idempotentHint:false};
+  const result = async (name: string, fn: () => Promise<unknown>) => {
+    try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
+    catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
+  };
+  server.registerTool("avid_index_media", {description:"Index up to 100 local media files by SHA-256 into the configured output directory. No media upload.", inputSchema:{files:z.array(z.string()).min(1).max(100)},annotations:write},
+    ({files})=>result("avid_index_media",()=>library.index(files)));
+  server.registerTool("avid_library_metadata", {description:"Read indexed technical media metadata.",inputSchema:{ids},annotations:read},
+    ({ids})=>result("avid_library_metadata",()=>library.metadata(ids)));
+  server.registerTool("avid_search_media", {description:"Search indexed metadata and selected transcript revisions with case-insensitive substring matching. This is not visual or semantic search.",inputSchema:{ids,query:z.string().min(1).max(500),limit:z.number().int().min(1).max(200).default(50),revisions:z.record(id,z.string().uuid()).default({})},annotations:read},
+    ({ids,query,limit,revisions})=>result("avid_search_media",()=>library.search(ids,query,limit,revisions)));
+  server.registerTool("avid_import_transcript", {description:"Save an immutable local transcript revision for indexed media. Requires project-write. Returns a revision ID for search/range queries.",inputSchema:{id,segments:transcriptSchema},annotations:write},
+    ({id,segments})=>result("avid_import_transcript",()=>library.importTranscript(id,segments)));
+  server.registerTool("avid_transcript_range", {description:"Read a bounded half-open transcript range with a continuation cursor.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(200).default(50),revision:z.string().uuid().optional()},annotations:read},
+    ({id,start,end,after,limit,revision})=>result("avid_transcript_range",()=>library.transcriptRange(id,start,end,after,limit,revision)));
+  server.registerTool("avid_media_artifact", {description:"Create a thumbnail, trimmed MP4 or checksum-verified copy in a unique output folder. Requires export. Validates indexed source identity and never overwrites.",inputSchema:{id,kind:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative().default(0),end:z.number().positive().optional()},annotations:write},
+    ({id,kind,start,end})=>result("avid_media_artifact",()=>library.artifact(id,kind,start,end)));
+  server.registerTool("avid_media_report", {description:"Write a local HTML media inventory. Requires export.",inputSchema:{ids},annotations:write},
+    ({ids})=>result("avid_media_report",()=>library.report(ids)));
+  server.registerTool("avid_index_visual", {description:"Compute local CLIP embeddings for sparse sampled video frames. Requires separately downloaded models and export authority for cached thumbnails.",inputSchema:{ids,samplesPerFile:z.number().int().min(1).max(12).default(6)},annotations:write},
+    ({ids,samplesPerFile})=>result("avid_index_visual",()=>visual.index(ids,samplesPerFile)));
+  server.registerTool("avid_search_visual", {description:"Search a local visual index by text or a reference image; returns sampled source timestamps and CLIP similarity, not identity or probability.",inputSchema:{indexId:z.string().uuid(),query:z.union([z.object({text:z.string().min(1).max(500)}).strict(),z.object({image:z.string().min(1)}).strict()]),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
+    ({indexId,query,limit})=>result("avid_search_visual",()=>visual.search(indexId,query,limit)));
+  server.registerTool("avid_transcribe_media", {description:"Transcribe up to ten minutes of local English audio using downloaded Whisper weights. Requires export and project-write. Returns a reviewable transcript revision.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive()},annotations:write},
+    ({id,start,end})=>result("avid_transcribe_media",()=>speech.transcribe(id,start,end)));
+  server.registerTool("avid_start_analysis_job", {description:"Run indexing, visual analysis, transcription or export in a bounded local worker; returns immediately. Jobs belong to this MCP session.",inputSchema:{job:jobSchema},annotations:write},
+    ({job})=>result("avid_start_analysis_job",async()=>jobs.start(job)));
+  server.registerTool("avid_analysis_job_status", {description:"Read local analysis job status and completed result.",inputSchema:{jobId:z.string().uuid()},annotations:read},
+    ({jobId})=>result("avid_analysis_job_status",async()=>jobs.status(jobId)));
+  server.registerTool("avid_cancel_analysis_job", {description:"Cancel a queued or running local analysis job. Partial artifacts are retained for inspection; this does not undo completed output.",inputSchema:{jobId:z.string().uuid()},annotations:write},
+    ({jobId})=>result("avid_cancel_analysis_job",async()=>jobs.cancel(jobId)));
+  server.registerTool("avid_media_facets", {description:"Get observed codec, resolution, nominal frame-rate and channel-count facets for a selected library scope.",inputSchema:{ids},annotations:read},
+    ({ids})=>result("avid_media_facets",()=>library.facets(ids)));
+  server.registerTool("avid_export_transcript", {description:"Export a selected transcript revision as TXT, JSON, CSV, SRT or VTT. Requires export.",inputSchema:{id,revision:z.string().uuid(),format:z.enum(["txt","json","csv","srt","vtt"])},annotations:write},
+    ({id,revision,format})=>result("avid_export_transcript",()=>library.exportTranscript(id,revision,format)));
+  server.registerTool("avid_transcript_outline", {description:"Build a bounded extractive transcript outline with source-range references. This does not generate a narrative summary.",inputSchema:{id,revision:z.string().uuid(),windowSeconds:z.number().min(10).max(3600).default(60)},annotations:read},
+    ({id,revision,windowSeconds})=>result("avid_transcript_outline",()=>library.outline(id,revision,windowSeconds)));
+  server.registerTool("avid_contact_sheet", {description:"Create a local HTML contact sheet with midpoint thumbnails for up to forty files. Requires export.",inputSchema:{ids:z.array(id).min(1).max(40)},annotations:write},
+    ({ids})=>result("avid_contact_sheet",()=>library.contactSheet(ids)));
+  server.registerTool("avid_save_collection", {description:"Save immutable curated source ranges, labels, notes and tags. Requires project-write. No editor mutation.",inputSchema:{collection:collectionSchema},annotations:write},
+    ({collection})=>result("avid_save_collection",()=>collections.save(collection)));
+  server.registerTool("avid_read_collection", {description:"Read a saved selects collection after validating current media scope.",inputSchema:{revision:z.string().uuid()},annotations:read},
+    ({revision})=>result("avid_read_collection",()=>collections.read(revision)));
+  server.registerTool("avid_collection_range", {description:"Query a local selects stringout by timeline range, returning overlap source ranges. This does not read the live editor timeline.",inputSchema:{revision:z.string().uuid(),start:z.number().nonnegative(),end:z.number().positive(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(200).default(50)},annotations:read},
+    ({revision,start,end,after,limit})=>result("avid_collection_range",()=>collections.range(revision,start,end,after,limit)));
+  server.registerTool("avid_export_collection_otio", {description:"Export frame-quantized single-video-track OTIO selects with local media references. Requires export. Avid import is not verified; audio routing/effects are not authored.",inputSchema:{revision:z.string().uuid(),rate:z.number().positive().max(240)},annotations:write},
+    ({revision,rate})=>result("avid_export_collection_otio",()=>collections.exportOtio(revision,rate)));
+}

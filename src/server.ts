@@ -38,14 +38,16 @@ import {
 import { detectInstallations } from "./compatibility/installations.js";
 import { telemetry } from "./telemetry.js";
 import { SERVER_VERSION } from "./version.js";
+import { NativeAdapter, nativeActionSchema } from "./native/adapter.js";
+import { registerLibraryTools } from "./library/tools.js";
 
 const INSTRUCTIONS = `Avid Media Composer MCP separates verified capability from aspiration.
 
 1. Start with avid_get_capabilities and avid_get_bridge_status.
 2. Use avid_analyze_project for offline project/bin/configuration analysis.
-3. Source media is read-only. Clip analysis uses ffprobe and never transcodes or modifies media.
+3. Source media is read-only. Export tools generate separate artifacts only when export authority is enabled.
 4. Preview every live change with avid_preview_edit_plan. Apply the exact returned token only after reviewing risks and blockers.
-5. Live editing requires a connected Media Composer Extension bridge. Never describe an edit as applied when the bridge is absent or returns an error.
+5. Extension tools require their bridge. Separately configured native tools use a qualified Windows adapter with their own preview tokens. Never substitute one adapter after a failed write.
 6. AVB is an unpublished Avid format. pyavb results are useful independent analysis, not an Avid-supported guarantee.
 7. Treat .lck files as authoritative collaboration signals and never mutate an open or locked bin offline.`;
 
@@ -176,6 +178,22 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
     { instructions: INSTRUCTIONS },
   );
 
+  const native = new NativeAdapter(config);
+  registerLibraryTools(server, config);
+  server.registerTool("avid_native_read", {
+    description: "Opt-in Windows native app/project/bin/clip/marker inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots.",
+    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "link_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
+    outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
+  }, async ({ query, bin, mobId }) => execute("avid_native_read", () => native.read(query, bin, mobId)));
+  server.registerTool("avid_native_preview", {
+    description: "Preview one native operation with current project and target evidence; returns an expiring single-use token.",
+    inputSchema: { operation: nativeActionSchema }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
+  }, async ({ operation }) => execute("avid_native_preview", () => native.preview(operation)));
+  server.registerTool("avid_native_apply", {
+    description: "Apply the exact reviewed native preview token once. Requires edit or project-write authority. No automatic undo or persistence guarantee.",
+    inputSchema: { token: z.string().uuid() }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: EDIT_ANNOTATIONS,
+  }, async ({ token }) => execute("avid_native_apply", () => native.apply(token)));
+
   server.registerTool(
     "avid_ping",
     {
@@ -227,6 +245,8 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           },
           allowedRoots: config.allowedRoots,
           dependencies: { pythonInspector, ffprobe },
+          native: { configured: Boolean(config.nativeBinary), qualification: "Windows 2024.12.58720 only; see native tools and validation evidence" },
+          mediaLibrary: { configured: Boolean(config.outputRoot), matching: "metadata/transcript substring search and optional local CLIP similarity over sparse frame samples", modelsConfigured: Boolean(config.modelDirectory), speech: "optional local English Whisper; review accuracy" },
           bridge,
           compatibility: {
             supportedReleaseTracks: AVID_RELEASE_TRACKS,

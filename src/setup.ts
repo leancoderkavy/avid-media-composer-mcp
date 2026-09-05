@@ -1,0 +1,52 @@
+import path from "node:path";
+import { readFile, writeFile, copyFile, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
+import type { ServerConfig } from "./config.js";
+import { NativeAdapter } from "./native/adapter.js";
+import { probeFfprobe } from "./analysis/media.js";
+import { probePythonInspector } from "./analysis/python-sidecar.js";
+
+export type SetupClient = "claude" | "cursor" | "vscode" | "lmstudio" | "generic";
+export function clientConfiguration(client: SetupClient, roots: string[], outputRoot?: string, nativeBinary?: string) {
+  if (!roots.length || roots.some(root => !path.isAbsolute(root))) throw new Error("Absolute allowed roots are required");
+  const entry = { command: process.execPath, args: [fileURLToPath(new URL("./index.js", import.meta.url))], env: {
+    AVID_MCP_ALLOWED_ROOTS: roots.join(path.delimiter), AVID_MCP_CAPABILITIES: "inspect",
+    ...(outputRoot ? { AVID_MCP_OUTPUT_ROOT: path.resolve(outputRoot) } : {}),
+    ...(nativeBinary ? { AVID_MCP_NATIVE_BINARY: path.resolve(nativeBinary) } : {}),
+  } };
+  return client === "vscode" ? { servers: { "avid-media-composer": { type: "stdio", ...entry } } } : { mcpServers: { "avid-media-composer": entry } };
+}
+
+export async function installConfiguration(file: string, config: ReturnType<typeof clientConfiguration>) {
+  const target = path.resolve(file);
+  await realpath(path.dirname(target));
+  let original: Record<string, any> = {};
+  let backup: string | undefined;
+  try {
+    original = JSON.parse(await readFile(target, "utf8"));
+    if (!original || Array.isArray(original) || typeof original !== "object") throw new Error("Expected a JSON object");
+    backup = `${target}.avid-backup-${randomUUID()}`;
+    await copyFile(target, backup, constants.COPYFILE_EXCL);
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  const key = "servers" in config ? "servers" : "mcpServers";
+  if (original[key] !== undefined && (!original[key] || typeof original[key] !== "object" || Array.isArray(original[key]))) throw new Error("Existing server configuration is not an object");
+  if (original[key]?.["avid-media-composer"]) throw new Error("Avid configuration already exists; review it before replacement");
+  const merged = { ...original, [key]: { ...original[key], ...(config as Record<string, any>)[key] } };
+  await writeFile(target, JSON.stringify(merged, null, 2) + "\n", { flag: backup ? "w" : "wx" });
+  return { target, backup, restartClient: true };
+}
+
+export async function doctor(config: ServerConfig) {
+  const check = async (fn: () => Promise<unknown>) => { try { return {ok:true,data:await fn()}; } catch(error) { return {ok:false,error:(error as Error).message}; } };
+  const [roots, ffprobe, python, native] = await Promise.all([
+    check(() => Promise.all(config.allowedRoots.map(root => realpath(root)))),
+    check(() => probeFfprobe(config.ffprobeExecutable, config.commandTimeoutMs)),
+    check(() => probePythonInspector({pythonExecutable:config.pythonExecutable,timeoutMs:config.commandTimeoutMs})),
+    config.nativeBinary ? check(() => new NativeAdapter(config).read("app")) : Promise.resolve({ok:false,error:"Native adapter is not configured"}),
+  ]);
+  return { platform:process.platform, node:process.versions.node, roots, ffprobe, python, native,
+    enabledCapabilities:[...config.capabilities], outputRoot:config.outputRoot ?? null,
+    note:"Dependency presence is not host editing qualification. Mac native support is not qualified." };
+}

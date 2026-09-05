@@ -4,6 +4,10 @@ import type { Capability } from "./security/capabilities.js";
 import { resolveCapabilities } from "./security/capabilities.js";
 
 export interface ServerConfig {
+  nativeBinary?: string;
+  outputRoot?: string;
+  ffmpegExecutable?: string;
+  modelDirectory?: string;
   allowedRoots: string[];
   capabilities: ReadonlySet<Capability>;
   bridgeDir?: string;
@@ -46,6 +50,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     process.platform === "win32" ? "Scripts/python.exe" : "bin/python",
   );
   return {
+    ...(env.AVID_MCP_NATIVE_BINARY?.trim() ? { nativeBinary: path.resolve(env.AVID_MCP_NATIVE_BINARY.trim()) } : {}),
+    ...(env.AVID_MCP_OUTPUT_ROOT?.trim() ? { outputRoot: path.resolve(env.AVID_MCP_OUTPUT_ROOT.trim()) } : {}),
+    ffmpegExecutable: env.AVID_MCP_FFMPEG?.trim() || "ffmpeg",
+    ...(env.AVID_MCP_MODEL_DIR?.trim() ? { modelDirectory: path.resolve(env.AVID_MCP_MODEL_DIR.trim()) } : {}),
     allowedRoots: allowedRoots(env.AVID_MCP_ALLOWED_ROOTS),
     capabilities: capabilities.capabilities,
     ...(bridgeDir ? { bridgeDir: path.resolve(bridgeDir) } : {}),

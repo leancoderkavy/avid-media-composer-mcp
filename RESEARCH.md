@@ -1,5 +1,7 @@
 # Research: Avid Media Composer MCP
 
+> Update 2026-09-05: [Current competitor research and plan additions](docs/COMPETITOR_RESEARCH.md) identify Jumper's documented local MCP and Avid timeline workflows. The August no-comparable-project finding below is historical. [Native API research](docs/NATIVE_API_RESEARCH.md) also records a separate SDK-independent route tested on the installed Windows host; it is not yet a production adapter.
+
 Research date: 2026-08-15
 Method: focused Tavily searches and extraction across current official Avid documentation, GitHub, package registries, and comparable NLE/DAW MCP projects.
 
