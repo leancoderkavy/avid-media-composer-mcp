@@ -6,8 +6,9 @@ import {randomUUID} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
-assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference','--stereo','--prepared-media','--remapped-selects','--slideshow-selects'].includes(arg)));
-const slideshowSelects=process.argv.includes('--slideshow-selects');
+assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference','--stereo','--prepared-media','--remapped-selects','--slideshow-selects','--mcp-merged-selects'].includes(arg)));
+const mcpMergedSelects=process.argv.includes('--mcp-merged-selects');
+const slideshowSelects=process.argv.includes('--slideshow-selects')||mcpMergedSelects;
 const remappedSelects=process.argv.includes('--remapped-selects')||slideshowSelects;
 const preparedMedia=process.argv.includes('--prepared-media');
 const stereo=process.argv.includes('--stereo');
@@ -58,6 +59,7 @@ try{
  }
  if(remappedSelects){file=path.resolve('.avid-mcp-analysis/aaf-reference-copy-f41a11c6-55f2-494b-b711-3e4912b30ec0/selects.aaf');expectedSha256='d5370d1705f78d4ca9fc4eb65b9e6282f1c03b090f29573ad9e5416629d4dc5e';assert.equal(await sha256File(file),expectedSha256);}
  if(slideshowSelects){file=path.resolve('.avid-mcp-analysis/aaf-reference-copy-0ee70ca5-4193-4330-987d-ce902e81d9d1/selects.aaf');expectedSha256='f409fd4bf3b987695132fd7d2606b8a959af8da5b3a7a7f4e0b3f818861c9b3a';assert.equal(await sha256File(file),expectedSha256);}
+ if(mcpMergedSelects){file=path.resolve('.avid-mcp-analysis/aaf-merge-mcp-8af7bf95-bce6-4ba8-95a1-1f69bfc07b23/avid-mcp-library/aaf-defa40cf-8f9c-4747-9205-5698a39162bc/selects.aaf');expectedSha256='57f33d2969e2fb9371c85de5cee92fea72e9570f4e2491ef135e39b6a2a789b0';assert.equal(await sha256File(file),expectedSha256);}
  const inspected=await call('avid_inspect_aaf_selects',{file});assert.equal(inspected.sha256,expectedSha256);
  const currentProject=await call('avid_native_read',{query:'project'});assert.equal(path.resolve(currentProject.path),path.resolve(project));
  await action({action:'create_bin',name:binName});
@@ -80,8 +82,9 @@ try{
  }else assert.ok(sources.every(item=>item.sourceMobId===inspected.masters[0].mobId));
  const rendered=await action({action:'export_mp4',bin,mobId:imported.sequence.mob_id,preset:'MCP_H264_Stereo_Legal_20260905',expected:{videoCodec:'h264',width:1920,height:1080,frames:120,rate:{num:30,den:1},videoStartTime:0,audio:[{codec:'pcm_s24le',channels:2,sampleRate:48000,startTime:0}],color:{range:'tv',space:'bt709',transfer:'bt709',primaries:'bt709'}}});assert.equal(rendered.outputVerified,true);
  assert.equal(await sha256File(binFile),savedBinSha256);assert.equal(await sha256File(originalBin),before);assert.deepEqual(await Promise.all(preserved.map(sha256File)),hashes);
+ for(const media of inspected.media)assert.equal(await sha256File(media.file),media.sha256);
  const status=await call('avid_native_lock_status',{});assert.equal(status.locked,false);
  assert.equal(await sha256File(file),expectedSha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,stereo,preparedMedia,remappedSelects,slideshowSelects,preparedReference,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,stereo,preparedMedia,remappedSelects,slideshowSelects,mcpMergedSelects,selectedMedia:inspected.media,preparedReference,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
  console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),output:rendered.verification.output,bin,savedRangesVerified:true,filesUnchanged:true}));
 }finally{await client.close();}

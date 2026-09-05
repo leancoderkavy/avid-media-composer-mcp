@@ -5,8 +5,10 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {randomUUID,createHash} from 'node:crypto';
 import {runProcess} from '../../dist/process.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
-const render=path.resolve('.avid-mcp-analysis/aaf-workflow-mcp-6f42b30d-86ed-4b72-bc09-d6e596911f87/native-export-ca9065e5-4734-4711-8e9a-823cf9ffcdda/export/render.mp4');
-const renderSha256='e0b2fcd35a72b21e87ae13de76e5dfcff615e86ef749f31187ddfcb9cac5669f';
+assert.ok(process.argv.slice(2).every(arg=>arg==='--mcp-generated'));
+let render=path.resolve('.avid-mcp-analysis/aaf-workflow-mcp-6f42b30d-86ed-4b72-bc09-d6e596911f87/native-export-ca9065e5-4734-4711-8e9a-823cf9ffcdda/export/render.mp4');
+let renderSha256='e0b2fcd35a72b21e87ae13de76e5dfcff615e86ef749f31187ddfcb9cac5669f';
+if(process.argv.includes('--mcp-generated')){render=path.resolve('.avid-mcp-analysis/aaf-workflow-mcp-a6a0a460-9132-4d96-b13c-ae3d4385f061/native-export-7d62d9d9-fc66-4402-959c-ba38a2e7f248/export/render.mp4');renderSha256='cfcc486579fdbc34ad23b5c857817095faba226f2c5bdc5b2274f3b67b1529a9';}
 const sources=[{file:'D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',sha256:'3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca'},
  {file:'D:/Sonoma Escape Edit/Sonoma_Escape_SLIDESHOW_4K.mp4',sha256:'f6a3b14c49f71546c798dcae1bce1de2208b259a46558bb8c8365f9151aa0c6a'}];
 assert.equal(await sha256File(render),renderSha256);
