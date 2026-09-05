@@ -20,7 +20,7 @@ Native receipts do not establish atomic undo, preset-content identity, complete 
 
 ## Local analysis and editorial workflows
 
-[Source-clock preparation](SOURCE_CLOCK_PREPARATION.md) is now a shipped MCP tool for checksum-selected local H.264/stereo MP4/MOV input. It creates a new editing copy, verifies copied video and normalized PCM, and retains attempt/failure evidence. Actual Sonoma MCP execution reproduced the complete earlier research MOV checksum. The new output path has not yet been exercised through the native link/import chain; broader media and preparation-job recovery remain open.
+[Source-clock preparation](SOURCE_CLOCK_PREPARATION.md) is now a shipped MCP tool for checksum-selected local H.264/stereo MP4/MOV input. It creates a new editing copy, verifies copied video and normalized PCM, and retains attempt/failure evidence. Actual Sonoma MCP execution reproduced the complete earlier research MOV checksum. The new output path subsequently passed native link/reference export/stereo authoring/import/save/reopen/render, with all source ranges and exact stereo PCM verified. Broader media and preparation-job recovery remain open.
 
 | Area | Implemented and exercised | Remaining acceptance |
 | --- | --- | --- |

@@ -6,12 +6,14 @@ import {randomUUID} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
-assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference','--stereo'].includes(arg)));
+assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference','--stereo','--prepared-media'].includes(arg)));
+const preparedMedia=process.argv.includes('--prepared-media');
 const stereo=process.argv.includes('--stereo');
 const canonicalTracks=process.argv.includes('--canonical-tracks');
 const originalReference=process.argv.includes('--original-reference');
 assert.ok(!originalReference||canonicalTracks,'Original-reference comparison requires canonical tracks');
 assert.ok(!stereo||canonicalTracks,'Stereo requires canonical tracks');
+assert.ok(!preparedMedia||(stereo&&!originalReference),'Prepared media requires stereo and its own new reference');
 const upstreamFile=path.resolve('.avid-mcp-analysis/native-aaf-master-mcp-f6012198-7bad-489d-9d85-f4968f0fdcf9/evidence.json'),upstream=JSON.parse(await readFile(upstreamFile,'utf8'));
 let file=upstream.built.output,expectedSha256='eb14ed8fb9710ef2d3877fd422bc33c11611c92d644fb91786eba733ff2be8d2';assert.equal(await sha256File(file),expectedSha256);
 const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',originalBin=path.join(project,'MCP_AAF_Selects_20260905.avb'),before=await sha256File(originalBin);
@@ -23,9 +25,28 @@ await client.connect(new StdioClientTransport({command:process.execPath,args:['d
 const call=async(name,args,error=false)=>{const result=await client.callTool({name,arguments:args},undefined,{timeout:120000});records.push({name,args,result});await writeFile(path.join(root,'calls.json'),JSON.stringify(records,null,2));assert.equal(Boolean(result.isError),error,JSON.stringify(result));return error?result:result.structuredContent.data;};
 const action=async operation=>{const preview=await call('avid_native_preview',{operation});const applied=await call('avid_native_apply',{token:preview.token});const replay=await call('avid_native_apply',{token:preview.token},true);assert.match(JSON.stringify(replay),/consumed/);return applied;};
 try{
+ let preparedReference;
+ if(preparedMedia){
+  const receipt=path.resolve('.avid-mcp-analysis/source-clock-mcp-166f5c69-55f8-41ea-8c91-5d349e9a34c1/evidence.json');
+  const preparation=JSON.parse(await readFile(receipt,'utf8')).data;
+  assert.equal(preparation.outputSha256,'f46de96396ec30be8d41ff3c2f7d8aaf08ba190cdb2295e863ce535e7965bbeb');
+  assert.equal(await sha256File(preparation.output),preparation.outputSha256);
+  preserved.push(receipt,preparation.output);hashes.push(await sha256File(receipt),preparation.outputSha256);
+  const linkName=`MCP_Prepared_${randomUUID().slice(0,8)}`,linkBin=`${linkName}.avb`;
+  await action({action:'create_bin',name:linkName});
+  await action({action:'link_media',bin:linkBin,media:preparation.output});
+  const clips=await call('avid_native_read',{query:'clips',bin:linkBin});assert.equal(clips.length,1);
+  const sourceMobId=clips[0].mob_id;
+  await action({action:'close_bin',bin:linkBin});await action({action:'open_bin',bin:linkBin});
+  const reopened=await call('avid_native_read',{query:'clips',bin:linkBin});assert.equal(reopened.length,1);assert.equal(reopened[0].mob_id,sourceMobId);
+  const exported=await action({action:'export_aaf_master',bin:linkBin,mobId:sourceMobId,preset:'AAF',sourceFile:preparation.output,expectedSourceSha256:preparation.outputSha256});
+  preparedReference=exported.verification.inspection;
+  assert.equal(preparedReference.media.length,1);assert.equal(path.resolve(preparedReference.media[0].file),path.resolve(preparation.output));
+  preserved.push(preparedReference.template);hashes.push(preparedReference.sha256);
+ }
  if(canonicalTracks){
-  const reference=originalReference?await call('avid_inspect_aaf_template',{template:path.resolve('.avid-mcp-analysis/native-pcm-aaf-7e173226-261d-4e72-95fb-c2e705dd1a0c/export/PCM_reference.aaf')}):upstream.applied.verification.inspection;
-  assert.equal(await sha256File(reference.template),originalReference?'5c04dea1552933d8b171af3898e83fcc165709e4f283c1ba9af6b3dc4b66802d':'94ff38c9ac7256254030b3f6b24aa98d28427f5c614791a2e5e3d745423ab66c');
+  const reference=preparedReference??(originalReference?await call('avid_inspect_aaf_template',{template:path.resolve('.avid-mcp-analysis/native-pcm-aaf-7e173226-261d-4e72-95fb-c2e705dd1a0c/export/PCM_reference.aaf')}):upstream.applied.verification.inspection);
+  assert.equal(await sha256File(reference.template),preparedMedia?reference.sha256:originalReference?'5c04dea1552933d8b171af3898e83fcc165709e4f283c1ba9af6b3dc4b66802d':'94ff38c9ac7256254030b3f6b24aa98d28427f5c614791a2e5e3d745423ab66c');
   if(originalReference){preserved.push(reference.template);hashes.push(reference.sha256);}
   const master=reference.masters[0];
   const tracks=stereo?[{name:'V1',kind:'picture'},{name:'A1',kind:'sound',channels:2}]:[{name:'V1',kind:'picture'},{name:'A1',kind:'sound'},{name:'A2',kind:'sound'}];
@@ -52,6 +73,6 @@ try{
  assert.equal(await sha256File(binFile),savedBinSha256);assert.equal(await sha256File(originalBin),before);assert.deepEqual(await Promise.all(preserved.map(sha256File)),hashes);
  const status=await call('avid_native_lock_status',{});assert.equal(status.locked,false);
  assert.equal(await sha256File(file),expectedSha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,stereo,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,stereo,preparedMedia,preparedReference,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
  console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),output:rendered.verification.output,bin,savedRangesVerified:true,filesUnchanged:true}));
 }finally{await client.close();}
