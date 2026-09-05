@@ -1,78 +1,47 @@
 # Open-source implementation status
 
-Work in progress, 2026-09-05. The full plan is not complete. This file distinguishes implementation from host qualification and preserves the remaining scope.
+Updated 2026-09-05. The full plan remains incomplete. Development is on `codex/open-source-full-plan` in [draft PR #55](https://github.com/leancoderkavy/avid-media-composer-mcp/pull/55). These changes are unreleased; the development checkout must not be confused with the published 1.1.0 package.
 
-The complete requirement-by-requirement [completion ledger](COMPLETION_LEDGER.md) is the completion audit source. Verified increments are committed and pushed on `codex/open-source-full-plan`; the overall goal remains active.
+The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
-## Implemented in this checkout
+## Native Avid workflows
 
-- TypeScript native MCAPI client using local descriptor discovery on the pinned Windows 2024.12 executable. No Avid SDK/descriptor payload is distributed.
-- Native read, preview and single-use apply MCP tools; scoped project/bin/clip checks, process-owner verification and per-user cross-process write lock.
-- All-track native subclips for qualified 30 fps sources/projects, with explicit frame bounds, preflight duration validation and created-MOB readback.
-- Semantic saved-bin snapshots/diffs, bounded track/range source mapping and direct cross-bin source-usage queries. Subclip bounds and timecode components are decoded; unknown effects and mixed-rate paths report incomplete coverage.
-- Local media index keyed by SHA-256; metadata and transcript substring search, immutable transcript revisions and bounded transcript reads.
-- Codec/resolution/frame-rate/channel facets, five transcript export formats, extractive outlines and HTML contact sheets.
-- Immutable selects collections with tags/notes, source-to-stringout range queries and frame-quantized single-video-track OTIO export.
-- Thumbnails, trimmed MP4s, verified copies and HTML inventory reports in an explicitly configured output directory.
-- Local CLIP text/image similarity over sampled frames, with explicitly downloaded pinned weights.
-- Local English Whisper transcription with reviewable timestamped output; no speaker diarization.
-- Bounded worker queue with job status and cancellation for media analysis; one active worker to limit model memory.
-- Persistent watch-folder configuration and per-file checkpoints, explicit polling start/stop, stable-file detection and cross-process watch locks. Content-ID source aliases reconnect moved media while retaining transcript revisions.
-- CLI doctor and configuration generation/backup/merge for Claude, Cursor, VS Code, LM Studio and generic stdio clients. Codex currently uses its own CLI with the generated command/environment.
+The independent Windows adapter extracts protocol descriptors locally from the checksum-qualified Media Composer 2024.12 binary. It distributes neither private SDK binaries nor extracted descriptor payloads. Native calls verify the loopback listener owner. Preview/apply uses expiring single-use tokens, scoped project/bin/source state and a per-user lock.
 
-## Evidence so far
+Implemented actions include bin creation/open/close, media linking, marker changes, source-viewer loading, bounded all-track 30 fps subclips, [AAF selects import](NATIVE_AAF_IMPORT.md) and [H.264 1080p30 export](NATIVE_EXPORT.md). Import inspection validates direct composition/source ranges and hashes permitted media. Import checks empty destinations and native composition metadata; export checks its declared technical contract, stable output, complete decoding and hashes. Optional color and stream-start expectations are explicit metadata checks.
 
-- Seven Sonoma MP4s indexed; H264 metadata search returned all seven.
-- A 95-second thumbnail, 95â€“97-second MP4, verified source copy and seven-file HTML report were generated. Source hashes stayed unchanged.
-- Six preview-file CLIP samples indexed. Text search returned a visually appropriate outdoors frame; reference-image self-match ranked first with cosine 1. This is a smoke test, not search-quality benchmarking.
-- Whisper ran on seconds 135â€“155 of the preview. It returned a short segment. Accuracy has not been verified against audio; no accuracy claim is made.
-- Native MCP calls created a disposable bin, linked the preview, added/changed/deleted a marker and loaded the source viewer. Nested marker normalization and field preservation were fixed and retested. The bin reopened with the linked source present.
-- Created a separate 1920x1080 30 fps project through Avid UI. All seven Sonoma MP4s linked and survived bin close/reopen. Preview metadata reports V1 A1-2. This is not application/OS restart qualification.
-- Five transcript formats, seven-file facets/contact sheet, completed indexing job and queued/running cancellation passed against the local media fixtures.
-- Two selects exported to OTIO, with overlap-to-source mapping checked. OpenTimelineIO 0.18.1 read and wrote the file successfully: two clips, 150 frames at 30 fps. Avid OTIO import and audio routing are not qualified.
-- CLIP inference was rerun successfully after moving its runtime outside the core package. Core fresh-tarball consumer audit passed; ML runtime installation has its own pins and audit because root package overrides do not apply to consumers.
-- Native regression tests cover process identity changes, single-use tokens, marker field preservation, unknown wire fields/enums and accepted writes with failed post-state reads. See the latest check below for the final test/tool count.
+Actual Sonoma evidence includes seven linked MP4s, marker/subclip persistence, source-preserving AAF authoring, native import, save/reopen, saved video/stereo source ranges and 120-frame export. Retained import/export lock recovery has actual running-host refusal and stopped-host release evidence using isolated lock fixtures. A normal full Avid restart, continuation of the existing trial and reopening of the Sonoma project succeeded, followed by actual MCP reads and saved-timeline checks.
 
-### Host limitations discovered
+The prepared source-clock PCM fixture renders stereo samples exactly matching the original source-clock cuts. Native video timing matches the expected source presentation times, but a range-tag/pixel interpretation discrepancy remains. A separate research copy with corrected range declarations improves full-resolution comparisons without re-encoding; it is not a general automatic native color fix. See [render qualification](NATIVE_RENDER_QUALIFICATION.md).
 
-The first CreateSubClip request returned audio because track number 1 selected A1 on this build. A subsequent request with number 0 selected V1; omitting the track list retained V1 A1-2. The native adapter now exposes bounded all-track subclips for 30 fps. A one-second subclip created through MCP persisted after close/reopen with all three tracks. Offline pyavb found usage code 2 and `_START: 2850`, `_END: 2880`; the underlying track lengths remain the full source length. The API's `create_new_sequence` flag still produced a subclip, so this is not qualified sequence creation.
+Native receipts do not establish atomic undo, preset-content identity, complete unsaved graphs, arbitrary concurrent-editor exclusion or source fidelity. General relink/trim/effect operations, broader media/rates/builds, per-action restart/undo coverage and perceptual playback remain open. The sanctioned Extension bridge and optional private-SDK work are separate from this native adapter.
 
-Native source-viewer loading updated the visible clip title, tracks and timecode. Scrubbing changed the timecode, but the captured viewer remained black. Playback/video display is therefore not qualified by these captures; do not infer successful rendering from the load RPC.
+## Local analysis and editorial workflows
 
-Closing the earlier Test project saved `Test Bin.avb` and changed its hash from the previous smoke-test baseline. Offline pyavb inspection still found zero bin items and zero mobs. Byte-for-byte preservation of that bin no longer holds after the project-close operation. Source MP4 files were not edited.
+| Area | Implemented and exercised | Remaining acceptance |
+| --- | --- | --- |
+| Media library and watches | Content hashes, metadata/facets, moved-source aliases, persistent watches, stable-file polling, job journals, bounded workers and cancellation | Broader concurrency/resource/failure coverage; offline/relinked paths |
+| Visual search | Pinned local CLIP text/image/frame similarity, temporal scopes, pagination, shot detection and shot-midpoint indexing | Broader independent ranking and shot-accuracy benchmarks; memory/long-media coverage |
+| Transcripts | Local English/multilingual Whisper, automatic language candidate selection, source-clock extraction, checkpoint/resume, immutable review revisions, search/ranges and five export formats | Broad speech/language accuracy, mixed-language and non-speech behavior, larger model choices |
+| Speakers | Local diarization, anonymous clusters, interval corrections, transcript overlap/assignment provenance, cancellation/resume and guarded cleanup/recovery | Accurate speaker references, word alignment, broad audio coverage and native dependency/license acceptance |
+| Summaries | Transcript-linked generated hierarchies, node/source drill-down, visual captions and visual summary workflows | Factual support, consequential omissions/repetition, long-input/language quality and remaining computation recovery |
+| People | Local YuNet/SFace indexing, reference crops, groups, names/merge/move/recluster, deletion and checkpoint/resume | Independent recognition quality, dense sampling, sustained memory/resource and broader-media acceptance |
+| Editorial interchange | Collections, source-to-stringout mapping, OTIO export/round trip, AAF template/selects inspection and authoring, native AAF import | Multiple-source/rate host qualification, general timeline editing/relink/undo and Avid OTIO import |
+| Saved project evidence | Semantic snapshots/diffs, source usage, bounded track/range queries, subclips, timecode and observed stereo channel combiners | Live/unsaved graph access, deeper nested/effect/retime mapping, complexity and turnover reports |
+| QC and outputs | Contact sheets, thumbnails, copies, bounded trims, stream-selectable black/freeze/silence/loudness/timestamp checks and color metadata in JSON/HTML reports | Broad discontinuity/HDR/media coverage, perceptual sync, delivery certification and richer camera reports |
 
-Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-party model weights are not part of the package.
+All model-generated identities, transcripts, captions and summaries need review. Passing a model invocation or preserving resumed machine output does not demonstrate accuracy. The Sonoma development visual-search set achieved 14/16 top-one matches and 16/16 within three, but absent-scene probes also return ranked results. Summary and speech probes retain documented omissions and recognition errors. See [visual ranking](VISUAL_SEARCH_BENCHMARK.md), [summary quality](SUMMARY_QUALITY_QUALIFICATION.md), [diarization](DIARIZATION_RESEARCH.md) and [model runtime qualification](MODEL_RUNTIME_QUALIFICATION.md).
 
-### Latest complete check
+## Local installation and distribution
 
-`npm run check` passed on 2026-09-05: 165 TypeScript tests, seven Python tests, stdio and HTTP smoke tests with 77 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 77 tools include the pre-existing read-only/bridge tools; this count is not 77 newly qualified native editor operations.
+The CLI generates, installs, updates, restores and removes entries for Claude, Cursor, VS Code, LM Studio and generic stdio JSON configurations. Managed package installation/status/removal uses isolated directories, checksums/tree receipts, fresh-server checks and preserved configuration backups. Tests cover the published package's older server-only layout and switching back from the development artifact. Optional model runtimes have separate download, pinning, offline-inference and lifecycle evidence.
 
-## Remaining delivery work
+[Five original workflow skills](WORKFLOW_SKILLS.md) are packaged. Actual generated commands, stdio/HTTP transports and fresh tarball installation have passed. Named-client application onboarding, clean-machine/system dependency lifecycle, complete optional-runtime/model license review and release artifacts remain open. Client JSON compatibility is not proof of a workflow inside each named application.
 
-- Finish native mutation/persistence/restart/recovery qualification, state invalidation and tests. Validate native sequence/subclip creation, additional metadata/bin operations and export methods before exposing them.
-- Extend progressive-project qualification to playback/render, application restart, original Premiere source media and successful Avid timeline interchange.
-- Complete live project/timeline range search and AAF/Avid OTIO round trips. Local collection ranges are implemented but are not live editor ranges.
-- Add grounded generated hierarchical summaries, deeper watch/cache qualification and resumable analysis jobs.
-- Benchmark face grouping accuracy/resources, qualify failure recovery, and expand local model management/languages.
-- Add separately enabled Windows UI actions, focus/shortcut diagnostics and real-host checks; do not map unimplemented catalog actions to success.
-- Finish installers, update/rollback/uninstall, bundled/managed dependencies and actual named-client clean-machine tests. Complete model license notices/release review.
-- Add original workflow skills, optional Jumper provider integration, and remaining enterprise adapter improvements.
-- Mac implementation and host qualification remain deferred until work is on a Mac, as requested by the user.
+The optional licensed Jumper provider, additional enterprise adapters and separately shipped Windows UI actions remain unfinished. Mac implementation and real-host qualification are explicitly deferred to work on a Mac. These requirements remain in the completion ledger rather than being removed from scope.
 
-The baseline was committed/pushed as `0d382aa`. No release, npm publication, deployment or PR has been created for these changes yet. Existing production version remains 1.1.0; new work is unreleased.
+## Latest complete local check
 
-People collections now implement local YuNet/SFace detection, complete-link similarity grouping, pagination, user names, merge/move/recluster and revision-checked deletion. `scripts/research/qualify-people.mjs` passed against the Sonoma preview: three faces from 12 frames, five correction operations and full index deletion, source SHA unchanged. Recognition accuracy and broad runtime/platform support remain unqualified.
+At commit `3b4f734`, `npm run check` passed with 318 TypeScript tests, 18 Python tests, 125 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. Log: `.avid-mcp-analysis/check-import-lock-recovery.log`. Tool count includes existing offline/bridge tools; it does not represent 125 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
-Transcript review supports paginated revision discovery, immutable corrections with parent ancestry, text/timing/manual speaker edits, and checksum-checked single-revision deletion. `scripts/research/qualify-transcripts.mjs` passed against the real Sonoma library over stdio, including search and SRT verification; synthetic review text was used.
-
-Scoped visual search passed through stdio on Sonoma: 24 samples over seconds 60–90, exact frame self-match (cosine 1), and four results inside [80,85). Total elapsed time was 14.964 seconds on this host, including index and queries. This is a bounded workflow measurement, not a ranking or maximum-memory benchmark.
-
-Media QC now emits JSON/HTML reports for bounded first-stream black, freeze, silence, input loudness and decoded timestamp variation. `scripts/research/qualify-qc.mjs` passed on known generated content and Sonoma seconds 60–90. This is detector/range proof, not broadcast certification or perceptual A/V sync qualification.
-
-Configuration lifecycle supports checksum-checked entry update/removal and selective backup restore. `scripts/research/qualify-setup-lifecycle.mjs` passed with built CLI operations and generated-command MCP ping for Claude/VS Code JSON shapes. Actual client applications and package/dependency lifecycle remain separate qualification work.
-
-Local generated summaries now provide transcript-linked hierarchy, overview/drill-down, discovery and deletion. The real optional DistilBART runtime generated a three-node synthetic-notes example; source references matched, but the overview ended at the token budget with an incomplete sentence. Missing sentence boundaries are flagged. Factual accuracy, completeness and visual grounding remain unqualified.
-
-Native AAF research now proves one 30 fps, three-track, two-cut sequence import and saved-bin conformance on the installed host. It is not yet a shipping general timeline tool; playback/render/relink/undo remain unverified. See NATIVE_AAF_QUALIFICATION.md.
-
-The source-checked AAF selects builder now ships as two MCP tools. Real stdio qualification rebuilt the two-cut Sonoma fixture and rejected a mismatched edit rate. It generates a new conformance-checked file; native import/export, playback/render and general fidelity qualification remain separate.
+The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
