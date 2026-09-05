@@ -39,4 +39,33 @@ class AafMergeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'Conflicting weak'):merge(request)
             self.assertFalse(Path(request['output']).exists())
 
+    def test_colliding_sources_keep_each_masters_distinct_source_slot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request=self.fixture(Path(folder));original_ids=[]
+            for index,item in enumerate(request['sources']):
+                file=Path(item['file'])
+                with aaf2.open(str(file),'rw') as f:
+                    origin=next(f.content.sourcemobs());master=next(f.content.mastermobs())
+                    slot_id=1 if index==0 else 10
+                    slot=origin.create_empty_sequence_slot(30,slot_id=slot_id,media_kind='picture')
+                    slot.segment.components.append(f.create.SourceClip(media_kind='picture',length=120));slot.segment.length=120
+                    clip=master.slots[0].segment.components[0];clip.mob_id=origin.mob_id;clip.slot_id=slot_id
+                    original_ids.append((str(master.mob_id),str(origin.mob_id),slot_id))
+                item['expectedSha256']=hashlib.sha256(file.read_bytes()).hexdigest()
+            result=merge(request)
+            with aaf2.open(request['output']) as f:
+                mobs={str(m.mob_id):m for m in f.content.mobs}
+                resolved=[]
+                for index,(master_id,origin_id,slot_id) in enumerate(original_ids):
+                    mapping=result['sources'][index]['remappedMobIds']
+                    master=mobs[mapping.get(master_id,master_id)]
+                    clip=master.slots[0].segment.components[0]
+                    self.assertEqual(str(clip.mob_id),mapping.get(origin_id,origin_id))
+                    self.assertEqual(clip.slot_id,slot_id)
+                    origin=mobs[str(clip.mob_id)]
+                    self.assertEqual(next(s for s in origin.slots if s.slot_id==clip.slot_id).segment.length,120)
+                    resolved.append(str(clip.mob_id))
+                self.assertEqual(len(set(resolved)),2)
+            for item in request['sources']:self.assertEqual(hashlib.sha256(Path(item['file']).read_bytes()).hexdigest(),item['expectedSha256'])
+
 if __name__=='__main__':unittest.main()
