@@ -11,6 +11,7 @@ import {runProcess} from "../process.js";
 
 export const sourceClockOptions=z.object({file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),videoStream:z.number().int().min(0).max(127),audioStream:z.number().int().min(0).max(127)}).strict();
 const CLOCK="aresample=48000:async=1:first_pts=0";
+const MAX_MEDIA_BYTES=4*1024**3;
 type Stream=Record<string,unknown>;
 const number=(value:unknown)=>typeof value==="number"||typeof value==="string"&&value.trim()!==""?Number(value):NaN;
 export function sourceClockStreams(streams:Stream[],videoIndex:number,audioIndex:number){
@@ -36,7 +37,7 @@ export class SourceClockMedia {
     requireCapability(this.config.capabilities,"export");
     const options=sourceClockOptions.parse(input),source=await resolveReadablePath(options.file,this.config.allowedRoots,"file");
     if(![".mp4",".mov"].includes(path.extname(source).toLowerCase()))throw new Error("Expected a local MP4 or MOV source");
-    if((await stat(source)).size>4*1024**3)throw new Error("Source exceeds 4 GiB preparation limit");
+    if((await stat(source)).size>MAX_MEDIA_BYTES)throw new Error("Source exceeds 4 GiB preparation limit");
     if(await sha256File(source)!==options.expectedSha256)throw new Error("Source checksum changed");
     const run=async(exe:string,args:string[])=>{const result=await runProcess(exe,args,{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:8*1024*1024});if(result.exitCode!==0)throw new Error(`Source-clock preparation failed: ${result.stderr.slice(-1500)}`);return result.stdout;};
     const probe=async(file:string)=>JSON.parse(await run(this.config.ffprobeExecutable,["-v","error","-protocol_whitelist","file,pipe","-show_streams","-of","json",file])) as {streams:Stream[]};
@@ -47,9 +48,11 @@ export class SourceClockMedia {
     await writeFile(attempt,JSON.stringify({source,sourceSha256:options.expectedSha256,videoStream:options.videoStream,audioStream:options.audioStream,output,recipe:CLOCK,startedAt:new Date().toISOString()}),{flag:"wx"});
     const ffmpeg=this.config.ffmpegExecutable??"ffmpeg";
     try{
-      await run(ffmpeg,["-nostdin","-v","error","-n","-protocol_whitelist","file,pipe","-i",source,"-map",`0:${options.videoStream}`,"-map",`0:${options.audioStream}`,"-c:v","copy","-af",CLOCK,"-c:a","pcm_s24le",output]);
+      // FFmpeg's muxer limit can overshoot slightly and exit successfully with
+      // truncated media. Size and complete essence checks below remain required.
+      await run(ffmpeg,["-nostdin","-v","error","-n","-protocol_whitelist","file,pipe","-i",source,"-map",`0:${options.videoStream}`,"-map",`0:${options.audioStream}`,"-c:v","copy","-af",CLOCK,"-c:a","pcm_s24le","-fs",String(MAX_MEDIA_BYTES),output]);
       await resolveReadablePath(output,[directory],"file");
-      if((await stat(output)).size>4*1024**3)throw new Error("Prepared media exceeds 4 GiB limit");
+      if((await stat(output)).size>MAX_MEDIA_BYTES)throw new Error("Prepared media exceeds 4 GiB limit");
       const outputBefore=await sha256File(output),prepared=await probe(output);
       const extra=prepared.streams.filter(s=>s.codec_type!=="video"&&s.codec_type!=="audio");
       const timecode=(selected.video.tags as Record<string,unknown>|undefined)?.timecode;

@@ -25,7 +25,7 @@ async function fixture(mode="pass"){
  mock.run.mockReset();mock.run.mockImplementation(async(_exe:string,args:string[])=>{
   let stdout="";
   if(args.includes("-n")){await writeFile(args.at(-1)!,"prepared");if(mode==="source-change")await writeFile(source,"changed");}
-  else if(args.includes("-show_streams")){const original=args.at(-1)===source,hasTimecode=mode.includes("timecode"),selectedVideo={...video,...(hasTimecode?{tags:{timecode:"10:00:00:00"}}:{})};stdout=JSON.stringify({streams:original?[selectedVideo,audio]:[{...selectedVideo,index:0},{...audio,index:1,codec_name:"pcm_s24le",sample_rate:"48000"},...(hasTimecode?[{index:2,codec_type:"data",codec_tag_string:"tmcd",tags:{timecode:mode==="bad-timecode"?"11:00:00:00":"10:00:00:00"}}]:[])]});}
+  else if(args.includes("-show_streams")){const original=args.at(-1)===source,hasTimecode=mode.includes("timecode"),selectedVideo={...video,...(hasTimecode?{tags:{timecode:"10:00:00:00"}}:{})};stdout=JSON.stringify({streams:original?[selectedVideo,audio]:[{...selectedVideo,index:0,...(mode==="truncated"?{nb_frames:"1"}:{})},{...audio,index:1,codec_name:"pcm_s24le",sample_rate:"48000"},...(hasTimecode?[{index:2,codec_type:"data",codec_tag_string:"tmcd",tags:{timecode:mode==="bad-timecode"?"11:00:00:00":"10:00:00:00"}}]:[])]});}
   else if(args.includes("-show_packets"))stdout=JSON.stringify({packets:[{pts_time:0,duration_time:2}]});
   else if(args.includes("hash")){const pcm=args.includes("pcm_s24le");stdout="SHA256="+(pcm?"b":mode==="video-mismatch"&&args.includes("0:v:0")?"c":"a").repeat(64);}
   return {exitCode:0,stdout,stderr:""};
@@ -38,6 +38,7 @@ it("writes a new verified receipt with explicit maps and preserves the source",a
  expect(await sha256File(f.source)).toBe(f.options.expectedSha256);
  expect(JSON.parse(await readFile(path.join(path.dirname(result.output),"receipt.json"),"utf8"))).toEqual(result);
  const transform=mock.run.mock.calls.find(call=>call[1].includes("-n"))![1];expect(transform).toContain("0:2");expect(transform).toContain("0:3");expect(transform).toContain("file,pipe");
+ expect(transform.slice(transform.indexOf("-fs"),transform.indexOf("-fs")+2)).toEqual(["-fs",String(4*1024**3)]);
 });
 it("rejects unauthorized or changed sources before launching media processes",async()=>{
  const f=await fixture();await expect(new SourceClockMedia({...f.config,capabilities:new Set(["inspect"])}).prepare(f.options)).rejects.toThrow();
@@ -48,6 +49,6 @@ it("permits only the source timecode declaration on an additional tmcd stream",a
  const bad=await fixture("bad-timecode");await expect(new SourceClockMedia(bad.config).prepare(bad.options)).rejects.toThrow("timecode");
 });
 it("retains failed artifacts without a success receipt when video or source changes",async()=>{
- for(const mode of ["video-mismatch","source-change"]){const f=await fixture(mode);await expect(new SourceClockMedia(f.config).prepare(f.options)).rejects.toThrow(mode==="video-mismatch"?"essence mismatch":"Source changed");
+ for(const mode of ["video-mismatch","source-change","truncated"]){const f=await fixture(mode);await expect(new SourceClockMedia(f.config).prepare(f.options)).rejects.toThrow(mode==="video-mismatch"?"essence mismatch":mode==="truncated"?"Changed video field":"Source changed");
  const base=path.join(f.root,"avid-mcp-library"),dir=path.join(base,(await readdir(base))[0]!);expect(await readdir(dir)).toEqual(expect.arrayContaining(["attempt.json","prepared.mov","failure.json"]));expect(await readdir(dir)).not.toContain("receipt.json");}
 });

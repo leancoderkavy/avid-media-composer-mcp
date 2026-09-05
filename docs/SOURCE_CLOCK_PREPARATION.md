@@ -19,6 +19,8 @@ Stream indexes are absolute indexes from the source probe, not ordinal video/aud
 
 The tool requires `export`, a configured output root and local FFmpeg/ffprobe. Each subprocess uses the configured command timeout. It writes a unique `avid-mcp-library/source-clock-<UUID>/prepared.mov` and an attempt record, never an existing source or Avid project. Failed outputs and their failure record remain available for inspection; there is no automatic retry or success receipt after failure.
 
+FFmpeg receives a 4 GiB muxer output-size limit during conversion. This limit can overshoot slightly and can stop encoding with exit code zero, so it is not completion evidence or an exact filesystem quota. The tool also rejects oversized final files and incomplete frame/essence/PCM comparisons. `scripts/research/qualify-preparation-size-limit.mjs` demonstrated this with a 1 MiB test cap: FFmpeg returned zero with 1,077,432 bytes and only 69 of 5,725 video frames. The truncated research artifact is retained under `.avid-mcp-analysis/preparation-size-limit-2f46ebda-6d57-42c4-937e-466da4726036/`; it is not a verified preparation.
+
 Before reporting success, it verifies copied compressed-video essence, frame count/geometry/timing/color declarations, exact normalized PCM, zero-origin contiguous audio packets, source integrity and output integrity. The receipt identifies selected streams, hashes, probes and continuity measurements. These checks do not prove color appearance, perceptual synchronization or Avid import/render behavior. For editing, inspect the prepared file, link it through the native workflow, export its reference AAF, author explicit stereo selects, then independently verify saved source ranges and rendered channels.
 
 ## Sonoma evidence
