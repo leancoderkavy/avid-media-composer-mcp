@@ -18,7 +18,7 @@ try{
   const job=await call('avid_start_analysis_job',{job:{kind:'speech',id,start:60,end:80,options:{model:'tiny',language:'auto'}}});
   let status;const deadline=Date.now()+120000;
   do{await new Promise(resolve=>setTimeout(resolve,1000));status=await call('avid_analysis_job_status',{jobId:job.id});if(['completed','failed','cancelled'].includes(status.status))break;}while(Date.now()<deadline);
-  assert.equal(status.status,'completed',JSON.stringify(status));assert.equal(status.result.language,null);assert.equal(status.result.languageRequested,'auto');assert.equal(status.result.languageDetectionVerified,false);
+  assert.equal(status.status,'completed',JSON.stringify(status));assert.equal(status.result.language,'en');assert.equal(status.result.languageRequested,'auto');assert.equal(status.result.languageSelection,'english_fallback');assert.equal(status.result.languageDetectionSupported,false);assert.equal(status.result.languageDetectionVerified,false);
   assert.equal(await sha256File(source),id);
   await writeFile(path.join(root,'evidence.json'),JSON.stringify({direct,job:status,sourceUnchanged:true,scope:'Multilingual model runtime on Sonoma audio; not non-English recognition accuracy or language-detection validation'},null,2));
   console.log(JSON.stringify({passed:true,directSegments:direct.segments.length,jobSegments:status.result.segments.length,evidence:path.join(root,'evidence.json')}));

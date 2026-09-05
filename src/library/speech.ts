@@ -49,13 +49,17 @@ export class SpeechAnalysis {
     for(let i=0;i<samples.length;i++)samples[i]=bytes.readFloatLE(i*4);
     if(!this.models.has(options.model))this.models.set(options.model,loadSpeechModel(this.config.modelDirectory,false,options.model).catch(error=>{this.models.delete(options.model);throw error;}));
     const model=await this.models.get(options.model)!;
+    // Transformers.js 4.2.0 does not implement Whisper language detection.
+    // Preserve the existing auto request as an explicit, reported English fallback.
+    const language=options.language==="auto"?"en":options.language;
+    const languageSelection=selected.multilingual?(options.language==="auto"?"english_fallback":"explicit"):"english_only_model";
     const output=await model(samples,{return_timestamps:true,chunk_length_s:30,stride_length_s:5,
-      ...(selected.multilingual?{task:"transcribe",...(options.language!=="auto"?{language:options.language}:{})}:{})});
+      ...(selected.multilingual?{task:"transcribe",language}:{})});
     if(Array.isArray(output))throw new Error("Unexpected transcription batch");
     const segments=(output.chunks??[]).map(chunk=>({start:start+chunk.timestamp[0],end:Math.min(end,start+(chunk.timestamp[1]??end-start)),text:chunk.text})).filter(segment=>segment.end>segment.start);
     if(await sha256File(source)!==id)throw new Error("Source changed during transcription");
     return {...await library.importTranscript(id,segments),model:selected.model,modelRevision:selected.revision,
-      language:selected.multilingual?(options.language==="auto"?null:options.language):"en",languageRequested:options.language,languageDetectionVerified:false,task:"transcribe",start,end,segments,
-      reviewRequired:true,note:"Machine transcript; music, silence and overlapping speech can produce errors. No speaker diarization."};
+      language,languageSelection,languageRequested:options.language,languageDetectionSupported:false,languageDetectionVerified:false,task:"transcribe",start,end,segments,
+      reviewRequired:true,note:`${languageSelection==="english_fallback"?"Automatic language detection is unavailable; English was used. Select an explicit language code for non-English audio. ":""}Machine transcript; music, silence and overlapping speech can produce errors. No speaker diarization.`};
   }
 }

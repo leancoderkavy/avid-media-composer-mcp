@@ -26,7 +26,9 @@ it("retains source timing and language provenance for direct multilingual transc
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);const result=await speech.transcribe(id,10,11,{model:"tiny",language:"fr"});
   expect(mocks.infer).toHaveBeenCalledWith(expect.any(Float32Array),expect.objectContaining({language:"fr",task:"transcribe"}));
   expect(result).toMatchObject({language:"fr",modelRevision:speechModels.tiny.revision,languageDetectionVerified:false,segments:[{start:10.2,end:10.8,text:"Bonjour le monde."}]});
-  await speech.transcribe(id,10,11,{model:"tiny",language:"auto"});expect(mocks.infer.mock.calls.at(-1)![1]).not.toHaveProperty("language");expect(mocks.pipeline).toHaveBeenCalledTimes(1);await speech.dispose();expect(mocks.dispose).toHaveBeenCalledTimes(1);
+  const fallback=await speech.transcribe(id,10,11,{model:"tiny",language:"auto"});expect(mocks.infer.mock.calls.at(-1)![1]).toHaveProperty("language","en");
+  expect(fallback).toMatchObject({language:"en",languageRequested:"auto",languageSelection:"english_fallback",languageDetectionSupported:false,languageDetectionVerified:false});expect(fallback.note).toContain("English was used");
+  expect(mocks.pipeline).toHaveBeenCalledTimes(1);await speech.dispose();expect(mocks.dispose).toHaveBeenCalledTimes(1);
 });
 it("rejects unsupported model/language combinations before work and preserves old job defaults",async()=>{
   expect(()=>speechOptions.parse({model:"tiny.en",language:"fr"})).toThrow();expect(()=>speechOptions.parse({model:"tiny",language:"invented"})).toThrow();
