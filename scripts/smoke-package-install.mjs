@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
@@ -91,7 +91,7 @@ try {
     `const {resolvePythonSidecar}=await import(${JSON.stringify(resolverUrl)}); console.log(await resolvePythonSidecar());`],
     {cwd:temporary, encoding:"utf8", timeout:10000, windowsHide:true});
   const resolved = resolveInstalled();
-  if (resolved.error || resolved.status !== 0 || resolved.stdout.trim() !== packagedSidecar) {
+  if (resolved.error || resolved.status !== 0 || await realpath(resolved.stdout.trim()) !== await realpath(packagedSidecar)) {
     throw new Error("Installed inspector did not resolve exclusively inside its package");
   }
   await rename(packagedSidecar, `${packagedSidecar}.held`);

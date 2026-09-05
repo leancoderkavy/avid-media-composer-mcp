@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { analyzeMediaFile, probeFfprobe } from "../src/analysis/media.js";
+import { analyzeMediaFile, probeFfmpeg, probeFfprobe } from "../src/analysis/media.js";
 import type { ProcessResult } from "../src/process.js";
 
 const temporary: string[] = [];
@@ -16,6 +16,12 @@ function result(overrides: Partial<ProcessResult> = {}): ProcessResult {
 }
 
 describe("ffprobe media analysis", () => {
+  it("distinguishes encoder and inspector executables even when both exit successfully", async () => {
+    expect(await probeFfmpeg("ffmpeg",100,async()=>result({stdout:"ffmpeg version 8.0\n"}))).toMatchObject({available:true,version:"8.0"});
+    expect(await probeFfmpeg("wrong",100,async()=>result({stdout:"ffprobe version 8.0\n"}))).toMatchObject({available:false});
+    expect(await probeFfprobe("wrong",100,async()=>result({stdout:"ffmpeg version 8.0\n"}))).toMatchObject({available:false});
+    expect(await probeFfmpeg("empty",100,async()=>result())).toMatchObject({available:false});
+  });
   it("reports dependency versions and nonzero exits", async () => {
     expect(
       await probeFfprobe("ffprobe", 100, async () =>

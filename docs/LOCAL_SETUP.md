@@ -17,6 +17,8 @@ node dist/index.js
 
 Create the output directory first. Configure executable paths using `AVID_MCP_FFMPEG`, `AVID_MCP_FFPROBE` and `AVID_MCP_PYTHON` if needed. Native support is restricted to the qualified Windows 2024.12.58720 executable hash; other builds fail closed.
 
+The doctor reports FFmpeg, ffprobe, Python packages and native connectivity separately. Each dependency's `ok` reflects availability; FFmpeg and ffprobe must identify themselves as the configured tool. A successful version probe does not verify codecs, rendering quality or editor operations.
+
 ## Client configuration
 
 ```powershell

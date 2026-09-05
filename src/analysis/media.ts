@@ -75,6 +75,23 @@ export async function probeFfprobe(
   timeoutMs: number,
   processRunner: typeof runProcess = runProcess,
 ): Promise<DependencyStatus> {
+  return probeMediaExecutable("ffprobe", executable, timeoutMs, processRunner);
+}
+
+export async function probeFfmpeg(
+  executable: string,
+  timeoutMs: number,
+  processRunner: typeof runProcess = runProcess,
+): Promise<DependencyStatus> {
+  return probeMediaExecutable("ffmpeg", executable, timeoutMs, processRunner);
+}
+
+async function probeMediaExecutable(
+  tool: "ffmpeg" | "ffprobe",
+  executable: string,
+  timeoutMs: number,
+  processRunner: typeof runProcess,
+): Promise<DependencyStatus> {
   try {
     const result = await processRunner(executable, ["-version"], {
       timeoutMs,
@@ -84,7 +101,10 @@ export async function probeFfprobe(
       return { available: false, executable, error: result.stderr.trim() || `exit ${result.exitCode}` };
     }
     const firstLine = result.stdout.split(/\r?\n/, 1)[0] ?? "";
-    return { available: true, executable, version: firstLine.replace(/^ffprobe version\s+/i, "") };
+    const prefix = new RegExp(`^${tool} version\\s+(.+)`, "i");
+    const version = prefix.exec(firstLine)?.[1];
+    if (!version) return {available:false,executable,error:`Executable did not identify itself as ${tool}`};
+    return { available: true, executable, version };
   } catch (error) {
     return {
       available: false,

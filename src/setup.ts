@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import type { ServerConfig } from "./config.js";
 import type { DependencyStatus } from "./types.js";
 import { NativeAdapter } from "./native/adapter.js";
-import { probeFfprobe } from "./analysis/media.js";
+import { probeFfmpeg, probeFfprobe } from "./analysis/media.js";
 import { probePythonInspector } from "./analysis/python-sidecar.js";
 
 export type SetupClient = "claude" | "cursor" | "vscode" | "lmstudio" | "generic";
@@ -49,13 +49,14 @@ export async function doctor(config: ServerConfig) {
       return {ok:data.available,data,...(!data.available ? {error:data.error ?? "Dependency is unavailable"} : {})};
     } catch(error) { return {ok:false,error:(error as Error).message}; }
   };
-  const [roots, ffprobe, python, native] = await Promise.all([
+  const [roots, ffmpeg, ffprobe, python, native] = await Promise.all([
     check(() => Promise.all(config.allowedRoots.map(root => realpath(root)))),
+    dependencyCheck(() => probeFfmpeg(config.ffmpegExecutable ?? "ffmpeg", config.commandTimeoutMs)),
     dependencyCheck(() => probeFfprobe(config.ffprobeExecutable, config.commandTimeoutMs)),
     dependencyCheck(() => probePythonInspector({pythonExecutable:config.pythonExecutable,timeoutMs:config.commandTimeoutMs})),
     config.nativeBinary ? check(() => new NativeAdapter(config).read("app")) : Promise.resolve({ok:false,error:"Native adapter is not configured"}),
   ]);
-  return { platform:process.platform, node:process.versions.node, roots, ffprobe, python, native,
+  return { platform:process.platform, node:process.versions.node, roots, ffmpeg, ffprobe, python, native,
     enabledCapabilities:[...config.capabilities], outputRoot:config.outputRoot ?? null,
     note:"Dependency presence is not host editing qualification. Mac native support is not qualified." };
 }
