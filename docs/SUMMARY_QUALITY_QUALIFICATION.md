@@ -31,6 +31,14 @@ Evaluated `onnx-community/Qwen3-0.6B-ONNX`, revision `da1453100cf3ff33ef56d17983
 
 Cached model load took 2.152 seconds. Six generation calls took 1.665–6.893 seconds each. Peak process RSS sampled during generation was 2,470,891,520 bytes (about 2.30 GiB); this excludes unsampled loading peaks and is not a clean-machine resource guarantee. Prompt format affected omissions and fabrication. The candidate was not adopted: these fixtures do not support replacing the production summary model or relaxing review requirements.
 
+### Larger candidate under the same test
+
+The same script now accepts `--model=1.7b`, selecting `onnx-community/Qwen3-1.7B-ONNX` at `cc6a06a21d614e9b8e92a6adfab1074d4e7d2438`. [Conversion metadata](https://huggingface.co/onnx-community/Qwen3-1.7B-ONNX) links the [upstream Apache-2.0 model](https://huggingface.co/Qwen/Qwen3-1.7B). The fixture text, two prompts, q4 CPU execution and generation limits were unchanged. Evidence: `.avid-mcp-analysis/instruction-summary-20244936-5bd7-4275-be0a-979450528ef1/evidence.json`.
+
+The paragraph prompt retained the roadside-interview decision and all seven distinct items in the negation/numbers fixture. For repeated notes, however, it added “This process repeats multiple times”, which incorrectly interprets textual duplication as evidence about events. The decision-list prompt added a publication prohibition to the roadside-interview fixture that was not stated in its source, and repeated bullets in the repeated-notes fixture. The larger model therefore improves coverage in these normal fixtures but does not eliminate unsupported inference.
+
+The first load, including model download, took 46.667 seconds. Generation took 4.810–19.436 seconds per call; sampled generation peak RSS was 4,770,107,392 bytes (about 4.44 GiB). Those costs are substantially material for local setup and need clean-machine and sustained-workload qualification. The candidate remains research-only at this point; any future optional integration must retain review requirements and distinguish textual repetition from event recurrence.
+
 ## Remaining work
 
 Evaluate better local summary models or generation strategies against a larger, varied set of permissioned editorial transcripts. Review factual support, essential decisions, negation, names/numbers, assignment attribution, repetitions and incomplete sentences. Preserve human-reviewed reference decisions and distinguish acceptable compression from consequential omissions. Measure memory, latency and long-input behavior. Visual-only grounding and broader language coverage remain separate requirements. Keep all summaries review-required until that evidence supports stronger claims.
