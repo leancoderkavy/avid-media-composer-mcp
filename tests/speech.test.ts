@@ -35,8 +35,7 @@ it("retains source timing and language provenance for direct multilingual transc
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);const result=await speech.transcribe(id,10,11,{model:"tiny",language:"fr"});
   expect(mocks.infer).toHaveBeenCalledWith(expect.any(Float32Array),expect.objectContaining({language:"fr",task:"transcribe"}));
   expect(result).toMatchObject({language:"fr",modelRevision:speechModels.tiny.revision,languageDetectionVerified:false,segments:[{start:10.2,end:10.8,text:"Bonjour le monde."}]});
-  const fallback=await speech.transcribe(id,10,11,{model:"tiny",language:"auto"});expect(mocks.infer.mock.calls.at(-1)![1]).toHaveProperty("language","en");
-  expect(fallback).toMatchObject({language:"en",languageRequested:"auto",languageSelection:"english_fallback",languageDetectionSupported:false,languageDetectionVerified:false});expect(fallback.note).toContain("English was used");
+  await expect(speech.transcribe(id,10,11,{model:"tiny",language:"auto"})).rejects.toMatchObject({code:"SPEECH_LANGUAGE_UNDETERMINED"});
   expect(mocks.pipeline).toHaveBeenCalledTimes(1);await speech.dispose();expect(mocks.dispose).toHaveBeenCalledTimes(1);
 });
 it("rejects unsupported model/language combinations before work and preserves old job defaults",async()=>{
@@ -76,4 +75,23 @@ it("rejects changed audio plans, input tokens, source scope and completed checkp
   const manifestFile=path.join(base,"manifest.json"),manifest=await readFile(manifestFile,"utf8"),header=JSON.parse(manifest);header.audioHash="0".repeat(64);await writeFile(manifestFile,JSON.stringify(header));await expect(speech.resume(parent)).rejects.toThrow("audio plan changed");await writeFile(manifestFile,manifest);
   const completed=await speech.resume(parent),completedFile=path.join(directory,`speech-run-${completed.runId}`,"0.json");record.inputHash=JSON.parse(original).inputHash;record.tokens=[3];await writeFile(completedFile,JSON.stringify(record));await expect(speech.checkpoints.status(completed.runId)).rejects.toThrow("checkpoints changed");
   await unlink(completedFile);await expect(speech.checkpoints.status(completed.runId)).rejects.toThrow("missing windows");
+});
+
+it("persists the automatic choice across interrupted generation and resumes without redetecting",async()=>{
+  const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
+  const detect=vi.spyOn(speech as any,"candidates").mockResolvedValue(["fr","en","de","es","zh"].map((language,index)=>({language,modelProbability:0.8/(index+1)})));
+  mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
+  await expect(speech.transcribe(id,0,65,{model:"tiny",language:"auto"})).rejects.toMatchObject({code:"SPEECH_INCOMPLETE"});
+  const parent=(await speech.checkpoints.list(id)).runs[0]!.runId;
+  expect((await speech.checkpoints.read(parent)).record).toMatchObject({recipe:2,languageDecision:{language:"fr",selection:"model_candidate",analyzedSeconds:30}});
+  const resumed=await speech.resume(parent);expect(resumed).toMatchObject({language:"fr",languageRequested:"auto",languageSelection:"model_candidate",reusedWindows:1,languageDetectionVerified:false});expect(detect).toHaveBeenCalledTimes(1);
+  const manifestFile=path.join(await new MediaLibrary(config).directory(),`speech-run-${resumed.runId}`,"manifest.json"),manifest=JSON.parse(await readFile(manifestFile,"utf8"));manifest.languageDecision.candidates[0].modelProbability=0.9;await writeFile(manifestFile,JSON.stringify(manifest));await expect(speech.checkpoints.status(resumed.runId)).rejects.toThrow("manifest changed");
+});
+it("retains recipe-one English fallback when resuming an old multilingual run",async()=>{
+  const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
+  mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
+  await expect(speech.transcribe(id,0,65,{model:"tiny",language:"en"})).rejects.toThrow();
+  const parent=(await speech.checkpoints.list(id)).runs[0]!.runId,base=await new MediaLibrary(config).directory(),file=path.join(base,`speech-run-${parent}`,"manifest.json"),record=JSON.parse(await readFile(file,"utf8"));
+  record.recipe=1;delete record.languageDecision;record.options.language="auto";await writeFile(file,JSON.stringify(record));
+  const resumed=await speech.resume(parent);expect(resumed).toMatchObject({language:"en",languageSelection:"english_fallback",reusedWindows:1});
 });

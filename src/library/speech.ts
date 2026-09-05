@@ -8,7 +8,7 @@ import {requireCapability} from "../security/capabilities.js";
 import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
 import {modelRuntime} from "./model-runtime.js";
-import {speechModels,speechOptions,speechModel,type SpeechOptions} from "./speech-options.js";
+import {speechModels,speechOptions,speechModel,speechLanguageDecision,type SpeechOptions} from "./speech-options.js";
 import {SpeechCheckpoints,speechInputHash,speechTokens} from "./speech-checkpoints.js";
 import {AvidMcpError} from "../errors.js";
 import {rankSpeechLanguages} from "./speech-language.js";
@@ -28,6 +28,17 @@ export class SpeechAnalysis {
   constructor(private readonly config:ServerConfig){this.checkpoints=new SpeechCheckpoints(config);}
   async dispose(){await this.tail;await Promise.all([...this.models.values()].map(async pending=>(await pending).dispose()));this.models.clear();}
   detectLanguage(id:string,start:number,end:number){const operation=this.tail.then(()=>this.detect(id,start,end));this.tail=operation.catch(()=>{});return operation;}
+  private async candidates(samples:Float32Array){
+    if(samples.some(value=>!Number.isFinite(value)))throw new Error("Nonfinite audio sample");
+    if(samples.every(value=>value===0))return [];
+    if(!this.config.modelDirectory)throw new Error("Speech model directory missing");
+    if(!this.models.has("tiny"))this.models.set("tiny",loadSpeechModel(this.config.modelDirectory,false,"tiny").catch(error=>{this.models.delete("tiny");throw error;}));
+    const model=await this.models.get("tiny")!,{Tensor}=await modelRuntime(this.config.modelDirectory),features=await model.processor(samples);
+    const generation=model.model.generation_config as {decoder_start_token_id?:number;lang_to_id?:unknown};
+    if(!Number.isSafeInteger(generation.decoder_start_token_id)||generation.decoder_start_token_id!<0)throw new Error("Missing language decoder start token");
+    const output=await model.model({input_features:features.input_features,decoder_input_ids:new Tensor("int64",BigInt64Array.from([BigInt(generation.decoder_start_token_id!)]),[1,1])});
+    return rankSpeechLanguages(output.logits,generation.lang_to_id);
+  }
   private async detect(id:string,start:number,end:number){
     requireCapability(this.config.capabilities,"export");
     if(!this.config.modelDirectory)throw new Error("Download multilingual speech weights explicitly and set AVID_MCP_MODEL_DIR");
@@ -39,15 +50,7 @@ export class SpeechAnalysis {
     if(extracted.exitCode!==0)throw new Error("Language audio extraction failed");
     const bytes=await readBoundedFile(audio,30*16000*4);if(!bytes.length||bytes.length%4)throw new Error("Unexpected language audio buffer");
     const samples=new Float32Array(bytes.length/4);for(let i=0;i<samples.length;i++){samples[i]=bytes.readFloatLE(i*4);if(!Number.isFinite(samples[i]))throw new Error("Nonfinite audio sample");}
-    const silent=samples.every(sample=>sample===0);let candidates:ReturnType<typeof rankSpeechLanguages>=[];
-    if(!silent){
-      if(!this.models.has("tiny"))this.models.set("tiny",loadSpeechModel(this.config.modelDirectory,false,"tiny").catch(error=>{this.models.delete("tiny");throw error;}));
-      const model=await this.models.get("tiny")!,{Tensor}=await modelRuntime(this.config.modelDirectory),features=await model.processor(samples);
-      const generation=model.model.generation_config as {decoder_start_token_id?:number;lang_to_id?:unknown};
-      if(!Number.isSafeInteger(generation.decoder_start_token_id)||generation.decoder_start_token_id!<0)throw new Error("Missing language decoder start token");
-      const output=await model.model({input_features:features.input_features,decoder_input_ids:new Tensor("int64",BigInt64Array.from([BigInt(generation.decoder_start_token_id!)]),[1,1])});
-      candidates=rankSpeechLanguages(output.logits,generation.lang_to_id);
-    }
+    const silent=samples.every(sample=>sample===0),candidates=await this.candidates(samples);
     if(await sha256File(source)!==id)throw new Error("Source changed during language detection");
     return {id,start,end,analyzedSeconds:samples.length/16000,model:speechModels.tiny.model,modelRevision:speechModels.tiny.revision,status:silent?"digital_silence":"candidate",language:candidates[0]?.language??null,candidates,reviewRequired:true,languageVerified:false,transcriptCreated:false,note:"Model probabilities are not calibrated confidence. Music, noise and mixed languages may produce misleading candidates. Only exact digital silence is excluded. Select an explicit language for transcription after review."};
   }
@@ -76,18 +79,23 @@ export class SpeechAnalysis {
     const bytes=await readFile(audio);
     if(!bytes.length||bytes.length>600*16000*4||bytes.length%4)throw new Error("Unexpected audio buffer");
     const samples=new Float32Array(bytes.length/4);
-    for(let i=0;i<samples.length;i++)samples[i]=bytes.readFloatLE(i*4);
+    for(let i=0;i<samples.length;i++){samples[i]=bytes.readFloatLE(i*4);if(!Number.isFinite(samples[i]))throw new Error("Nonfinite audio sample");}
     const previous=parentRunId?await this.checkpoints.read(parentRunId):undefined;
     const audioHash=await sha256File(audio),plannedWindows=1+Math.ceil(Math.max(0,samples.length-480000)/320000);
     if(previous&&(previous.complete||previous.record.id!==id||previous.record.start!==start||previous.record.end!==end||JSON.stringify(previous.record.options)!==JSON.stringify(options)||previous.record.audioHash!==audioHash||previous.record.plannedWindows!==plannedWindows))throw new Error("Speech checkpoint source, options or audio plan changed");
-    const runId=await this.checkpoints.create({id,start,end,options,audioHash,plannedWindows,parentRunId});
+    let decision=previous?.record.languageDecision;
+    if(!decision){
+      if(selected.multilingual&&options.language==="auto"&&!previous){
+        const window=samples.slice(0,480000),candidates=await this.candidates(window);
+        if(!candidates.length)throw new AvidMcpError("SPEECH_LANGUAGE_UNDETERMINED","The first language-detection window is digital silence; choose a speech range or an explicit language");
+        decision=speechLanguageDecision.parse({language:candidates[0]!.language,selection:"model_candidate",candidates,analyzedSeconds:window.length/16000});
+      }else decision=speechLanguageDecision.parse({language:options.language==="auto"?"en":options.language,selection:!selected.multilingual?"english_only_model":options.language==="auto"?"english_fallback":"explicit"});
+    }
+    const runId=await this.checkpoints.create({id,start,end,options,audioHash,plannedWindows,parentRunId,languageDecision:decision});
     try{
     if(!this.models.has(options.model))this.models.set(options.model,loadSpeechModel(this.config.modelDirectory,false,options.model).catch(error=>{this.models.delete(options.model);throw error;}));
     const model=await this.models.get(options.model)!;
-    // Transformers.js 4.2.0 does not implement Whisper language detection.
-    // Preserve the existing auto request as an explicit, reported English fallback.
-    const language=options.language==="auto"?"en":options.language;
-    const languageSelection=selected.multilingual?(options.language==="auto"?"english_fallback":"explicit"):"english_only_model";
+    const language=decision.language,languageSelection=decision.selection;
     const {Tensor}=await modelRuntime(this.config.modelDirectory);
     // This boundary is qualified against the pinned runtime. Serialize callers
     // and always restore the model method, including checkpoint/inference errors.
@@ -109,8 +117,8 @@ export class SpeechAnalysis {
     if(await sha256File(source)!==id)throw new Error("Source changed during transcription");
     const transcript=await library.importTranscript(id,segments);await this.checkpoints.finish(runId,transcript.revision);
     return {...transcript,runId,parentRunId,reusedWindows,completedWindows,model:selected.model,modelRevision:selected.revision,
-      language,languageSelection,languageRequested:options.language,languageDetectionSupported:false,languageDetectionVerified:false,task:"transcribe",start,end,segments,
-      reviewRequired:true,note:`${languageSelection==="english_fallback"?"Automatic language selection is unavailable in this transcription call; English was used. Review an avid_detect_speech_language candidate or select a known language code for non-English audio. ":""}Machine transcript; music, silence and overlapping speech can produce errors. No speaker diarization.`};
+      language,languageSelection,languageDecision:decision,languageRequested:options.language,languageDetectionSupported:selected.multilingual,languageDetectionPerformed:languageSelection==="model_candidate",languageDetectionVerified:false,task:"transcribe",start,end,segments,
+      reviewRequired:true,note:`${languageSelection==="english_fallback"?"Legacy run's English fallback preserved for resume. ":languageSelection==="model_candidate"?"Language selected from the first 30 seconds or shorter available audio; candidate scores are not calibrated confidence. Mixed languages, music or noise can mislead selection. ":""}Machine transcript; music, silence and overlapping speech can produce errors. No speaker diarization.`};
     }catch(error){throw new AvidMcpError("SPEECH_INCOMPLETE",(error as Error).message,{runId,parentRunId,resumeTool:"avid_resume_speech"});}
   }
 }
