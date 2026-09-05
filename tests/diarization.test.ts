@@ -8,11 +8,13 @@ import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 import {TranscriptRevisions} from "../src/library/transcripts.js";
-const mocks=vi.hoisted(()=>({run:vi.fn(),runtime:vi.fn()}));
+const mocks=vi.hoisted(()=>({run:vi.fn(),runtime:vi.fn(),stopped:vi.fn()}));
 vi.mock("../src/process.js",()=>({runProcess:mocks.run}));
 vi.mock("../src/library/diarization-runtime.js",()=>({DIARIZATION_WORKER:"worker.py",diarizationRuntimeStatus:mocks.runtime}));
+vi.mock("../src/library/speaker-cleanup.js",async(importOriginal)=>({...await importOriginal<typeof import("../src/library/speaker-cleanup.js")>(),assertSpeakerStopped:mocks.stopped}));
 const versions={"sherpa-onnx":"1.13.7","sherpa-onnx-core":"1.13.7",numpy:"2.2.6"};
 beforeEach(()=>{
+  mocks.stopped.mockReset();mocks.stopped.mockResolvedValue(undefined);
   mocks.run.mockReset();mocks.runtime.mockReset();mocks.runtime.mockResolvedValue({unchanged:true,treeSha256:"a".repeat(64),receipt:{workerSha256:"b".repeat(64)},executable:"python",directory:"runtime"});
   mocks.run.mockImplementation(async(_executable:string,args:string[])=>{
     if(args.includes("-f")){await writeFile(args.at(-1)!,Buffer.alloc(Number(args[args.lastIndexOf("-t")+1])*16000*4));return {exitCode:0};}
@@ -129,4 +131,22 @@ it("refuses invalid extracted samples before publishing a checkpoint or invoking
   const f=await fixture();mocks.run.mockImplementationOnce(async(_exe:string,args:string[])=>{const pcm=Buffer.alloc(64000);pcm.writeFloatLE(Infinity,4);await writeFile(args.at(-1)!,pcm);return {exitCode:0};});
   await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow("Nonfinite");expect(mocks.run).toHaveBeenCalledTimes(1);
   const analysisId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!;await expect(readFile(path.join(f.base,`speakers-${analysisId}`,"audio.json"))).rejects.toMatchObject({code:"ENOENT"});
+});
+
+it("cleans only a verified stopped incomplete run and preserves source",async()=>{
+ const f=await fixture(),normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow();
+ const analysisId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!,checkpoint=await f.speakers.checkpoint(analysisId);
+ expect(await f.speakers.cleanup(analysisId,checkpoint.sha256)).toMatchObject({removed:true,sourceModified:false});expect(mocks.stopped).toHaveBeenCalledTimes(3);await expect(f.speakers.checkpoint(analysisId)).rejects.toThrow();expect(await sha256File(f.source)).toBe(f.id);
+});
+it("refuses active, changed, unexpected and published cleanup candidates",async()=>{
+ const f=await fixture(),normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow();
+ const analysisId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!,checkpoint=await f.speakers.checkpoint(analysisId),directory=path.join(f.base,`speakers-${analysisId}`);
+ await expect(f.speakers.cleanup(analysisId,"0".repeat(64))).rejects.toThrow("changed");mocks.stopped.mockRejectedValueOnce(new Error("owner active"));await expect(f.speakers.cleanup(analysisId,checkpoint.sha256)).rejects.toThrow("owner active");expect(await f.speakers.checkpoint(analysisId)).toEqual(checkpoint);
+ const note=path.join(directory,"notes.txt");await writeFile(note,"retain");await expect(f.speakers.cleanup(analysisId,checkpoint.sha256)).rejects.toThrow("Unexpected");expect(await readFile(note,"utf8")).toBe("retain");await unlink(note);
+ await writeFile(path.join(directory,"owner.json"),"changed");await expect(f.speakers.cleanup(analysisId,checkpoint.sha256)).rejects.toThrow("owner changed");
+ const completed=await f.speakers.generate(f.id,0,2),published=await f.speakers.checkpoint(completed.analysisId);await expect(f.speakers.cleanup(completed.analysisId,published.sha256)).rejects.toThrow("published");
+});
+it("retains quarantined files when process verification fails after the move",async()=>{
+ const f=await fixture(),normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow();const analysisId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!,checkpoint=await f.speakers.checkpoint(analysisId);
+ mocks.stopped.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("process state changed"));await expect(f.speakers.cleanup(analysisId,checkpoint.sha256)).rejects.toThrow("retained files may be at");const {readdir}=await import("node:fs/promises"),quarantine=(await readdir(f.base)).find(name=>name.startsWith("speaker-cleanup-"))!;expect((await readdir(path.join(f.base,quarantine))).sort()).toEqual(["audio.json","owner.json","speech.f32"]);expect(await sha256File(f.source)).toBe(f.id);
 });

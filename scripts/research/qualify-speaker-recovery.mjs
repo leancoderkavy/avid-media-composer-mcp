@@ -1,6 +1,6 @@
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
-import {mkdir,writeFile,readdir,access,readFile} from 'node:fs/promises';
+import {mkdir,writeFile,readdir,access,readFile,unlink} from 'node:fs/promises';
 import path from 'node:path';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
 const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id=await sha256File(source),root=path.resolve('.avid-mcp-analysis',`speaker-recovery-${randomUUID()}`);await mkdir(root);
@@ -17,5 +17,11 @@ try{
  await client.close();client=await connect();const baselineJob=await call('avid_start_analysis_job',{job:{kind:'diarization',id,start:0,end:180,options:{speakers:2,threshold:0.5}}}),baseline=await terminal(baselineJob);assert.equal(baseline.status,'completed',JSON.stringify(baseline));
  const record=async analysisId=>JSON.parse(await readFile(path.join(root,'avid-mcp-library',`speakers-${analysisId}`,'analysis.json'),'utf8'));
  const resumedRecord=await record(resumed.result.analysisId),baselineRecord=await record(baseline.result.analysisId);assert.deepEqual(resumedRecord.machine,baselineRecord.machine);assert.equal(resumedRecord.recovery.parentCheckpointSha256,checkpoint.sha256);assert.equal(await sha256File(parentAudio),parentHash);assert.equal(await sha256File(source),id);assert.deepEqual(await call('avid_speaker_checkpoint',{analysisId:parentId}),checkpoint);
- const evidence=path.join(root,'evidence.json');await writeFile(evidence,JSON.stringify({cancelled,checkpoint,resumed,baseline,exactMachineMatch:true,sourceAndParentUnchanged:true,ffmpegUnavailableDuringResume:true,scope:'Actual MCP cancellation after checkpoint publication, terminal job observation, reconnect and new-run audio reuse. Full inference restarts; no model-stage checkpoint or accuracy claim.'},null,2));console.log(JSON.stringify({passed:true,evidence}));
+ let cleanup;
+ if(process.argv.includes('--cleanup-parent')){
+  const extra=path.join(path.dirname(parentAudio),'retained-note.txt');await writeFile(extra,'owned note',{flag:'wx'});
+  const denied=await client.callTool({name:'avid_cleanup_speaker_run',arguments:{analysisId:parentId,expectedCheckpointSha256:checkpoint.sha256}});assert.equal(denied.isError,true);assert.equal(await readFile(extra,'utf8'),'owned note');await unlink(extra);
+  cleanup=await call('avid_cleanup_speaker_run',{analysisId:parentId,expectedCheckpointSha256:checkpoint.sha256});assert.equal(cleanup.removed,true);await assert.rejects(access(path.dirname(parentAudio)));assert.equal(await sha256File(source),id);assert.deepEqual((await record(resumed.result.analysisId)).machine,baselineRecord.machine);
+ }
+ const evidence=path.join(root,'evidence.json');await writeFile(evidence,JSON.stringify({cleanup,cancelled,checkpoint,resumed,baseline,exactMachineMatch:true,sourceAndParentUnchangedBeforeCleanup:true,sourceUnchangedAfterCleanup:cleanup?true:undefined,ffmpegUnavailableDuringResume:true,scope:'Actual MCP cancellation after checkpoint publication, terminal job observation, reconnect and new-run audio reuse. Full inference restarts; no model-stage checkpoint or accuracy claim.'},null,2));console.log(JSON.stringify({passed:true,evidence}));
 }finally{await client.close();}
