@@ -32,6 +32,16 @@ The older reference alone therefore does not restore stereo in a newly built/imp
 
 ## Remaining acceptance boundary
 
+### Native-exported stereo composition structure
+
+The existing stereo bin's current hash was `2d9cc121f7e2b374684749b3fa13aae65102c765a6dfa0258d9727edacdbe56b`, different from its earlier import receipt. The first research export attempt rejected that mismatch before native dispatch. A fresh saved-graph read still found the same composition identity, 120-frame duration, video cuts and both channels inside the two stereo combiners. The bin-level change's cause is unverified; earlier byte-identity evidence is historical, not a claim about the current file.
+
+`node scripts/research/export-native-pcm-aaf.mjs --stereo-sequence` then bound to the inspected current bin, exported its composition once and verified bin/media hashes stayed unchanged. Export: `.avid-mcp-analysis/native-pcm-aaf-3fb9b57b-f003-410c-88e4-30d808dbd42d/export/PCM_reference.aaf`, SHA-256 `d85fc7de888a3a0700a62b605e92578d5d9862df3798ae705d18a71638556c6a`. This is a fixed research export, not the shipped master-only export action.
+
+`scripts/research/inspect-stereo-aaf.py` verifies this exact artifact. It contains one sound track with `TimelineMobAttributeList` tag `_TRACK_FORMAT=2`. Each cut is an `OperationGroup` with operation ID `6b46dd7a-132d-4856-ab21-8b751d8462ec` (Audio Channel Combiner), length 60 and two direct sound inputs referencing master slots 2/3 at the same source start (2850 or 3300). Its constant parameters are byte order 18761 (`c0038672-a8cf-11d3-a05b-006094eb75cb`) and null-terminated ASCII `EFF2_AUDIO_CHANNEL_COMBINER` (`93994bd6-a81d-11d3-a05b-006094eb75cb`). The export also includes a separate timecode track.
+
+This provides an observed authoring target absent from the current separate-track builder. It does not yet prove that independently constructing those operations will import and render correctly. Next implementation must retain the existing direct-track behavior, explicitly request stereo grouping, validate both source channels/ranges, recognize only this bounded operation subset, and test a newly authored composition through native import/save/reopen and exact PCM comparison. Arbitrary effects must remain unsupported.
+
 The earlier PCM fixture and its post-restart render still have exact stereo PCM evidence. That evidence does not generalize to these new imports. Native receipts correctly separate technical metadata/decoding from `sourceFidelityVerified: false`. Two reported output channels, correct source ranges, a preserved source hash or a successful import response cannot establish stereo preservation.
 
 Next work is to establish explicit imported channel grouping/panning with saved-graph and rendered-sample evidence, while preserving these failed outputs as regression fixtures. General color fidelity, multiple sources/rates, downstream descriptors, relink and undo remain open. The bundled skills now describe the available chained workflow and require that these evidence levels remain separate.

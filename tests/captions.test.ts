@@ -29,7 +29,7 @@ it("resumes verified caption checkpoints without changing parent files and rejec
   await f.captions.correct(f.captionId,original.sha256,"reviewed");
   await expect(batches.status(resumed.runId)).rejects.toThrow("changed");
   expect(await sha256File(f.source)).toBe(f.id);
-});
+},20_000); // Multiple checksum-backed filesystem passes on shared Windows CI.
 it("rejects invalid caption batch plans and unauthorized or changed sources",async()=>{
   const f=await fixture(),batches=new CaptionBatches(f.config,f.captions);
   await expect(batches.generate(f.id,[2,2])).rejects.toThrow();

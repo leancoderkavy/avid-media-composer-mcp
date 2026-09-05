@@ -27,7 +27,7 @@ it("copies verified extracted and analyzed prefixes without changing the parent"
 it("verifies original completion and refuses replay, edits and missing checkpoints",async()=>{
   const {config,runs,indexId,directory,record}=await fixture(),file=path.join(directory,"index.json");await writeFile(file,JSON.stringify(record));await runs.finish(indexId);expect(await runs.status(indexId)).toMatchObject({state:"completed"});await expect(new People(config).resume(indexId)).rejects.toThrow("completed");
   await writeFile(file,JSON.stringify({...record,revision:randomUUID()}));await expect(runs.status(indexId)).rejects.toThrow("index changed");await writeFile(file,JSON.stringify(record));await unlink(path.join(directory,"faces-1.json"));await expect(runs.status(indexId)).rejects.toThrow("missing checkpoints");
-});
+},20_000); // Multiple checksum-backed filesystem passes on shared Windows CI.
 it("rejects changed crops, models, sources and authority",async()=>{
   const {config,runs,indexId,directory,source}=await fixture(),crop=path.join(directory,"f00000.jpg");await writeFile(crop,"changed");await expect(runs.read(indexId)).rejects.toThrow("crop changed");await writeFile(crop,"crop");
   const file=path.join(directory,"faces-0.json"),original=await readFile(file,"utf8"),record=JSON.parse(original);record.input.models[FACE_MODELS[0]!.name]="0".repeat(64);await writeFile(file,JSON.stringify(record));await expect(runs.read(indexId)).rejects.toThrow("input changed");await writeFile(file,original);
