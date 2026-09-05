@@ -97,7 +97,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 77 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 78 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
   const skillNames = ["avid-ingest-qc", "avid-selects", "avid-review-markers", "avid-turnover", "avid-export"];

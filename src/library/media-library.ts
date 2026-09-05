@@ -222,4 +222,31 @@ export class MediaLibrary {
     await writeFile(output,`<!doctype html><html lang="en"><meta charset="utf-8"><title>Contact sheet</title><style>body{font:16px system-ui}main{display:flex;flex-wrap:wrap}figure{max-width:320px}figcaption{overflow-wrap:anywhere}</style><h1>Media contact sheet</h1><main>${items.join("")}</main></html>`,{flag:"wx"});
     return {output,files:ids.length,sampling:"One midpoint frame per file; copy the report and its thumbnail directories together"};
   }
+  async thumbnailStrip(id:string,start:number,end:number,samples=12){
+    requireCapability(this.config.capabilities,"export");
+    const entry=await this.entry(id), duration=Number(entry.metadata.format?.duration);
+    if(!Number.isFinite(start)||!Number.isFinite(end)||!Number.isFinite(duration)||start<0||end<=start||end>duration)throw new Error("Strip range exceeds media");
+    if(!Number.isInteger(samples)||samples<1||samples>120)throw new Error("Strip requires 1 to 120 samples");
+    if(!entry.metadata.streams?.some((stream:{codec_type?:string})=>stream.codec_type==="video"))throw new Error("Strip requires a video stream");
+    const source=await this.source(entry);
+    const directory=path.join(await this.directory(),`strip-${randomUUID()}`);await mkdir(directory);
+    const frames=[];
+    for(let index=0;index<samples;index++){
+      // Bin centers avoid the exclusive end and distribute samples across the entire requested range.
+      const requestedSeconds=start+(index+0.5)*(end-start)/samples;
+      const filename=`frame-${String(index+1).padStart(3,"0")}.jpg`,output=path.join(directory,filename);
+      const result=await runProcess(this.config.ffmpegExecutable??"ffmpeg",["-nostdin","-v","error","-xerror","-n","-protocol_whitelist","file,pipe","-ss",String(requestedSeconds),"-i",source,"-map","0:v:0","-frames:v","1","-vf","scale=320:-2",output],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:1024*1024});
+      if(result.exitCode!==0)throw new Error(`Strip extraction failed; partial artifacts are in ${directory}`);
+      const details=await stat(output);
+      if(details.size===0)throw new Error(`No frame decoded; partial artifacts are in ${directory}`);
+      frames.push({index,requestedSeconds,filename,sha256:await sha256File(output)});
+    }
+    if(await sha256File(source)!==id)throw new Error(`Source changed during extraction; strip is unverified in ${directory}`);
+    const html=path.join(directory,"index.html"),manifest=path.join(directory,"manifest.json");
+    const receipt={id,start,end,sampling:"uniform-bin-centers",timestampMeaning:"Requested source seconds; decoder selects a frame at the seek position, not an exact PTS guarantee",sourceUnchanged:true,frames};
+    await writeFile(manifest,JSON.stringify(receipt,null,2),{flag:"wx"});
+    const cards=frames.map(frame=>`<figure><a href="${frame.filename}"><img width="320" loading="lazy" src="${frame.filename}" alt="Sample at requested source time ${frame.requestedSeconds.toFixed(3)} seconds"></a><figcaption>${frame.requestedSeconds.toFixed(3)} s</figcaption></figure>`).join("");
+    await writeFile(html,`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Thumbnail strip</title><style>body{font:16px system-ui;margin:24px;overflow-wrap:anywhere}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}figure{margin:0}img{max-width:100%;height:auto}figcaption{padding:6px 0}</style><h1>${escape(path.basename(source))}</h1><p>${samples} uniform samples over [${start}, ${end}) source seconds. Labels show requested seek times. Samples may miss shots.</p><main>${cards}</main><p>Keep this folder together when sharing. <a href="manifest.json">Source and frame checksums</a></p></html>`,{flag:"wx"});
+    return {...receipt,html,manifest};
+  }
 }

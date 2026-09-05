@@ -7,7 +7,7 @@ Use the connected Avid MCP tool schemas as the argument contract. Start with `av
 
 1. Index the requested files with `avid_index_media` in batches of at most 100. Retain returned content IDs; do not substitute filenames for IDs.
 2. Read `avid_library_metadata` and `avid_media_facets`. Flag mixed rates, dimensions, codecs and channel counts using observed values.
-3. Produce `avid_media_report` and, when useful, `avid_contact_sheet` (at most 40 files per sheet). These require export capability; indexing requires project-write.
+3. Produce `avid_media_report` and, when useful, `avid_contact_sheet` (at most 40 files per sheet). Use `avid_thumbnail_strip` to review up to 120 uniform samples across a clip range, with requested seek-time labels. Keep its HTML, manifest and JPEGs together when sharing. These artifacts require export capability.
 4. Run `avid_media_qc` over explicit source-time ranges. Each call covers at most ten minutes and the first video/audio streams. For longer material, record each covered interval and any gaps. Review black, freeze and silence findings in context: a fade or still shot can be intentional.
 5. Return report paths, source IDs, coverage intervals and unresolved findings. Loudness measurements and timestamp checks do not certify broadcast delivery or perceptual sync.
 

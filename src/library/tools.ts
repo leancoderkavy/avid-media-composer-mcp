@@ -96,6 +96,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({id,revision,windowSeconds})=>result("avid_transcript_outline",()=>library.outline(id,revision,windowSeconds)));
   server.registerTool("avid_contact_sheet", {description:"Create a local HTML contact sheet with midpoint thumbnails for up to forty files. Requires export.",inputSchema:{ids:z.array(id).min(1).max(40)},annotations:write},
     ({ids})=>result("avid_contact_sheet",()=>library.contactSheet(ids)));
+  server.registerTool("avid_thumbnail_strip", {description:"Create a portable HTML strip and checksum manifest with 1–120 uniform samples across a source-time range. Requires export. Labels are requested seek times, not exact decoded PTS; sampling may miss shots.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive(),samples:z.number().int().min(1).max(120).default(12)},annotations:write},
+    ({id,start,end,samples})=>result("avid_thumbnail_strip",()=>library.thumbnailStrip(id,start,end,samples)));
   server.registerTool("avid_save_collection", {description:"Save immutable curated source ranges, labels, notes and tags. Requires project-write. No editor mutation.",inputSchema:{collection:collectionSchema},annotations:write},
     ({collection})=>result("avid_save_collection",()=>collections.save(collection)));
   server.registerTool("avid_read_collection", {description:"Read a saved selects collection after validating current media scope.",inputSchema:{revision:z.string().uuid()},annotations:read},
