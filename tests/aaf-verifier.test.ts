@@ -1,5 +1,5 @@
 import {it,expect,vi,afterEach} from "vitest";
-import {mkdtemp,writeFile} from "node:fs/promises";
+import {mkdtemp,writeFile,realpath} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {verifyNativeAafMaster} from "../src/native/aaf-verifier.js";
@@ -8,7 +8,8 @@ import {loadConfig} from "../src/config.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 afterEach(()=>vi.restoreAllMocks());
 async function fixture(){
- const root=await mkdtemp(path.join(os.tmpdir(),"avid-aaf-verify-")),file=path.join(root,"reference.aaf"),sourceFile=path.join(root,"source.mov");
+ // The real inspector returns canonical paths; CI temp roots can be aliases.
+ const root=await realpath(await mkdtemp(path.join(os.tmpdir(),"avid-aaf-verify-"))),file=path.join(root,"reference.aaf"),sourceFile=path.join(root,"source.mov");
  await writeFile(sourceFile,"source");const bytes=Buffer.alloc(512);Buffer.from("d0cf11e0a1b11ae1","hex").copy(bytes);await writeFile(file,bytes);
  const expected={sourceFile,sourceSha256:await sha256File(sourceFile),frames:120};
  const inspection={template:file,sha256:await sha256File(file),masters:[{mobId:"urn:smpte:umid:aa",name:"Source",slots:[{slotId:1,kind:"picture",rate:"30",length:120},{slotId:2,kind:"sound",rate:"30",length:120}]}],locators:[],media:[{file:sourceFile,sha256:expected.sourceSha256}],scope:"fixture"};

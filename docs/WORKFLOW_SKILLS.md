@@ -17,3 +17,5 @@ Useful task examples:
 | avid-export | Export this source range and the reviewed transcript as SRT. |
 
 Package smoke validation checks that all five skill files reach a fresh installation and that every named MCP tool exists in its live discovery response. This validates packaging and tool references; qualification inside named AI client applications remains separate.
+
+The selects skill now covers native reference-AAF export, source/slot-checked building, native import, save/reopen, saved-range inspection and optional render. Selects/export instructions also distinguish explicit analysis resume tools from automatic job replay. The chained host test found an unresolved stereo-routing regression; follow [workflow qualification](AAF_WORKFLOW_QUALIFICATION.md) and report technical/structural success separately from fidelity.

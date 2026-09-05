@@ -14,6 +14,8 @@ Actual Sonoma evidence includes seven linked MP4s, marker/subclip persistence, s
 
 The prepared source-clock PCM fixture renders stereo samples exactly matching the original source-clock cuts. Native video timing matches the expected source presentation times, but a range-tag/pixel interpretation discrepancy remains. A separate research copy with corrected range declarations improves full-resolution comparisons without re-encoding; it is not a general automatic native color fix. See [render qualification](NATIVE_RENDER_QUALIFICATION.md).
 
+The [chained AAF workflow test](AAF_WORKFLOW_QUALIFICATION.md) exposed a separate stereo regression: newly imported selects from the latest reference render dual mono despite correct source ranges. The earlier fixture remains a valid narrow success; it does not establish general channel preservation. Changing destination track names did not resolve the new failure. Explicit import grouping/panning and rendered-audio acceptance remain unfinished.
+
 Native receipts do not establish atomic undo, preset-content identity, complete unsaved graphs, arbitrary concurrent-editor exclusion or source fidelity. General relink/trim/effect operations, broader media/rates/builds, per-action restart/undo coverage and perceptual playback remain open. The sanctioned Extension bridge and optional private-SDK work are separate from this native adapter.
 
 ## Local analysis and editorial workflows
