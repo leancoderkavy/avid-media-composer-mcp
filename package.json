@@ -17,6 +17,7 @@
     "python/avid_aaf_builder.py",
     "python/requirements.txt",
     "docs",
+    "skills",
     "README.md",
     "llms.txt",
     "CITATION.cff",

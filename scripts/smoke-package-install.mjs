@@ -100,11 +100,23 @@ try {
   if (tools.tools.length !== 77 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
+  const skillNames = ["avid-ingest-qc", "avid-selects", "avid-review-markers", "avid-turnover", "avid-export"];
+  const toolNames = new Set(tools.tools.map(tool => tool.name));
+  for (const name of skillNames) {
+    const instructions = (await readFile(path.join(installedRoot, "skills", name, "SKILL.md"), "utf8")).replaceAll("\r\n", "\n");
+    if (!instructions.startsWith(`---\nname: ${name}\n`) || !instructions.includes("\ndescription: ")) {
+      throw new Error(`Packaged skill has invalid discovery metadata: ${name}`);
+    }
+    for (const [reference] of instructions.matchAll(/\bavid_[a-z_]+\b/g)) {
+      if (!toolNames.has(reference)) throw new Error(`Packaged skill ${name} references missing tool ${reference}`);
+    }
+  }
   console.log(
     JSON.stringify({
       ok: true,
       package: `${installedPackage.name}@${installedPackage.version}`,
       tools: tools.tools.length,
+      skills: skillNames.length,
       install: "fresh-tarball",
     }),
   );

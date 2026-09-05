@@ -1,5 +1,7 @@
 # Avid Media Composer MCP Server
 
+Original [workflow skills](docs/WORKFLOW_SKILLS.md) are included for ingest/QC, selects, review markers, turnover and export in this development branch.
+
 > Unreleased development: this checkout adds a separate Windows native adapter and local media/search tools. See [local setup](docs/LOCAL_SETUP.md) and [implementation status](docs/IMPLEMENTATION_STATUS.md). These changes are not yet in the public 1.1.0 package.
 
 An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.

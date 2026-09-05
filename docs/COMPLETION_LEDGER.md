@@ -18,7 +18,7 @@ This ledger preserves the complete requested scope across increments. It is not 
 | Project snapshots/source usage/complexity | Saved semantic snapshots/diffs and direct cross-bin source usage | Complexity/effect/render/relink/turnover reports and deeper nested/effect graph support |
 | Optional Jumper provider for licensed users | Public OpenAPI contract researched | Separate local authenticated adapter, version/schema checks, runtime with licensed provider |
 | Named Windows UI operations | Computer-use research only | Shipping action adapter, focus/shortcut/dialog checks, failure and post-state tests |
-| Original workflow skills | Not packaged | Ingest/QC, selects, review markers, turnover, export; supported-client examples |
+| Original workflow skills | Five original skills packaged for ingest/QC, selects, review markers, turnover and export; client setup/examples documented; fresh-install tool-reference validation | Named-client application qualification |
 | Optional enterprise adapters | CTMS HAL read and prerequisite diagnostics | Scoped production operations, NEXIS/path mapping/locks, authorized AMT qualification |
 | Optional sanctioned Extension | SDK-neutral bridge protocol/tests | Avid SDK/license/package access and installed Extension tests; unavailable SDK is not substituted by native evidence |
 | Mac | Explicitly deferred to a Mac by user | Mac implementation and separate real-host/client qualification when working on a Mac |
