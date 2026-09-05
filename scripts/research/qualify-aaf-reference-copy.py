@@ -1,5 +1,5 @@
 """Research cross-file reference copying; refuses duplicate identities."""
-import hashlib,json,sys,uuid
+import hashlib,json,sys,uuid,shutil
 from pathlib import Path
 import aaf2
 from aaf2.mobid import MobID
@@ -39,13 +39,15 @@ try:
  output=root/'references.aaf'
  report['remappings']={file:{key:str(value) for key,value in mapping.items()} for file,mapping in mappings.items()}
  expected_references=[]
- with aaf2.open(str(output),'w') as target:
+ with fixtures[0][0].open('rb') as original,output.open('xb') as destination:shutil.copyfileobj(original,destination)
+ with aaf2.open(str(output),'rw') as target:
   for file,_ in fixtures:
    with aaf2.open(str(file)) as source:
     mapping=mappings.get(str(file),{})
     for mob in source.content.mobs:
      for original_obj,_ in mob.walk_references():
       if isinstance(original_obj,aaf2.components.SourceClip):expected_references.append((str(mapping.get(str(original_obj.mob_id),original_obj.mob_id)),original_obj.slot_id,original_obj.start,original_obj.length))
+     if file==fixtures[0][0]:continue
      copied=mob.copy(root=target)
      for obj,streams in copied.walk_references():
       if streams:raise ValueError('Stream-backed graph remapping is unsupported')
