@@ -8,6 +8,9 @@ base=Path(__file__).resolve().parents[2]
 fixtures=[
  (base/'.avid-mcp-analysis/native-pcm-aaf-7e173226-261d-4e72-95fb-c2e705dd1a0c/export/PCM_reference.aaf','5c04dea1552933d8b171af3898e83fcc165709e4f283c1ba9af6b3dc4b66802d'),
  (base/'.avid-mcp-analysis/native-aaf-master-mcp-f6012198-7bad-489d-9d85-f4968f0fdcf9/native-export-b38de484-81d0-4bdf-82a5-902d55b122d0/export/reference.aaf','94ff38c9ac7256254030b3f6b24aa98d28427f5c614791a2e5e3d745423ab66c')]
+assert sys.argv[1:] in ([],['--prepared-reference'])
+if '--prepared-reference' in sys.argv:
+ fixtures[1]=(base/'.avid-mcp-analysis/aaf-workflow-mcp-b53e7873-8af9-4f43-9b86-c7e2039c0d6f/native-export-e5f52871-15a1-4d6c-82e4-d2d4d814e2bb/export/reference.aaf','85d320cac14dfa2f305573d4cd870079f5ae1caac8a092b00cd8d15cc13ae2c7')
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 root=base/'.avid-mcp-analysis'/('aaf-reference-copy-'+str(uuid.uuid4()));root.mkdir()
 report={'root':str(root),'sources':[],'hostImportVerified':False}
