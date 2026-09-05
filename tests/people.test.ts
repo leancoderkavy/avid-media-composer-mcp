@@ -21,6 +21,12 @@ async function fixture(){
 it("groups similar features without assigning inferred names",async()=>{
   const {record}=await fixture();expect(record.clusters).toHaveLength(2);expect(record.clusters[0]?.faceIds).toHaveLength(2);expect(record.clusters.every(cluster=>cluster.name===null)).toBe(true);
 });
+it("discovers saved indices with pagination, zero-face coverage and per-index invalid state",async()=>{
+  const {people,indexId,record,directory}=await fixture(),id=record.faces[0]!.mediaId,second=randomUUID(),target=path.join(path.dirname(directory),`people-${second}`);await mkdir(target);
+  await writeFile(path.join(target,"index.json"),JSON.stringify({...record,faces:[],clusters:[],coverage:[{mediaId:id,start:0,end:10,samples:12}]}));
+  const first=await people.discover(id,undefined,1);expect(first.indices).toHaveLength(1);expect(first.nextAfter).not.toBeNull();const next=await people.discover(id,first.nextAfter!,1);expect(next.nextAfter).toBeNull();expect([...first.indices,...next.indices].map(row=>row.indexId).sort()).toEqual([indexId,second].sort());
+  await writeFile(path.join(directory,"index.json"),JSON.stringify({...record,clusters:[]}));const invalid=await people.discover(id);expect(invalid.indices.find(row=>row.indexId===indexId)).toMatchObject({state:"unavailable"});expect(invalid.indices.find(row=>row.indexId===second)).toMatchObject({state:"available",faces:0});
+});
 it("ranks reference face appearances with half-open time filters and bounded results",async()=>{
   const {people,indexId}=await fixture();const result=await people.similar(indexId,"f00000",{threshold:0,limit:1});
   expect(result.matches.map(row=>row.faceId)).toEqual(["f00001"]);expect(result.hasMore).toBe(true);expect(result.identityVerified).toBe(false);expect(result.matches[0]).not.toHaveProperty("embedding");

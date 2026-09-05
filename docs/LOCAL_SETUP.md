@@ -188,3 +188,11 @@ The transcription API's `auto` compatibility option still uses its documented En
 Qualification: real stdio MCP returned en and zh on original synthetic English and Mandarin speech, and null on digital silence, with unchanged source hashes. This is narrow language-identification evidence, not acceptance across all supported language tokens. Scripts: `qualify-language-detection.mjs` and `qualify-language-detection-mcp.mjs` under `scripts/research`. The unguarded research model selected Welsh for silence, which is why the tool excludes exact digital silence.
 
 Method reference: [OpenAI Whisper language detection](https://github.com/openai/whisper/blob/main/whisper/decoding.py). This implementation is original TypeScript using the pinned local ONNX model; it does not copy a competitor implementation.
+
+## Rediscovering people indices
+
+`avid_people_indices` takes an authorized `mediaId`, optional `after` index UUID and `limit` (1–100, default 20). It returns saved indices in UUID order, their revisions, face/cluster counts and coverage for that media. Use an index ID with the people-cluster, face-list or reference-search tools after reconnecting a client.
+
+New zero-face indices are discoverable through their retained coverage. Legacy indices without coverage can only be attributed through their face records. Partial/deleted directories without a final index are omitted. Invalid indices attributable to the requested media return `state: "unavailable"` and an error while healthy results remain visible. Every available result requires authorization for all media in that index. Malformed manifests that cannot be attributed still fail discovery.
+
+Fresh-session inspect-only MCP qualification discovered the existing Sonoma index and verified its 37 reference-face search results again: `scripts/research/qualify-face-search.mjs`. This does not provide interrupted people computation recovery.

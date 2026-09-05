@@ -1,4 +1,4 @@
-import {mkdir,writeFile,rename,open,unlink,readdir} from "node:fs/promises";
+import {mkdir,writeFile,rename,open,unlink,readdir,opendir} from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {randomUUID} from "node:crypto";
@@ -12,6 +12,7 @@ import {runProcess} from "../process.js";
 import {MediaLibrary} from "./media-library.js";
 import {faceRuntime,FACE_REVISION} from "./face-runtime.js";
 import {cosine} from "./visual.js";
+import {errorDetails} from "../errors.js";
 
 const faceId=z.string().regex(/^f\d{5}$/),clusterId=z.string().uuid();
 const faceSchema=z.object({faceId,mediaId:z.string().regex(/^[a-f0-9]{64}$/),time:z.number().nonnegative(),box:z.array(z.number().finite()).length(4),confidence:z.number().min(0).max(1),crop:z.string().regex(/^f\d{5}\.jpg$/),embedding:z.array(z.number().finite()).length(128)});
@@ -65,6 +66,22 @@ export class People {
     for(const cluster of record.clusters)for(const id of cluster.faceIds){if(seen.has(id)||!record.faces.some(face=>face.faceId===id))throw new Error("Invalid face membership");seen.add(id);}
     if(seen.size!==record.faces.length)throw new Error("Unassigned face in collection");
     return {directory,record};
+  }
+  async discover(mediaId:string,after?:string,limit=20){
+    z.string().regex(/^[a-f0-9]{64}$/).parse(mediaId);if(after)z.string().uuid().parse(after);z.number().int().min(1).max(100).parse(limit);
+    await this.library.metadata([mediaId]);const root=await this.library.directory(),names=[];let scanned=0;
+    for await(const entry of await opendir(root)){if(++scanned>10000)throw new Error("People index discovery limit exceeded");const match=/^people-([a-f0-9-]{36})$/.exec(entry.name);if(entry.isDirectory()&&match&&(!after||match[1]!>after))names.push(match[1]!);}
+    const indices=[];
+    for(const indexId of names.sort()){
+      const directory=await this.directory(indexId);let header;
+      try{header=recordSchema.parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"index.json"),[directory],"file"),8*1024*1024));}
+      catch(error){if((error as {code?:string}).code==="PATH_NOT_FOUND")continue;throw error;}
+      if(!header.coverage?.some(row=>row.mediaId===mediaId)&&!header.faces.some(face=>face.mediaId===mediaId))continue;
+      if(indices.length===limit)return {mediaId,indices,nextAfter:indices.at(-1)!.indexId};
+      try{const {record}=await this.read(indexId);if(!record.coverage?.some(row=>row.mediaId===mediaId)&&!record.faces.some(face=>face.mediaId===mediaId))throw new Error("People index media changed during discovery");indices.push({indexId,state:"available",revision:record.revision,faces:record.faces.length,clusters:record.clusters.length,coverage:record.coverage?.filter(row=>row.mediaId===mediaId)??null});}
+      catch(error){const {code,message}=errorDetails(error);indices.push({indexId,state:"unavailable",problem:{code,message}});}
+    }
+    return {mediaId,indices,nextAfter:null};
   }
   async index(ids:string[],samples:number,threshold=0.45,range?:z.infer<typeof peopleRange>){
     z.number().min(0).max(1).parse(threshold);
