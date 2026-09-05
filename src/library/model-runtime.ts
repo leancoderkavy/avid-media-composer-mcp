@@ -25,5 +25,7 @@ export async function modelRuntime(cache:string,install=false):Promise<typeof im
   }
   const entry=path.join(runtime,"node_modules","@huggingface","transformers","dist","transformers.node.mjs");
   try{await access(entry);}catch{throw new Error("Optional model runtime is missing; run avid-mcp --download-models --model-dir PATH explicitly");}
+  const installed=JSON.parse(await readFile(path.join(runtime,"node_modules","@huggingface","transformers","package.json"),"utf8"));
+  if(installed.version!=="4.2.0")throw new Error("Unsupported model runtime version; use the pinned 4.2.0 installation");
   return import(pathToFileURL(entry).href);
 }

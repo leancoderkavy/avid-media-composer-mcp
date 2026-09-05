@@ -12,6 +12,7 @@ import {speechOptions} from "./speech-options.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("speech_resume"),runId:z.string().uuid()}).strict(),
   z.object({kind:z.literal("summary_resume"),runId:z.string().uuid()}).strict(),
   z.object({kind:z.literal("visual_resume"),runId:z.string().uuid()}).strict(),
   z.object({kind:z.literal("visual_shots"),id,options:shotOptions}).strict(),
@@ -38,7 +39,7 @@ export class AnalysisJobs {
     requireCapability(this.config.capabilities,"inspect");
     const spec=jobSchema.parse(input);
     if(!["index","summary","summary_resume"].includes(spec.kind))requireCapability(this.config.capabilities,"export");
-    if(["speech","people","summary","summary_resume"].includes(spec.kind))requireCapability(this.config.capabilities,"project-write");
+    if(["speech","speech_resume","people","summary","summary_resume"].includes(spec.kind))requireCapability(this.config.capabilities,"project-write");
     if([...this.jobs.values()].filter(job=>["queued","running","cancelling"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
     if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};

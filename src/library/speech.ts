@@ -9,6 +9,8 @@ import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
 import {modelRuntime} from "./model-runtime.js";
 import {speechModels,speechOptions,speechModel,type SpeechOptions} from "./speech-options.js";
+import {SpeechCheckpoints,speechInputHash,speechTokens} from "./speech-checkpoints.js";
+import {AvidMcpError} from "../errors.js";
 
 export const SPEECH_MODEL=speechModels["tiny.en"].model;
 export const SPEECH_REVISION=speechModels["tiny.en"].revision;
@@ -18,15 +20,17 @@ export async function loadSpeechModel(cache:string,download=false,selection: "ti
   return pipeline("automatic-speech-recognition",selected.model,{cache_dir:cache,revision:selected.revision,local_files_only:!download,dtype:"q8"});
 }
 export class SpeechAnalysis {
+  readonly checkpoints:SpeechCheckpoints;
   private models=new Map<string,ReturnType<typeof loadSpeechModel>>();
   private tail:Promise<unknown>=Promise.resolve();
-  constructor(private readonly config:ServerConfig){}
+  constructor(private readonly config:ServerConfig){this.checkpoints=new SpeechCheckpoints(config);}
   async dispose(){await this.tail;await Promise.all([...this.models.values()].map(async pending=>(await pending).dispose()));this.models.clear();}
-  transcribe(id:string,start:number,end:number,options:SpeechOptions={}){
-    const operation=this.tail.then(()=>this.run(id,start,end,options));
+  transcribe(id:string,start:number,end:number,options:SpeechOptions={},parentRunId?:string){
+    const operation=this.tail.then(()=>this.run(id,start,end,options,parentRunId));
     this.tail=operation.catch(()=>{});return operation;
   }
-  private async run(id:string,start:number,end:number,input:SpeechOptions){
+  async resume(runId:string){const saved=await this.checkpoints.read(runId);if(saved.complete)throw new Error("Speech run is already completed");return this.transcribe(saved.record.id,saved.record.start,saved.record.end,saved.record.options,runId);}
+  private async run(id:string,start:number,end:number,input:SpeechOptions,parentRunId?:string){
     const options=speechOptions.parse(input),selected=speechModels[options.model];
     requireCapability(this.config.capabilities,"export");
     requireCapability(this.config.capabilities,"project-write");
@@ -44,22 +48,43 @@ export class SpeechAnalysis {
     const result=await runProcess(this.config.ffmpegExecutable??"ffmpeg",["-nostdin","-v","error","-n","-protocol_whitelist","file,pipe","-ss",String(start),"-i",source,"-t",String(end-start),"-vn","-ac","1","-ar","16000","-f","f32le",audio],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:1024*1024});
     if(result.exitCode!==0)throw new Error("Audio extraction failed");
     const bytes=await readFile(audio);
-    if(bytes.length>600*16000*4||bytes.length%4)throw new Error("Unexpected audio buffer");
+    if(!bytes.length||bytes.length>600*16000*4||bytes.length%4)throw new Error("Unexpected audio buffer");
     const samples=new Float32Array(bytes.length/4);
     for(let i=0;i<samples.length;i++)samples[i]=bytes.readFloatLE(i*4);
+    const previous=parentRunId?await this.checkpoints.read(parentRunId):undefined;
+    const audioHash=await sha256File(audio),plannedWindows=1+Math.ceil(Math.max(0,samples.length-480000)/320000);
+    if(previous&&(previous.complete||previous.record.id!==id||previous.record.start!==start||previous.record.end!==end||JSON.stringify(previous.record.options)!==JSON.stringify(options)||previous.record.audioHash!==audioHash||previous.record.plannedWindows!==plannedWindows))throw new Error("Speech checkpoint source, options or audio plan changed");
+    const runId=await this.checkpoints.create({id,start,end,options,audioHash,plannedWindows,parentRunId});
+    try{
     if(!this.models.has(options.model))this.models.set(options.model,loadSpeechModel(this.config.modelDirectory,false,options.model).catch(error=>{this.models.delete(options.model);throw error;}));
     const model=await this.models.get(options.model)!;
     // Transformers.js 4.2.0 does not implement Whisper language detection.
     // Preserve the existing auto request as an explicit, reported English fallback.
     const language=options.language==="auto"?"en":options.language;
     const languageSelection=selected.multilingual?(options.language==="auto"?"english_fallback":"explicit"):"english_only_model";
-    const output=await model(samples,{return_timestamps:true,chunk_length_s:30,stride_length_s:5,
-      ...(selected.multilingual?{task:"transcribe",language}:{})});
+    const {Tensor}=await modelRuntime(this.config.modelDirectory);
+    // This boundary is qualified against the pinned runtime. Serialize callers
+    // and always restore the model method, including checkpoint/inference errors.
+    const generator=model.model as unknown as {generate:(input:Record<string,unknown>)=>Promise<unknown>},original=generator.generate;
+    let completedWindows=0,reusedWindows=0;
+    generator.generate=async input=>{
+      if(completedWindows>=plannedWindows)throw new Error("Speech runtime exceeded planned windows");
+      const inputHash=speechInputHash(input),saved=previous?.windows[completedWindows];
+      if(saved&&saved.inputHash!==inputHash)throw new Error("Speech checkpoint feature or generation input changed");
+      const output=saved?new Tensor("int64",BigInt64Array.from(saved.tokens,BigInt),[1,saved.tokens.length]):await original.call(generator,input);
+      await this.checkpoints.append(runId,completedWindows,{inputHash,tokens:speechTokens(output)});completedWindows++;if(saved)reusedWindows++;return output;
+    };
+    let output;
+    try{output=await model(samples,{return_timestamps:true,chunk_length_s:30,stride_length_s:5,...(selected.multilingual?{task:"transcribe",language}:{})});}
+    finally{generator.generate=original;}
+    if(completedWindows!==plannedWindows)throw new Error("Speech runtime did not complete planned windows");
     if(Array.isArray(output))throw new Error("Unexpected transcription batch");
     const segments=(output.chunks??[]).map(chunk=>({start:start+chunk.timestamp[0],end:Math.min(end,start+(chunk.timestamp[1]??end-start)),text:chunk.text})).filter(segment=>segment.end>segment.start);
     if(await sha256File(source)!==id)throw new Error("Source changed during transcription");
-    return {...await library.importTranscript(id,segments),model:selected.model,modelRevision:selected.revision,
+    const transcript=await library.importTranscript(id,segments);await this.checkpoints.finish(runId,transcript.revision);
+    return {...transcript,runId,parentRunId,reusedWindows,completedWindows,model:selected.model,modelRevision:selected.revision,
       language,languageSelection,languageRequested:options.language,languageDetectionSupported:false,languageDetectionVerified:false,task:"transcribe",start,end,segments,
       reviewRequired:true,note:`${languageSelection==="english_fallback"?"Automatic language detection is unavailable; English was used. Select an explicit language code for non-English audio. ":""}Machine transcript; music, silence and overlapping speech can produce errors. No speaker diarization.`};
+    }catch(error){throw new AvidMcpError("SPEECH_INCOMPLETE",(error as Error).message,{runId,parentRunId,resumeTool:"avid_resume_speech"});}
   }
 }

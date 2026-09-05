@@ -1,6 +1,6 @@
 # Speech computation recovery research
 
-The existing speech API is not yet resumable. This experiment qualifies a recovery approach before implementing persisted runs and MCP resume operations.
+This records the initial recovery experiment. The branch now implements persisted speech runs and explicit MCP resume; the production qualification below is separate from the earlier model-reload experiment.
 
 The installed Transformers.js 4.2.0 ASR pipeline builds 30-second feature windows with five-second strides, generates tokens sequentially, and merges the resulting tokens with the tokenizer. Independently transcribing disjoint windows would change that merge behavior. The experiment instead saves one generation result and replays that result through the same pipeline after disposing and reloading the model. No dependency source is modified.
 
@@ -22,6 +22,10 @@ This proves equivalence for a model reload and intentional exception on one sour
 
 The omitted-language experiment printed an English-default warning. Inspection of the installed `src/models/whisper/modeling_whisper.js`, `_retrieve_init_tokens`, confirmed that automatic language detection is unimplemented and missing language selects English. The production API now reports this fallback explicitly and supplies English to generation. Previous evidence described this as automatic-language execution; it only established omitted-option execution, not detection.
 
-## Production requirements
+## Production implementation and qualification
+
+`SpeechCheckpoints` and `SpeechAnalysis` now implement the requirements below, with `avid_speech_runs`, `avid_speech_run`, `avid_resume_speech` and `speech_resume` jobs. Real Windows worker cancellation/reconnect/resume reused two saved windows into a nine-window Sonoma [0,180) transcript. Every segment exactly matched uninterrupted transcription; source and parent checkpoints remained unchanged. Completed resume was rejected. Evidence: `.avid-mcp-analysis/speech-resume-955a0ae2-6e99-4cca-a7cc-9c9d5089ffcb/evidence.json`; script: `scripts/research/qualify-speech-resume.mjs`. Unit coverage rejects changed input/audio, malformed tokens, out-of-scope media, changed completed checkpoints/transcripts and missing completed windows, and verifies method restoration after failure. Broader media, concurrency and power-loss qualification remain open.
+
+Implementation requirements retained for review:
 
 Persist an exclusive, bounded, versioned run manifest before computation. Bind checkpoints to source and extracted-audio hashes, pinned runtime/model revisions, generation settings, ordered feature hashes and validated int64 tensor dimensions/token limits. Reuse only a contiguous verified prefix in a new run; retain the parent unchanged. Scope every read to currently authorized media. Publish final transcript identity/checksum only after source revalidation and verify it on completed status reads. Restore the generation method in a `finally` block and serialize each model instance. Reject incompatible runtime changes instead of silently replaying. Test cancellation with actual worker termination, reconnect, changed inputs, malformed checkpoints, output deletion and completed-run rejection. Expose discover/status/resume operations and integrate the existing job lifecycle. Preprocessing still reruns; token checkpoints alone do not resume extraction or feature computation.
