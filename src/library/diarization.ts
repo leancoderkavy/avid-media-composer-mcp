@@ -11,6 +11,8 @@ import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
 import {speechAudioArguments} from "./speech-audio.js";
 import {diarizationRuntimeStatus,DIARIZATION_WORKER} from "./diarization-runtime.js";
+import {TranscriptRevisions} from "./transcripts.js";
+import {alignSpeakerSegment} from "./speaker-alignment.js";
 const uuid=z.string().uuid(),sha=z.string().regex(/^[a-f0-9]{64}$/);
 export const diarizationOptions=z.object({speakers:z.union([z.literal(-1),z.number().int().min(1).max(20)]).default(-1),threshold:z.number().gt(0).max(1).default(0.5)}).strict();
 export const diarizationOutput=z.object({schema:z.literal(1),recipe:z.literal(1),versions:z.object({"sherpa-onnx":z.literal("1.13.7"),"sherpa-onnx-core":z.literal("1.13.7"),numpy:z.literal("2.2.6")}).strict(),audioSha256:sha,duration:z.number().positive().max(600),options:diarizationOptions,spans:z.array(z.object({start:z.number().nonnegative(),end:z.number().positive(),speaker:z.string().regex(/^speaker-[1-9][0-9]{0,3}$/)}).strict()).max(5000),speakerCount:z.number().int().min(0).max(5000),reviewRequired:z.literal(true),identitiesInferred:z.literal(false),accuracyVerified:z.literal(false)}).strict().superRefine((value,ctx)=>{
@@ -37,6 +39,16 @@ export class SpeakerAnalysis{
     z.number().int().min(0).max(5000).parse(offset);z.number().int().min(1).max(500).parse(limit);const {record,sha256}=await this.record(analysisId),{machine,...metadata}=record;
     const spans=machine.spans.slice(offset,offset+limit).map((span,index)=>({spanId:`span-${offset+index+1}`,speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)}));
     return {...metadata,sha256,options:machine.options,versions:machine.versions,audioSha256:machine.audioSha256,analyzedSeconds:machine.duration,speakerCount:machine.speakerCount,totalSpans:machine.spans.length,spans,nextOffset:offset+limit<machine.spans.length?offset+limit:null,reviewRequired:true,identitiesInferred:false,accuracyVerified:false,note:"Anonymous labels apply only to this analysis. Intervals may overlap; clustering can split one voice or combine different voices. Source-time ranges are model estimates, not verified word/speaker alignment."};
+  }
+  async align(analysisId:string,analysisSha256:string,transcriptRevision:string,transcriptSha256:string,after=-1,limit=100,candidateLimit=20){
+    sha.parse(analysisSha256);sha.parse(transcriptSha256);z.number().int().min(-1).max(100000).parse(after);z.number().int().min(1).max(100).parse(limit);z.number().int().min(1).max(100).parse(candidateLimit);
+    const saved=await this.record(analysisId);if(saved.sha256!==analysisSha256)throw new Error("Speaker analysis changed; reload its checksum");
+    const transcript=await new TranscriptRevisions(this.config).snapshot(saved.record.id,transcriptRevision);if(transcript.sha256!==transcriptSha256)throw new Error("Transcript changed; reload its checksum");
+    const {record}=saved,spans=record.machine.spans.map(span=>({speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)}));
+    const matching=transcript.record.segments.map((segment,index)=>({segment,index})).filter(({segment,index})=>index>after&&segment.start<record.end&&segment.end>record.start);
+    const segments=matching.slice(0,limit).map(({segment,index})=>({index,segment,...alignSpeakerSegment(segment,record,spans,candidateLimit)}));
+    if(await sha256File(saved.file)!==analysisSha256||await sha256File(transcript.file)!==transcriptSha256)throw new Error("Speaker analysis or transcript changed during alignment");await this.source(record.id);
+    return {analysisId,analysisSha256,transcriptRevision,transcriptSha256,id:record.id,start:record.start,end:record.end,segments,nextAfter:matching.length>limit?segments.at(-1)!.index:null,scope:"Transcript segments intersecting the analyzed source range; indices refer to the original transcript revision.",assignmentApplied:false,reviewRequired:true,wordAlignmentVerified:false,speakerIdentityVerified:false,note:"Candidates reflect interval overlap, not confidence or verified speaker attribution. Multiple sequential or simultaneous voices remain ambiguous. Original transcript text and speaker fields are unchanged. Candidate lists may be explicitly truncated; inspect saved speaker pages for all intervals."};
   }
   generate(id:string,start:number,end:number,input:z.input<typeof diarizationOptions>={}){return this.serialize(async()=>{
     requireCapability(this.config.capabilities,"export");requireCapability(this.config.capabilities,"project-write");const options=diarizationOptions.parse(input);

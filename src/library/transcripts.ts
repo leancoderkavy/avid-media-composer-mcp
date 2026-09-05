@@ -25,6 +25,7 @@ export class TranscriptRevisions {
     const record=z.object({id:z.literal(id),segments:transcriptSchema,parentRevision:z.string().uuid().optional()}).parse(JSON.parse(bytes.toString("utf8")));
     return {file,record,sha256:createHash("sha256").update(bytes).digest("hex")};
   }
+  async snapshot(id:string,revision:string){return this.read(id,revision);}
   async list(id:string,after="",limit=50){
     await this.library.metadata([id]);z.number().int().min(1).max(100).parse(limit);
     if(after)z.string().uuid().parse(after);

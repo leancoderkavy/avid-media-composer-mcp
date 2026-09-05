@@ -41,3 +41,11 @@ it("validates worker labels, ordering, counts, ranges and exact input provenance
   const normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:0,stdout:JSON.stringify({...record.machine,audioSha256:"0".repeat(64)})});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow("input mismatch");expect((await f.speakers.list(f.id)).analyses).toHaveLength(1);
   await expect(f.speakers.generate(f.id,0,91)).rejects.toThrow("range");await expect(f.speakers.generate(f.id,0,2,{speakers:0})).rejects.toThrow();
 });
+it("aligns explicit transcript revisions without changing text or speaker fields and refuses stale references",async()=>{
+  const f=await fixture(),result=await f.speakers.generate(f.id,0,2),library=new MediaLibrary(f.config);
+  const transcript=await library.importTranscript(f.id,[{start:0,end:0.1,text:"gap"},{start:0.2,end:0.4,text:"single",speaker:"Original label"},{start:0.6,end:1,text:"overlap"},{start:1.6,end:2.2,text:"partly outside"},{start:10,end:11,text:"outside"}]);
+  const transcriptHash=await sha256File(transcript.path),before=await readFile(transcript.path,"utf8"),first=await f.speakers.align(result.analysisId,result.sha256,transcript.revision,transcriptHash,-1,2);
+  expect(first).toMatchObject({assignmentApplied:false,nextAfter:1});expect(first.segments[0]).toMatchObject({index:0,status:"no_speech_overlap"});expect(first.segments[1]).toMatchObject({index:1,status:"single_candidate",segment:{text:"single",speaker:"Original label"}});
+  const next=await f.speakers.align(result.analysisId,result.sha256,transcript.revision,transcriptHash,1,2);expect(next.nextAfter).toBeNull();expect(next.segments.map(segment=>segment.index)).toEqual([2,3]);expect(next.segments[0]?.status).toBe("overlapping_candidates");expect(next.segments[1]?.outsideAnalysisSeconds).toBeCloseTo(0.2);
+  expect(await readFile(transcript.path,"utf8")).toBe(before);await expect(f.speakers.align(result.analysisId,"0".repeat(64),transcript.revision,transcriptHash)).rejects.toThrow("Speaker analysis changed");await expect(f.speakers.align(result.analysisId,result.sha256,transcript.revision,"0".repeat(64))).rejects.toThrow("Transcript changed");
+});

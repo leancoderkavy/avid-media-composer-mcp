@@ -303,7 +303,7 @@ Actual generated commands in all five formats indexed/read the Sonoma preview. T
 
 ## Optional diarization runtime
 
-The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Transcript alignment and speaker corrections remain under implementation.
+The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Read-only transcript overlap alignment is available; speaker corrections and applying reviewed assignments remain under implementation.
 
 ```powershell
 $env:AVID_MCP_PYTHON = "C:\Python312\python.exe"
@@ -325,3 +325,12 @@ After installing the diarization runtime and configuring `inspect,export,project
 Completed results retain PCM, model-worker/runtime provenance, source/audio hashes and anonymous speaker spans. `avid_speaker_analysis` reads pages (default 100, maximum 500) using `analysisId` and `offset`. `avid_speaker_analyses` discovers completed results for a media ID. Reads recheck source scope, source content and PCM consistency. Times are in the source media clock; overlapping spans remain overlapping. Anonymous labels apply only within their analysis and do not identify people or establish who spoke individual transcript words.
 
 `avid_delete_speaker_analysis` requires `analysisId` and the current result's `sha256`. It deletes the saved record and extracted PCM after verifying their identity and refuses unexpected files. Source media is preserved. Interrupted execution leaves incomplete artifacts, omits them from completed-result discovery and currently requires a fresh job. A cancellation race near publication may leave a completed artifact even if the job reports cancellation; inspect discovery before retrying. Per-stage recovery, incomplete-artifact cleanup, shared-writer deletion recovery, label corrections and transcript alignment remain open.
+
+
+## Transcript and speaker overlap
+
+`avid_align_speakers` requires `analysisId`, `analysisSha256`, `transcriptRevision` and `transcriptSha256`. Obtain the speaker checksum from `avid_speaker_analysis` and the transcript checksum from `avid_transcript_revisions`. It reads only the selected saved inputs and works with inspect-only access; models and a model directory are not required for alignment.
+
+Results include transcript segments intersecting the analyzed source range, their original revision indices, unchanged text/existing speaker fields, and overlap candidates. Pagination uses `after` (default -1) and `limit` (maximum 100). `candidateLimit` defaults to 20 and supports up to 100 candidates per segment; `totalCandidates` and `candidatesTruncated` explicitly report omitted candidates. Saved speaker pages retain every interval.
+
+`single_candidate` means one anonymous label overlaps the segment. `multiple_candidates` means different labels occur sequentially; `overlapping_candidates` means at least two labels overlap simultaneously. `no_speech_overlap` means no detected span intersects the segment. These are interval classifications, not verified identity or confidence. Coverage unions repeated intervals for the same label, distinguishes uncovered analyzed time from time outside the analysis range, and reports simultaneous-speaker seconds separately. No transcript assignment is applied. Review audio and revise speaker boundaries/labels before applying attribution; word-level forced alignment and reviewed assignment writes remain open.
