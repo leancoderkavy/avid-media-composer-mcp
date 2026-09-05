@@ -103,7 +103,16 @@ export class MediaSummaries{
     validateSummaryTree(record.root,record.nodes,verify?source.segments:undefined);
     return {file,record,source,sha256:hash(record)};
   }
-  async node(revision:string,nodeId?:string){const {record,source,sha256}=await this.read(revision),node=record.nodes.find(n=>n.nodeId===(nodeId??record.root));if(!node)throw new Error("Unknown summary node");return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>record.nodes.find(n=>n.nodeId===id)),sources:source.segments.filter(s=>node.sourceIndices.includes(s.index)),reviewRequired:true,factualEntailmentVerified:false};}
+  async node(revision:string,nodeId?:string){
+    const {record,source,sha256}=await this.read(revision),byId=new Map(record.nodes.map(node=>[node.nodeId,node])),node=byId.get(nodeId??record.root);
+    if(!node)throw new Error("Unknown summary node");
+    // read() validates the tree before walking descendants. A split transcript
+    // segment can occur in multiple leaves; return its original text only once.
+    const indices=new Set<number>();
+    const collect=(current:Node)=>{for(const index of current.sourceIndices)indices.add(index);for(const child of current.children)collect(byId.get(child)!);};
+    collect(node);
+    return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>byId.get(id)!),sources:source.segments.filter(s=>indices.has(s.index)),sourceScope:node.children.length?"descendant_leaves":"direct_leaf",reviewRequired:true,factualEntailmentVerified:false};
+  }
   async list(id:string,after="",limit=20){
     await this.library.metadata([id]);if(after)z.string().uuid().parse(after);z.number().int().min(1).max(100).parse(limit);
     const root=await this.library.directory(),revisions:string[]=[];let scanned=0;

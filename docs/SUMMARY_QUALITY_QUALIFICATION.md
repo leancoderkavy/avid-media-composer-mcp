@@ -42,3 +42,9 @@ The first load, including model download, took 46.667 seconds. Generation took 4
 ## Remaining work
 
 Evaluate better local summary models or generation strategies against a larger, varied set of permissioned editorial transcripts. Review factual support, essential decisions, negation, names/numbers, assignment attribution, repetitions and incomplete sentences. Preserve human-reviewed reference decisions and distinguish acceptable compression from consequential omissions. Measure memory, latency and long-input behavior. Visual-only grounding and broader language coverage remain separate requirements. Keep all summaries review-required until that evidence supports stronger claims.
+
+### Reviewing overview sources
+
+`avid_summary_node` returns original transcript excerpts for the requested node, including all descendant leaves for an overview. Shared references from split segments appear once, in transcript order. `sourceScope` distinguishes `direct_leaf` from `descendant_leaves`. The stored node structure remains unchanged. These excerpts show the input coverage; they do not prove that the generated text preserves every fact or contains no invented claims. `reviewRequired` remains true and `factualEntailmentVerified` remains false.
+
+Read-only qualification: `scripts/research/qualify-summary-sources.mjs <summary-resume-evidence.json>` checked all nine nodes in a previously generated hierarchy against the exact saved transcript through stdio MCP.

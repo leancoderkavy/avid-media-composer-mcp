@@ -59,7 +59,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({request})=>result("avid_build_aaf_selects",()=>aafBuilder.build(request)));
   server.registerTool("avid_generate_summary", {description:"Generate a local English transcript summary hierarchy with pinned DistilBART. Requires project-write and explicitly downloaded models. Source references are checked; factual accuracy requires review. Use a summary job for longer transcripts.",inputSchema:{id,transcriptRevision:z.string().uuid()},annotations:write},
     ({id,transcriptRevision})=>result("avid_generate_summary",()=>summaries.generate(id,transcriptRevision)));
-  server.registerTool("avid_summary_node", {description:"Read a generated summary overview or drill into a node, with children and leaf transcript references. Refuses changed/missing transcript provenance.",inputSchema:{revision:z.string().uuid(),nodeId:z.string().optional()},annotations:read},
+  server.registerTool("avid_summary_node", {description:"Read a generated summary overview or drill into a node, with children and deduplicated original transcript excerpts from all descendant leaves. Source coverage does not verify generated claims. Refuses changed/missing transcript provenance.",inputSchema:{revision:z.string().uuid(),nodeId:z.string().optional()},annotations:read},
     ({revision,nodeId})=>result("avid_summary_node",()=>summaries.node(revision,nodeId)));
   server.registerTool("avid_list_summaries", {description:"Discover generated summary hierarchies for indexed media with pagination.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
     ({id,after,limit})=>result("avid_list_summaries",()=>summaries.list(id,after,limit)));

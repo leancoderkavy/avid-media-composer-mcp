@@ -21,6 +21,9 @@ it("bounds summary chunks without silently dropping long source segments",()=>{
 it("builds a hierarchy with leaf references and refuses changed transcript provenance",async()=>{
   const {id,transcript,summaries}=await fixture();const saved=await summaries.generate(id,transcript.revision),root=await summaries.node(saved.revision);
   expect(root.children.length).toBeGreaterThan(1);const leaf=await summaries.node(saved.revision,root.children[0]!.nodeId);expect(leaf.sources[0]?.index).toBe(0);expect(root.factualEntailmentVerified).toBe(false);
+  expect(root.sources.map(source=>source.index)).toEqual([0,1]);expect(root.sourceScope).toBe("descendant_leaves");
+  expect(leaf.sources.map(source=>source.index)).toEqual([0]);expect(leaf.sourceScope).toBe("direct_leaf");
+  expect(root.sources[0]?.text).toBe("source words ".repeat(250));
   await writeFile(transcript.path,JSON.stringify({id,segments:[{start:0,end:2,text:"changed"}]}));await expect(summaries.node(saved.revision)).rejects.toThrow("provenance");
 });
 it("permits discovery and deletion after transcript removal while protecting source scope",async()=>{
