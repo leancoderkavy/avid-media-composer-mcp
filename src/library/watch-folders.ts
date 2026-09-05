@@ -6,6 +6,7 @@ import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {MediaLibrary} from "./media-library.js";
+import {readBoundedJson} from "../security/bounded-read.js";
 
 export const watchOptions=z.object({folder:z.string().min(1),depth:z.number().int().min(0).max(8).default(2),maxFiles:z.number().int().min(1).max(1000).default(100),enabled:z.boolean().default(true)}).strict();
 const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.string().optional(),error:z.string().optional()});
@@ -24,8 +25,7 @@ export class WatchFolders {
   private async read(id:string){
     z.string().uuid().parse(id);const directory=await this.directory();
     const file=await resolveReadablePath(path.join(directory,`${id}.json`),[directory],"file");
-    if((await stat(file)).size>4*1024*1024)throw new Error("Watch manifest exceeds limit");
-    const record=watchRecord.parse(JSON.parse(await readFile(file,"utf8")));
+    const record=watchRecord.parse(await readBoundedJson(file,4*1024*1024));
     if(record.id!==id)throw new Error("Watch identity mismatch");
     await resolveReadablePath(record.options.folder,this.config.allowedRoots,"directory");
     return record;

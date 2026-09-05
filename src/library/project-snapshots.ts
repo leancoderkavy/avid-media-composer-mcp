@@ -7,6 +7,7 @@ import type {ServerConfig} from "../config.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {runProcess} from "../process.js";
 import {MediaLibrary} from "./media-library.js";
+import {readBoundedJson} from "../security/bounded-read.js";
 
 const unit=z.number().int().nonnegative();
 const node=z.object({kind:z.string(),timelineStart:unit,timelineEnd:unit,sourceMobId:z.string().optional(),sourceTrackId:z.number().int().optional(),sourceStart:z.number().int().optional(),opaque:z.boolean().optional(),timecode:z.object({start:z.number().int(),fps:z.number().int().positive(),flags:z.number().int()}).optional()});
@@ -43,8 +44,7 @@ export class ProjectSnapshots {
   private async read(revision:string){
     z.string().uuid().parse(revision);const directory=await this.library.directory();
     const file=await resolveReadablePath(path.join(directory,`snapshot-${revision}.json`),[directory],"file");
-    if((await stat(file)).size>32*1024*1024)throw new Error("Snapshot exceeds size limit");
-    const record=snapshotSchema.parse(JSON.parse(await readFile(file,"utf8")));
+    const record=snapshotSchema.parse(await readBoundedJson(file,32*1024*1024));
     if(record.revision!==revision)throw new Error("Snapshot identity mismatch");
     for(const bin of record.bins){
       try{await resolveReadablePath(bin.file,this.config.allowedRoots,"file");}

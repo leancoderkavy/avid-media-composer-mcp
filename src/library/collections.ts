@@ -8,6 +8,7 @@ import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {sha256File} from "../analysis/file-inventory.js";
 import {MediaLibrary} from "./media-library.js";
+import {readBoundedJson} from "../security/bounded-read.js";
 
 export const selectSchema=z.object({
   id:z.string().regex(/^[a-f0-9]{64}$/),start:z.number().nonnegative(),end:z.number().positive(),
@@ -42,8 +43,7 @@ export class Collections {
     z.string().uuid().parse(revision);
     const directory=await this.library.directory();
     const file=await resolveReadablePath(path.join(directory,`collection-${revision}.json`),[directory],"file");
-    if((await stat(file)).size>8*1024*1024)throw new Error("Collection exceeds limit");
-    const collection=collectionSchema.parse(JSON.parse(await readFile(file,"utf8")));
+    const collection=collectionSchema.parse(await readBoundedJson(file,8*1024*1024));
     await this.validate(collection);
     return {revision,...collection};
   }

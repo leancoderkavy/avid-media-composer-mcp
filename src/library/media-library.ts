@@ -8,6 +8,7 @@ import { resolveReadablePath } from "../security/path-policy.js";
 import { requireCapability } from "../security/capabilities.js";
 import { sha256File } from "../analysis/file-inventory.js";
 import { runProcess } from "../process.js";
+import {readBoundedJson} from "../security/bounded-read.js";
 
 export const transcriptSchema = z.array(z.object({
   start: z.number().nonnegative(), end: z.number().positive(), text: z.string().max(10000),
@@ -33,8 +34,7 @@ export class MediaLibrary {
     idSchema.parse(id);
     const directory = await this.directory();
     const file = await resolveReadablePath(path.join(directory, `${id}.json`), [directory], "file");
-    if ((await stat(file)).size > 20 * 1024 * 1024) throw new Error("Library entry exceeds limit");
-    const entry = JSON.parse(await readFile(file, "utf8")) as Entry;
+    const entry = await readBoundedJson(file,20*1024*1024) as Entry;
     if (entry.id !== id) throw new Error("Library identity mismatch");
     const candidates=[entry.file];
     const sources=path.join(directory,`${id}.sources`);
@@ -44,8 +44,7 @@ export class MediaLibrary {
       if(aliases.length>100)throw new Error("Too many source aliases");
       for(const alias of aliases.filter(name=>/^[a-f0-9]{64}\.json$/.test(name))){
         const target=await resolveReadablePath(path.join(sources,alias),[sources],"file");
-        if((await stat(target)).size>32768)throw new Error("Source alias exceeds limit");
-        const value=JSON.parse(await readFile(target,"utf8"));
+        const value=await readBoundedJson(target,32768) as {id:string;file:string};
         if(value.id!==id||typeof value.file!=="string")throw new Error("Invalid source alias");
         candidates.push(value.file);
       }
@@ -128,8 +127,7 @@ export class MediaLibrary {
       z.string().uuid().parse(revision);
       const directory = await this.directory();
       const file = await resolveReadablePath(path.join(directory, `${id}.transcript-${revision}.json`), [directory], "file");
-      if ((await stat(file)).size > 20 * 1024 * 1024) throw new Error("Transcript exceeds limit");
-      segments = transcriptSchema.parse(JSON.parse(await readFile(file, "utf8")).segments);
+      segments = transcriptSchema.parse((await readBoundedJson(file,20*1024*1024) as {segments:unknown}).segments);
     }
     if (end <= start) throw new Error("Invalid source range");
     const matches = segments.map((segment, index) => ({ ...segment, index })).filter(s => s.index > after && s.start < end && s.end > start);

@@ -7,6 +7,7 @@ import { resolveReadablePath } from "../security/path-policy.js";
 import { requireCapability } from "../security/capabilities.js";
 import { MediaLibrary } from "./media-library.js";
 import { modelRuntime } from "./model-runtime.js";
+import {readBoundedJson} from "../security/bounded-read.js";
 
 export const VISUAL_MODEL = "Xenova/clip-vit-base-patch32";
 export const VISUAL_REVISION = "d15189d7028b43f1d3e65039190477f6af591c2a";
@@ -63,8 +64,7 @@ export class VisualSearch {
     z.string().uuid().parse(indexId);
     const directory=await this.library.directory();
     const file=await resolveReadablePath(path.join(directory,`visual-${indexId}.json`),[directory],"file");
-    if((await stat(file)).size>32*1024*1024)throw new Error("Visual index exceeds limit");
-    const record=recordSchema.parse(JSON.parse(await readFile(file,"utf8")));
+    const record=recordSchema.parse(await readBoundedJson(file,32*1024*1024));
     // Enforce current source roots even when a prior index used wider access.
     await this.library.metadata([...new Set(record.samples.map(sample=>sample.id))]);
     const models=await this.load();
