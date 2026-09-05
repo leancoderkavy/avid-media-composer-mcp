@@ -24,7 +24,9 @@ try{
   }
   const mean=field=>results.reduce((sum,row)=>sum+Number(row[field]),0)/results.length,metrics=Object.fromEntries(['hit1','hit3','hit5','reciprocalRank','recall5'].map(field=>[field,mean(field)]));
   const negatives=[];for(const text of labels.negativeQueries){const response=await client.callTool({name:'avid_search_visual',arguments:{indexId:prior.index.indexId,query:{text},limit:3}});assert.ok(!response.isError,JSON.stringify(response));negatives.push({text,expectedRelevantSamples:0,results:response.structuredContent.data.results.map(result=>({index:prior.samples.find(sample=>sample.time===result.time).index,time:result.time,score:result.score}))});}
+  const longQuery='a '.repeat(90)+'a violin',rejected=await client.callTool({name:'avid_search_visual',arguments:{indexId:prior.index.indexId,query:{text:longQuery},limit:3}});
+  assert.equal(rejected.isError,true);const queryLengthProbe=rejected.structuredContent.error;assert.equal(queryLengthProbe.code,'VISUAL_QUERY_TOO_LONG');assert.ok(queryLengthProbe.details.tokenCount>77);assert.equal(queryLengthProbe.details.maxTokens,77);
   assert.equal(await sha256File(source),labels.sourceId);for(const sample of sampleHashes)assert.equal(await sha256File(prior.samples[sample.index].image),sample.sha256);
-  await writeFile(path.join(root,'evidence.json'),JSON.stringify({labels,indexId:prior.index.indexId,sampleHashes,metrics,results,negatives,sourceUnchanged:true,scope:'One 32-sample Sonoma development set; assistant-authored labels, not independent ground truth or broad accuracy acceptance'},null,2));
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({labels,indexId:prior.index.indexId,sampleHashes,metrics,results,negatives,queryLengthProbe,sourceUnchanged:true,scope:'One 32-sample Sonoma development set; assistant-authored labels, not independent ground truth or broad accuracy acceptance'},null,2));
   console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),metrics,negatives,queries:results.map(row=>({text:row.text,firstRelevantRank:row.firstRelevantRank,recall5:row.recall5,top:row.ranked[0].index}))}));
 }finally{await client.close();}

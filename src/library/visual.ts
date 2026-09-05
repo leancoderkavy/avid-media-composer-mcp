@@ -15,6 +15,7 @@ import {AvidMcpError} from "../errors.js";
 
 export const VISUAL_MODEL = "Xenova/clip-vit-base-patch32";
 export const VISUAL_REVISION = "d15189d7028b43f1d3e65039190477f6af591c2a";
+export const VISUAL_TEXT_TOKEN_LIMIT = 77; // Pinned text_config.max_position_embeddings, including special tokens.
 export async function loadVisualModels(cache: string, download = false) {
   const {AutoTokenizer,AutoProcessor,CLIPTextModelWithProjection,CLIPVisionModelWithProjection,RawImage} = await modelRuntime(cache,download);
   const options = {cache_dir:cache,revision:VISUAL_REVISION,local_files_only:!download,dtype:"q8" as const};
@@ -123,7 +124,11 @@ export class VisualSearch {
     const models=await this.load();
     let embedding:number[];
     if("text" in query){
-      const result=await models.text(await models.tokenizer(query.text,{padding:true,truncation:true}));
+      const text=z.string().trim().min(1).max(500).parse(query.text),tokens=await models.tokenizer(text,{padding:true,truncation:false});
+      const tokenCount=tokens.input_ids.dims.at(-1);
+      if(!Number.isInteger(tokenCount)||tokenCount!<1)throw new Error("Visual tokenizer returned an invalid token shape");
+      if(tokenCount!>VISUAL_TEXT_TOKEN_LIMIT)throw new AvidMcpError("VISUAL_QUERY_TOO_LONG","Visual query exceeds the pinned model context; shorten it or search distinct concepts separately. No query text was silently discarded.",{tokenCount,maxTokens:VISUAL_TEXT_TOKEN_LIMIT});
+      const result=await models.text(tokens);
       embedding=Array.from(result.text_embeds.data,Number);
     }else{
       const image=await resolveReadablePath(query.image,[...this.config.allowedRoots,directory],"file");

@@ -7,9 +7,9 @@ import {VisualCheckpoints} from "../src/library/visual-checkpoints.js";
 import {MediaLibrary} from "../src/library/media-library.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 import {loadConfig} from "../src/config.js";
-const model=vi.hoisted(()=>({vision:vi.fn()}));
-vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({AutoTokenizer:{from_pretrained:async()=>{}},AutoProcessor:{from_pretrained:async()=>async(image:unknown)=>image},CLIPTextModelWithProjection:{from_pretrained:async()=>({dispose:async()=>{}})},CLIPVisionModelWithProjection:{from_pretrained:async()=>Object.assign(model.vision,{dispose:async()=>{}})},RawImage:{read:async(image:unknown)=>image}})}));
-afterEach(()=>{vi.restoreAllMocks();model.vision.mockReset();});
+const model=vi.hoisted(()=>({vision:vi.fn(),text:vi.fn(),tokenizer:vi.fn()}));
+vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({AutoTokenizer:{from_pretrained:async()=>model.tokenizer},AutoProcessor:{from_pretrained:async()=>async(image:unknown)=>image},CLIPTextModelWithProjection:{from_pretrained:async()=>Object.assign(model.text,{dispose:async()=>{}})},CLIPVisionModelWithProjection:{from_pretrained:async()=>Object.assign(model.vision,{dispose:async()=>{}})},RawImage:{read:async(image:unknown)=>image}})}));
+afterEach(()=>{vi.restoreAllMocks();model.vision.mockReset();model.text.mockReset();model.tokenizer.mockReset();});
 async function fixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-visual-resume-")),source=path.join(root,"source.mp4");await writeFile(source,"source");const id=await sha256File(source);
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:root,AVID_MCP_CAPABILITIES:"inspect,export"});
@@ -27,6 +27,12 @@ it("resumes persisted embeddings after failure without recomputing the prefix",a
   expect(await readFile(path.join(directory,`visual-run-${partial!.runId}`,"0.json"),"utf8")).toBe(original);
   expect(await visual.checkpoints.status(resumed.runId)).toMatchObject({state:"completed",completedSamples:3});
   await expect(visual.resume(resumed.runId)).rejects.toThrow("already completed");
+});
+it("rejects oversized text before inference instead of dropping its suffix",async()=>{
+  const {visual,id}=await fixture(),index=await visual.index([id],1);model.tokenizer.mockResolvedValue({input_ids:{dims:[1,78]}});
+  await expect(visual.search(index.indexId,{text:"A long query fixture"},10)).rejects.toMatchObject({code:"VISUAL_QUERY_TOO_LONG",details:{tokenCount:78,maxTokens:77}});expect(model.text).not.toHaveBeenCalled();expect(model.tokenizer).toHaveBeenCalledWith("A long query fixture",{padding:true,truncation:false});
+  const accepted={input_ids:{dims:[1,77]}};model.tokenizer.mockResolvedValue(accepted);model.text.mockResolvedValue({text_embeds:{data:Array(512).fill(0.5)}});expect((await visual.search(index.indexId,{text:"A valid query"},10)).results).toHaveLength(1);expect(model.text).toHaveBeenCalledWith(accepted);
+  await expect(visual.search(index.indexId,{text:"   "},10)).rejects.toThrow();
 });
 it("rejects changed source, image, model revision and narrowed roots",async()=>{
   const {config,id,visual,directory,source}=await fixture();model.vision.mockResolvedValueOnce({image_embeds:{data:Array(512).fill(0.5)}}).mockRejectedValueOnce(new Error("stop"));await expect(visual.index([id],3)).rejects.toThrow();

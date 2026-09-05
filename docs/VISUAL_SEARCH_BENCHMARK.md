@@ -37,6 +37,12 @@ Absent scenes also received ranked results:
 
 The violin score exceeds the best relevant phone-screen (0.2583), parking-lot (0.2668) and patio (0.2681) scores. A single fixed cutoff cannot separate all those cases on this development set. No new threshold was adopted. Search ranks available samples; it does not verify that the requested scene exists.
 
+## Query-length regression
+
+The original tokenizer call enabled truncation. Text search now tokenizes without truncation and rejects input beyond the pinned model's 77 positions, including special tokens, with `VISUAL_QUERY_TOO_LONG` and the actual token count. This prevents silently ignoring a distinguishing suffix. The 500-character tool-input limit remains a separate outer bound.
+
+Actual MCP rejected a 94-token fixture. All 16 positive query rank/score arrays and all three negative query outputs were exactly equal to the previous evidence after this change. Evidence: `.avid-mcp-analysis/visual-ranking-09818354-e617-40a7-8aeb-bc4e7eb44d68/evidence.json`. Unit coverage verifies the 77/78 boundary and that oversized text never reaches text-model inference. This corrects input preservation, not the ranking limitations above.
+
 ## Remaining acceptance work
 
 Obtain independent relevance judgments and a held-out set across different source footage. Include subtle actions, paraphrases, negatives, repeated scenes, visually similar distractors and sparse-versus-dense sampling. Measure per-query precision/recall, resource use and end-to-end latency separately. Evaluate any model, reranker or threshold change against the frozen baseline plus held-out data. These results do not close broad ranking accuracy, detector precision/recall, unsampled appearance coverage or calibrated abstention requirements.
