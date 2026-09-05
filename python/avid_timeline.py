@@ -28,7 +28,7 @@ def index_bin(filename, max_nodes=10000):
                     raise ValueError('Track count exceeds index limit')
                 nodes=[]
 
-                def visit(component, position, depth):
+                def visit(component, position, depth, channel=None):
                     nonlocal count
                     count+=1
                     if count>max_nodes or depth>32:
@@ -48,9 +48,30 @@ def index_bin(filename, max_nodes=10000):
                     if right<=left:
                         return
                     node={'kind':kind,'timelineStart':left-start,'timelineEnd':right-start}
+                    if kind=='TKFX' and component.effect_id=='EFF2_AUDIO_CHANNEL_COMBINER':
+                        children=list(component.tracks)
+                        qualified=(component.media_kind=='sound' and len(children)==2
+                                   and [getattr(child,'index',None) for child in children]==[1,2]
+                                   and getattr(component,'info_is_reversed',None)==0
+                                   and getattr(component,'mc_mode',None)==0
+                                   and getattr(component,'num_scalars',None)==0
+                                   and getattr(component,'param_list',None) is None
+                                   and getattr(component,'keyframes',None) is None)
+                        qualified=qualified and all(
+                            getattr(child,'component',None) is not None
+                            and child.component.class_id==b'SCLP'
+                            and child.component.media_kind=='sound'
+                            and float(child.component.edit_rate)==rate
+                            and child.component.length==length for child in children)
+                        if qualified:
+                            for child in children:
+                                visit(child.component,position,depth+1,
+                                      {'channelIndex':int(child.index),'channelCount':2})
+                            return
                     if kind=='SCLP':
                         node.update(sourceMobId=str(component.mob_id),sourceTrackId=int(component.track_id),
                                     sourceStart=int(component.start_time)+left-position)
+                        if channel is not None:node['channelCombiner']=channel
                     elif kind=='TCCP':
                         node['timecode']={'start':int(component.start)+left-position,'fps':int(component.fps),'flags':int(component.flags)}
                     elif kind!='FILL':

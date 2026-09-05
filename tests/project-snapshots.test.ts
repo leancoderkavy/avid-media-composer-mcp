@@ -16,6 +16,20 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("retains stereo channel identity through range paging, usage and semantic diff",async()=>{
+    const {record,save,snapshots}=await fixture();const track=record.bins[0]!.mobs[0]!.tracks[0]!;
+    track.mediaKind="sound";
+    Object.assign(track.nodes[0]!,{channelCombiner:{channelIndex:1,channelCount:2}});
+    track.nodes.push({...track.nodes[0]!,sourceTrackId:2,...{channelCombiner:{channelIndex:2,channelCount:2}}});
+    const baseline=await save();
+    const first=await snapshots.range(baseline,"sequence",15,30,0,-1,1);
+    expect(first.results[0]).toMatchObject({channelCombiner:{channelIndex:1,channelCount:2},overlapSourceStart:105,overlapSourceEnd:120});
+    const second=await snapshots.range(baseline,"sequence",15,30,0,first.nextAfter!,1);
+    expect(second.results[0]).toMatchObject({channelCombiner:{channelIndex:2,channelCount:2},sourceTrackId:2});
+    expect((await snapshots.usage(baseline,"source")).usages.map(item=>item.channelCombiner?.channelIndex)).toEqual([1,2]);
+    record.revision=randomUUID();Object.assign(track.nodes[1]!,{channelCombiner:{channelIndex:1,channelCount:2}});
+    expect((await snapshots.diff(baseline,await save())).changes[0]?.change).toBe("changed");
+  });
   it("maps overlap source ranges and compares semantics independently of save metadata",async()=>{
     const {record,save,snapshots}=await fixture();const baseline=await save();
     expect((await snapshots.range(baseline,"sequence",15,30)).results[0]).toMatchObject({overlapSourceStart:105,overlapSourceEnd:120,mediaKind:"picture"});

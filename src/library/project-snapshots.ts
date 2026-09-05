@@ -10,7 +10,7 @@ import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 
 const unit=z.number().int().nonnegative();
-const node=z.object({kind:z.string(),timelineStart:unit,timelineEnd:unit,sourceMobId:z.string().optional(),sourceTrackId:z.number().int().optional(),sourceStart:z.number().int().optional(),opaque:z.boolean().optional(),timecode:z.object({start:z.number().int(),fps:z.number().int().positive(),flags:z.number().int()}).optional()});
+const node=z.object({kind:z.string(),timelineStart:unit,timelineEnd:unit,sourceMobId:z.string().optional(),sourceTrackId:z.number().int().optional(),sourceStart:z.number().int().optional(),channelCombiner:z.object({channelIndex:z.union([z.literal(1),z.literal(2)]),channelCount:z.literal(2)}).strict().optional(),opaque:z.boolean().optional(),timecode:z.object({start:z.number().int(),fps:z.number().int().positive(),flags:z.number().int()}).optional()});
 const track=z.object({ordinal:unit,index:z.number().int(),mediaKind:z.string(),nodes:z.array(node).max(10000)});
 const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128)});
 const bin=z.object({schema:z.literal(1),file:z.string(),sha256:z.string().regex(/^[a-f0-9]{64}$/),mobs:z.array(mob).max(1000),warnings:z.array(z.record(z.string(),z.unknown())).max(1000),complete:z.boolean(),nodeCount:unit,stateOrigin:z.string()});
