@@ -118,3 +118,15 @@ it("rejects stale checkpoints, changed runtime/audio/source and insufficient res
   const audio=path.join(f.base,`speakers-${parentId}`,"speech.f32"),original=await readFile(audio);await writeFile(audio,"corrupt");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("audio changed");await writeFile(audio,original);
   await writeFile(f.source,"changed");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("source changed");expect(mocks.run).not.toHaveBeenCalled();
 });
+it("requires explicit saved options and refuses nonfinite checkpoint audio even when its checksum matches",async()=>{
+  const f=await fixture(),normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow();
+  const analysisId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!,directory=path.join(f.base,`speakers-${analysisId}`),file=path.join(directory,"audio.json"),original=JSON.parse(await readFile(file,"utf8"));mocks.run.mockClear();
+  for(const key of ["speakers","threshold"]){const changed=structuredClone(original);delete changed.options[key];await writeFile(file,JSON.stringify(changed));await expect(f.speakers.checkpoint(analysisId)).rejects.toThrow();}
+  const audio=path.join(directory,"speech.f32"),pcm=await readFile(audio);for(const value of [NaN,Infinity,-Infinity]){pcm.writeFloatLE(value,0);await writeFile(audio,pcm);await writeFile(file,JSON.stringify({...original,audioSha256:await sha256File(audio)}));await expect(f.speakers.checkpoint(analysisId)).rejects.toThrow("Nonfinite");await expect(f.speakers.resume(analysisId,await sha256File(file))).rejects.toThrow("Nonfinite");}
+  expect(mocks.run).not.toHaveBeenCalled();expect(await sha256File(f.source)).toBe(f.id);
+});
+it("refuses invalid extracted samples before publishing a checkpoint or invoking inference",async()=>{
+  const f=await fixture();mocks.run.mockImplementationOnce(async(_exe:string,args:string[])=>{const pcm=Buffer.alloc(64000);pcm.writeFloatLE(Infinity,4);await writeFile(args.at(-1)!,pcm);return {exitCode:0};});
+  await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow("Nonfinite");expect(mocks.run).toHaveBeenCalledTimes(1);
+  const analysisId=(await f.speakers.list(f.id)).discovery.unpublishedAnalysisIds[0]!;await expect(readFile(path.join(f.base,`speakers-${analysisId}`,"audio.json"))).rejects.toMatchObject({code:"ENOENT"});
+});
