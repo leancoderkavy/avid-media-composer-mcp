@@ -7,6 +7,7 @@ import { VisualSearch } from "./visual.js";
 import { SpeechAnalysis } from "./speech.js";
 import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
+import {WatchFolders,watchOptions} from "./watch-folders.js";
 
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const library = new MediaLibrary(config);
@@ -14,8 +15,9 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const speech = new SpeechAnalysis(config);
   const jobs = new AnalysisJobs(config);
   const collections = new Collections(config);
+  const watches = new WatchFolders(config);
   const previousClose=server.server.onclose;
-  server.server.onclose=()=>{jobs.close();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
+  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
   const ids = z.array(id).min(1).max(100);
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
@@ -66,4 +68,14 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({revision,start,end,after,limit})=>result("avid_collection_range",()=>collections.range(revision,start,end,after,limit)));
   server.registerTool("avid_export_collection_otio", {description:"Export frame-quantized single-video-track OTIO selects with local media references. Requires export. Avid import is not verified; audio routing/effects are not authored.",inputSchema:{revision:z.string().uuid(),rate:z.number().positive().max(240)},annotations:write},
     ({revision,rate})=>result("avid_export_collection_otio",()=>collections.exportOtio(revision,rate)));
+  server.registerTool("avid_configure_watch_folder", {description:"Create or replace a persistent bounded local watch folder. Requires project-write. Two stable observations precede indexing; service starts separately.",inputSchema:{options:watchOptions,watchId:z.string().uuid().optional()},annotations:write},
+    ({options,watchId})=>result("avid_configure_watch_folder",()=>watches.configure(options,watchId)));
+  server.registerTool("avid_list_watch_folders", {description:"List configured watch folders within current path scope and their checkpoints.",inputSchema:{},annotations:read},
+    ()=>result("avid_list_watch_folders",()=>watches.list()));
+  server.registerTool("avid_remove_watch_folder", {description:"Remove a watch configuration; source media and cached analysis remain. Requires project-write.",inputSchema:{watchId:z.string().uuid()},annotations:write},
+    ({watchId})=>result("avid_remove_watch_folder",()=>watches.remove(watchId)));
+  server.registerTool("avid_scan_watch_folder", {description:"Run one bounded watch-folder observation/indexing pass with per-file checkpoints. Does not upload or edit source media.",inputSchema:{watchId:z.string().uuid()},annotations:write},
+    ({watchId})=>result("avid_scan_watch_folder",()=>watches.scan(watchId)));
+  server.registerTool("avid_watch_service", {description:"Start/stop local polling or read its status. Service belongs to this MCP session, stops at disconnect, and does not restart automatically. Stop lets the current file finish.",inputSchema:{action:z.enum(["start","stop","status"]),intervalSeconds:z.number().int().min(10).max(3600).default(30)},annotations:write},
+    ({action,intervalSeconds})=>result("avid_watch_service",async()=>action==="start"?watches.start(intervalSeconds):action==="stop"?watches.stop():watches.status()));
 }

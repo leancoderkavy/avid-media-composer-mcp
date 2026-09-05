@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile, realpath, copyFile, stat } from "node:fs/promises";
+import { mkdir, readFile, writeFile, realpath, copyFile, stat, readdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import * as z from "zod/v4";
 import type { ServerConfig } from "../config.js";
 import { resolveReadablePath } from "../security/path-policy.js";
@@ -36,7 +36,27 @@ export class MediaLibrary {
     if ((await stat(file)).size > 20 * 1024 * 1024) throw new Error("Library entry exceeds limit");
     const entry = JSON.parse(await readFile(file, "utf8")) as Entry;
     if (entry.id !== id) throw new Error("Library identity mismatch");
-    await resolveReadablePath(entry.file, this.config.allowedRoots, "file");
+    const candidates=[entry.file];
+    const sources=path.join(directory,`${id}.sources`);
+    try {
+      await resolveReadablePath(sources,[directory],"directory");
+      const aliases=await readdir(sources);
+      if(aliases.length>100)throw new Error("Too many source aliases");
+      for(const alias of aliases.filter(name=>/^[a-f0-9]{64}\.json$/.test(name))){
+        const target=await resolveReadablePath(path.join(sources,alias),[sources],"file");
+        if((await stat(target)).size>32768)throw new Error("Source alias exceeds limit");
+        const value=JSON.parse(await readFile(target,"utf8"));
+        if(value.id!==id||typeof value.file!=="string")throw new Error("Invalid source alias");
+        candidates.push(value.file);
+      }
+    }catch(error){if(!["ENOENT","PATH_NOT_FOUND"].includes((error as NodeJS.ErrnoException).code??""))throw error;}
+    let available:string|undefined;
+    for(const candidate of candidates){
+      try {available=await resolveReadablePath(candidate,this.config.allowedRoots,"file");break;}
+      catch { /* A cache can be shared across different allowed roots or disconnected disks. */ }
+    }
+    if(!available)throw new Error("Indexed source is missing or outside current allowed roots; index its new location to reconnect");
+    entry.file=available;
     entry.transcript = transcriptSchema.parse(entry.transcript);
     return entry;
   }
@@ -62,6 +82,12 @@ export class MediaLibrary {
       try {
         await writeFile(path.join(directory, `${before}.json`), JSON.stringify(entry), { flag: "wx" });
       } catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
+      const sources=path.join(directory,`${before}.sources`);
+      await mkdir(sources,{recursive:true});
+      await resolveReadablePath(sources,[directory],"directory");
+      const alias=path.join(sources,`${createHash("sha256").update(file).digest("hex")}.json`);
+      try{await writeFile(alias,JSON.stringify({id:before,file}),{flag:"wx"});}
+      catch(error){if((error as NodeJS.ErrnoException).code!=="EEXIST")throw error;}
       result.push({ id: before, file, duration: metadata.format?.duration, streams: metadata.streams });
     }
     return { entries: result, sourceModified: false };

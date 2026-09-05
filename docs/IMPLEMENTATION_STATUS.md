@@ -2,6 +2,8 @@
 
 Work in progress, 2026-09-05. The full plan is not complete. This file distinguishes implementation from host qualification and preserves the remaining scope.
 
+The complete requirement-by-requirement [completion ledger](COMPLETION_LEDGER.md) is the completion audit source. Verified increments are committed and pushed on `codex/open-source-full-plan`; the overall goal remains active.
+
 ## Implemented in this checkout
 
 - TypeScript native MCAPI client using local descriptor discovery on the pinned Windows 2024.12 executable. No Avid SDK/descriptor payload is distributed.
@@ -13,6 +15,7 @@ Work in progress, 2026-09-05. The full plan is not complete. This file distingui
 - Local CLIP text/image similarity over sampled frames, with explicitly downloaded pinned weights.
 - Local English Whisper transcription with reviewable timestamped output; no speaker diarization.
 - Bounded worker queue with job status and cancellation for media analysis; one active worker to limit model memory.
+- Persistent watch-folder configuration and per-file checkpoints, explicit polling start/stop, stable-file detection and cross-process watch locks. Content-ID source aliases reconnect moved media while retaining transcript revisions.
 - CLI doctor and configuration generation/backup/merge for Claude, Cursor, VS Code, LM Studio and generic stdio clients. Codex currently uses its own CLI with the generated command/environment.
 
 ## Evidence so far
@@ -54,4 +57,4 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 - Add original workflow skills, optional Jumper provider integration, and remaining enterprise adapter improvements.
 - Mac implementation and host qualification remain deferred until work is on a Mac, as requested by the user.
 
-No release, npm publication, deployment or PR has been created for these changes yet. Existing production version remains 1.1.0; new work is unreleased.
+The baseline was committed/pushed as `0d382aa`. No release, npm publication, deployment or PR has been created for these changes yet. Existing production version remains 1.1.0; new work is unreleased.
