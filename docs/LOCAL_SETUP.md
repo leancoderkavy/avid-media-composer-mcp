@@ -123,3 +123,12 @@ Download the optional English model with `avid-mcp --download-models --summaries
 `avid_list_summaries` discovers saved hierarchies; `avid_summary_node` reads the overview or a selected child and returns leaf transcript references. Reads validate the transcript checksum and source indices. These checks establish provenance, not factual entailment. The English news-trained model can omit content, repeat text, fabricate details or end mid-sentence, and is not qualified for visual-only descriptions. Review against the transcript before using generated claims.
 
 `avid_delete_summary` removes one checksum-selected summary document while retaining media and transcripts. Discovery/deletion remain available if its transcript was deleted; content reads fail because provenance is unavailable. Generated summaries are derived copies and are not automatically removed when a transcript revision is deleted.
+
+
+## Reference-preserving AAF selects
+
+`avid_inspect_aaf_template` accepts a master-only Avid-exported AAF, enumerates masters/slots, and verifies/hashes local file locators against the allowed roots. Both the template and referenced media must be in scope. Network/remote locators, existing compositions and embedded essence are rejected. This inspection requires `export` because it writes a local request manifest.
+
+`avid_build_aaf_selects` accepts the template checksum, a composition name and rational edit rate, destination picture/sound tracks, and ordered selects containing master MOB IDs, source frame start/length and source slot IDs for each destination track. Source rates must match exactly. It preserves the template descriptors and writes a new file exclusively, then reopens it to verify every source reference and cut range. It returns the output hash and media hashes. Limits: 64 MiB template, 100 masters/locators, 16 tracks, 500 selects. Failed builds can leave a partial generated folder for inspection.
+
+The current authoring scope is straight cuts. Effects, retimes, transitions, embedded essence and existing compositions are unsupported. The output is a new AAF; this tool does not import it into Avid or prove playback/render fidelity. One three-track 30 fps Sonoma sequence was separately imported and checked in a saved AVB; see NATIVE_AAF_QUALIFICATION.md. Broader sources/rates and a guarded native import/export adapter remain qualification work.

@@ -25,5 +25,5 @@ it("refuses an active lifecycle lock and invalid JSON without replacing them",as
   await writeFile(file,"not json");await expect(changeConfiguration(file,{action:"install",key,entry:{command:"x"}})).rejects.toThrow();expect(await readFile(file,"utf8")).toBe("not json");
 });
 it("does not expose other entries or environment values through status",async()=>{
-  const {file}=await fixture();await writeFile(file,JSON.stringify({mcpServers:{[name]:{env:{SECRET:"private"}}}}));const status=await configurationStatus(file);expect(JSON.stringify(status)).not.toContain("private");expect(status.sha256).toMatch(/^[a-f0-9]{64}$/);
+  const {file}=await fixture();await writeFile(file,JSON.stringify({mcpServers:{[name]:{env:{SECRET:"fixture-secret-8d1e7c"}}}}));const status=await configurationStatus(file);expect(JSON.stringify(status)).not.toContain("fixture-secret-8d1e7c");expect(status.sha256).toMatch(/^[a-f0-9]{64}$/);
 });

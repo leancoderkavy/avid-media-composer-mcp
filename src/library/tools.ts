@@ -9,6 +9,7 @@ import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
 import {ProjectSnapshots} from "./project-snapshots.js";
+import {AafBuilder,aafBuildSchema} from "./aaf-builder.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc,qcOptions} from "./qc.js";
 import {People,peopleEditSchema} from "./people.js";
@@ -25,6 +26,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const people = new People(config);
   const qc = new MediaQc(config);
   const summaries = new MediaSummaries(config);
+  const aafBuilder = new AafBuilder(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
   server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose()]);previousClose?.();};
@@ -36,6 +38,10 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_inspect_aaf_template", {description:"Inspect a master-only Avid-exported AAF and validate/hash local media locators. Requires export for a request manifest. Does not import into Avid.",inputSchema:{template:z.string().min(1)},annotations:write},
+    ({template})=>result("avid_inspect_aaf_template",()=>aafBuilder.inspect(template)));
+  server.registerTool("avid_build_aaf_selects", {description:"Build a new straight-cut AAF composition preserving exported source descriptors. Requires export, current template checksum and explicit master/slot mappings. Verifies output ranges; host import/playback is separate.",inputSchema:{request:aafBuildSchema},annotations:write},
+    ({request})=>result("avid_build_aaf_selects",()=>aafBuilder.build(request)));
   server.registerTool("avid_generate_summary", {description:"Generate a local English transcript summary hierarchy with pinned DistilBART. Requires project-write and explicitly downloaded models. Source references are checked; factual accuracy requires review. Use a summary job for longer transcripts.",inputSchema:{id,transcriptRevision:z.string().uuid()},annotations:write},
     ({id,transcriptRevision})=>result("avid_generate_summary",()=>summaries.generate(id,transcriptRevision)));
   server.registerTool("avid_summary_node", {description:"Read a generated summary overview or drill into a node, with children and leaf transcript references. Refuses changed/missing transcript provenance.",inputSchema:{revision:z.string().uuid(),nodeId:z.string().optional()},annotations:read},

@@ -45,7 +45,7 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 
 ### Latest complete check
 
-`npm run check` passed on 2026-09-05: 163 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 75 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 75 tools include the pre-existing read-only/bridge tools; this count is not 75 newly qualified native editor operations.
+`npm run check` passed on 2026-09-05: 165 TypeScript tests, seven Python tests, stdio and HTTP smoke tests with 77 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 77 tools include the pre-existing read-only/bridge tools; this count is not 77 newly qualified native editor operations.
 
 ## Remaining delivery work
 
@@ -74,3 +74,5 @@ Configuration lifecycle supports checksum-checked entry update/removal and selec
 Local generated summaries now provide transcript-linked hierarchy, overview/drill-down, discovery and deletion. The real optional DistilBART runtime generated a three-node synthetic-notes example; source references matched, but the overview ended at the token budget with an incomplete sentence. Missing sentence boundaries are flagged. Factual accuracy, completeness and visual grounding remain unqualified.
 
 Native AAF research now proves one 30 fps, three-track, two-cut sequence import and saved-bin conformance on the installed host. It is not yet a shipping general timeline tool; playback/render/relink/undo remain unverified. See NATIVE_AAF_QUALIFICATION.md.
+
+The source-checked AAF selects builder now ships as two MCP tools. Real stdio qualification rebuilt the two-cut Sonoma fixture and rejected a mismatched edit rate. It generates a new conformance-checked file; native import/export, playback/render and general fidelity qualification remain separate.
