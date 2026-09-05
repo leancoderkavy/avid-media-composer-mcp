@@ -1,0 +1,11 @@
+# Merge source references
+
+`avid_merge_aaf_references` combines 2–16 exported source-master AAFs into a new local template for `avid_build_aaf_selects`. It requires `inspect`/`export` capabilities, an output root, current SHA-256 checksums and allowed-root access to every reference and its local media.
+
+Pass `request.sources` as an array of `{file, expectedSha256}`. The returned `template`, `sha256`, `masters` and `sources[].remappedMobIds` identify the combined result. Select master IDs from this result: a colliding master or source identity may have been remapped. The operation never imports or relinks media in Avid.
+
+Inputs must be distinct external-reference AAF files without compositions or embedded essence. Each input/output is bounded to 64 MiB; the backend also bounds masters, mobs, graph traversal and reachable definitions. Conflicting weak target definitions are refused. The first reference dictionary is retained; colliding MobIDs in later graphs receive new identities and references are updated in the copied graphs. Reopened stored properties and reachable weak targets must match the originals, allowing only those substitutions. Implicit class/type schemas are not fully compared.
+
+The MCP wrapper resolves local media paths, checks media and source hashes after merging, re-inspects output locators and publishes a receipt only after verification. Failed output and request manifests remain for inspection with no success receipt. The operation does not overwrite sources or an existing output.
+
+Real stdio qualification: `node scripts/research/qualify-aaf-merge-mcp.mjs`. Evidence at `.avid-mcp-analysis/aaf-merge-mcp-8af7bf95-bce6-4ba8-95a1-1f69bfc07b23/evidence.json` records merging distinct preview/slideshow references, building explicit stereo selects and inspecting the 120-frame two-master result. This exact MCP-generated artifact has not yet been imported into Avid. Earlier research-generated merges have separate native import/render and audio evidence in the completion ledger. General color acceptance and broader source/format qualification remain open.

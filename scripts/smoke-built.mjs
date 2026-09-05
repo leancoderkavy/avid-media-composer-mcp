@@ -26,7 +26,7 @@ try {
     client.listPrompts(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 126) throw new Error(`Expected 126 tools, got ${tools.tools.length}`);
+  if (tools.tools.length !== 127) throw new Error(`Expected 127 tools, got ${tools.tools.length}`);
   if (resources.resources.length !== 1) {
     throw new Error(`Expected 1 resource, got ${resources.resources.length}`);
   }

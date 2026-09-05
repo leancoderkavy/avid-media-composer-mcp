@@ -10,6 +10,7 @@ import {requireCapability} from "../security/capabilities.js";
 import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
 const mob=z.string().regex(/^urn:smpte:umid:[a-f0-9.]+$/i);
+export const aafMergeSchema=z.object({sources:z.array(z.object({file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict()).min(2).max(16)}).strict();
 export const aafBuildSchema=z.object({
   template:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),name:z.string().min(1).max(120),rate:z.string().regex(/^\d+(?:\/\d+)?$/),
   tracks:z.array(z.object({name:z.string().min(1).max(40),kind:z.enum(["picture","sound"]),channels:z.literal(2).optional()}).strict().refine(t=>t.channels===undefined||t.kind==="sound",{message:"Stereo requires sound"})).min(1).max(16),
@@ -39,6 +40,33 @@ export class AafBuilder {
     return {source,sha256,directory,info,media};
   }
   async inspect(template:string){const {source,sha256,info,media}=await this.prepare(template);return {template:source,sha256,...info,media,scope:"Source-master templates only; inspection writes a local request manifest"};}
+  async merge(input:z.infer<typeof aafMergeSchema>){
+    requireCapability(this.config.capabilities,"export");
+    const request=aafMergeSchema.parse(input),prepared:Awaited<ReturnType<AafBuilder["prepare"]>>[]=[];
+    for(const item of request.sources){
+      const entry=await this.prepare(item.file);
+      if(entry.sha256!==item.expectedSha256)throw new Error("AAF source checksum changed");
+      if(prepared.some(other=>other.source===entry.source))throw new Error("Duplicate AAF source");
+      prepared.push(entry);
+    }
+    const directory=path.join(await this.library.directory(),`aaf-merge-${randomUUID()}`);await mkdir(directory);
+    await resolveReadablePath(directory,[this.config.outputRoot!],"directory");
+    const output=path.join(directory,"references.aaf");
+    try{
+      const result=z.object({output:z.string(),sha256:z.string().regex(/^[a-f0-9]{64}$/),graphVerified:z.literal(true),sourceHashesUnchanged:z.literal(true),hostImportVerified:z.literal(false),sources:z.array(z.object({file:z.string(),sha256:z.string(),remappedMobIds:z.record(mob,mob)})).min(2).max(16),limitations:z.array(z.string())}).parse(await this.run({action:"merge",output,sources:prepared.map(p=>({file:p.source,expectedSha256:p.sha256}))},directory));
+      if(path.resolve(result.output)!==output||result.sources.length!==prepared.length||result.sources.some((s,i)=>s.file!==prepared[i]!.source||s.sha256!==prepared[i]!.sha256))throw new Error("Invalid merge source evidence");
+      const canonical=await resolveReadablePath(output,[directory],"file");
+      if(await sha256File(canonical)!==result.sha256)throw new Error("Merged AAF checksum changed");
+      const info=infoSchema.parse(await this.run({action:"inspect",source:canonical},directory));
+      const locators=[...new Set(prepared.flatMap(p=>p.info.locators))].sort();
+      if(JSON.stringify([...info.locators].sort())!==JSON.stringify(locators))throw new Error("Merged AAF locators changed");
+      const media=[...new Map(prepared.flatMap(p=>p.media).map(m=>[m.file,m])).values()];
+      for(const item of [...prepared.map(p=>({file:p.source,sha256:p.sha256})),...media])if(await sha256File(await resolveReadablePath(item.file,this.config.allowedRoots,"file"))!==item.sha256)throw new Error("Merge source or media changed");
+      if(await sha256File(await resolveReadablePath(output,[directory],"file"))!==result.sha256)throw new Error("Merged AAF changed during verification");
+      const receipt={...result,template:canonical,...info,media};
+      await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return receipt;
+    }catch(error){await writeFile(path.join(directory,"failure.json"),JSON.stringify({verified:false,output,error:error instanceof Error?error.message:String(error)}),{flag:"wx"});throw error;}
+  }
   async inspectSelects(file:string){
     const {source,sha256,info,media}=await this.prepare(file,true);
     for(const item of media)if(await sha256File(await resolveReadablePath(item.file,this.config.allowedRoots,"file"))!==item.sha256)throw new Error("Referenced media changed during inspection");

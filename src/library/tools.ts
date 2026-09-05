@@ -17,7 +17,7 @@ import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
 import {ProjectSnapshots} from "./project-snapshots.js";
-import {AafBuilder,aafBuildSchema} from "./aaf-builder.js";
+import {AafBuilder,aafBuildSchema,aafMergeSchema} from "./aaf-builder.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc,qcOptions} from "./qc.js";
 import {ShotDetection,shotOptions} from "./shots.js";
@@ -100,6 +100,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({runId})=>result("avid_resume_visual_index",()=>visual.resume(runId)));
   server.registerTool("avid_inspect_aaf_template", {description:"Inspect a master-only Avid-exported AAF and validate/hash local media locators. Requires export for a request manifest. Does not import into Avid.",inputSchema:{template:z.string().min(1)},annotations:write},
     ({template})=>result("avid_inspect_aaf_template",()=>aafBuilder.inspect(template)));
+  server.registerTool("avid_merge_aaf_references", {description:"Merge 2-16 checksum-selected local reference AAFs into a new verified template, remapping conflicting identities. Requires export and allowed local media; no native import or relink.",inputSchema:{request:aafMergeSchema},annotations:write},
+    ({request})=>result("avid_merge_aaf_references",()=>aafBuilder.merge(request)));
   server.registerTool("avid_build_aaf_selects", {description:"Build a new straight-cut AAF composition preserving exported source descriptors. Requires export, current template checksum and explicit master/slot mappings. Verifies output ranges; host import/playback is separate.",inputSchema:{request:aafBuildSchema},annotations:write},
     ({request})=>result("avid_build_aaf_selects",()=>aafBuilder.build(request)));
   server.registerTool("avid_inspect_aaf_selects", {description:"Inspect one same-rate straight-cut AAF composition, expose track/source ranges and hash permitted local media. Rejects unsupported graph/rate/range structures. Requires export for a request manifest; does not import into Avid.",inputSchema:{file:z.string().min(1)},annotations:write},
