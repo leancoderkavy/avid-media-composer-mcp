@@ -87,3 +87,16 @@ On the stereo/legal-range export, the averaged channels yielded correlation abov
 `scripts/research/prepare-sonoma-source-clock.mjs` now creates a separate research MOV with copied compressed video and source-clock 48 kHz stereo 24-bit PCM. It verifies unchanged video stream metadata, identical compressed video essence hashes, exact PCM equality against the source-clock decode, contiguous audio packets (maximum timestamp-rounding gap 0.000001 seconds), and the unchanged original source hash. The new file is `.avid-mcp-analysis/sonoma-source-clock-857e680b-48a7-4dc9-a52e-478f864ef2b9/Sonoma_SourceClock_Stereo.mov`, with SHA-256 `f46de96396ec30be8d41ff3c2f7d8aaf08ba190cdb2295e863ce535e7965bbeb`; the adjacent `evidence.json` contains all probes and checksums.
 
 This file has not yet been linked/imported or rendered in Avid. Next qualification should use a new disposable bin/master/sequence, preserve the existing fixture, test Direct Out or explicit channel panning, and compare the new render against the source presentation clock. The preparation step alone does not resolve native audio or color fidelity and is not a shipped general ingest/relink tool.
+
+## Prepared PCM master linked and reopened
+
+The subsequent `scripts/research/qualify-native-pcm-link.mjs` run used actual stdio MCP preview/apply to create a unique empty bin, link the checksum-qualified MOV once, read its master, close/save the bin, reopen it and verify the same master identity. Calls are journaled after each response; the script does not retry a mutation. The prepared MOV and original selects bin hashes remained unchanged.
+
+- Bin: `MCP_PCM_6670b0b6.avb` in the disposable Sonoma 30p project.
+- Master: `Sonoma_SourceClock_Stereo`, native MOB `060a2b340101010001010f0013-000000-570c581977aa752c-9972045256f7-4dd2`.
+- Saved-bin SHA-256: `516cb23a5f14a923529a1db64435ff44cacf5aba515d572f0c4ede374e3d6faa`.
+- Evidence: `.avid-mcp-analysis/native-pcm-link-4f20d2e6-cab0-41e9-8c6a-a25528ee2898/evidence.json`, with complete call journal adjacent.
+
+Avid reports 30 fps, 5726 frame-count duration, PCM 48000/24-bit, `Stereo: A1A2`, UME Link and the expected source file/path. Its color fields report `Rec.709 [full range]` and `Levels scaling (full range to video levels)`. Geometry metadata is inconsistent: Image Size is `1920 x 1080`, while Raster Dimension is `1280x720p`, Format is `720p/30` and the codec label includes HD720p. These are observed host declarations, not assertions that the decoded image has either geometry. The prepared file's independent probe and copied-video checks remain authoritative for the file itself.
+
+This closes only the prepared asset's link/bin-reopen step. No new sequence or render uses this master yet. Next checks must preserve the stereo master mapping through AAF or native sequence creation, verify actual decoded output geometry/timing/color, and compare audio against the original source presentation clock. Do not infer fidelity from these metadata fields or apply a geometry correction without decoded evidence.
