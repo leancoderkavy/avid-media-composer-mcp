@@ -1,4 +1,4 @@
-# Native AAF research qualification — Windows 2024.12
+# Native AAF research qualification - Windows 2024.12
 
 This is real-host research evidence, not a shipped general timeline adapter. It uses the installed binary's descriptors and user-owned media; no Avid SDK or vendor descriptor payload is included.
 
@@ -16,7 +16,7 @@ A separate bin `MCP_AAF_Selects_20260905.avb` was created in the disposable proj
 
 After bin close/reopen, the saved AVB independently showed a CompositionMob with usageCode 0, duration 120, and two SourceClip components on each media track. Their timeline ranges were [0,60) and [60,120), with source starts 2850 and 3300. Avid mapped AAF audio slots 2/3 to sound track indices 1/2. It added timecode starting at 01:00:00:00.
 
-Computer use loaded the composition. The Avid timeline visibly contained two consecutive blocks on V1, A1 and A2 and displayed a four-second duration. The captured viewer stayed black. Video playback, audio playback, render, relink fidelity and undo/recovery are **not verified**. No general AAF or native import/export tool is advertised from this experiment.
+Computer use loaded the composition. The Avid timeline visibly contained two consecutive blocks on V1, A1 and A2 and displayed a four-second duration. The captured viewer stayed black. Subsequent computer-use export produced real video; see [render qualification](NATIVE_RENDER_QUALIFICATION.md). Visible playback, audio/color fidelity, relink and undo/recovery remain **not verified**. No general AAF or native import/export tool is advertised from this experiment.
 
 ## Reproducibility and retained local evidence
 
