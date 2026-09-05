@@ -1,4 +1,5 @@
-import {mkdtemp,writeFile,readFile,unlink} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,unlink,mkdir} from "node:fs/promises";
+import {randomUUID} from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,beforeEach,vi} from "vitest";
@@ -29,6 +30,19 @@ it("rejects damaged audio and unauthorized sources and reports unavailable saved
   const f=await fixture(),result=await f.speakers.generate(f.id,0,2);await expect(new SpeakerAnalysis({...f.config,allowedRoots:[]}).read(result.analysisId)).rejects.toThrow();
   await writeFile(path.join(f.base,`speakers-${result.analysisId}`,"speech.f32"),"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow("audio changed");expect((await f.speakers.list(f.id)).analyses[0]).toMatchObject({state:"unavailable"});
   await writeFile(f.source,"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow("source changed");
+});
+it("keeps valid results discoverable beside corrupt, mismatched and unpublished records with bounded diagnostics",async()=>{
+  const f=await fixture(),valid=await f.speakers.generate(f.id,0,2),record=await readFile(path.join(f.base,`speakers-${valid.analysisId}`,"analysis.json"),"utf8"),ids:string[]=[];
+  for(let index=0;index<22;index++){
+    const id=randomUUID(),directory=path.join(f.base,`speakers-${id}`);ids.push(id);await mkdir(directory);await writeFile(path.join(directory,"analysis.json"),index===0?record:"{broken private content");
+  }
+  const unpublished=path.join(f.base,`speakers-${randomUUID()}`);await mkdir(unpublished);await writeFile(path.join(unpublished,"speech.f32"),"partial");await mkdir(path.join(f.base,"speakers-not-a-uuid"));
+  const result=await new SpeakerAnalysis({...f.config,modelDirectory:undefined}).list(f.id);
+  expect(result.analyses.map(value=>value.analysisId)).toEqual([valid.analysisId]);
+  expect(result.discovery).toMatchObject({unpublishedCount:1,unclassifiedCount:22,unclassifiedAnalysisIds:ids.sort().slice(0,20),diagnosticsTruncated:true});
+  expect(JSON.stringify(result)).not.toContain("private content");expect(await readFile(path.join(unpublished,"speech.f32"),"utf8")).toBe("partial");
+  const after=ids[10]!,page=await f.speakers.list(f.id,after);expect(page.discovery.unclassifiedCount).toBe(ids.filter(id=>id>after).length);expect(page.discovery.unclassifiedAnalysisIds).toEqual(ids.filter(id=>id>after));
+  expect(await sha256File(f.source)).toBe(f.id);
 });
 it("refuses unknown files, missing capabilities and changed runtime before inference",async()=>{
   const f=await fixture();await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).generate(f.id,0,2)).rejects.toThrow();expect(mocks.run).not.toHaveBeenCalled();

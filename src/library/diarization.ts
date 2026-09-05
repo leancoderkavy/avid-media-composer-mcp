@@ -1,6 +1,6 @@
 import {constants} from "node:fs";
 import {speakerSpan,speakerEdits,applySpeakerEdits} from "./speaker-edits.js";
-import {mkdir,writeFile,unlink,readdir,rmdir,opendir,link,copyFile} from "node:fs/promises";
+import {mkdir,writeFile,unlink,readdir,rmdir,opendir,link,copyFile,lstat} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID,createHash} from "node:crypto";
 import * as z from "zod/v4";
@@ -99,11 +99,14 @@ export class SpeakerAnalysis{
     const temporary=path.join(directory,"analysis.tmp"),file=path.join(directory,"analysis.json");await writeFile(temporary,JSON.stringify(record),{flag:"wx",mode:0o600});await link(temporary,file);await unlink(temporary);return this.read(analysisId);
   });}
   async list(id:string,after?:string,limit=20){
-    await this.source(id);if(after)uuid.parse(after);z.number().int().min(1).max(100).parse(limit);const root=await new MediaLibrary(this.config).directory(),matching=[];let scanned=0;
-    for await(const entry of await opendir(root)){if(++scanned>10000)throw new Error("Speaker discovery limit exceeded");if(!entry.isDirectory()||!/^speakers-[a-f0-9-]{36}$/.test(entry.name))continue;const analysisId=entry.name.slice(9);if(after&&analysisId<=after)continue;
-      try{const directory=await this.directory(analysisId),file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),record=recordSchema.parse(JSON.parse((await readBoundedFile(file,2*1024*1024)).toString("utf8")));if(record.id===id)matching.push(analysisId);}catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}}
+    await this.source(id);if(after)uuid.parse(after);z.number().int().min(1).max(100).parse(limit);const root=await new MediaLibrary(this.config).directory(),matching=[],unclassified:string[]=[];let scanned=0,unpublishedCount=0,unclassifiedCount=0;
+    for await(const entry of await opendir(root)){if(++scanned>10000)throw new Error("Speaker discovery limit exceeded");if(!entry.isDirectory()||!entry.name.startsWith("speakers-"))continue;const analysisId=entry.name.slice(9);if(!uuid.safeParse(analysisId).success||after&&analysisId<=after)continue;
+      try{const directory=await this.directory(analysisId);await lstat(path.join(directory,"analysis.json"));const file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),record=recordSchema.parse(JSON.parse((await readBoundedFile(file,2*1024*1024)).toString("utf8")));if(record.analysisId!==analysisId)throw new Error("Speaker analysis identity mismatch");if(record.id===id)matching.push(analysisId);}catch(error){
+        if((error as {code?:string}).code==="ENOENT"){unpublishedCount++;continue;}
+        unclassifiedCount++;unclassified.push(analysisId);unclassified.sort();if(unclassified.length>20)unclassified.pop();
+      }}
     matching.sort();const analyses=[];for(const analysisId of matching.slice(0,limit)){try{const value=await this.read(analysisId,0,1);const {spans,nextOffset,...summary}=value;analyses.push(summary);}catch(error){analyses.push({analysisId,state:"unavailable",message:(error as Error).message});}}
-    return {analyses,nextAfter:matching.length>limit?matching[limit-1]:null};
+    return {analyses,nextAfter:matching.length>limit?matching[limit-1]:null,discovery:{unpublishedCount,unclassifiedCount,unclassifiedAnalysisIds:unclassified,diagnosticsTruncated:unclassifiedCount>unclassified.length,scope:"Library-wide candidate directories after the supplied cursor. Missing or unreadable records cannot be attributed to this media. Unpublished count does not establish failure or worker termination; no files were changed."}};
   }
   remove(analysisId:string,expectedSha256:string){return this.serialize(async()=>{
     requireCapability(this.config.capabilities,"project-write");sha.parse(expectedSha256);const current=await this.record(analysisId);if(current.sha256!==expectedSha256)throw new Error("Speaker analysis changed");const files=await readdir(current.directory);if(files.length!==2||!files.includes("analysis.json")||!files.includes("speech.f32"))throw new Error("Unexpected speaker files; removal refused");
