@@ -1,0 +1,17 @@
+import path from 'node:path';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {ProjectSnapshots} from '../../dist/library/project-snapshots.js';
+import {loadConfig} from '../../dist/config.js';
+const output=path.resolve('.avid-mcp-analysis',`snapshots-${randomUUID()}`);await mkdir(output);
+const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:'D:/Avid Projects/MCP_Sonoma_30p_20260905',AVID_MCP_OUTPUT_ROOT:output});
+const snapshots=new ProjectSnapshots(config),bins=['D:/Avid Projects/MCP_Sonoma_30p_20260905/MCP_Sonoma_Media.avb'];
+const first=await snapshots.create(bins),second=await snapshots.create(bins);
+const diff=await snapshots.diff(first.revision,second.revision);assert.equal(diff.changes.length,0);
+const target=first.bins[0].mobs.find(mob=>mob.name.endsWith('.sub.04'));assert.ok(target);assert.equal(target.duration,30);
+const range=await snapshots.range(first.revision,target.mobId,0,30);
+assert.equal(range.results.length,3);assert.ok(range.results.every(node=>node.overlapSourceStart===2850&&node.overlapSourceEnd===2880));
+const usage=await snapshots.usage(first.revision,range.results[0].sourceMobId);assert.ok(usage.usages.length>=3);
+await writeFile(path.join(output,'evidence.json'),JSON.stringify({first,second,diff,range,usage},null,2));
+console.log(JSON.stringify({passed:true,output,mobs:first.bins[0].mobs.length,subclipDuration:target.duration,tracks:range.results.length,directUsages:usage.usages.length,complete:first.complete}));

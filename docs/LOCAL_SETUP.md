@@ -27,6 +27,8 @@ Formats: `claude`, `cursor`, `vscode`, `lmstudio`, `generic`. The command prints
 
 Native edits use `avid_native_preview` then the exact token with `avid_native_apply`. Enable `edit`, or `project-write` for bin creation. Tokens are single-use and check current project/target evidence. An abandoned `.avid-mcp/native-write.lock` under the user's home requires inspection before manual removal. No automatic retry or atomic undo is promised. Application completion, post-state readback and persistence are distinct evidence.
 
+`create_subclip` takes source-relative `startFrame` and exclusive `endFrame`, retains all source tracks, and currently requires a 30 fps source/project. It creates an Avid subclip, not a sequence. The returned created MOB and metadata should be inspected before further operations.
+
 ## Optional local models
 
 ```powershell
@@ -53,6 +55,8 @@ Libraries and weights retain their own licenses; downloaded models are not relic
 7. `avid_configure_watch_folder` stores a scoped folder and traversal limits. Run `avid_scan_watch_folder` twice for initial stability checks, or explicitly start `avid_watch_service`. Checkpoints survive sessions; the polling service does not restart automatically. `stop` allows the current file to finish. Cross-process lock conflicts are reported without stealing locks. Removal deletes the watch configuration only.
 
 Index a moved file at its new allowed location to reconnect the same content ID. Source aliases in the shared output cache preserve transcript and collection references. Export still verifies the source hash. The same cache can be used by multiple local sessions; each session retains its own source-root restrictions.
+
+For saved editorial structure, use `avid_snapshot_saved_bins`, then `avid_saved_timeline_range`, `avid_saved_source_usage` and `avid_diff_saved_snapshots`. Ranges use half-open edit units at the returned mob rate. Track ordinals are distinct from Avid's displayed track numbers. Subclip `_START`/`_END` bounds are applied before range mapping. Save the bin first; these tools cannot see unsaved editor changes. Unknown effects/retimes or mixed-rate paths make coverage explicitly incomplete.
 
 Metadata, transcripts and images returned to a cloud-backed AI client may reach its model provider. Local processing alone does not make that client offline. Telemetry stays off unless a PostHog key is configured.
 

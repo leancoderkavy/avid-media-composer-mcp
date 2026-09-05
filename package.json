@@ -12,6 +12,7 @@
   "files": [
     "dist",
     "python/avid_inspector.py",
+    "python/avid_timeline.py",
     "python/requirements.txt",
     "docs",
     "README.md",

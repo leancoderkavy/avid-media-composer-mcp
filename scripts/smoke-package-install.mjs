@@ -97,7 +97,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 56 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 60 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
   console.log(

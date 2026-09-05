@@ -1,9 +1,13 @@
 """Single disposable-project subclip experiment; no generic RPC interface."""
 import json
+import argparse
 from pathlib import Path
 import native_host_smoke as native
 
-directory=Path('.avid-mcp-analysis/progressive-subclip')
+parser=argparse.ArgumentParser()
+parser.add_argument('--variant',choices=['original','picture-zero','all-tracks'],default='original')
+variant=parser.parse_args().variant
+directory=Path('.avid-mcp-analysis/progressive-subclip'+('' if variant=='original' else '-'+variant))
 directory.mkdir(exist_ok=True)
 attempt=directory/'attempt.json'
 if attempt.exists():
@@ -20,6 +24,10 @@ if len(matches)!=1:
 request={'destination_bin_path':bin_name,'mob_id':matches[0]['mob_id'],
          'track_list':{'track_labels':[{'type':'TRACKTYPE_PICTURE','number':1}]},
          'head_frame':2850,'end_frame':2910,'create_new_sequence':True}
+if variant=='picture-zero':
+    request['track_list']={'track_labels':[{'type':'TRACKTYPE_PICTURE','number':0}]}
+elif variant=='all-tracks':
+    request.pop('track_list')
 attempt.write_text(json.dumps({'before':items,'request':request},indent=2))
 native.METHODS=native.METHODS|{'CreateSubClip'}
 result=smoke.call('CreateSubClip',request)

@@ -8,6 +8,7 @@ import { SpeechAnalysis } from "./speech.js";
 import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
+import {ProjectSnapshots} from "./project-snapshots.js";
 
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const library = new MediaLibrary(config);
@@ -16,6 +17,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const jobs = new AnalysisJobs(config);
   const collections = new Collections(config);
   const watches = new WatchFolders(config);
+  const snapshots = new ProjectSnapshots(config);
   const previousClose=server.server.onclose;
   server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
@@ -78,4 +80,12 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({watchId})=>result("avid_scan_watch_folder",()=>watches.scan(watchId)));
   server.registerTool("avid_watch_service", {description:"Start/stop local polling or read its status. Service belongs to this MCP session, stops at disconnect, and does not restart automatically. Stop lets the current file finish.",inputSchema:{action:z.enum(["start","stop","status"]),intervalSeconds:z.number().int().min(10).max(3600).default(30)},annotations:write},
     ({action,intervalSeconds})=>result("avid_watch_service",async()=>action==="start"?watches.start(intervalSeconds):action==="stop"?watches.stop():watches.status()));
+  server.registerTool("avid_snapshot_saved_bins", {description:"Capture bounded semantic mob/track/source indexes from saved AVB files. Requires Python/pyavb. Excludes unsaved editor changes and reports unsupported effects/rates.",inputSchema:{bins:z.array(z.string()).min(1).max(100)},annotations:write},
+    ({bins})=>result("avid_snapshot_saved_bins",()=>snapshots.create(bins)));
+  server.registerTool("avid_diff_saved_snapshots", {description:"Compare semantic mob/track/source fields between saved-bin snapshots, excluding volatile save metadata.",inputSchema:{baseline:z.string().uuid(),candidate:z.string().uuid()},annotations:read},
+    ({baseline,candidate})=>result("avid_diff_saved_snapshots",()=>snapshots.diff(baseline,candidate)));
+  server.registerTool("avid_saved_timeline_range", {description:"Read a half-open edit-unit range and source overlaps from a saved-bin snapshot, with track ordinal and continuation. Does not read unsaved/live editor state.",inputSchema:{revision:z.string().uuid(),mobId:z.string().min(1),start:z.number().int().nonnegative(),end:z.number().int().positive(),trackOrdinal:z.number().int().nonnegative().optional(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(200).default(100)},annotations:read},
+    ({revision,mobId,start,end,trackOrdinal,after,limit})=>result("avid_saved_timeline_range",()=>snapshots.range(revision,mobId,start,end,trackOrdinal,after,limit)));
+  server.registerTool("avid_saved_source_usage", {description:"Find direct source-mob uses across snapshot bins and tracks. Opaque effects/retimes are explicitly incomplete.",inputSchema:{revision:z.string().uuid(),sourceMobId:z.string().min(1)},annotations:read},
+    ({revision,sourceMobId})=>result("avid_saved_source_usage",()=>snapshots.usage(revision,sourceMobId)));
 }

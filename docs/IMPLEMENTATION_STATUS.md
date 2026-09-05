@@ -8,6 +8,8 @@ The complete requirement-by-requirement [completion ledger](COMPLETION_LEDGER.md
 
 - TypeScript native MCAPI client using local descriptor discovery on the pinned Windows 2024.12 executable. No Avid SDK/descriptor payload is distributed.
 - Native read, preview and single-use apply MCP tools; scoped project/bin/clip checks, process-owner verification and per-user cross-process write lock.
+- All-track native subclips for qualified 30 fps sources/projects, with explicit frame bounds, preflight duration validation and created-MOB readback.
+- Semantic saved-bin snapshots/diffs, bounded track/range source mapping and direct cross-bin source-usage queries. Subclip bounds and timecode components are decoded; unknown effects and mixed-rate paths report incomplete coverage.
 - Local media index keyed by SHA-256; metadata and transcript substring search, immutable transcript revisions and bounded transcript reads.
 - Codec/resolution/frame-rate/channel facets, five transcript export formats, extractive outlines and HTML contact sheets.
 - Immutable selects collections with tags/notes, source-to-stringout range queries and frame-quantized single-video-track OTIO export.
@@ -33,7 +35,7 @@ The complete requirement-by-requirement [completion ledger](COMPLETION_LEDGER.md
 
 ### Host limitations discovered
 
-The research-only CreateSubClip request returned a two-second audio-only result even though a picture track was requested. It is deliberately absent from the production adapter allowlist. The disposable bin now also contains this retained diagnostic subclip. Do not describe it as working video sequence creation.
+The first CreateSubClip request returned audio because track number 1 selected A1 on this build. A subsequent request with number 0 selected V1; omitting the track list retained V1 A1-2. The native adapter now exposes bounded all-track subclips for 30 fps. A one-second subclip created through MCP persisted after close/reopen with all three tracks. Offline pyavb found usage code 2 and `_START: 2850`, `_END: 2880`; the underlying track lengths remain the full source length. The API's `create_new_sequence` flag still produced a subclip, so this is not qualified sequence creation.
 
 Native source-viewer loading updated the visible clip title, tracks and timecode. Scrubbing changed the timecode, but the captured viewer remained black. Playback/video display is therefore not qualified by these captures; do not infer successful rendering from the load RPC.
 
@@ -43,14 +45,14 @@ Local evidence lives under ignored `.avid-mcp-analysis`; source media and third-
 
 ### Latest complete check
 
-`npm run check` passed on 2026-09-05: 135 TypeScript tests, three Python tests, stdio and HTTP smoke tests with 51 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 51 tools include the pre-existing read-only/bridge tools; this count is not 51 newly qualified native editor operations.
+`npm run check` passed on 2026-09-05: 142 TypeScript tests, five Python tests, stdio and HTTP smoke tests with 60 tools, package dry run and fresh-tarball consumer installation/audit. `git diff --check` passed. The 60 tools include the pre-existing read-only/bridge tools; this count is not 60 newly qualified native editor operations.
 
 ## Remaining delivery work
 
 - Finish native mutation/persistence/restart/recovery qualification, state invalidation and tests. Validate native sequence/subclip creation, additional metadata/bin operations and export methods before exposing them.
 - Extend progressive-project qualification to playback/render, application restart, original Premiere source media and successful Avid timeline interchange.
 - Complete live project/timeline range search and AAF/Avid OTIO round trips. Local collection ranges are implemented but are not live editor ranges.
-- Add grounded generated hierarchical summaries, watch folders/shared cache and resumable jobs.
+- Add grounded generated hierarchical summaries, deeper watch/cache qualification and resumable analysis jobs.
 - Add properly licensed face detection/clustering with correction/deletion controls, and expand local model management/languages with measured resource limits.
 - Add separately enabled Windows UI actions, focus/shortcut diagnostics and real-host checks; do not map unimplemented catalog actions to success.
 - Finish installers, update/rollback/uninstall, bundled/managed dependencies and actual named-client clean-machine tests. Complete model license notices/release review.

@@ -23,6 +23,7 @@ export const nativeActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("change_marker"), bin: z.string().min(1), mobId: id, guid: id, comment: z.string().max(4000), color }).strict(),
   z.object({ action: z.literal("delete_marker"), bin: z.string().min(1), mobId: id, guid: id }).strict(),
   z.object({ action: z.literal("show_clip"), bin: z.string().min(1), mobId: id }).strict(),
+  z.object({action:z.literal("create_subclip"),bin:z.string().min(1),mobId:id,startFrame:z.number().int().nonnegative().max(2147483647),endFrame:z.number().int().positive().max(2147483647)}).strict().refine(value=>value.endFrame>value.startFrame,"Subclip end must follow start"),
 ]);
 type Action = z.infer<typeof nativeActionSchema>;
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -37,7 +38,7 @@ export class NativeAdapter {
     requireCapability(this.config.capabilities, "inspect");
     if (!this.config.nativeBinary) throw new AvidMcpError("NATIVE_DISABLED", "Set AVID_MCP_NATIVE_BINARY to enable the local native adapter");
   }
-  async project() {
+  async project():Promise<Record<string,any>&{path:string}> {
     this.enabled();
     const bodies = await this.client.call("GetOpenProjectInfo");
     if (bodies.length !== 1 || typeof bodies[0]?.path !== "string") throw new Error("Expected one open project");
@@ -83,8 +84,22 @@ export class NativeAdapter {
     const markers = "mobId" in action ? (await this.client.call("GetMarkers",{mob_id:action.mobId})).flatMap(body=>Array.isArray(body.info)?body.info:[]) : [];
     if ("guid" in action && !(markers as Record<string, unknown>[]).some(marker => marker.guid === action.guid)) throw new Error("Target marker does not exist");
     const media = action.action === "link_media" ? await resolveReadablePath(action.media, this.config.allowedRoots, "file") : undefined;
+    let subclipSource:unknown;
+    if(action.action==="create_subclip"){
+      if(project.frame_rate?.num!==30||project.frame_rate?.den!==1)throw new Error("Subclip qualification currently requires a 30 fps project");
+      const info=await this.client.call("GetMobInfo",{mob_id:action.mobId});
+      const columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value]));
+      if(Number(columns.FPS)!==30)throw new Error("Subclip source must be 30 fps");
+      const duration=String(columns.Duration??"");
+      if(!/^\d+(?::\d{2}){1,3}$/.test(duration))throw new Error("Unqualified source duration format");
+      const parts=duration.split(":").map(Number),frames=parts.pop()!;
+      if(frames>=30||parts.slice(1).some(value=>value>=60))throw new Error("Invalid source duration");
+      const length=parts.reduce((total,value)=>total*60+value,0)*30+frames;
+      if(action.endFrame>length)throw new Error("Subclip exceeds source duration");
+      subclipSource=info;
+    }
     return { project: project.path, owner:this.client.ownerIdentity, bin, binSha256:await sha256File(bin), clips, markers, media,
-      ...(media?{mediaSha256:await sha256File(media)}:{}), action };
+      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), action };
   }
   async preview(input: Action) {
     const action = nativeActionSchema.parse(input);
@@ -105,7 +120,8 @@ export class NativeAdapter {
       requireCapability(this.config.capabilities, plan.action.action === "create_bin" ? "project-write" : "edit");
       const { withNativeLock } = await import("./lock.js");
       return withNativeLock(async () => {
-        if (digest(await this.state(plan.action)) !== plan.state) throw new Error("Native state changed; preview again");
+        const observedState=await this.state(plan.action);
+        if (digest(observedState) !== plan.state) throw new Error("Native state changed; preview again");
         const action = plan.action;
         const project = await this.project();
         let result;
@@ -124,10 +140,22 @@ export class NativeAdapter {
           }
           case "delete_marker": result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] }); break;
           case "show_clip": result = await this.client.call("LoadMobsIntoViewer", { mob_ids: [action.mobId], view_type: "Source" }); break;
+          case "create_subclip": result=await this.client.call("CreateSubClip",{
+            destination_bin_path:path.relative(project.path,await this.binPath(project.path,action.bin)),mob_id:action.mobId,
+            head_frame:action.startFrame,end_frame:action.endFrame,create_new_sequence:true,
+            // Omitted track_list selects all source tracks on the qualified build.
+            // Despite its name, create_new_sequence=true produces a subclip here.
+          });break;
         }
         let postState:unknown,verificationError:string|undefined;
         try {
-          postState=action.action==="close_bin" ? await this.client.call("GetBins",{project_path:project.path,request_flag:["OnlyOpen"]}) :
+          if(action.action==="create_subclip"){
+            const after=await this.read("clips",action.bin) as Record<string,any>[];
+            const before="clips" in observedState?observedState.clips:[];
+            const created=after.filter(item=>!before.some((old:Record<string,any>)=>old.mob_id===item.mob_id));
+            if(created.length!==1)throw new Error("Expected one new subclip; inspect bin before another attempt");
+            postState={created,info:await this.read("clip",action.bin,created[0]!.mob_id)};
+          }else postState=action.action==="close_bin" ? await this.client.call("GetBins",{project_path:project.path,request_flag:["OnlyOpen"]}) :
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,

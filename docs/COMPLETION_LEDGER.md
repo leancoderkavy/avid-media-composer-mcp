@@ -31,3 +31,6 @@ Evidence statuses distinguish implementation, offline tests, simulated adapters,
 
 - `0d382aa`: native adapter, local search/transcription/artifacts/jobs/collections/setup baseline; complete local package check, 135 TypeScript tests, 51 total MCP tools. Pushed to `codex/open-source-full-plan`.
 - Watch/cache increment: real generated MP4 indexed only after stability, restart checkpoint avoided reindexing, moved content retained its ID/transcript, removing the watch preserved media. Runtime script: `scripts/research/qualify-watch.mjs`.
+- `5b956c1`: persistent watches/cache aliases; complete local package check, 139 TypeScript tests, 56 tools; pushed.
+- Native subclip increment: all-track 30 fps source bounds qualified through MCP and bin persistence; saved AVB confirmed `_START`/`_END` and picture/sound tracks. Initial track-selection discrepancy isolated to native numeric track indexing.
+- Saved snapshot increment: real Sonoma bin indexed into 32 mobs; the new subclip mapped exactly to source frames 2850–2880 on three tracks; identical saved snapshots had no semantic differences. Native live sequence reading/creation and Avid interchange remain open.

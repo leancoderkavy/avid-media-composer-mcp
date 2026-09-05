@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it,vi,beforeEach,afterEach } from "vitest";
 import { decodeFrames, NativeClient, validateWireObject } from "../src/native/client.js";
 import protobuf from "protobufjs";
 import { nativeActionSchema, NativeAdapter } from "../src/native/adapter.js";
@@ -8,6 +8,9 @@ import {mkdtemp,writeFile} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+beforeEach(async()=>{vi.spyOn(os,"homedir").mockReturnValue(await mkdtemp(path.join(os.tmpdir(),"avid-native-lock-test-")));});
+afterEach(()=>vi.restoreAllMocks());
+
 async function hostFixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));
   await writeFile(path.join(root,"fixture.avb"),"saved bin");
@@ -16,9 +19,10 @@ async function hostFixture(){
   let failPost=false;
   const client={ownerIdentity:"pid:epoch",async call(method:string,body:Record<string,unknown>={}){
     calls.push({method,body});
-    if(method==="GetOpenProjectInfo")return [{path:root}];
+    if(method==="GetOpenProjectInfo")return [{path:root,frame_rate:{num:30,den:1}}];
     if(method==="GetAppInfo")return [{app_busy_status:"Idle"}];
     if(method==="GetListOfBinItems")return [{mob_id:"clip"}];
+    if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"}];
     if(method==="GetMarkers"){if(failPost)throw new Error("post-read unavailable");return [{info:[marker]}];}
     if(method==="ChangeMarker")Object.assign(marker,body.info);
     if(method==="LoadMobsIntoViewer")failPost=true;
@@ -29,6 +33,13 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("rejects invalid or out-of-source subclip ranges before calling the writer",async()=>{
+    const {adapter,calls}=await hostFixture();
+    expect(nativeActionSchema.safeParse({action:"create_subclip",bin:"fixture.avb",mobId:"clip",startFrame:20,endFrame:10}).success).toBe(false);
+    await expect(adapter.preview({action:"create_subclip",bin:"fixture.avb",mobId:"clip",startFrame:0,endFrame:9999})).rejects.toThrow("exceeds");
+    expect((await adapter.preview({action:"create_subclip",bin:"fixture.avb",mobId:"clip",startFrame:2850,endFrame:2880})).token).toBeDefined();
+    expect(calls.some(call=>call.method==="CreateSubClip")).toBe(false);
+  });
   it("rejects silently dropped fields and enum coercion",()=>{
     const schema=protobuf.parse('syntax="proto3"; enum Color { RED=0; BLUE=1; } message Body { Color color=1; string name=2; }').root.lookupType("Body");
     expect(()=>validateWireObject(schema,{color:"RED",name:"marker"})).not.toThrow();
