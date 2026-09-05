@@ -1,6 +1,7 @@
 import hashlib,shutil,tempfile,unittest,sys
 from pathlib import Path
 import aaf2
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from avid_aaf_merge import merge
 import test_aaf_builder
@@ -66,6 +67,21 @@ class AafMergeTests(unittest.TestCase):
                     self.assertEqual(next(s for s in origin.slots if s.slot_id==clip.slot_id).segment.length,120)
                     resolved.append(str(clip.mob_id))
                 self.assertEqual(len(set(resolved)),2)
+            for item in request['sources']:self.assertEqual(hashlib.sha256(Path(item['file']).read_bytes()).hexdigest(),item['expectedSha256'])
+
+    def test_output_change_after_graph_verification_is_not_blessed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request=self.fixture(Path(folder));output=Path(request['output'])
+            original_inspect=test_aaf_builder.inspect
+            def inspect_then_change(file):
+                result=original_inspect(file)
+                if Path(file)==output:
+                    with aaf2.open(str(output),'rw') as f:next(f.content.mastermobs()).name='Changed after graph check'
+                return result
+            with patch('avid_aaf_builder.inspect',side_effect=inspect_then_change):
+                with self.assertRaisesRegex(ValueError,'changed during verification'):merge(request)
+            self.assertTrue(output.exists())
+            with aaf2.open(str(output)) as f:self.assertEqual(next(f.content.mastermobs()).name,'Changed after graph check')
             for item in request['sources']:self.assertEqual(hashlib.sha256(Path(item['file']).read_bytes()).hexdigest(),item['expectedSha256'])
 
 if __name__=='__main__':unittest.main()

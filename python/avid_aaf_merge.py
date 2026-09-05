@@ -59,6 +59,7 @@ def merge(request):
                             if isinstance(value,MobID) and str(value) in mapping:prop.value=mapping[str(value)]
                     target.content.mobs.append(copied)
     if output.stat().st_size>64*1024*1024:raise ValueError('Combined AAF exceeds 64 MiB limit')
+    verified_hash=hashlib.sha256(output.read_bytes()).hexdigest()
     with aaf2.open(str(output)) as result:
         targets={};actual={str(m.mob_id):diagnostic.graph(m,weak_targets=targets) for m in result.content.mobs}
         actual_definitions=diagnostic.referenced_definitions(targets)
@@ -66,7 +67,8 @@ def merge(request):
     for file,digest in zip(files,hashes):
         if hashlib.sha256(file.read_bytes()).hexdigest()!=digest:raise ValueError('Source changed during merging')
     inspection=inspect(output)
-    return {'output':str(output),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'inspection':inspection,
+    if hashlib.sha256(output.read_bytes()).hexdigest()!=verified_hash:raise ValueError('Combined AAF changed during verification')
+    return {'output':str(output),'sha256':verified_hash,'inspection':inspection,
             'sources':[{'file':str(file),'sha256':digest,'remappedMobIds':{key:str(value) for key,value in mapping.items()}} for file,digest,mapping in zip(files,hashes,mappings)],
             'graphVerified':True,'sourceHashesUnchanged':True,'hostImportVerified':False,
             'limitations':['Stored properties and reachable weak targets verified; implicit schemas are not fully compared','No native import, relink, playback or color verification']}
