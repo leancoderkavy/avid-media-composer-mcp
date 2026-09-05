@@ -1,4 +1,5 @@
 import path from "node:path";
+import {packageTreeHash} from "./package-lifecycle.js";
 import {mkdir,writeFile,realpath,stat} from "node:fs/promises";
 import {randomUUID} from "node:crypto";
 import {Client} from "@modelcontextprotocol/sdk/client/index.js";
@@ -38,7 +39,7 @@ export async function installPackage(archive:string,root:string,expectedSha256:s
     const ping=await client.callTool({name:"avid_ping",arguments:{}},undefined,{timeout:30000});if(ping.isError)throw new Error("Installed MCP ping failed");
     toolsCount=(await client.listTools()).tools.length;if(!toolsCount)throw new Error("Installed MCP exposes no tools");
   }finally{await client.close();}
-  const receipt={schema:1,installationId,version:metadata.version,directory,archiveSha256:expectedSha256,entry,entrySha256:await sha256File(entry),setup,setupSha256:await sha256File(setup),lockSha256:await sha256File(path.join(directory,"package-lock.json")),node:process.execPath,nodeVersion:process.versions.node,tools:toolsCount,checkedAt:new Date().toISOString(),checks:{lifecycleScriptsDisabled:true,auditHighPassed:true,stdioPingPassed:true},limitations:["Node, FFmpeg, Python and optional models are not installed by this command","No named-client or Avid host qualification","Receipt hashes identify recorded files, not every installed dependency"]};
+  const receipt={schema:1,treeSha256:await packageTreeHash(directory),installationId,version:metadata.version,directory,archiveSha256:expectedSha256,entry,entrySha256:await sha256File(entry),setup,setupSha256:await sha256File(setup),lockSha256:await sha256File(path.join(directory,"package-lock.json")),node:process.execPath,nodeVersion:process.versions.node,tools:toolsCount,checkedAt:new Date().toISOString(),checks:{lifecycleScriptsDisabled:true,auditHighPassed:true,stdioPingPassed:true},limitations:["Node, FFmpeg, Python and optional models are not installed by this command","No named-client or Avid host qualification","Tree hash records installed files and links for later change detection; it is not publisher authentication"]};
   await writeFile(path.join(directory,"installation.json"),JSON.stringify(receipt,null,2),{flag:"wx"});
   return {...receipt,setupCommand:{command:process.execPath,args:[setup]},note:"Use this installed setup CLI to generate or update your client entry. Keep the previous installation for configuration rollback. No existing client entry was changed."};
 }

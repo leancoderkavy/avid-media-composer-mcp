@@ -227,4 +227,15 @@ Use the checksum from your chosen build/release verification. A checksum identif
 
 Run the returned setup CLI with the existing `--client`, `--config` and `--install`/`--update` options to select that installation in a client configuration. The previous package stays in its own directory; the configuration's checksum-checked `--restore` operation can point back to it. Each package operation creates a UUID directory, even for the same version. Failed operations retain their directory for inspection and never create a success receipt or change client configuration.
 
-The receipt records archive, entry, setup and lockfile hashes plus protocol/audit results. It is not a hash inventory of every dependency. Node, FFmpeg, Python, optional model/runtime installation, automated package removal, cross-version compatibility and actual named-client application qualification remain separate work. In particular, removing an Avid client entry does not delete its package directory.
+The receipt records archive, entry, setup and lockfile hashes plus a complete installed-tree digest and protocol/audit results. The tree digest detects changes; it does not authenticate a publisher. Node, FFmpeg, Python, optional model/runtime installation, cross-version compatibility and actual named-client application qualification remain separate work. In particular, removing an Avid client entry does not delete its package directory.
+
+Managed package status/removal (Windows):
+
+```powershell
+node dist/cli.js --package-status "INSTALLATION_UUID" --package-root "D:\Avid MCP Packages"
+node dist/cli.js --package-remove "INSTALLATION_UUID" --package-root "D:\Avid MCP Packages" --expected-sha256 "RECEIPT_SHA256_FROM_STATUS"
+```
+
+Use a setup CLI outside the installation being removed. Update/remove client entries and stop their servers first. Removal verifies the receipt and complete tree, refuses changed or additional files, checks Windows Node process command lines, then renames the directory before rechecking and deleting it. It never terminates a server. Status does not discover references in arbitrary client configurations, and removing a package leaves those configurations and external media/models alone. Older receipts without a tree digest are unsupported for automatic removal.
+
+A failed removal may retain a `UUID.removing-UUID` directory. If no contents were deleted or changed, recover its original location using `--package-recover UUID.removing-UUID --package-root PATH --expected-sha256 RECEIPT_HASH`. Recovery rechecks the receipt/tree and process state and refuses an existing destination. Partial deletion cannot be automatically restored. This is process-state qualification for Windows Node-based servers, not a guarantee against arbitrary concurrent filesystem writers. Mac removal remains unqualified.
