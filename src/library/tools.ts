@@ -1,3 +1,4 @@
+import {FrameCaptions} from "./captions.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import type { ServerConfig } from "../config.js";
@@ -19,6 +20,7 @@ import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
 
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const library = new MediaLibrary(config);
+  const captions = new FrameCaptions(config);
   const visual = new VisualSearch(config);
   const speech = new SpeechAnalysis(config);
   const jobs = new AnalysisJobs(config);
@@ -32,7 +34,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const aafBuilder = new AafBuilder(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
-  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose()]);previousClose?.();};
+  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
   const ids = z.array(id).min(1).max(100);
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
@@ -41,6 +43,11 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_caption_frame",{description:"Generate a local Florence caption for one requested video seek time with a retained source image and model provenance. Requires cached caption models, export and project-write. Text can omit or invent details; inspect the image before using it. Use a caption job for cancellable execution.",inputSchema:{id,time:z.number().nonnegative()},annotations:write},({id,time})=>result("avid_caption_frame",()=>captions.generate(id,time)));
+  server.registerTool("avid_read_caption",{description:"Read a frame caption and its source-image path after checking source and image integrity. Edited text is not automatically fact-verified.",inputSchema:{captionId:z.string().uuid()},annotations:read},async({captionId})=>{let encoded:string|undefined;const response=await result("avid_read_caption",async()=>{const review=await captions.withImage(captionId);encoded=review.image;return review.data;});return encoded?{...response,content:[...response.content,{type:"image" as const,data:encoded,mimeType:"image/jpeg"}]}:response;});
+  server.registerTool("avid_list_captions",{description:"Discover saved frame captions for authorized media, with pagination and per-caption unavailable results.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},({id,after,limit})=>result("avid_list_captions",()=>captions.list(id,after,limit)));
+  server.registerTool("avid_correct_caption",{description:"Replace caption text using its current checksum; retains the original machine text and model provenance. Requires project-write; edited means changed, not fact-verified.",inputSchema:{captionId:z.string().uuid(),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),text:z.string().trim().min(1).max(4000)},annotations:write},({captionId,expectedSha256,text})=>result("avid_correct_caption",()=>captions.correct(captionId,expectedSha256,text)));
+  server.registerTool("avid_delete_caption",{description:"Delete a saved caption and its sampled image after checksum verification. Requires project-write; source media is preserved.",inputSchema:{captionId:z.string().uuid(),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/)},annotations:{...write,destructiveHint:true}},({captionId,expectedSha256})=>result("avid_delete_caption",()=>captions.remove(captionId,expectedSha256)));
   server.registerTool("avid_detect_speech_language",{description:"Suggest a language from up to 30 seconds using cached multilingual Whisper. Returns reviewable language-token scores; digital silence has no candidate. Requires export for local audio extraction. Does not transcribe or change auto behavior; music/noise/mixed languages can mislead.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive()},annotations:write},
     ({id,start,end})=>result("avid_detect_speech_language",()=>speech.detectLanguage(id,start,end)));
   server.registerTool("avid_speech_runs",{description:"Discover persisted speech runs for a media ID. Partial does not prove worker termination; unavailable runs include an error.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},

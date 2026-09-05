@@ -1,3 +1,4 @@
+import {FrameCaptions} from "./captions.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc} from "./qc.js";
 import {ShotDetection} from "./shots.js";
@@ -16,6 +17,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "caption":result=await new FrameCaptions(config).generate(spec.id,spec.time);break;
     case "people_resume":result=await new People(config).resume(spec.indexId);break;
     case "speech_resume":result=await new SpeechAnalysis(config).resume(spec.runId);break;
     case "summary_resume":result=await new MediaSummaries(config).resume(spec.runId);break;

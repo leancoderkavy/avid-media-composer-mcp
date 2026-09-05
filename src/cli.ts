@@ -10,7 +10,7 @@ const { values } = parseArgs({ options: {
   output:{type:"string"}, native:{type:"string"}, config:{type:"string"}, install:{type:"boolean"},
   "download-models":{type:"boolean"}, "model-dir":{type:"string"},
   speech:{type:"boolean"},"speech-model":{type:"string"},
-  faces:{type:"boolean"}, summaries:{type:"boolean"},
+  captions:{type:"boolean"},faces:{type:"boolean"}, summaries:{type:"boolean"},
   "config-status":{type:"boolean"},update:{type:"boolean"},remove:{type:"boolean"},restore:{type:"string"},"expected-sha256":{type:"string"},
   "package-install":{type:"string"},"package-root":{type:"string"},"package-sha256":{type:"string"},
   "package-status":{type:"string"},"package-remove":{type:"string"},"package-recover":{type:"string"},
@@ -47,9 +47,11 @@ try {
     console.log(JSON.stringify(await changeConfiguration(values.config,operation),null,2));
   }else
   if (values["download-models"]) {
-    if([values.faces,values.speech,values.summaries].filter(Boolean).length>1)throw new Error("Choose one model family per download command");
+    if([values.faces,values.speech,values.summaries,values.captions].filter(Boolean).length>1)throw new Error("Choose one model family per download command");
     if(!values["model-dir"])throw new Error("--download-models requires --model-dir PATH");
-    if(values.summaries){
+    if(values.captions){
+      const {loadCaptionModel,CAPTION_MODEL,CAPTION_REVISION}=await import("./library/captions.js");const loaded=await loadCaptionModel(values["model-dir"],true);await loaded.model.dispose();console.log(JSON.stringify({downloaded:CAPTION_MODEL,revision:CAPTION_REVISION}));
+    }else if(values.summaries){
       const {loadSummaryModel,SUMMARY_MODEL,SUMMARY_REVISION}=await import("./library/summaries.js");
       const model=await loadSummaryModel(values["model-dir"],true);await model.dispose();console.log(JSON.stringify({downloaded:SUMMARY_MODEL,revision:SUMMARY_REVISION}));
     }else if(values.faces){
@@ -75,5 +77,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }

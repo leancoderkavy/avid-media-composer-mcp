@@ -1,6 +1,6 @@
 # Visual caption and summary qualification
 
-Visual grounding remains open: production summaries currently summarize transcripts. This experiment evaluates original local caption generation as a possible visual input to later summaries; neither candidate is integrated into production.
+Visual grounding remains open: production summaries currently summarize transcripts. This experiment evaluates original local caption generation as a possible visual input to later summaries; Florence now also has a bounded frame-caption implementation described below; hierarchical visual summaries remain open.
 
 The [SmolVLM-256M model card](https://huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct) declares Apache-2.0 and provides ONNX weights. The [Florence-2 ONNX card](https://huggingface.co/onnx-community/Florence-2-base-ft) declares MIT and documents its caption tasks. Final distribution/provenance review is still required before shipping optional integrations. Weights remain in the ignored optional cache, outside the package.
 
@@ -44,4 +44,4 @@ Detailed-caption evidence: `.avid-mcp-analysis/vision-caption-f4ad416a-dced-40e6
 
 Detailed mode took 1.08–1.33 seconds per frame and sampled 1,756,831,744 bytes peak RSS. More-detailed mode took 1.19–1.35 seconds and sampled 1,818,406,912 bytes peak RSS. Both preserved source and sample hashes. These timings include image preprocessing/generation, exclude model loading, and are observations on this host rather than a resource guarantee.
 
-Florence is the stronger candidate here for a bounded caption workflow that exposes each source image for review: it avoids the observed repetition and recognizes more core objects with lower latency/memory. It is not accepted for unattended factual visual summaries. Production work still requires scoped extraction and stored provenance, model installation policy, output validation, source-linked review/correction, hierarchical integration and broader accuracy/recovery qualification. No generated captions have been added to the media library or existing summaries by this experiment.
+Florence is the stronger candidate here for a bounded caption workflow that exposes each source image for review: it avoids the observed repetition and recognizes more core objects with lower latency/memory. It is not accepted for unattended factual visual summaries. The experiment itself did not add captions to the media library or existing summaries. The subsequent frame-caption implementation adds scoped extraction, recorded provenance, explicit model installation, source-image review, correction and deletion; hierarchical integration and broader accuracy/recovery qualification remain open.
