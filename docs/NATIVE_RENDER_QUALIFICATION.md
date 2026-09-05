@@ -141,3 +141,16 @@ An actual MCP export of the PCM sequence with `tv/bt709/bt709/bt709` passed 120-
 `scripts/research/qualify-render-color-contract.mjs` independently verified the prior native file as limited-range and corrected copy as full-range, then refused a full-range contract against the native file. Files stayed unchanged and no export RPC was issued by this comparison. Evidence: `.avid-mcp-analysis/render-color-contract-0baf0f72-67f0-4e34-bd25-56a14a3568fa/evidence.json`.
 
 The initial real mismatch experiment exposed a final-probe deadline error masking the already-observed mismatch. The verifier now preserves that mismatch when the observation deadline expires and retains the process timeout as the error cause. A regression test covers this path alongside absent/mismatched tags, range-only contracts, malformed fields and legacy callers.
+
+## Full-raster image comparison
+
+`scripts/research/compare-native-full-resolution.mjs` compares all 120 output frames at 1920x1080 in planar 8-bit RGB. It selects the previously verified source presentation-time frame indices, upscales the 1280x720 source with Lanczos, and computes per-frame SSIM and MSE. Aggregate PSNR is calculated from mean MSE, rather than averaging per-frame dB values. Each output is decoded using its ordinary metadata declarations; there is no range override. The script verifies all 120 metric records, retains exact commands/logs and rechecks all input hashes.
+
+| Existing output | Mean SSIM | Minimum frame SSIM | RGB RMSE | Aggregate PSNR |
+| --- | --- | --- | --- | --- |
+| Native limited-tagged render | 0.784061 | 0.529518 | 11.1167 | 27.2113 dB |
+| Separately full-range-tagged copy | 0.962604 | 0.908042 | 4.2969 | 35.4678 dB |
+
+Across the cut, output frames 59 and 60 improved from SSIM 0.829071/0.822046 to 0.946721/0.975954 respectively. This extends the earlier 96x54 diagnostic with full-output-raster evidence. The corrected copy has unchanged encoded picture units and exact source-clock PCM as established above; the higher full-raster residual includes compression, color conversion and potentially differences between Avid's scaling kernel and the Lanczos reference. This experiment does not isolate their individual contributions.
+
+Evidence: `.avid-mcp-analysis/full-resolution-08fa8012-6c23-4dbb-b6c1-921bb0522ecb/evidence.json`, with per-frame SSIM/PSNR logs and executable argument manifests adjacent. Source, native render and corrected-copy hashes stayed unchanged. No preset/editor/media changes were made. These similarity metrics establish measured improvement for this fixture, not a universal pass threshold, perceptual review, mastering certification or broad native-color qualification.
