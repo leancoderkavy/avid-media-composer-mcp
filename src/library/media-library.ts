@@ -9,6 +9,7 @@ import { requireCapability } from "../security/capabilities.js";
 import { sha256File } from "../analysis/file-inventory.js";
 import { runProcess } from "../process.js";
 import {readBoundedJson} from "../security/bounded-read.js";
+import {AvidMcpError} from "../errors.js";
 
 export const transcriptSchema = z.array(z.object({
   start: z.number().nonnegative(), end: z.number().positive(), text: z.string().max(10000),
@@ -54,7 +55,7 @@ export class MediaLibrary {
       try {available=await resolveReadablePath(candidate,this.config.allowedRoots,"file");break;}
       catch { /* A cache can be shared across different allowed roots or disconnected disks. */ }
     }
-    if(!available)throw new Error("Indexed source is missing or outside current allowed roots; index its new location to reconnect");
+    if(!available)throw new AvidMcpError("INDEXED_SOURCE_UNAVAILABLE","Indexed source is missing or outside current allowed roots; index its new location to reconnect");
     entry.file=available;
     entry.transcript = transcriptSchema.parse(entry.transcript);
     return entry;

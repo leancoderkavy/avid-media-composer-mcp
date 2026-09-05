@@ -78,7 +78,12 @@ export class VisualCheckpoints{
       if(entry.isDirectory()&&/^visual-run-[a-f0-9-]{36}$/.test(entry.name))names.push(entry.name.slice(11));
     }
     const selected=names.sort().filter(name=>!after||name>after),runs=[];
-    for(const name of selected.slice(0,limit))runs.push(await this.status(name));
-    return {runs,nextAfter:selected.length>limit?selected[limit-1]:null};
+    for(const name of selected){
+      try{runs.push(await this.status(name));}
+      catch(error){if((error as {code?:string}).code==="INDEXED_SOURCE_UNAVAILABLE")continue;throw error;}
+      if(runs.length>limit)break;
+    }
+    const page=runs.slice(0,limit);
+    return {runs:page,nextAfter:runs.length>limit?page.at(-1)!.runId:null};
   }
 }

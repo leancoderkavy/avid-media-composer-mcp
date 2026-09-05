@@ -50,3 +50,14 @@ it("never replaces a committed checkpoint and verifies the completed index itsel
   await writeFile(output,JSON.stringify(index));await expect(visual.checkpoints.status(completed.runId)).rejects.toThrow("differs");
   await unlink(output);await expect(visual.checkpoints.status(completed.runId)).rejects.toThrow("does not exist");
 });
+it("paginates accessible runs across a shared cache while retaining direct scope rejection",async()=>{
+  const {config,id,source,directory}=await fixture(),checkpoints=new VisualCheckpoints(config,VISUAL_MODEL,VISUAL_REVISION);
+  const outside=path.join(config.outputRoot!,"outside.mp4");await writeFile(outside,"other source");const otherId=await sha256File(outside);
+  await writeFile(path.join(directory,`${otherId}.json`),JSON.stringify({id:otherId,file:outside,metadata:{format:{duration:6}},transcript:[]}));
+  const allowed=[await checkpoints.create([{id,time:1}]),await checkpoints.create([{id,time:2}])].sort(),blocked=await checkpoints.create([{id:otherId,time:1}]);
+  const scoped=new VisualCheckpoints({...config,allowedRoots:[source]},VISUAL_MODEL,VISUAL_REVISION);
+  const first=await scoped.list(undefined,1);expect(first.runs.map(run=>run.runId)).toEqual([allowed[0]]);expect(first.nextAfter).toBe(allowed[0]);
+  const second=await scoped.list(first.nextAfter!,1);expect(second.runs.map(run=>run.runId)).toEqual([allowed[1]]);expect(second.nextAfter).toBeNull();
+  await expect(scoped.status(blocked)).rejects.toMatchObject({code:"INDEXED_SOURCE_UNAVAILABLE"});
+  await writeFile(path.join(directory,`visual-run-${allowed[0]}`,"manifest.json"),"broken");await expect(scoped.list()).rejects.toThrow();
+});
