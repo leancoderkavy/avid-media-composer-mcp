@@ -1,3 +1,4 @@
+import {resolveCapabilities} from "./security/capabilities.js";
 import path from "node:path";
 import { realpath,stat } from "node:fs/promises";
 import {sha256File} from "./analysis/file-inventory.js";
@@ -14,11 +15,20 @@ export async function resolveSetupEntry(file:string,expectedSha256:string){
   const entry=await realpath(file);if(!(await stat(entry)).isFile())throw new Error("Server entry must be a file");
   if(await sha256File(entry)!==expectedSha256)throw new Error("Server entry checksum mismatch");return entry;
 }
-export function clientConfiguration(client: SetupClient, roots: string[], outputRoot?: string, nativeBinary?: string,serverEntry=fileURLToPath(new URL("./index.js", import.meta.url))) {
-  if (!roots.length || roots.some(root => !path.isAbsolute(root))) throw new Error("Absolute allowed roots are required");
+export interface ClientRuntimeOptions {modelDirectory?:string|undefined;capabilities?:string|undefined;ffmpeg?:string|undefined;ffprobe?:string|undefined;python?:string|undefined;}
+export function clientConfiguration(client: SetupClient, roots: string[], outputRoot?: string, nativeBinary?: string,serverEntry=fileURLToPath(new URL("./index.js", import.meta.url)),runtime:ClientRuntimeOptions={}) {
+  if (!roots.length || roots.some(root => !path.isAbsolute(root)||root.includes(path.delimiter))) throw new Error("Absolute allowed roots without path-list separators are required");
   if(!path.isAbsolute(serverEntry))throw new Error("Server entry must be absolute");
+  if(runtime.capabilities!==undefined&&!runtime.capabilities.trim())throw new Error("Capabilities must be a nonempty comma-separated list");
+  const capabilities=[...resolveCapabilities(runtime.capabilities).capabilities].join(",");
+  if(!capabilities)throw new Error("Capabilities must contain at least one known capability");
+  for(const [name,value] of Object.entries(runtime)){if(name!=="capabilities"&&value!==undefined&&!path.isAbsolute(value))throw new Error(`${name} must be an absolute path for client configuration`);}
   const entry = { command: process.execPath, args: [serverEntry], env: {
-    AVID_MCP_ALLOWED_ROOTS: roots.join(path.delimiter), AVID_MCP_CAPABILITIES: "inspect",
+    AVID_MCP_ALLOWED_ROOTS: roots.join(path.delimiter), AVID_MCP_CAPABILITIES: capabilities,
+    ...(runtime.modelDirectory ? {AVID_MCP_MODEL_DIR:runtime.modelDirectory} : {}),
+    ...(runtime.ffmpeg ? {AVID_MCP_FFMPEG:runtime.ffmpeg} : {}),
+    ...(runtime.ffprobe ? {AVID_MCP_FFPROBE:runtime.ffprobe} : {}),
+    ...(runtime.python ? {AVID_MCP_PYTHON:runtime.python} : {}),
     ...(outputRoot ? { AVID_MCP_OUTPUT_ROOT: path.resolve(outputRoot) } : {}),
     ...(nativeBinary ? { AVID_MCP_NATIVE_BINARY: path.resolve(nativeBinary) } : {}),
   } };

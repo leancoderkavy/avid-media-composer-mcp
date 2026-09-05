@@ -283,3 +283,19 @@ Use `avid-mcp --install-model-runtime --model-dir PATH` to prepare the optional 
 An older matching runtime can be audited and adopted without reinstalling dependencies. Its receipt does not establish whether its original installation disabled scripts. A setup lock or retained staging directory may remain after interruption; a lock's age is not proof of worker termination. Automatic lock recovery and runtime update/rollback/uninstall remain open.
 
 Cached inference now uses absolute pinned model directories and disables remote model access. This avoids Transformers.js 4.2.0 discovery requests that did not respect the earlier per-call local-only flags. See [runtime qualification and the correction to earlier offline claims](MODEL_RUNTIME_QUALIFICATION.md) for actual fetch-blocked model tests, setup evidence and limitations. Explicit model downloads still require network access.
+
+## Carrying analysis settings into an AI client
+
+Configuration generation, install and update accept `--model-dir`, `--capabilities`, `--ffmpeg`, `--ffprobe` and `--python`. Model/executable paths must be absolute so the resulting configuration does not depend on the client's working directory. Without an explicit capability list, the entry remains inspect-only.
+
+Example using paths appropriate to your installation:
+
+```powershell
+node dist/cli.js --client generic --root "D:\Media" --output "D:\MCP Output" --model-dir "D:\MCP Models" --capabilities "inspect,export,project-write" --ffmpeg "C:\Tools\ffmpeg.exe" --ffprobe "C:\Tools\ffprobe.exe" --python "C:\Tools\python.exe"
+```
+
+These flags work for Claude, Cursor, VS Code, LM Studio and generic configuration formats. They configure existing dependencies; they do not install executables or weights. `inspect,export,project-write` enables local media analysis/artifact writes, including captions. Native editing and unsafe automation remain separate capability choices.
+
+Update reconstructs the Avid entry from the supplied flags. Repeat any model paths, executables and capabilities you want retained; omitting them returns to defaults. Unrelated entries remain preserved by the existing checksum/backup update flow. Allowed roots containing the platform's path-list separator are rejected because the environment format cannot represent them unambiguously.
+
+Actual generated commands in all five formats indexed/read the Sonoma preview. The generic command generated a barrel caption through its configured model and executable paths. A temporary configuration install/update preserved unrelated entries, and an inspect-only update denied caption generation. Evidence: `.avid-mcp-analysis/setup-runtime-3d505ec5-3923-4634-b866-0bcdc0b65781/evidence.json`. This verifies generated-command execution, not the named client applications' UI.

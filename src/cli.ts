@@ -6,6 +6,7 @@ import {configurationStatus,changeConfiguration,type ConfigurationOperation} fro
 
 const { values } = parseArgs({ options: {
   "server-entry":{type:"string"},"server-entry-sha256":{type:"string"},
+  capabilities:{type:"string"},ffmpeg:{type:"string"},ffprobe:{type:"string"},python:{type:"string"},
   doctor:{type:"boolean"}, client:{type:"string"}, root:{type:"string",multiple:true},
   output:{type:"string"}, native:{type:"string"}, config:{type:"string"}, install:{type:"boolean"},
   "install-model-runtime":{type:"boolean"},"model-runtime-status":{type:"boolean"},
@@ -17,6 +18,8 @@ const { values } = parseArgs({ options: {
   "package-status":{type:"string"},"package-remove":{type:"string"},"package-recover":{type:"string"},
 } });
 try {
+  const runtimeOptions={modelDirectory:values["model-dir"],capabilities:values.capabilities,ffmpeg:values.ffmpeg,ffprobe:values.ffprobe,python:values.python};
+  if([values.capabilities,values.ffmpeg,values.ffprobe,values.python].some(value=>value!==undefined)&&(!values.client||values.remove||values.restore||values.doctor||values["download-models"]||values["install-model-runtime"]||values["model-runtime-status"]||values["config-status"]||values["package-install"]||values["package-status"]||values["package-remove"]||values["package-recover"]))throw new Error("Client runtime options require configuration generation, installation or update");
   if(!!values["server-entry"]!==!!values["server-entry-sha256"]||values["server-entry"]&&!values.client)throw new Error("Server entry overrides require --client, --server-entry and --server-entry-sha256");
   const serverEntry=values["server-entry"]?await resolveSetupEntry(values["server-entry"],values["server-entry-sha256"]!):undefined;
   if(values["package-root"]&&!values["package-install"]&&!values["package-status"]&&!values["package-remove"]&&!values["package-recover"])throw new Error("Package root requires a package operation");
@@ -48,7 +51,7 @@ try {
     if(!values.config||!values["expected-sha256"])throw new Error("Configuration changes require --config FILE and --expected-sha256 from --config-status");
     if(!values.client||!["claude","cursor","vscode","lmstudio","generic"].includes(values.client))throw new Error("Specify the client whose Avid entry should change");
     const key=values.client==="vscode"?"servers":"mcpServers",expectedSha256=values["expected-sha256"];
-    const operation:ConfigurationOperation=values.restore?{action:"restore" as const,key,expectedSha256,backup:values.restore}:values.remove?{action:"remove" as const,key,expectedSha256}:{action:"update" as const,key,expectedSha256,entry:(clientConfiguration(values.client as SetupClient,values.root??[],values.output,values.native,serverEntry) as Record<string,any>)[key]["avid-media-composer"]};
+    const operation:ConfigurationOperation=values.restore?{action:"restore" as const,key,expectedSha256,backup:values.restore}:values.remove?{action:"remove" as const,key,expectedSha256}:{action:"update" as const,key,expectedSha256,entry:(clientConfiguration(values.client as SetupClient,values.root??[],values.output,values.native,serverEntry,runtimeOptions) as Record<string,any>)[key]["avid-media-composer"]};
     console.log(JSON.stringify(await changeConfiguration(values.config,operation),null,2));
   }else
   if (values["download-models"]) {
@@ -77,10 +80,10 @@ try {
   } else if (values.doctor) console.log(JSON.stringify(await doctor(loadConfig()),null,2));
   else if (values.client) {
     if (!["claude","cursor","vscode","lmstudio","generic"].includes(values.client)) throw new Error("Client must be claude, cursor, vscode, lmstudio or generic");
-    const config = clientConfiguration(values.client as SetupClient,values.root ?? [],values.output,values.native,serverEntry);
+    const config = clientConfiguration(values.client as SetupClient,values.root ?? [],values.output,values.native,serverEntry,runtimeOptions);
     if (values.install) {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }
