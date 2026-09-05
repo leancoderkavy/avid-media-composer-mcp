@@ -299,3 +299,20 @@ These flags work for Claude, Cursor, VS Code, LM Studio and generic configuratio
 Update reconstructs the Avid entry from the supplied flags. Repeat any model paths, executables and capabilities you want retained; omitting them returns to defaults. Unrelated entries remain preserved by the existing checksum/backup update flow. Allowed roots containing the platform's path-list separator are rejected because the environment format cannot represent them unambiguously.
 
 Actual generated commands in all five formats indexed/read the Sonoma preview. The generic command generated a barrel caption through its configured model and executable paths. A temporary configuration install/update preserved unrelated entries, and an inspect-only update denied caption generation. Evidence: `.avid-mcp-analysis/setup-runtime-3d505ec5-3923-4634-b866-0bcdc0b65781/evidence.json`. This verifies generated-command execution, not the named client applications' UI.
+
+
+## Optional diarization runtime
+
+The branch includes a local speaker-analysis worker and explicit setup. Persisted MCP speaker tools and transcript alignment are still being implemented; installing this runtime alone does not enable them.
+
+```powershell
+$env:AVID_MCP_PYTHON = "C:\Python312\python.exe"
+node dist/cli.js --download-models --diarization --model-dir "D:\MCP Models"
+node dist/cli.js --diarization-runtime-status --model-dir "D:\MCP Models"
+```
+
+Setup creates a uniquely named Python environment beneath the chosen cache's `diarization` directory. It installs binary wheels for sherpa-onnx/core 1.13.7 and NumPy 2.2.6 without resolving additional dependencies, runs pip's dependency check, downloads checksum-pinned segmentation/embedding weights, and verifies silent-audio inference. Only the completed installation is selected by its receipt. Environment paths never move, preserving Python launchers. Inference uses local files and does not install dependencies or download weights.
+
+Status checks the selected installation tree and packaged worker checksum. Explicit setup reuses unchanged installations without running Python or pip again. Changed trees, changed workers, invalid receipts and existing setup locks are refused; choose a fresh model cache when necessary. Failed unique installations are retained and remain unselected. Lock age does not establish process termination. Automatic recovery, update/rollback/removal, Python/system dependency management and clean-machine/Mac qualification remain open. A Python virtual environment still depends on its system interpreter installation. Dependency consistency and prior inference checks are not a current vulnerability audit or model accuracy acceptance.
+
+The worker consumes bounded mono 16 kHz float32 PCM (at most 600 seconds), validates model sizes/hashes, and returns at most 5,000 sorted spans with anonymous per-run labels. Automatic clustering or supplied counts of 1–20 and a threshold in (0,1] are supported. Labels do not identify people and can overlap. See [diarization research and provenance](DIARIZATION_RESEARCH.md) for quality limits and license sources. Neither weights nor the Python runtime are bundled in the package.

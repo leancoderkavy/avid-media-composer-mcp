@@ -56,4 +56,22 @@ powershell -File scripts/research/create-diarization-fixture.ps1
 
 Pass the returned fixture.json to scripts/research/benchmark-diarization.py, using the isolated Python and --sonoma-seconds 190.866666. The script expects the local Sonoma MP4 path recorded in its source and FFmpeg on PATH. --sonoma-only skips the synthetic inference cases.
 
-Remaining implementation: managed model/runtime setup, scoped extraction with qualified source timestamps, bounded persisted speaker intervals, discovery/deletion/review, optional supplied speaker counts, anonymous label correction, transcript alignment with ambiguity handling, job cancellation/recovery and real-world accuracy/resource tests.
+Remaining implementation following the original research: managed model/runtime setup, scoped extraction with qualified source timestamps, bounded persisted speaker intervals, discovery/deletion/review, optional supplied speaker counts, anonymous label correction, transcript alignment with ambiguity handling, job cancellation/recovery and real-world accuracy/resource tests.
+
+
+## Managed runtime and packaged worker qualification
+
+The branch now packages `python/avid_diarization.py` and provides `--download-models --diarization` plus `--diarization-runtime-status`. The worker retains the pinned model/runtime contract, validates finite bounded PCM and output spans, normalizes anonymous labels by first appearance, and supports automatic or supplied speaker counts. It does not yet expose persisted MCP speaker operations. Preparation downloads only the fixed artifacts above, verifies exact sizes/hashes, and extracts only selected regular archive members; it never executes archive contents.
+
+A fresh Windows Python 3.12 installation passed binary-only dependency installation, pip check, model verification and one-second silence inference. Its completed receipt binds the installation tree and packaged worker. The qualification script reused it with a deliberately nonexistent base Python command, verified tree consistency after inference, rejected a deliberate extra file during setup, retained that file until the script removed its own test file, and verified the restored tree. No automatic dependency or model changes occur during reuse.
+
+Actual worker results using the production source-clock extractor:
+
+| Input | Automatic | Supplied two |
+| --- | --- | --- |
+| Original alternating voices, 29.155 seconds | Eight spans, two labels, dominant A/B/A/B; 4.13 s | Eight spans, two labels, dominant A/B/A/B; 4.16 s |
+| Sonoma preview, 190.8666875 seconds | 64 spans, 40 anonymous labels; 26.63 s | 43 spans, two labels; 31.64 s |
+
+Evidence: `.avid-mcp-analysis/diarization-runtime-19994a23-ddde-41f4-af47-2138a523160b/evidence.json`; fresh-install receipt/output: `.avid-mcp-analysis/diarization-production-install.log`. Reproduce with `node scripts/research/qualify-diarization-runtime.mjs` after building and installing the runtime, using the retained original fixture and configured FFmpeg. Sources and installation tree remained unchanged. The float32 production extractor produces different interval counts from the earlier PCM16 research fixture; neither Sonoma result is a labelled accuracy reference.
+
+Validation passed with 251 TypeScript tests, 12 Python tests, stdio/HTTP checks and fresh-tarball installation/audit. New tests cover setup reuse, changed trees, retained failed installations, existing/replaced locks, invalid receipts, bounded reads, unsupported clustering settings, offline verification and allowlisted regular-file archive extraction. Model/runtime redistribution notices, current vulnerability audit, persisted speaker tools, corrections, transcript alignment, cancellation/recovery and natural-dialogue accuracy remain open.

@@ -12,21 +12,26 @@ const { values } = parseArgs({ options: {
   "install-model-runtime":{type:"boolean"},"model-runtime-status":{type:"boolean"},
   "download-models":{type:"boolean"}, "model-dir":{type:"string"},
   speech:{type:"boolean"},"speech-model":{type:"string"},
-  captions:{type:"boolean"},faces:{type:"boolean"}, summaries:{type:"boolean"},
+  diarization:{type:"boolean"},"diarization-runtime-status":{type:"boolean"},captions:{type:"boolean"},faces:{type:"boolean"}, summaries:{type:"boolean"},
   "config-status":{type:"boolean"},update:{type:"boolean"},remove:{type:"boolean"},restore:{type:"string"},"expected-sha256":{type:"string"},
   "package-install":{type:"string"},"package-root":{type:"string"},"package-sha256":{type:"string"},
   "package-status":{type:"string"},"package-remove":{type:"string"},"package-recover":{type:"string"},
 } });
 try {
   const runtimeOptions={modelDirectory:values["model-dir"],capabilities:values.capabilities,ffmpeg:values.ffmpeg,ffprobe:values.ffprobe,python:values.python};
-  if([values.capabilities,values.ffmpeg,values.ffprobe,values.python].some(value=>value!==undefined)&&(!values.client||values.remove||values.restore||values.doctor||values["download-models"]||values["install-model-runtime"]||values["model-runtime-status"]||values["config-status"]||values["package-install"]||values["package-status"]||values["package-remove"]||values["package-recover"]))throw new Error("Client runtime options require configuration generation, installation or update");
+  if([values.capabilities,values.ffmpeg,values.ffprobe,values.python].some(value=>value!==undefined)&&(!values.client||values.remove||values.restore||values.doctor||values["download-models"]||values["install-model-runtime"]||values["model-runtime-status"]||values["diarization-runtime-status"]||values["config-status"]||values["package-install"]||values["package-status"]||values["package-remove"]||values["package-recover"]))throw new Error("Client runtime options require configuration generation, installation or update");
   if(!!values["server-entry"]!==!!values["server-entry-sha256"]||values["server-entry"]&&!values.client)throw new Error("Server entry overrides require --client, --server-entry and --server-entry-sha256");
   const serverEntry=values["server-entry"]?await resolveSetupEntry(values["server-entry"],values["server-entry-sha256"]!):undefined;
   if(values["package-root"]&&!values["package-install"]&&!values["package-status"]&&!values["package-remove"]&&!values["package-recover"])throw new Error("Package root requires a package operation");
   if(values["package-sha256"]&&!values["package-install"])throw new Error("Package archive checksum requires --package-install");
   if(values["speech-model"]&&(!values.speech||!values["download-models"]))throw new Error("--speech-model requires --download-models --speech");
-  if([values["install-model-runtime"],values["model-runtime-status"],values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore,values["package-install"],values["package-status"],values["package-remove"],values["package-recover"]].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
-  if(values["install-model-runtime"]||values["model-runtime-status"]){
+  if([values["diarization-runtime-status"],values["install-model-runtime"],values["model-runtime-status"],values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore,values["package-install"],values["package-status"],values["package-remove"],values["package-recover"]].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
+  if(values.diarization&&!values["download-models"])throw new Error("--diarization requires --download-models");
+  if(values["diarization-runtime-status"]){
+    if(!values["model-dir"])throw new Error("Diarization status requires --model-dir PATH");
+    const {diarizationRuntimeStatus}=await import("./library/diarization-runtime.js");
+    console.log(JSON.stringify(await diarizationRuntimeStatus(values["model-dir"]),null,2));
+  }else if(values["install-model-runtime"]||values["model-runtime-status"]){
     if(!values["model-dir"])throw new Error("Model runtime operations require --model-dir PATH");
     const {installModelRuntime,modelRuntimeStatus}=await import("./library/model-runtime-install.js");
     console.log(JSON.stringify(await (values["install-model-runtime"]?installModelRuntime(values["model-dir"]):modelRuntimeStatus(values["model-dir"])),null,2));
@@ -55,9 +60,12 @@ try {
     console.log(JSON.stringify(await changeConfiguration(values.config,operation),null,2));
   }else
   if (values["download-models"]) {
-    if([values.faces,values.speech,values.summaries,values.captions].filter(Boolean).length>1)throw new Error("Choose one model family per download command");
+    if([values.diarization,values.faces,values.speech,values.summaries,values.captions].filter(Boolean).length>1)throw new Error("Choose one model family per download command");
     if(!values["model-dir"])throw new Error("--download-models requires --model-dir PATH");
-    if(values.captions){
+    if(values.diarization){
+      const {installDiarizationRuntime}=await import("./library/diarization-runtime.js");
+      console.log(JSON.stringify(await installDiarizationRuntime(values["model-dir"],loadConfig().pythonExecutable),null,2));
+    }else if(values.captions){
       const {loadCaptionModel,CAPTION_MODEL,CAPTION_REVISION}=await import("./library/captions.js");const loaded=await loadCaptionModel(values["model-dir"],true);await loaded.model.dispose();console.log(JSON.stringify({downloaded:CAPTION_MODEL,revision:CAPTION_REVISION}));
     }else if(values.summaries){
       const {loadSummaryModel,SUMMARY_MODEL,SUMMARY_REVISION}=await import("./library/summaries.js");
@@ -85,5 +93,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --diarization-runtime-status --model-dir PATH\navid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries | --captions | --diarization]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }
