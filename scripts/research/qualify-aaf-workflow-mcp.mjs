@@ -6,8 +6,10 @@ import {randomUUID} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
-assert.ok(process.argv.slice(2).every(arg=>arg==='--canonical-tracks'));
+assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference'].includes(arg)));
 const canonicalTracks=process.argv.includes('--canonical-tracks');
+const originalReference=process.argv.includes('--original-reference');
+assert.ok(!originalReference||canonicalTracks,'Original-reference comparison requires canonical tracks');
 const upstreamFile=path.resolve('.avid-mcp-analysis/native-aaf-master-mcp-f6012198-7bad-489d-9d85-f4968f0fdcf9/evidence.json'),upstream=JSON.parse(await readFile(upstreamFile,'utf8'));
 let file=upstream.built.output,expectedSha256='eb14ed8fb9710ef2d3877fd422bc33c11611c92d644fb91786eba733ff2be8d2';assert.equal(await sha256File(file),expectedSha256);
 const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',originalBin=path.join(project,'MCP_AAF_Selects_20260905.avb'),before=await sha256File(originalBin);
@@ -20,7 +22,9 @@ const call=async(name,args,error=false)=>{const result=await client.callTool({na
 const action=async operation=>{const preview=await call('avid_native_preview',{operation});const applied=await call('avid_native_apply',{token:preview.token});const replay=await call('avid_native_apply',{token:preview.token},true);assert.match(JSON.stringify(replay),/consumed/);return applied;};
 try{
  if(canonicalTracks){
-  const reference=upstream.applied.verification.inspection;assert.equal(await sha256File(reference.template),'94ff38c9ac7256254030b3f6b24aa98d28427f5c614791a2e5e3d745423ab66c');
+  const reference=originalReference?await call('avid_inspect_aaf_template',{template:path.resolve('.avid-mcp-analysis/native-pcm-aaf-7e173226-261d-4e72-95fb-c2e705dd1a0c/export/PCM_reference.aaf')}):upstream.applied.verification.inspection;
+  assert.equal(await sha256File(reference.template),originalReference?'5c04dea1552933d8b171af3898e83fcc165709e4f283c1ba9af6b3dc4b66802d':'94ff38c9ac7256254030b3f6b24aa98d28427f5c614791a2e5e3d745423ab66c');
+  if(originalReference){preserved.push(reference.template);hashes.push(reference.sha256);}
   const master=reference.masters[0];
   const built=await call('avid_build_aaf_selects',{request:{template:reference.template,expectedSha256:reference.sha256,name:'MCP_Canonical_Pipeline_Selects',rate:'30',tracks:[{name:'V1',kind:'picture'},{name:'A1',kind:'sound'},{name:'A2',kind:'sound'}],selects:[2850,3300].map(start=>({mobId:master.mobId,start,length:60,slotIds:[1,2,3]}))}});
   file=built.output;expectedSha256=built.sha256;
@@ -44,6 +48,6 @@ try{
  assert.equal(await sha256File(binFile),savedBinSha256);assert.equal(await sha256File(originalBin),before);assert.deepEqual(await Promise.all(preserved.map(sha256File)),hashes);
  const status=await call('avid_native_lock_status',{});assert.equal(status.locked,false);
  assert.equal(await sha256File(file),expectedSha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
  console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),output:rendered.verification.output,bin,savedRangesVerified:true,filesUnchanged:true}));
 }finally{await client.close();}

@@ -18,7 +18,19 @@ A follow-up used the exact same reference AAF and cuts, rebuilding destination t
 
 Both old and new source-master reference AAFs retain `_CHANNEL_GROUP_LIST` and `_ORIGINAL_CHANNEL_GROUP_LIST` values `ST:A1A2,`. Their master slot kinds/rates/lengths also agree. Those declarations alone do not guarantee the host's imported composition routing. Import settings and other descriptor/grouping differences remain to be inspected; no cause beyond the observed topology/audio difference is claimed.
 
-## Acceptance boundary
+## Import settings and older-reference control
+
+Computer use inspected the current Windows import settings after the restart. Audio showed Multichannel Audio `None`; automatic center panning, bit-depth conversion and gain/attenuation were unchecked. Sample-rate conversion and its pull-up/down exception were checked. The multichannel editor exposed channel-pair controls through A99. Both dialogs were canceled without changing the preset. The OMFI/AAF tab exposed resolution/report options, without a visible stereo-composition control. These observations are current UI state, not a fingerprint of the API's named `Untitled` preset or proof of its state before restart.
+
+Avid's [Media Composer editing guide](https://resources.avid.com/SupportFiles/attach/Media_Composer/Media_Composer_v2025.x_Editing_Guide.pdf) documents multichannel import mapping and the resulting master-clip Track Formats column. That documentation does not establish how this reference-derived composition will be routed; saved-graph and rendered-sample tests remain necessary.
+
+The read-only checksum-selected `scripts/research/inspect-aaf-source-contracts.py` records deeper reference differences in `.avid-mcp-analysis/aaf-source-contracts-ab62dd0c-b0a2-47af-a525-28d46d798cba/evidence.json`. The PCM source mob's older `_SAVED_AAF_AUDIO_RATE_NUM`/`_LENGTH` values are 48000/9161600; the newer values are 30/5726. The source slot changes from 2 to 1, with corresponding master references. Both PCM descriptors still declare 48000 Hz, length 9161600, two channels and 24-bit quantization. This is metadata evidence, not a demonstrated cause or a basis for automatically rewriting those fields.
+
+`node scripts/research/qualify-aaf-workflow-mcp.mjs --canonical-tracks --original-reference` rebuilt the same cuts using the checksum-selected older reference, then imported into a fresh `MCP_Workflow_3979a705.avb` with the unchanged preset. Save/reopen, all six source mappings, complete 120-frame render, replay refusal and preserved-file checks passed. Evidence: `.avid-mcp-analysis/aaf-workflow-mcp-ddf01099-1a1f-4217-bff9-253e9dbfce72/evidence.json`. Strict audio comparison again failed with identical rendered channels: `native-export-9c6f25cf-e8a2-42a6-83bb-9bb8346c2db0/export/audio-comparison-5d70fa2d-3ef9-46e6-9f87-ae08ff7489ce/evidence.json` beneath that directory.
+
+The older reference alone therefore does not restore stereo in a newly built/imported composition under the current host state. The reference metadata differences cannot alone explain the regression. Explicit composition grouping/panning, host import state and existing master resolution need controlled investigation. No import-setting or source-AAF repair has been adopted.
+
+## Remaining acceptance boundary
 
 The earlier PCM fixture and its post-restart render still have exact stereo PCM evidence. That evidence does not generalize to these new imports. Native receipts correctly separate technical metadata/decoding from `sourceFidelityVerified: false`. Two reported output channels, correct source ranges, a preserved source hash or a successful import response cannot establish stereo preservation.
 
