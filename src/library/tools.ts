@@ -1,3 +1,4 @@
+import {VisualSummaries,visualSummaryReferences} from "./visual-summaries.js";
 import {CaptionBatches,captionTimes} from "./caption-batches.js";
 import {FrameCaptions} from "./captions.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -33,10 +34,11 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const qc = new MediaQc(config);
   const shots = new ShotDetection(config);
   const summaries = new MediaSummaries(config);
+  const visualSummaries = new VisualSummaries(config);
   const aafBuilder = new AafBuilder(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
-  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose()]);previousClose?.();};
+  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose(),visualSummaries.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
   const ids = z.array(id).min(1).max(100);
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
@@ -45,6 +47,10 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_summarize_captions",{description:"Build a four-child visual hierarchy from checksum-selected frame captions. Leaves preserve caption text; parent text is locally generated and needs image review. Samples do not establish continuous video coverage. Use a visual_summary job for cancellation.",inputSchema:{id,references:visualSummaryReferences},annotations:write},({id,references})=>result("avid_summarize_captions",()=>visualSummaries.generate(id,references)));
+  server.registerTool("avid_visual_summary_node",{description:"Read a visual summary overview or child node with original descendant captions and verified image paths. Checks caption/source/image provenance; use avid_read_caption to view the image.",inputSchema:{revision:z.string().uuid(),nodeId:z.string().optional()},annotations:read},({revision,nodeId})=>result("avid_visual_summary_node",()=>visualSummaries.node(revision,nodeId)));
+  server.registerTool("avid_list_visual_summaries",{description:"List visual summaries with checksums for authorized media, including after caption deletion. Listing checks structure but does not verify caption provenance; read a node for verification.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},({id,after,limit})=>result("avid_list_visual_summaries",()=>visualSummaries.list(id,after,limit)));
+  server.registerTool("avid_delete_visual_summary",{description:"Delete only a visual summary after checksum verification, preserving captions and source media. Requires project-write.",inputSchema:{revision:z.string().uuid(),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/)},annotations:{...write,destructiveHint:true}},({revision,expectedSha256})=>result("avid_delete_visual_summary",()=>visualSummaries.remove(revision,expectedSha256)));
   server.registerTool("avid_caption_batch",{description:"Generate reviewable captions at 1–120 increasing seek times, saving each completed caption. Use a caption_batch job for cancellation.",inputSchema:{id,times:captionTimes},annotations:write},({id,times})=>result("avid_caption_batch",()=>captionBatches.generate(id,times)));
   server.registerTool("avid_caption_runs",{description:"Discover caption batches with verified progress. A partial run does not prove that its worker stopped.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},({id,after,limit})=>result("avid_caption_runs",()=>captionBatches.list(id,after,limit)));
   server.registerTool("avid_caption_run",{description:"Verify caption batch source, checkpoints and completion. Editing or deleting referenced captions invalidates verification.",inputSchema:{runId:z.string().uuid()},annotations:read},({runId})=>result("avid_caption_run",()=>captionBatches.status(runId)));
