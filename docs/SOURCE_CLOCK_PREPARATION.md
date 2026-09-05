@@ -25,6 +25,10 @@ Before reporting success, it verifies copied compressed-video essence, frame cou
 
 ## Sonoma evidence
 
+`node scripts/research/qualify-source-clock-matrix.mjs` additionally exercises all seven local Sonoma MP4s serially through shipped stdio MCP. The completed run at `.avid-mcp-analysis/source-clock-matrix-12cf27ec-9e9e-4b5e-bdd5-a8e98acc277c/evidence.json` passed all seven preparations with original hashes unchanged, complete copied-video and normalized-PCM agreement, contiguous zero-origin audio, and independently rechecked output hashes. Outputs and receipts are retained separately from source media.
+
+Coverage includes five 1280x720 and two 3840x2160 files, the 2.68-GB 4K anime export, video starts of 0, 0.021354 and 0.033333 seconds, and both `30/1` and `92037120/3067913` average frame rates. Frame counts range from 5,725 to 6,840. This broadens preparation evidence within this related H.264/stereo-AAC collection; it does not establish unrelated codec, HDR, multilingual content, native import/render, or fractional-rate AAF support. Native acceptance below still applies only to the separately qualified preview fixture.
+
 `node scripts/research/qualify-source-clock-mcp.mjs` exercises the shipped tool through real stdio MCP. It rejects a wrong source checksum, prepares the original Sonoma MP4, checks the new output hash and confirms the original remains unchanged.
 
 Evidence: `.avid-mcp-analysis/source-clock-mcp-166f5c69-55f8-41ea-8c91-5d349e9a34c1/evidence.json`. Copied video essence (`eb1e856639889b6c99b942316d15284dbbbbdeea94198cd9a3ae39f4dc940b3a`) and source-clock PCM (`b28d287137fcf855971513f761eafc6d57834e3b6415c9eabd12a6b07c0961f2`) match the earlier research preparation. The complete new MOV also has the identical SHA-256 `f46de96396ec30be8d41ff3c2f7d8aaf08ba190cdb2295e863ce535e7965bbeb`. The preparation receipt's `hostImportVerified` remains false because that operation does not call Avid.
