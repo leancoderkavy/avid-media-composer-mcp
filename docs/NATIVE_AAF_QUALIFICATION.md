@@ -27,3 +27,11 @@ Computer use loaded the composition. The Avid timeline visibly contained two con
 - The new Avid bin and generated AAF files remain local for subsequent playback/render/adapter qualification.
 
 Next work: package a constrained reference-preserving AAF builder, preview and validate source mappings, serialize native export/import with post-state identity discovery, and qualify playback/render/reopen/undo. Extend to multiple source masters, varied rates and managed media only with separate evidence.
+
+## Current-host refresh, 2026-09-05
+
+Media Composer was observed open in MCP_Sonoma_30p_20260905, with no activation dialog blocking the project. Inspect-only native MCP app/project/bin/sequence reads succeeded. Independent saved-bin indexing again verified duration 120 at 30 fps and the original two source ranges on picture and both audio tracks. The bin SHA remained 44b54618a6019c3fdf06c1fc707809407394e84bddb4755be7d67c75b4d2477c and original Sonoma MP4 hash matched the recorded source. Reproduce with `node scripts/research/qualify-native-reopen.mjs [PYTHON_EXECUTABLE]`; the default is the repository venv containing pyavb/pyaaf2. Evidence: .avid-mcp-analysis/native-refresh-d3ed82a6-a27c-426d-bda4-3f34744d4ca6/evidence.json. This observes the already-open project; it does not prove an assistant-driven full editor restart.
+
+Computer use now captured a nonblack vineyard image in the record monitor. Seeking changed the timeline timecode to 01:00:02:29, and pressing Play advanced to 01:00:03:29. Repeated captures showed the same monitor image, so motion/frame correctness and audio fidelity remain unverified. The sequence was returned to 01:00:00:00. No sequence edit, import or export was performed during this refresh.
+
+The raw inspector initially failed while streaming Unicode AVB metadata through a Windows legacy-encoded stdout stream, leaving partial JSON. It now emits ASCII-escaped JSON for success and errors, preserving Unicode after JSON decoding. The actual bin reinspection passed, with synthetic cp1252 stdout regressions for both success and error payloads.

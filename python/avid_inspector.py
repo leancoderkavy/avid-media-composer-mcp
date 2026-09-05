@@ -355,7 +355,7 @@ def main() -> int:
                 result = analyze_bin(ensure_file(args.path, ".avb"), serializer)
             else:
                 result = analyze_aaf(ensure_file(args.path, ".aaf"), serializer)
-        json.dump(result, sys.stdout, ensure_ascii=False, separators=(",", ":"))
+        json.dump(result, sys.stdout, ensure_ascii=True, separators=(",", ":"))
         sys.stdout.write("\n")
         return 0
     except Exception as exc:
@@ -370,7 +370,7 @@ def main() -> int:
                 },
             },
             sys.stdout,
-            ensure_ascii=False,
+            ensure_ascii=True,
             separators=(",", ":"),
         )
         sys.stdout.write("\n")
