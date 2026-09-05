@@ -37,7 +37,9 @@ export class NativeLockRecovery {
     const retained=retainedSchema.parse(JSON.parse(lines[1]!));
     if(!this.config.outputRoot)throw new Error("Output root required to inspect retained export");
     const directory=await resolveReadablePath(path.dirname(path.dirname(retained.output)),[this.config.outputRoot],"directory");
-    if(path.resolve(retained.output)!==path.join(directory,"export","render.mp4"))throw new Error("Retained export output path is not the expected attempt output");
+    // Validate the leaf layout separately from the canonical parent: realpath can
+    // expand /var aliases or Windows short/case variants without changing scope.
+    if(path.basename(retained.output)!=="render.mp4"||path.basename(path.dirname(retained.output))!=="export")throw new Error("Retained export output path is not the expected attempt output");
     const attemptFile=await resolveReadablePath(path.join(directory,"attempt.json"),[directory],"file");
     const attempt=await readBoundedJson(attemptFile,65536) as {output?:string;project?:string;action?:{action?:string}};
     if(attempt.output!==retained.output||attempt.action?.action!=="export_mp4"||typeof attempt.project!=="string")throw new Error("Retained lock does not match an export attempt");

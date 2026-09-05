@@ -1,4 +1,4 @@
-import {mkdtemp,mkdir,writeFile,readFile,access} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,readFile,access,symlink} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,afterEach} from "vitest";
@@ -31,4 +31,14 @@ it("refuses active/generic abandoned locks and attempts outside current project 
 it("detects a changed lock during stopped-host checks before releasing anything",async()=>{
   const {config,file,owner}=await fixture();const recovery=new NativeLockRecovery(config,async()=>{await writeFile(file,JSON.stringify(owner));}),status=await recovery.inspect();
   if(!status.locked)throw new Error("Missing fixture");await expect(recovery.release(status.sha256)).rejects.toThrow("changed");await access(file);
+});
+it("accepts a canonical parent alias but rejects an unexpected output leaf",async()=>{
+  const {root,config,file,owner}=await fixture();
+  const alias=path.join(root,"attempt-alias");await symlink(path.join(root,"attempt"),alias,process.platform==="win32"?"junction":"dir");
+  const output=path.join(alias,"export","render.mp4");
+  await writeFile(path.join(root,"attempt","attempt.json"),JSON.stringify({project:root,output,action:{action:"export_mp4"}}));
+  const record=(target:string)=>JSON.stringify(owner)+"\n"+JSON.stringify({state:"export-unresolved",output:target,cause:"fixture"});
+  await writeFile(file,record(output));const recovery=new NativeLockRecovery(config,async()=>{});
+  const status=await recovery.inspect();expect(status).toMatchObject({locked:true,recoverable:true});
+  await writeFile(file,record(path.join(alias,"export","other.mp4")));await expect(recovery.inspect()).rejects.toThrow("expected attempt output");
 });
