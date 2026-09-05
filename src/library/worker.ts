@@ -16,6 +16,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "people_resume":result=await new People(config).resume(spec.indexId);break;
     case "speech_resume":result=await new SpeechAnalysis(config).resume(spec.runId);break;
     case "summary_resume":result=await new MediaSummaries(config).resume(spec.runId);break;
     case "visual_resume":result=await new VisualSearch(config).resume(spec.runId);break;
