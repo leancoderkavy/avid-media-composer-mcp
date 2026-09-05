@@ -41,6 +41,12 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_visual_index_runs",{description:"Discover persisted visual indexing runs and completed sample counts. Partial does not prove the original worker stopped. Checkpoints survive cancellation or server restart.",inputSchema:{after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+    ({after,limit})=>result("avid_visual_index_runs",()=>visual.checkpoints.list(after,limit)));
+  server.registerTool("avid_visual_index_run",{description:"Read a visual indexing run's persisted progress without loading a model.",inputSchema:{runId:z.string().uuid()},annotations:read},
+    ({runId})=>result("avid_visual_index_run",()=>visual.checkpoints.status(runId)));
+  server.registerTool("avid_resume_visual_index",{description:"Resume a partial visual index in a new run, reusing its verified contiguous sample prefix. Checks model revision, source hashes and cached image hashes; computes missing samples. Requires export and cached models. Original run is preserved. Use a visual_resume job for cancellable execution.",inputSchema:{runId:z.string().uuid()},annotations:write},
+    ({runId})=>result("avid_resume_visual_index",()=>visual.resume(runId)));
   server.registerTool("avid_inspect_aaf_template", {description:"Inspect a master-only Avid-exported AAF and validate/hash local media locators. Requires export for a request manifest. Does not import into Avid.",inputSchema:{template:z.string().min(1)},annotations:write},
     ({template})=>result("avid_inspect_aaf_template",()=>aafBuilder.inspect(template)));
   server.registerTool("avid_build_aaf_selects", {description:"Build a new straight-cut AAF composition preserving exported source descriptors. Requires export, current template checksum and explicit master/slot mappings. Verifies output ranges; host import/playback is separate.",inputSchema:{request:aafBuildSchema},annotations:write},

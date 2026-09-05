@@ -9,6 +9,9 @@ import { MediaLibrary } from "./media-library.js";
 import { modelRuntime } from "./model-runtime.js";
 import {readBoundedJson,readBoundedFile} from "../security/bounded-read.js";
 import {ShotDetection,shotOptions} from "./shots.js";
+import {VisualCheckpoints,type VisualPlanItem} from "./visual-checkpoints.js";
+import {sha256File} from "../analysis/file-inventory.js";
+import {AvidMcpError} from "../errors.js";
 
 export const VISUAL_MODEL = "Xenova/clip-vit-base-patch32";
 export const VISUAL_REVISION = "d15189d7028b43f1d3e65039190477f6af591c2a";
@@ -39,9 +42,10 @@ export function sampleTimes(duration:number,count:number,range?:z.infer<typeof v
 const sampleSchema=z.object({id:z.string().regex(/^[a-f0-9]{64}$/),time:z.number().nonnegative(),image:z.string(),vector,shot:visualRange.optional()}).refine(sample=>!sample.shot||(sample.time>=sample.shot.start&&sample.time<sample.shot.end),"Sample must lie within its shot");
 const recordSchema=z.object({model:z.literal(VISUAL_MODEL),revision:z.literal(VISUAL_REVISION),samples:z.array(sampleSchema).max(1200)});
 export class VisualSearch {
+  readonly checkpoints:VisualCheckpoints;
   private models: ReturnType<typeof loadVisualModels>|undefined;
   private readonly library: MediaLibrary;
-  constructor(private readonly config: ServerConfig){this.library=new MediaLibrary(config);}
+  constructor(private readonly config: ServerConfig){this.library=new MediaLibrary(config);this.checkpoints=new VisualCheckpoints(config,VISUAL_MODEL,VISUAL_REVISION);}
   private load(){
     requireCapability(this.config.capabilities,"inspect");
     if(!this.config.modelDirectory)throw new Error("Set AVID_MCP_MODEL_DIR after explicitly downloading models with avid-mcp --download-models --model-dir PATH");
@@ -63,19 +67,33 @@ export class VisualSearch {
     const index=await this.indexPlan(report.shots.map(shot=>({id,time:shot.representativeSeconds,shot:{start:shot.start,end:shot.end}})));
     return {...index,shotReport:report.output,detectedShots:report.shots.length,coverage:"One midpoint per detected shot; detection can miss cuts and each shot can contain unsampled visual changes"};
   }
-  private async indexPlan(plan:{id:string;time:number;shot?:z.infer<typeof visualRange>}[]){
+  async resume(runId:string){
+    requireCapability(this.config.capabilities,"export");
+    const previous=await this.checkpoints.read(runId,true);
+    if(previous.indexId)throw new Error(`Visual run is already completed; use index ${previous.indexId}`);
+    return this.indexPlan(previous.record.plan,runId);
+  }
+  private async indexPlan(plan:VisualPlanItem[],parentRunId?:string){
+    const previous=parentRunId?await this.checkpoints.read(parentRunId,true):undefined;
+    const runId=await this.checkpoints.create(plan,parentRunId);
+    try{
+    const samples=previous?.samples??[],reusedSamples=samples.length;
+    for(let i=0;i<samples.length;i++)await this.checkpoints.append(runId,i,samples[i]!);
     const models=await this.load();
-    const samples=[];
-    for(const {id,time,shot} of plan){
+    for(const {id,time,shot} of plan.slice(samples.length)){
         const image=await this.library.artifact(id,"thumbnail",time);
         const inputs=await models.processor(await models.RawImage.read(image.output));
         const result=await models.vision(inputs);
-        samples.push({id,time,shot,image:image.output,vector:Array.from(result.image_embeds.data,Number)});
+        const saved={id,time,shot,image:image.output,imageSha256:await sha256File(image.output),vector:Array.from(result.image_embeds.data,Number)};
+        await this.checkpoints.append(runId,samples.length,saved);samples.push(saved);
     }
+    for(const entry of await this.library.metadata([...new Set(plan.map(item=>item.id))]))if(await sha256File(entry.file)!==entry.id)throw new Error("Source changed during visual indexing");
     const record=recordSchema.parse({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples});
     const indexId=randomUUID();
     await writeFile(path.join(await this.library.directory(),`visual-${indexId}.json`),JSON.stringify(record),{flag:"wx"});
-    return {indexId,samples:samples.length,model:VISUAL_MODEL,coverage:"Sparse frame samples; does not identify every shot or continuous matching scene"};
+    await this.checkpoints.finish(runId,indexId);
+    return {indexId,runId,parentRunId,reusedSamples,samples:samples.length,model:VISUAL_MODEL,coverage:"Sparse frame samples; does not identify every shot or continuous matching scene"};
+    }catch(error){throw new AvidMcpError("VISUAL_INDEX_INCOMPLETE",(error as Error).message,{runId,parentRunId,resumeTool:"avid_resume_visual_index"});}
   }
   private async record(indexId:string){
     z.string().uuid().parse(indexId);

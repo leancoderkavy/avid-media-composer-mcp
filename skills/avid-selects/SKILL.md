@@ -13,6 +13,8 @@ Use `avid_index_visual_shots` to detect and embed one midpoint per shot in one o
 
 Save chosen half-open source-time ranges in seconds with `avid_save_collection`, including labels and reasons. Read the returned revision with `avid_read_collection`; use `avid_collection_range` to verify stringout-to-source mapping.
 
+For interrupted visual indexing, use `avid_visual_index_runs` and `avid_visual_index_run` to inspect persisted sample counts. A partial record does not prove its worker stopped. After cancellation reaches a terminal status, `avid_resume_visual_index` (or a `visual_resume` job) creates a new run, validates source/model/thumbnail integrity and reuses the committed embedding prefix. Keep the returned parent run ID and reused count in the receipt. Do not promise resume for other model jobs or for shot detection before its sample plan exists.
+
 For handoff:
 
 - `avid_export_collection_otio` creates a frame-quantized single-video-track interchange file. It does not author audio routing or prove Avid import.
