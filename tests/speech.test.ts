@@ -10,7 +10,7 @@ import {sha256File} from "../src/analysis/file-inventory.js";
 import {loadConfig} from "../src/config.js";
 const mocks=vi.hoisted(()=>({infer:vi.fn(),pipeline:vi.fn(),dispose:vi.fn(),generate:vi.fn()}));
 vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:mocks.pipeline,Tensor:class{constructor(public type:string,public data:BigInt64Array,public dims:number[]){}}})}));
-vi.mock("../src/process.js",()=>({runProcess:async(_exe:string,args:string[])=>{await writeFile(args.at(-1)!,Buffer.alloc(Number(args[args.indexOf("-t")+1])*16000*4));return {exitCode:0};}}));
+vi.mock("../src/process.js",()=>({runProcess:async(_exe:string,args:string[])=>{await writeFile(args.at(-1)!,Buffer.alloc(Number(args[args.lastIndexOf("-t")+1])*16000*4));return {exitCode:0};}}));
 beforeEach(()=>{
   vi.resetAllMocks();const generator={generate:mocks.generate};
   mocks.generate.mockResolvedValue({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])});
@@ -83,15 +83,18 @@ it("persists the automatic choice across interrupted generation and resumes with
   mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
   await expect(speech.transcribe(id,0,65,{model:"tiny",language:"auto"})).rejects.toMatchObject({code:"SPEECH_INCOMPLETE"});
   const parent=(await speech.checkpoints.list(id)).runs[0]!.runId;
-  expect((await speech.checkpoints.read(parent)).record).toMatchObject({recipe:2,languageDecision:{language:"fr",selection:"model_candidate",analyzedSeconds:30}});
+  expect((await speech.checkpoints.read(parent)).record).toMatchObject({recipe:3,languageDecision:{language:"fr",selection:"model_candidate",analyzedSeconds:30}});
   const resumed=await speech.resume(parent);expect(resumed).toMatchObject({language:"fr",languageRequested:"auto",languageSelection:"model_candidate",reusedWindows:1,languageDetectionVerified:false});expect(detect).toHaveBeenCalledTimes(1);
   const manifestFile=path.join(await new MediaLibrary(config).directory(),`speech-run-${resumed.runId}`,"manifest.json"),manifest=JSON.parse(await readFile(manifestFile,"utf8"));manifest.languageDecision.candidates[0].modelProbability=0.9;await writeFile(manifestFile,JSON.stringify(manifest));await expect(speech.checkpoints.status(resumed.runId)).rejects.toThrow("manifest changed");
 });
-it("retains recipe-one English fallback when resuming an old multilingual run",async()=>{
+it("retains legacy checkpoints but refuses incompatible audio timing on resume",async()=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
   mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
   await expect(speech.transcribe(id,0,65,{model:"tiny",language:"en"})).rejects.toThrow();
   const parent=(await speech.checkpoints.list(id)).runs[0]!.runId,base=await new MediaLibrary(config).directory(),file=path.join(base,`speech-run-${parent}`,"manifest.json"),record=JSON.parse(await readFile(file,"utf8"));
   record.recipe=1;delete record.languageDecision;record.options.language="auto";await writeFile(file,JSON.stringify(record));
-  const resumed=await speech.resume(parent);expect(resumed).toMatchObject({language:"en",languageSelection:"english_fallback",reusedWindows:1});
+  await expect(speech.resume(parent)).rejects.toThrow("Legacy speech audio timing recipe");
+  expect(await speech.checkpoints.status(parent)).toMatchObject({recipe:1,resumable:false,state:"partial"});
+  record.recipe=2;record.languageDecision={language:"en",selection:"english_fallback",candidates:[]};await writeFile(file,JSON.stringify(record));
+  await expect(speech.resume(parent)).rejects.toThrow("Legacy speech audio timing recipe");
 });

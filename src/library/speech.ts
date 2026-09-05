@@ -1,4 +1,4 @@
-import {readFile,mkdir} from "node:fs/promises";
+import {mkdir} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
 import type {ServerConfig} from "../config.js";
@@ -12,6 +12,7 @@ import {speechModels,speechOptions,speechModel,speechLanguageDecision,type Speec
 import {SpeechCheckpoints,speechInputHash,speechTokens} from "./speech-checkpoints.js";
 import {AvidMcpError} from "../errors.js";
 import {rankSpeechLanguages} from "./speech-language.js";
+import {speechAudioArguments} from "./speech-audio.js";
 import {readBoundedFile} from "../security/bounded-read.js";
 
 export const SPEECH_MODEL=speechModels["tiny.en"].model;
@@ -46,9 +47,9 @@ export class SpeechAnalysis {
     if(!entry||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>Number(entry.metadata.format?.duration)||end-start>30)throw new Error("Language detection range must be within media and at most 30 seconds");
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
     const directory=path.join(await library.directory(),randomUUID());await mkdir(directory);const audio=path.join(directory,"language.f32");
-    const extracted=await runProcess(this.config.ffmpegExecutable??"ffmpeg",["-nostdin","-v","error","-n","-protocol_whitelist","file,pipe","-ss",String(start),"-i",source,"-t",String(end-start),"-vn","-ac","1","-ar","16000","-f","f32le",audio],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:1024*1024});
+    const extracted=await runProcess(this.config.ffmpegExecutable??"ffmpeg",speechAudioArguments(source,audio,start,end),{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:1024*1024});
     if(extracted.exitCode!==0)throw new Error("Language audio extraction failed");
-    const bytes=await readBoundedFile(audio,30*16000*4);if(!bytes.length||bytes.length%4)throw new Error("Unexpected language audio buffer");
+    const bytes=await readBoundedFile(audio,Math.ceil((end-start)*16000)*4);if(!bytes.length||bytes.length%4)throw new Error("Unexpected language audio buffer");
     const samples=new Float32Array(bytes.length/4);for(let i=0;i<samples.length;i++){samples[i]=bytes.readFloatLE(i*4);if(!Number.isFinite(samples[i]))throw new Error("Nonfinite audio sample");}
     const silent=samples.every(sample=>sample===0),candidates=await this.candidates(samples);
     if(await sha256File(source)!==id)throw new Error("Source changed during language detection");
@@ -71,16 +72,17 @@ export class SpeechAnalysis {
     if(!Number.isFinite(end)||!Number.isFinite(start)||end<=start||start<0||end>duration||end-start>600)throw new Error("Transcription range must be within media and at most 600 seconds");
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");
     if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
+    const previous=parentRunId?await this.checkpoints.read(parentRunId):undefined;
+    if(previous&&previous.record.recipe!==3)throw new Error("Legacy speech audio timing recipe cannot resume; start a new transcription. Existing transcripts and checkpoints are retained.");
     const directory=path.join(await library.directory(),randomUUID());
     await mkdir(directory);
     const audio=path.join(directory,"speech.f32");
-    const result=await runProcess(this.config.ffmpegExecutable??"ffmpeg",["-nostdin","-v","error","-n","-protocol_whitelist","file,pipe","-ss",String(start),"-i",source,"-t",String(end-start),"-vn","-ac","1","-ar","16000","-f","f32le",audio],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:1024*1024});
+    const result=await runProcess(this.config.ffmpegExecutable??"ffmpeg",speechAudioArguments(source,audio,start,end),{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:1024*1024});
     if(result.exitCode!==0)throw new Error("Audio extraction failed");
-    const bytes=await readFile(audio);
+    const bytes=await readBoundedFile(audio,Math.ceil((end-start)*16000)*4);
     if(!bytes.length||bytes.length>600*16000*4||bytes.length%4)throw new Error("Unexpected audio buffer");
     const samples=new Float32Array(bytes.length/4);
     for(let i=0;i<samples.length;i++){samples[i]=bytes.readFloatLE(i*4);if(!Number.isFinite(samples[i]))throw new Error("Nonfinite audio sample");}
-    const previous=parentRunId?await this.checkpoints.read(parentRunId):undefined;
     const audioHash=await sha256File(audio),plannedWindows=1+Math.ceil(Math.max(0,samples.length-480000)/320000);
     if(previous&&(previous.complete||previous.record.id!==id||previous.record.start!==start||previous.record.end!==end||JSON.stringify(previous.record.options)!==JSON.stringify(options)||previous.record.audioHash!==audioHash||previous.record.plannedWindows!==plannedWindows))throw new Error("Speech checkpoint source, options or audio plan changed");
     let decision=previous?.record.languageDecision;
@@ -91,7 +93,7 @@ export class SpeechAnalysis {
         decision=speechLanguageDecision.parse({language:candidates[0]!.language,selection:"model_candidate",candidates,analyzedSeconds:window.length/16000});
       }else decision=speechLanguageDecision.parse({language:options.language==="auto"?"en":options.language,selection:!selected.multilingual?"english_only_model":options.language==="auto"?"english_fallback":"explicit"});
     }
-    const runId=await this.checkpoints.create({id,start,end,options,audioHash,plannedWindows,parentRunId,languageDecision:decision});
+    const runId=await this.checkpoints.create({id,start,end,options,audioHash,plannedWindows,parentRunId,languageDecision:decision,recipe:3});
     try{
     if(!this.models.has(options.model))this.models.set(options.model,loadSpeechModel(this.config.modelDirectory,false,options.model).catch(error=>{this.models.delete(options.model);throw error;}));
     const model=await this.models.get(options.model)!;
