@@ -36,7 +36,7 @@ export class ShotDetection {
     if(!entry.metadata.streams?.some((stream:{codec_type?:string})=>stream.codec_type==="video"))throw new Error("Shot detection requires video");
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
     const span=options.end-options.start;
-    const result=await runProcess(this.config.ffmpegExecutable??"ffmpeg",["-hide_banner","-nostdin","-nostats","-xerror","-v","info","-protocol_whitelist","file,pipe","-ss",String(options.start),"-t",String(span),"-i",source,"-map","0:v:0","-an","-vf",`trim=duration=${span},setpts=PTS-STARTPTS,scdet=threshold=${options.threshold}`,"-fps_mode","passthrough","-progress","pipe:1","-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:4*1024*1024});
+    const result=await runProcess(this.config.ffmpegExecutable??"ffmpeg",["-hide_banner","-nostdin","-nostats","-xerror","-v","info","-protocol_whitelist","file,pipe","-ss",String(options.start),"-t",String(span),"-i",source,"-map","0:v:0","-an","-vf",`trim=duration=${span},scdet=threshold=${options.threshold}`,"-fps_mode","passthrough","-progress","pipe:1","-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:4*1024*1024});
     if(result.exitCode!==0)throw new Error(`Shot detection failed: ${result.stderr.slice(-1000)}`);
     const decodedFrames=Number([...result.stdout.matchAll(/^frame=(\d+)\s*$/gm)].at(-1)?.[1]);
     if(!result.stdout.includes("progress=end")||!Number.isFinite(decodedFrames)||decodedFrames<1)throw new Error("Shot decoding did not produce a complete frame summary");

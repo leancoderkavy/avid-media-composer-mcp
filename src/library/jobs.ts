@@ -11,6 +11,7 @@ import {JobJournal} from "./job-journal.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("visual_shots"),id,options:shotOptions}).strict(),
   z.object({kind:z.literal("shots"),id,options:shotOptions}).strict(),
   z.object({kind:z.literal("summary"),id,transcriptRevision:z.string().uuid()}).strict(),
   z.object({kind:z.literal("qc"),id,options:qcOptions}).strict(),

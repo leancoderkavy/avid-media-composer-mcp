@@ -16,6 +16,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "visual_shots":result=await new VisualSearch(config).indexShots(spec.id,spec.options);break;
     case "shots":result=await new ShotDetection(config).detect(spec.id,spec.options);break;
     case "summary":result=await new MediaSummaries(config).generate(spec.id,spec.transcriptRevision);break;
     case "qc":result=await new MediaQc(config).analyze(spec.id,spec.options);break;

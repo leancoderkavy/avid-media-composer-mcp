@@ -9,6 +9,8 @@ Choose search from the evidence needed: `avid_search_media` for metadata/transcr
 
 Use `avid_detect_shots` when uniform samples may miss brief shots. It decodes the first video stream at native resolution and returns threshold-based cuts plus representative source timestamps. Inspect candidate cuts before treating them as edit decisions; flashes and motion can trigger false cuts. For long ranges use an analysis job with kind `shots`. Each request covers at most one hour; preserve range-edge and coverage limitations when combining reports.
 
+Use `avid_index_visual_shots` to detect and embed one midpoint per shot in one operation, or job kind `visual_shots` for long work. Search results retain each shot's half-open source range. Indexes exceeding 1200 shots are rejected; shorten the range rather than assuming omitted shots were indexed. Search time scopes still filter midpoint timestamps, not any overlap with a shot range.
+
 Save chosen half-open source-time ranges in seconds with `avid_save_collection`, including labels and reasons. Read the returned revision with `avid_read_collection`; use `avid_collection_range` to verify stringout-to-source mapping.
 
 For handoff:

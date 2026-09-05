@@ -15,9 +15,10 @@ it("paginates half-open sample scope without loading models or returning embeddi
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-visual-")),directory=path.join(root,"avid-mcp-library");await mkdir(directory);
   const id="a".repeat(64),source=path.join(root,"source.mp4"),image=path.join(directory,"frame.jpg");await writeFile(source,"fixture");await writeFile(image,"image");
   await writeFile(path.join(directory,`${id}.json`),JSON.stringify({id,file:source,metadata:{format:{duration:10}},transcript:[]}));
-  const indexId=randomUUID();await writeFile(path.join(directory,`visual-${indexId}.json`),JSON.stringify({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples:[1,2,3,4].map(time=>({id,time,image,vector:Array(512).fill(0)}))}));
+  const indexId=randomUUID();await writeFile(path.join(directory,`visual-${indexId}.json`),JSON.stringify({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples:[1,2,3,4].map(time=>({id,time,image,shot:{start:time-0.5,end:time+0.5},vector:Array(512).fill(0)}))}));
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root}),visual=new VisualSearch(config);
   const first=await visual.samples(indexId,{ids:[id],range:{start:2,end:4}},-1,1);expect(first.samples[0]?.time).toBe(2);expect(first.nextAfter).toBe(1);expect(first.samples[0]).not.toHaveProperty("vector");
   const next=await visual.samples(indexId,{range:{start:2,end:4}},first.nextAfter!,1);expect(next.samples[0]?.time).toBe(3);expect(next.nextAfter).toBeNull();
+  expect(next.samples[0]?.shot).toEqual({start:2.5,end:3.5});
   await expect(new VisualSearch({...config,allowedRoots:[]}).samples(indexId)).rejects.toThrow();
 });

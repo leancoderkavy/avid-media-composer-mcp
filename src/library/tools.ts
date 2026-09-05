@@ -56,6 +56,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({id,options})=>result("avid_media_qc",()=>qc.analyze(id,options)));
   server.registerTool("avid_detect_shots", {description:"Decode a source range up to one hour for threshold-based visual cuts and half-open shot intervals with representative timestamps. Requires export and FFmpeg scdet. Flashes/motion may create false cuts; use a shots job for long ranges.",inputSchema:{id,options:shotOptions},annotations:write},
     ({id,options})=>result("avid_detect_shots",()=>shots.detect(id,options)));
+  server.registerTool("avid_index_visual_shots", {description:"Detect cuts and index one local CLIP midpoint per detected shot, retaining source ranges in search results. Requires export, cached models and FFmpeg; rejects over 1200 shots instead of dropping coverage. Use a visual_shots job for long ranges.",inputSchema:{id,options:shotOptions},annotations:write},
+    ({id,options})=>result("avid_index_visual_shots",()=>visual.indexShots(id,options)));
   server.registerTool("avid_index_media", {description:"Index up to 100 local media files by SHA-256 into the configured output directory. No media upload.", inputSchema:{files:z.array(z.string()).min(1).max(100)},annotations:write},
     ({files})=>result("avid_index_media",()=>library.index(files)));
   server.registerTool("avid_library_metadata", {description:"Read indexed technical media metadata.",inputSchema:{ids},annotations:read},

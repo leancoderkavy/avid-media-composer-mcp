@@ -8,6 +8,7 @@ import { requireCapability } from "../security/capabilities.js";
 import { MediaLibrary } from "./media-library.js";
 import { modelRuntime } from "./model-runtime.js";
 import {readBoundedJson,readBoundedFile} from "../security/bounded-read.js";
+import {ShotDetection,shotOptions} from "./shots.js";
 
 export const VISUAL_MODEL = "Xenova/clip-vit-base-patch32";
 export const VISUAL_REVISION = "d15189d7028b43f1d3e65039190477f6af591c2a";
@@ -35,7 +36,8 @@ export function sampleTimes(duration:number,count:number,range?:z.infer<typeof v
   if(end>duration)throw new Error("Sampling range exceeds media duration");
   return Array.from({length:count},(_,n)=>start+(end-start)*(n+0.5)/count);
 }
-const recordSchema=z.object({model:z.literal(VISUAL_MODEL),revision:z.literal(VISUAL_REVISION),samples:z.array(z.object({id:z.string().regex(/^[a-f0-9]{64}$/),time:z.number().nonnegative(),image:z.string(),vector})).max(1200)});
+const sampleSchema=z.object({id:z.string().regex(/^[a-f0-9]{64}$/),time:z.number().nonnegative(),image:z.string(),vector,shot:visualRange.optional()}).refine(sample=>!sample.shot||(sample.time>=sample.shot.start&&sample.time<sample.shot.end),"Sample must lie within its shot");
+const recordSchema=z.object({model:z.literal(VISUAL_MODEL),revision:z.literal(VISUAL_REVISION),samples:z.array(sampleSchema).max(1200)});
 export class VisualSearch {
   private models: ReturnType<typeof loadVisualModels>|undefined;
   private readonly library: MediaLibrary;
@@ -52,15 +54,23 @@ export class VisualSearch {
     if(ids.length>100||!ids.length||!Number.isInteger(samplesPerFile)||samplesPerFile<1||samplesPerFile>120||ids.length*samplesPerFile>1200)throw new Error("Visual sample limit exceeded (120 per file, 1200 total)");
     const entries=await this.library.metadata([...new Set(ids)]);
     const plans=entries.map(entry=>({entry,times:sampleTimes(Number(entry.metadata.format?.duration),samplesPerFile,range)}));
+    return this.indexPlan(plans.flatMap(({entry,times})=>times.map(time=>({id:entry.id,time}))));
+  }
+  async indexShots(id:string,options:z.input<typeof shotOptions>){
+    requireCapability(this.config.capabilities,"export");
+    const report=await new ShotDetection(this.config).detect(id,options);
+    if(report.shots.length>1200)throw new Error("Shot index exceeds 1200 samples; use a shorter range. No shots were silently skipped.");
+    const index=await this.indexPlan(report.shots.map(shot=>({id,time:shot.representativeSeconds,shot:{start:shot.start,end:shot.end}})));
+    return {...index,shotReport:report.output,detectedShots:report.shots.length,coverage:"One midpoint per detected shot; detection can miss cuts and each shot can contain unsampled visual changes"};
+  }
+  private async indexPlan(plan:{id:string;time:number;shot?:z.infer<typeof visualRange>}[]){
     const models=await this.load();
     const samples=[];
-    for(const {entry,times} of plans){
-      for(const time of times){
-        const image=await this.library.artifact(entry.id,"thumbnail",time);
+    for(const {id,time,shot} of plan){
+        const image=await this.library.artifact(id,"thumbnail",time);
         const inputs=await models.processor(await models.RawImage.read(image.output));
         const result=await models.vision(inputs);
-        samples.push({id:entry.id,time,image:image.output,vector:Array.from(result.image_embeds.data,Number)});
-      }
+        samples.push({id,time,shot,image:image.output,vector:Array.from(result.image_embeds.data,Number)});
     }
     const record=recordSchema.parse({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples});
     const indexId=randomUUID();
