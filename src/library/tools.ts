@@ -41,6 +41,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_detect_speech_language",{description:"Suggest a language from up to 30 seconds using cached multilingual Whisper. Returns reviewable language-token scores; digital silence has no candidate. Requires export for local audio extraction. Does not transcribe or change auto behavior; music/noise/mixed languages can mislead.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive()},annotations:write},
+    ({id,start,end})=>result("avid_detect_speech_language",()=>speech.detectLanguage(id,start,end)));
   server.registerTool("avid_speech_runs",{description:"Discover persisted speech runs for a media ID. Partial does not prove worker termination; unavailable runs include an error.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
     ({id,after,limit})=>result("avid_speech_runs",()=>speech.checkpoints.list(id,after,limit)));
   server.registerTool("avid_speech_run",{description:"Read persisted speech window progress and verify source and completed transcript integrity.",inputSchema:{runId:z.string().uuid()},annotations:read},

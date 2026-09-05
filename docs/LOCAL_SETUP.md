@@ -168,3 +168,15 @@ Speech transcription checkpoints the generated tokens for each overlapping audio
 Recovery repeats audio extraction and feature preparation but skips inference for saved windows. Exclusive checkpoint publication requires same-directory hard-link support. There is no automatic replay, checkpoint cleanup or power-loss durability guarantee. Only Transformers.js 4.2.0 is supported by this recipe, and runtime loading rejects another installed version.
 
 Real Windows MCP qualification cancelled a Sonoma [0,180) speech worker, reconnected, reused two saved windows into nine completed windows, and compared every resulting segment against uninterrupted transcription. Parent checkpoints and source SHA were unchanged. Run `scripts/research/qualify-speech-resume.mjs` with cached English speech weights. This is recovery and result-equivalence evidence, not speech accuracy or diarization acceptance.
+
+## Reviewable language detection
+
+`avid_detect_speech_language` accepts an indexed media ID and a source range of at most 30 seconds. It requires `inspect`, `export`, and explicitly downloaded multilingual `tiny` weights. It extracts mono 16 kHz audio locally and ranks the language tokens from one decoder step using the public Whisper language-identification method. It returns the top five `modelProbability` scores, a candidate `language`, analyzed range, pinned model revision and `reviewRequired: true`. Scores are not calibrated confidence or verified language identity.
+
+Exact digital silence returns `status: "digital_silence"`, no candidate and no model inference. This is not voice activity detection: background noise, music, quiet speech and mixed languages can still produce misleading candidates. Choose a range containing clear speech and review the result. No transcript is created and no project-write permission is needed.
+
+The transcription API's `auto` compatibility option still uses its documented English fallback. Its `languageDetectionSupported: false` field describes automatic selection within that transcription call, not availability of this separate detection tool. Review the suggestion and pass the selected language explicitly to transcription. Existing speech recovery recipes retain their original language behavior.
+
+Qualification: real stdio MCP returned en and zh on original synthetic English and Mandarin speech, and null on digital silence, with unchanged source hashes. This is narrow language-identification evidence, not acceptance across all supported language tokens. Scripts: `qualify-language-detection.mjs` and `qualify-language-detection-mcp.mjs` under `scripts/research`. The unguarded research model selected Welsh for silence, which is why the tool excludes exact digital silence.
+
+Method reference: [OpenAI Whisper language detection](https://github.com/openai/whisper/blob/main/whisper/decoding.py). This implementation is original TypeScript using the pinned local ONNX model; it does not copy a competitor implementation.

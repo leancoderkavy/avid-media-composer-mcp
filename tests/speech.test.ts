@@ -48,6 +48,11 @@ it("rejects unsupported model/language combinations before work and preserves ol
 it("rejects changed sources before inference",async()=>{
   const {config,id,source}=await fixture();await writeFile(source,"changed");await expect(new SpeechAnalysis(config).transcribe(id,0,1,{model:"tiny",language:"es"})).rejects.toThrow("changed");expect(mocks.pipeline).not.toHaveBeenCalled();
 });
+it("returns no language for digital silence without model inference or transcript creation",async()=>{
+  const {config,id}=await fixture(),speech=new SpeechAnalysis({...config,capabilities:new Set(["inspect","export"])});
+  const result=await speech.detectLanguage(id,0,1);expect(result).toMatchObject({status:"digital_silence",language:null,candidates:[],transcriptCreated:false,languageVerified:false});expect(mocks.pipeline).not.toHaveBeenCalled();
+  await expect(speech.detectLanguage(id,0,31)).rejects.toThrow("30 seconds");await expect(new SpeechAnalysis({...config,capabilities:new Set(["inspect"])}).detectLanguage(id,0,1)).rejects.toThrow();
+});
 it("resumes committed tokens after failure and preserves the parent and model method",async()=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
   mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
