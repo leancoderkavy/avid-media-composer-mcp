@@ -11,7 +11,7 @@ import { analyzeAle } from "./analysis/ale.js";
 import { analyzeConfigurationFile } from "./analysis/configuration.js";
 import { analyzeEdl } from "./analysis/edl.js";
 import { inventoryFiles } from "./analysis/file-inventory.js";
-import { analyzeMediaFile, probeFfprobe } from "./analysis/media.js";
+import { analyzeMediaFile, probeFfmpeg, probeFfprobe } from "./analysis/media.js";
 import { analyzeOtio } from "./analysis/otio.js";
 import { analyzeDnxTurnover } from "./analysis/dnx.js";
 import { validateSourceMarkerPackage } from "./analysis/markers.js";
@@ -234,8 +234,9 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           pythonExecutable: config.pythonExecutable,
           timeoutMs: config.commandTimeoutMs,
         };
-        const [pythonInspector, ffprobe, bridge] = await Promise.all([
+        const [pythonInspector, ffmpeg, ffprobe, bridge] = await Promise.all([
           probePythonInspector(pythonOptions),
+          probeFfmpeg(config.ffmpegExecutable ?? "ffmpeg", config.commandTimeoutMs),
           probeFfprobe(config.ffprobeExecutable, config.commandTimeoutMs),
           getBridgeStatus(config.bridgeDir),
         ]);
@@ -252,7 +253,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
             ],
           },
           allowedRoots: config.allowedRoots,
-          dependencies: { pythonInspector, ffprobe },
+          dependencies: { pythonInspector, ffmpeg, ffprobe },
           native: { configured: Boolean(config.nativeBinary), qualification: "Windows 2024.12.58720 only; see native tools and validation evidence" },
           mediaLibrary: { configured: Boolean(config.outputRoot), matching: "metadata/transcript substring search and optional local CLIP similarity over sparse frame samples", modelsConfigured: Boolean(config.modelDirectory), speech: "optional local English/multilingual Whisper with explicit model/language selection; review accuracy" },
           bridge,

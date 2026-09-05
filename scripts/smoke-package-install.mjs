@@ -11,6 +11,10 @@ import {
 } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const root = process.cwd();
+const withPython = process.argv.includes("--with-python");
+if (process.argv.slice(2).some(arg => arg !== "--with-python")) throw new Error("Unknown package smoke option");
+const localPython = path.join(root, ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
+const python = existsSync(localPython) ? localPython : process.env.AVID_MCP_PYTHON || (process.platform === "win32" ? "python" : "python3");
 
 function npmInvocation(args) {
   const npmCli = path.join(
@@ -113,6 +117,7 @@ try {
       ...getDefaultEnvironment(),
       AVID_MCP_ALLOWED_ROOTS: path.resolve(root, "tests", "fixtures", "sample-project"),
       AVID_MCP_CAPABILITIES: "inspect",
+      ...(withPython ? {AVID_MCP_PYTHON:python} : {}),
     },
   });
   client = new Client({ name: "avid-mcp-package-install-smoke", version: "1.0.0" });
@@ -123,6 +128,27 @@ try {
   ]);
   if (tools.tools.length !== 127 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
+  }
+  if (withPython) {
+    const inspectDependency = async () => {
+      const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
+      if (result.isError || !result.structuredContent?.ok) throw new Error("Installed capability request failed");
+      return result.structuredContent.data?.dependencies?.pythonInspector;
+    };
+    const available = await inspectDependency();
+    if (!available?.available || !available.packages?.pyavb || !available.packages?.pyaaf2) {
+      throw new Error("Installed MCP did not execute the packaged Python inspector from the conflicting working folder");
+    }
+    await rename(packagedSidecar, `${packagedSidecar}.held`);
+    try {
+      const missing = await inspectDependency();
+      if (missing?.available !== false || !missing.error?.includes("avid_inspector.py was not found")) {
+        throw new Error("Installed MCP did not report missing packaged Python inspector without fallback");
+      }
+    } finally {
+      await rename(`${packagedSidecar}.held`, packagedSidecar);
+    }
+    if (!(await inspectDependency())?.available) throw new Error("Restored packaged inspector did not recover");
   }
   const skillNames = ["avid-ingest-qc", "avid-selects", "avid-review-markers", "avid-turnover", "avid-export"];
   const toolNames = new Set(tools.tools.map(tool => tool.name));
@@ -143,6 +169,7 @@ try {
       skills: skillNames.length,
       install: "fresh-tarball",
       sidecarIsolation: "package-only; missing package fails closed",
+      pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
     }),
   );
 } finally {

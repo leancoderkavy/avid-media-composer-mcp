@@ -49,7 +49,7 @@
     "pack:dry-run": "npm pack --dry-run",
     "publish:npm": "node scripts/publish-npm.mjs",
     "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run",
-    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run && npm run smoke:package"
+    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run && npm run smoke:package -- --with-python"
   },
   "repository": {
     "type": "git",
