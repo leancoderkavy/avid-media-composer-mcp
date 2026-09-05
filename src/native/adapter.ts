@@ -9,13 +9,15 @@ import { AvidMcpError } from "../errors.js";
 import { sha256File } from "../analysis/file-inventory.js";
 import { NativeClient, QUALIFIED_BUILD } from "./client.js";
 import {renderContract,verifyNativeRender} from "./render-verifier.js";
-import {NativeExportUncertain} from "./lock.js";
+import {NativeExportUncertain,NativeImportUncertain} from "./lock.js";
+import {AafBuilder} from "../library/aaf-builder.js";
 
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
 const id = z.string().min(1).max(256);
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("import_aaf_selects"),bin:z.string().min(1),file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),preset:name}).strict(),
   z.object({action:z.literal("export_mp4"),bin:z.string().min(1),mobId:id,preset:name,expected:renderContract}).strict().refine(value=>value.expected.videoCodec==="h264"&&value.expected.width===1920&&value.expected.height===1080&&value.expected.rate.num===30&&value.expected.rate.den===1,"Native MP4 qualification currently requires H.264 1080p30"),
   z.object({ action: z.literal("create_bin"), name }).strict(),
   z.object({ action: z.literal("open_bin"), bin: z.string().min(1) }).strict(),
@@ -48,7 +50,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "link_settings" | "export_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -56,6 +58,7 @@ export class NativeAdapter {
     if (query === "bins") return this.client.call("GetBins", { project_path: project.path, request_flag: ["AllTypes"] });
     if (query === "link_settings") return this.client.call("GetListOfLinkSettings");
     if (query === "export_settings") return this.client.call("GetListOfExportSettings");
+    if (query === "import_settings") return this.client.call("GetListOfImportSettings");
     const target = await this.binPath(project.path, bin ?? "");
     const relative = path.relative(project.path, target);
     if (query === "bin") return this.client.call("GetBinInfo", { relative_bin_path: relative });
@@ -90,6 +93,20 @@ export class NativeAdapter {
     const media = action.action === "link_media" ? await resolveReadablePath(action.media, this.config.allowedRoots, "file") : undefined;
     let subclipSource:unknown;
     let exportState:unknown;
+    let importState: {inspection:Awaited<ReturnType<AafBuilder["inspectSelects"]>>;presets:Record<string,any>[];outputRoot:string}|undefined;
+    if(action.action==="import_aaf_selects"){
+      requireCapability(this.config.capabilities,"edit");requireCapability(this.config.capabilities,"export");
+      if(clips.length)throw new Error("AAF import requires an empty destination bin");
+      if(project.frame_rate?.num!==30||project.frame_rate?.den!==1)throw new Error("Native AAF import qualification requires a 30 fps project");
+      if(!this.config.outputRoot)throw new Error("Import evidence output root required");
+      const outputRoot=await resolveReadablePath(this.config.outputRoot,[this.config.outputRoot],"directory");
+      const presets=await this.client.call("GetListOfImportSettings");
+      if(!presets.some(value=>value.setting_names?.includes(action.preset)))throw new Error("Requested import preset is missing");
+      const inspection=await new AafBuilder(this.config).inspectSelects(action.file);
+      if(inspection.sha256!==action.expectedSha256)throw new Error("AAF checksum changed; inspect again");
+      if(inspection.composition.rate!=="30"||!inspection.composition.name.trim())throw new Error("Native AAF import requires a named 30 fps composition");
+      importState={inspection,presets,outputRoot};
+    }
     if(action.action==="export_mp4"){
       requireCapability(this.config.capabilities,"export");
       if(!this.config.outputRoot)throw new Error("Export output root required");
@@ -117,7 +134,7 @@ export class NativeAdapter {
       subclipSource=info;
     }
     return { project: project.path, owner:this.client.ownerIdentity, bin, binSha256:await sha256File(bin), clips, markers, media,
-      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), action };
+      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), ...(importState?{importState}:{}), action };
   }
   async preview(input: Action) {
     const action = nativeActionSchema.parse(input);
@@ -143,6 +160,32 @@ export class NativeAdapter {
         const action = plan.action;
         const project = await this.project();
         let result;
+        if(action.action==="import_aaf_selects"){
+          if(!("importState" in observedState)||!observedState.importState)throw new Error("Missing AAF inspection state");
+          if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Import host or project changed before dispatch");
+          const {inspection,outputRoot}=observedState.importState,owner=this.client.ownerIdentity;
+          const directory=path.join(outputRoot,`native-import-${randomUUID()}`);await mkdir(directory);
+          const attempt=path.join(directory,"attempt.json");
+          await writeFile(attempt,JSON.stringify({action,project:project.path,owner,inspection,expectedState:plan.state}),{flag:"wx"});
+          try{
+            result=await this.client.call("ImportFile",{file_path:inspection.file,import_settings_name:action.preset,destination_bin:path.relative(project.path,await this.binPath(project.path,action.bin)),option_flags:["Import_StopIf_Media_No_in_DB"]},owner);
+            const current=await this.project();
+            if(current.path!==project.path||this.client.ownerIdentity!==owner)throw new Error("Import host or project changed");
+            const items=await this.read("clips",action.bin) as Record<string,any>[];
+            const matches=items.filter(item=>item.mob_name===inspection.composition.name);
+            if(matches.length!==1||typeof matches[0]!.mob_id!=="string")throw new Error("Expected one imported composition; inspect bin before another attempt");
+            const sequence=matches[0]!,info=await this.read("clip",action.bin,sequence.mob_id) as Record<string,any>[];
+            const columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value]));
+            if(columns.Name!==inspection.composition.name||Number(columns.FPS)!==30||Number(columns["Frame Count Duration"])!==inspection.composition.frames)throw new Error("Imported composition metadata mismatch");
+            for(const item of [{file:inspection.file,sha256:inspection.sha256},...inspection.media]){
+              if(await sha256File(await resolveReadablePath(item.file,this.config.allowedRoots,"file"))!==item.sha256)throw new Error("Import source changed during operation");
+            }
+            const finalProject=await this.project();
+            if(finalProject.path!==project.path||this.client.ownerIdentity!==owner)throw new Error("Import host or project changed during verification");
+            const receipt={operationId:randomUUID(),action,result,sequence,info,applicationCompleted:true,postStateRead:true,hostMetadataVerified:true,sourceFilesUnchanged:true,persistenceVerified:false,sourceFidelityVerified:false,limitations:["Save/reopen and saved source-graph conformance require separate verification","Import preset contents and downstream source descriptors are not qualified","No atomic undo or automatic replay"]};
+            await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return {...receipt,evidenceDirectory:directory};
+          }catch(error){throw new NativeImportUncertain(attempt,(error as Error).message);}
+        }
         if(action.action==="export_mp4"){
           const root=await resolveReadablePath(this.config.outputRoot!,[this.config.outputRoot!],"directory");
           const directory=path.join(root,`native-export-${randomUUID()}`);await mkdir(directory);

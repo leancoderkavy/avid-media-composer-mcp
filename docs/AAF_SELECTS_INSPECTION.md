@@ -6,7 +6,7 @@ The response includes the AAF checksum, local media checksums, master metadata, 
 
 The supported composition has 1–16 same-rate picture/sound tracks, zero slot origins and 1–500 direct master source clips per track. Tracks must have equal total durations, and every source range must fit a matching master slot of the same kind and rate. Embedded essence, multiple/missing compositions, fillers, nested components, transitions, mixed rates and unsupported source references are rejected. The reader also enforces the existing 64 MiB AAF and local-locator limits.
 
-This is structural inspection of direct composition references. It does not qualify downstream source-mob effects, descriptor semantics, online media identity inside Avid, relinking, import settings, host remapping, playback or rendering. `hostImportVerified` remains false. Native import is still a separate research workflow; this tool is the reusable inspection stage needed by its future preview/apply adapter.
+This is structural inspection of direct composition references. It does not qualify downstream source-mob effects, descriptor semantics, online media identity inside Avid, relinking, import settings, host remapping, playback or rendering. `hostImportVerified` remains false. The separate [native preview/apply import action](NATIVE_AAF_IMPORT.md) uses this inspection and additionally verifies observable host metadata after import.
 
 ## Evidence
 

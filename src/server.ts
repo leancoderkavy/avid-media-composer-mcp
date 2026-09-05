@@ -188,15 +188,15 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
   registerLibraryTools(server, config);
   server.registerTool("avid_native_read", {
     description: "Opt-in Windows native app/project/bin/clip/marker inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots.",
-    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "link_settings", "export_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
+    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "link_settings", "export_settings", "import_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
     outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
   }, async ({ query, bin, mobId }) => execute("avid_native_read", () => native.read(query, bin, mobId)));
   server.registerTool("avid_native_preview", {
-    description: "Preview one native operation with current project and target evidence; returns an expiring single-use token.",
-    inputSchema: { operation: nativeActionSchema }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
+    description: "Preview one native operation with current project and target evidence; returns an expiring single-use token. AAF import inspection writes local evidence manifests and requires edit plus export capabilities; preview does not mutate Avid.",
+    inputSchema: { operation: nativeActionSchema }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: {...READ_ONLY_ANNOTATIONS,readOnlyHint:false,idempotentHint:false},
   }, async ({ operation }) => execute("avid_native_preview", () => native.preview(operation)));
   server.registerTool("avid_native_apply", {
-    description: "Apply the exact reviewed native token once. Requires edit, project-write, or export authority for the chosen action. MP4 export verifies output under the native lock; uncertain exports retain that lock for inspection. No automatic undo.",
+    description: "Apply the exact reviewed native token once. Requires edit, project-write, or export authority for the chosen action; AAF import requires edit plus export. MP4 export and AAF import verify post-state under the native lock; uncertain outcomes retain that lock for inspection. No automatic undo.",
     inputSchema: { token: z.string().uuid() }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: EDIT_ANNOTATIONS,
   }, async ({ token }) => execute("avid_native_apply", () => native.apply(token)));
 

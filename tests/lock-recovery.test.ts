@@ -32,6 +32,11 @@ it("detects a changed lock during stopped-host checks before releasing anything"
   const {config,file,owner}=await fixture();const recovery=new NativeLockRecovery(config,async()=>{await writeFile(file,JSON.stringify(owner));}),status=await recovery.inspect();
   if(!status.locked)throw new Error("Missing fixture");await expect(recovery.release(status.sha256)).rejects.toThrow("changed");await access(file);
 });
+it("reports unresolved import locks and refuses export recovery",async()=>{
+ const {config,file,owner}=await fixture();const bytes=JSON.stringify(owner)+"\n"+JSON.stringify({state:"import-unresolved",attempt:"attempt.json",cause:"timeout"});await writeFile(file,bytes);
+ const recovery=new NativeLockRecovery(config,async()=>{}),status=await recovery.inspect();expect(status).toMatchObject({locked:true,recoverable:false,reason:expect.stringContaining("import")});
+ if(!status.locked)throw new Error("Missing lock");await expect(recovery.release(status.sha256)).rejects.toThrow("eligible");expect(await readFile(file,"utf8")).toBe(bytes);
+});
 it("accepts a canonical parent alias but rejects an unexpected output leaf",async()=>{
   const {root,config,file,owner}=await fixture();
   const alias=path.join(root,"attempt-alias");await symlink(path.join(root,"attempt"),alias,process.platform==="win32"?"junction":"dir");

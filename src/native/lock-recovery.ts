@@ -34,7 +34,9 @@ export class NativeLockRecovery {
     const bytes=await readBoundedFile(file,65536),sha256=createHash("sha256").update(bytes).digest("hex");
     const lines=bytes.toString("utf8").trim().split(/\r?\n/),owner=ownerSchema.parse(JSON.parse(lines[0]!));
     if(lines.length!==2)return {locked:true as const,recoverable:false as const,sha256,owner,reason:"Only explicitly retained export locks can be recovered; active or abandoned generic locks need separate inspection"};
-    const retained=retainedSchema.parse(JSON.parse(lines[1]!));
+    const record=JSON.parse(lines[1]!);
+    if(record?.state==="import-unresolved")return {locked:true as const,recoverable:false as const,sha256,owner,reason:"Unresolved AAF import requires separate host/attempt inspection; export recovery cannot release this lock"};
+    const retained=retainedSchema.parse(record);
     if(!this.config.outputRoot)throw new Error("Output root required to inspect retained export");
     const directory=await resolveReadablePath(path.dirname(path.dirname(retained.output)),[this.config.outputRoot],"directory");
     // Validate the leaf layout separately from the canonical parent: realpath can
