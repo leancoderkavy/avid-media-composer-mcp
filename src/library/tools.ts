@@ -3,7 +3,7 @@ import * as z from "zod/v4";
 import type { ServerConfig } from "../config.js";
 import { errorDetails } from "../errors.js";
 import { MediaLibrary, transcriptSchema } from "./media-library.js";
-import { VisualSearch } from "./visual.js";
+import { VisualSearch, visualRange, visualScope } from "./visual.js";
 import { SpeechAnalysis } from "./speech.js";
 import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
@@ -52,10 +52,14 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({id,kind,start,end})=>result("avid_media_artifact",()=>library.artifact(id,kind,start,end)));
   server.registerTool("avid_media_report", {description:"Write a local HTML media inventory. Requires export.",inputSchema:{ids},annotations:write},
     ({ids})=>result("avid_media_report",()=>library.report(ids)));
-  server.registerTool("avid_index_visual", {description:"Compute local CLIP embeddings for sparse sampled video frames. Requires separately downloaded models and export authority for cached thumbnails.",inputSchema:{ids,samplesPerFile:z.number().int().min(1).max(12).default(6)},annotations:write},
-    ({ids,samplesPerFile})=>result("avid_index_visual",()=>visual.index(ids,samplesPerFile)));
-  server.registerTool("avid_search_visual", {description:"Search a local visual index by text or a reference image; returns sampled source timestamps and CLIP similarity, not identity or probability.",inputSchema:{indexId:z.string().uuid(),query:z.union([z.object({text:z.string().min(1).max(500)}).strict(),z.object({image:z.string().min(1)}).strict()]),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
-    ({indexId,query,limit})=>result("avid_search_visual",()=>visual.search(indexId,query,limit)));
+  server.registerTool("avid_index_visual", {description:"Compute local CLIP embeddings for uniform frame samples, optionally in a source-time range. Maximum 120 samples per file and 1200 total; does not detect every shot. Requires separately downloaded models and export authority for cached thumbnails.",inputSchema:{ids,samplesPerFile:z.number().int().min(1).max(120).default(6),range:visualRange.optional()},annotations:write},
+    ({ids,samplesPerFile,range})=>result("avid_index_visual",()=>visual.index(ids,samplesPerFile,range)));
+  server.registerTool("avid_search_visual", {description:"Search a local visual index by text or a reference image; returns sampled source timestamps and CLIP similarity, not identity or probability.",inputSchema:{indexId:z.string().uuid(),query:z.union([z.object({text:z.string().min(1).max(500)}).strict(),z.object({image:z.string().min(1)}).strict()]),limit:z.number().int().min(1).max(100).default(20),scope:visualScope.default({})},annotations:read},
+    ({indexId,query,limit,scope})=>result("avid_search_visual",()=>visual.search(indexId,query,limit,scope)));
+  server.registerTool("avid_visual_samples", {description:"Inspect paginated visual-index sample timestamps and thumbnails, optionally scoped by media IDs and a half-open source-time range. Embeddings are omitted.",inputSchema:{indexId:z.string().uuid(),scope:visualScope.default({}),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+    ({indexId,scope,after,limit})=>result("avid_visual_samples",()=>visual.samples(indexId,scope,after,limit)));
+  server.registerTool("avid_search_visual_frame", {description:"Extract a source frame at a given time and find similar indexed frames. Requires export for the reference thumbnail. Optional media/time scope limits results.",inputSchema:{indexId:z.string().uuid(),id,time:z.number().nonnegative(),limit:z.number().int().min(1).max(100).default(20),scope:visualScope.default({})},annotations:write},
+    ({indexId,id,time,limit,scope})=>result("avid_search_visual_frame",()=>visual.searchFrame(indexId,id,time,limit,scope)));
   server.registerTool("avid_transcribe_media", {description:"Transcribe up to ten minutes of local English audio using downloaded Whisper weights. Requires export and project-write. Returns a reviewable transcript revision.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive()},annotations:write},
     ({id,start,end})=>result("avid_transcribe_media",()=>speech.transcribe(id,start,end)));
   server.registerTool("avid_start_analysis_job", {description:"Run indexing, visual analysis, transcription or export in a bounded local worker; returns immediately. Jobs belong to this MCP session.",inputSchema:{job:jobSchema},annotations:write},
