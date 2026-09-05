@@ -102,7 +102,7 @@ This read-only search requires `inspect`, checks access to every requested index
 
 `avid_transcript_revisions` discovers revisions and SHA-256 checksums with pagination. `avid_correct_transcript` accepts the selected revision and checksum, then replaces/removes segments by their original indices or adds segments. Corrections can change text, time ranges and user-supplied speaker labels. The resulting immutable revision records its parent; the original remains available. Duplicate edits to one index and times outside the media duration are rejected. Select the new revision explicitly for search, export and range queries.
 
-`avid_delete_transcript_revision` deletes exactly one selected revision after checksum checking. It does not delete other revisions, exported subtitles/documents, derived artifacts or source media. Deletion and correction share a per-media lock; stale locks are not automatically stolen. These operations require `project-write`. Speaker labels are manual annotations, not automatic diarization.
+`avid_delete_transcript_revision` deletes exactly one selected revision after checksum checking. It does not delete other revisions, exported subtitles/documents, derived artifacts or source media. Deletion and correction share a per-media lock with a unique operation owner; stale locks are not automatically stolen. Ownership is checked before mutation and cleanup, and detected replacement locks are retained. A cleanup error may follow a completed write: inspect the revision list before retrying. This is coordination between cooperating writers, not an atomic transaction against arbitrary filesystem changes. These operations require `project-write`. Speaker labels are manual annotations, not automatic diarization.
 
 
 ## Scoped visual and reference-frame search
@@ -315,7 +315,7 @@ Setup creates a uniquely named Python environment beneath the chosen cache's `di
 
 Status checks the selected installation tree and packaged worker checksum. Explicit setup reuses unchanged installations without running Python or pip again. Changed trees, changed workers, invalid receipts and existing setup locks are refused; choose a fresh model cache when necessary. Failed unique installations are retained and remain unselected. Lock age does not establish process termination. Automatic recovery, update/rollback/removal, Python/system dependency management and clean-machine/Mac qualification remain open. A Python virtual environment still depends on its system interpreter installation. Dependency consistency and prior inference checks are not a current vulnerability audit or model accuracy acceptance.
 
-The worker consumes bounded mono 16 kHz float32 PCM (at most 600 seconds), validates model sizes/hashes, and returns at most 5,000 sorted spans with anonymous per-run labels. Automatic clustering or supplied counts of 1–20 and a threshold in (0,1] are supported. Labels do not identify people and can overlap. See [diarization research and provenance](DIARIZATION_RESEARCH.md) for quality limits and license sources. Neither weights nor the Python runtime are bundled in the package.
+The worker consumes bounded mono 16 kHz float32 PCM (at most 600 seconds), validates model sizes/hashes, and returns at most 5,000 sorted spans with anonymous per-run labels. Automatic clustering or supplied counts of 1â€“20 and a threshold in (0,1] are supported. Labels do not identify people and can overlap. See [diarization research and provenance](DIARIZATION_RESEARCH.md) for quality limits and license sources. Neither weights nor the Python runtime are bundled in the package.
 
 
 ## Saved speaker analyses
@@ -338,7 +338,7 @@ Results include transcript segments intersecting the analyzed source range, thei
 
 ## Assigning transcript speakers
 
-`avid_assign_transcript_speakers` accepts the same `analysisId`, `analysisSha256`, `transcriptRevision` and `transcriptSha256` references as alignment, plus 1–1,000 explicit assignments. Each assignment contains an original transcript segment `index`, an overlapping anonymous `speaker` label, and an optional caller-supplied `displayName` (up to 100 characters). Without a display name, the anonymous label is written. Duplicate indices and conflicting names for the same anonymous label in one request are rejected.
+`avid_assign_transcript_speakers` accepts the same `analysisId`, `analysisSha256`, `transcriptRevision` and `transcriptSha256` references as alignment, plus 1â€“1,000 explicit assignments. Each assignment contains an original transcript segment `index`, an overlapping anonymous `speaker` label, and an optional caller-supplied `displayName` (up to 100 characters). Without a display name, the anonymous label is written. Duplicate indices and conflicting names for the same anonymous label in one request are rejected.
 
 A segment with multiple interval candidates requires `allowAmbiguous: true` for that assignment. A segment extending outside the analyzed source range requires `allowPartialRange: true`. Neither flag permits selecting a label with no overlap. These flags record explicit choices; they do not establish human review or identity verification. The operation requires project-write, preserves every segment's text/timing, changes only selected speaker fields, and saves a new immutable transcript revision with its parent link and assignment provenance. Source media, speaker analysis and previous transcript are retained. A later correction starts from whichever revision is explicitly selected; there is no automatically overwritten latest transcript.
 
@@ -347,7 +347,7 @@ A segment with multiple interval candidates requires `allowAmbiguous: true` for 
 
 ## Correcting speaker intervals and clusters
 
-`avid_correct_speaker_analysis` takes an `analysisId`, its `expectedSha256`, and 1–1,000 ordered edits. It requires project-write, but no models or export capability. Supported edits:
+`avid_correct_speaker_analysis` takes an `analysisId`, its `expectedSha256`, and 1â€“1,000 ordered edits. It requires project-write, but no models or export capability. Supported edits:
 
 - `replace`: select an existing `spanId` and provide its complete new source-time `start`, `end` and `speaker` label. Assigning a new label splits that interval from its previous cluster.
 - `remove`: remove an existing `spanId`.

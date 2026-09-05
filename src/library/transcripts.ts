@@ -1,6 +1,6 @@
-import {open,unlink,opendir} from "node:fs/promises";
+import {open,unlink,opendir,lstat} from "node:fs/promises";
 import path from "node:path";
-import {createHash} from "node:crypto";
+import {createHash,randomUUID} from "node:crypto";
 import * as z from "zod/v4";
 import type {ServerConfig} from "../config.js";
 import {MediaLibrary,transcriptSchema} from "./media-library.js";
@@ -50,14 +50,22 @@ export class TranscriptRevisions {
     for(const revision of revisions.slice(0,limit)){const {record,sha256}=await this.read(id,revision);page.push({revision,sha256,segmentCount:record.segments.length,parentRevision:record.parentRevision});}
     return {id,revisions:page,nextAfter:revisions.length>limit?page.at(-1)?.revision:null,order:"revision-id"};
   }
-  private async locked<T>(id:string,operation:()=>Promise<T>){
+  private async locked<T>(id:string,operation:(assertOwner:()=>Promise<void>)=>Promise<T>){
     requireCapability(this.config.capabilities,"project-write");await this.library.metadata([id]);
-    const lock=path.join(await this.library.directory(),`${id}.transcripts.lock`),handle=await open(lock,"wx");
-    try{return await operation();}finally{await handle.close();await unlink(lock);}
+    const lock=path.join(await this.library.directory(),`${id}.transcripts.lock`),handle=await open(lock,"wx",0o600);
+    const owner=JSON.stringify({pid:process.pid,operation:randomUUID(),createdAt:new Date().toISOString()}),identity=await handle.stat();
+    const assertOwner=async()=>{
+      try{
+        const current=await lstat(lock);
+        if(!current.isFile()||current.dev!==identity.dev||current.ino!==identity.ino||(await readBoundedFile(lock,16384)).toString("utf8")!==owner)throw new Error("ownership mismatch");
+      }catch{throw new Error("Transcript lock changed or unavailable; replacement retained. Inspect revisions before retrying: an operation may already have completed.");}
+    };
+    try{await handle.writeFile(owner);return await operation(assertOwner);}
+    finally{await handle.close();await assertOwner();await unlink(lock);}
   }
   async correct(id:string,revision:string,expectedSha256:string,input:z.infer<typeof transcriptEdits>,speakerAssignment?:z.infer<typeof speakerAssignmentProvenance>){
     const edits=transcriptEdits.parse(input);
-    return this.locked(id,async()=>{
+    return this.locked(id,async(assertOwner)=>{
       const {record,sha256}=await this.read(id,revision);if(sha256!==expectedSha256)throw new Error("Transcript changed; reload its checksum");
       const changes=new Map<number,typeof edits[number]>();
       for(const edit of edits)if(edit.action!=="add"){
@@ -66,14 +74,15 @@ export class TranscriptRevisions {
       const segments=record.segments.flatMap((item,index)=>{const edit=changes.get(index);return !edit?[item]:edit.action==="replace"?[edit.segment]:[];});
       for(const edit of edits)if(edit.action==="add")segments.push(edit.segment);
       if(speakerAssignment&&(speakerAssignment.transcriptRevision!==revision||speakerAssignment.transcriptSha256!==sha256))throw new Error("Speaker assignment transcript reference mismatch");
+      await assertOwner();
       const result=await this.library.importTranscript(id,segments,revision,speakerAssignment);
       return {...result,parentRevision:revision,sourceModified:false,previousRevisionRetained:true};
     });
   }
   async remove(id:string,revision:string,expectedSha256:string){
-    return this.locked(id,async()=>{
+    return this.locked(id,async(assertOwner)=>{
       const {file,sha256}=await this.read(id,revision);if(sha256!==expectedSha256)throw new Error("Transcript changed; reload its checksum");
-      await unlink(file);
+      await assertOwner();await unlink(file);
       return {id,revision,deleted:true,sourceModified:false,note:"Only this revision was removed. Other revisions, exported documents and derived artifacts remain."};
     });
   }
