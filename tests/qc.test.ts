@@ -14,3 +14,15 @@ it("rejects oversized ranges and invalid detector parameters",()=>{
   expect(()=>qcOptions.parse({end:601})).toThrow();expect(()=>qcOptions.parse({start:3,end:2})).toThrow();
   expect(()=>qcOptions.parse({end:5,silenceDb:2})).toThrow();expect(()=>qcOptions.parse({end:5,freezeNoise:-1})).toThrow();
 });
+
+it("selects absolute stream indices, allows single-type analysis, and rejects missing or wrong-type selections",async()=>{
+  const {selectQcStreams}=await import("../src/library/qc.js");
+  const streams=[{index:0,codec_type:"video"},{index:1,codec_type:"video"},{index:2,codec_type:"audio"},{index:3,codec_type:"audio"}];
+  expect(selectQcStreams(streams,{})).toEqual({video:streams[0],audio:streams[2]});
+  expect(selectQcStreams(streams,{videoStream:1,audioStream:3})).toEqual({video:streams[1],audio:streams[3]});
+  expect(selectQcStreams(streams,{videoStream:null,audioStream:3})).toEqual({video:undefined,audio:streams[3]});
+  expect(()=>selectQcStreams(streams,{videoStream:3})).toThrow(/wrong type/);
+  expect(()=>selectQcStreams(streams,{audioStream:9})).toThrow(/unavailable/);
+  expect(()=>selectQcStreams(streams,{videoStream:null,audioStream:null})).toThrow(/No audio or video/);
+  expect(()=>qcOptions.parse({end:5,videoStream:-1})).toThrow();
+});

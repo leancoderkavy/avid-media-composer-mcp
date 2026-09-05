@@ -11,11 +11,23 @@ import {runProcess} from "../process.js";
 
 export const qcOptions=z.object({
   start:z.number().nonnegative().default(0),end:z.number().positive(),
+  videoStream:z.number().int().nonnegative().nullable().optional(),audioStream:z.number().int().nonnegative().nullable().optional(),
   blackSeconds:z.number().min(0.05).max(60).default(0.5),blackPixelThreshold:z.number().min(0).max(1).default(0.1),blackPictureRatio:z.number().min(0).max(1).default(0.98),
   freezeSeconds:z.number().min(0.1).max(60).default(2),freezeNoise:z.number().min(0).max(1).default(0.001),
   silenceSeconds:z.number().min(0.1).max(60).default(0.5),silenceDb:z.number().min(-100).max(0).default(-50),
 }).strict().refine(value=>value.end>value.start&&value.end-value.start<=600,"QC range must be at most 600 seconds");
 type Interval={start:number;end:number;openAtRangeEnd?:boolean};
+export function selectQcStreams<T extends {index?:number;codec_type?:string;start_time?:unknown}>(streams:T[],options:{videoStream?:number|null|undefined;audioStream?:number|null|undefined}){
+  const select=(kind:"video"|"audio",index:number|null|undefined)=>{
+    if(index===null)return undefined;
+    const stream=index===undefined?streams.find(s=>s.codec_type===kind):streams.find(s=>s.index===index&&s.codec_type===kind);
+    if(index!==undefined&&!stream)throw new Error(`Requested ${kind} stream index ${index} is unavailable or has the wrong type`);
+    return stream;
+  };
+  const video=select("video",options.videoStream),audio=select("audio",options.audioStream);
+  if(!video&&!audio)throw new Error("No audio or video stream selected");
+  return {video,audio};
+}
 const numeric="(-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?)";
 export function parseQcLog(log:string,start:number,end:number){
   const clip=(time:number)=>Math.max(start,Math.min(end,start+time));
@@ -51,8 +63,8 @@ export class MediaQc {
     const [entry]=await library.metadata([id]);if(!entry)throw new Error("Unknown media");
     const duration=Number(entry.metadata.format?.duration);if(!Number.isFinite(duration)||options.end>duration)throw new Error("QC range exceeds media duration");
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
-    const streams=entry.metadata.streams??[],video=streams.find((s:any)=>s.codec_type==="video"),audio=streams.find((s:any)=>s.codec_type==="audio");
-    if(!video&&!audio)throw new Error("No audio or video stream");
+    const streams=entry.metadata.streams??[],selected=selectQcStreams(streams,options);
+    const {video,audio}=selected;
     const executable=this.config.ffmpegExecutable??"ffmpeg",span=options.end-options.start;
     const base=["-hide_banner","-nostdin","-nostats","-xerror","-v","info","-protocol_whitelist","file,pipe","-ss",String(options.start),"-t",String(span),"-i",source];
     let log="";
@@ -60,8 +72,8 @@ export class MediaQc {
       const result=await runProcess(executable,[...base,...args,"-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:4*1024*1024});
       if(result.exitCode!==0)throw new Error(`QC decoding failed: ${result.stderr.slice(-1000)}`);log+=result.stderr;
     };
-    if(video)await run(["-map","0:v:0","-an","-vf",`trim=duration=${span},setpts=PTS-STARTPTS,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`]);
-    if(audio)await run(["-map","0:a:0","-vn","-af",`atrim=duration=${span},asetpts=PTS-STARTPTS,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},loudnorm=print_format=json`]);
+    if(video)await run(["-map",`0:${video.index}`,"-an","-vf",`trim=duration=${span},setpts=PTS-STARTPTS,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`]);
+    if(audio)await run(["-map",`0:${audio.index}`,"-vn","-af",`atrim=duration=${span},asetpts=PTS-STARTPTS,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},loudnorm=print_format=json`]);
     if(await sha256File(source)!==id)throw new Error("Source changed during QC");
     const findings=parseQcLog(log,options.start,options.end);
     if(video&&!findings.frameTiming)throw new Error("Video QC summary missing; result is incomplete");
@@ -70,7 +82,7 @@ export class MediaQc {
     const videoStart=optionalNumber(video?.start_time),audioStart=optionalNumber(audio?.start_time);
     const report={schema:1,id,range:{start:options.start,end:options.end},options,streams:{video:video?.index??null,audio:audio?.index??null},findings,
       timing:{videoStart,audioStart,audioMinusVideoStart:videoStart!==null&&audioStart!==null?audioStart-videoStart:null,meaning:"Container stream offsets only; perceptual audio/video synchronization is not tested"},
-      reviewRequired:true,limitations:["First video and audio streams only","Black, static and silent scenes can be intentional","Black end timestamps have decoded-frame precision","Findings apply only to the selected range","No delivery-standard pass/fail verdict"],sourceModified:false};
+      reviewRequired:true,limitations:["Only the reported video/audio stream indices were analyzed; omitted selectors default to the first stream of each type","Black, static and silent scenes can be intentional","Black end timestamps have decoded-frame precision","Findings apply only to the selected range","No delivery-standard pass/fail verdict"],sourceModified:false};
     const revision=randomUUID(),root=await library.directory(),output=path.join(root,`qc-${revision}.json`),html=path.join(root,`qc-${revision}.html`);
     await writeFile(output,JSON.stringify(report,null,2),{flag:"wx"});
     const escaped=JSON.stringify(report,null,2).replace(/[&<>]/g,value=>({"&":"&amp;","<":"&lt;",">":"&gt;"})[value]!);
