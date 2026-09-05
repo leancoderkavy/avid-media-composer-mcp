@@ -20,6 +20,7 @@ const clusterSchema=z.object({clusterId,name:z.string().max(120).nullable(),face
 type Cluster=z.infer<typeof clusterSchema>;
 export const peopleRange=z.object({start:z.number().nonnegative(),end:z.number().positive()}).strict().refine(range=>range.end>range.start,"Range end must exceed start");
 const coverageSchema=z.object({mediaId:z.string().regex(/^[a-f0-9]{64}$/),start:z.number().nonnegative(),end:z.number().positive(),samples:z.number().int().min(1).max(120)});
+export const peopleSearchOptions=z.object({indexIds:z.array(z.string().uuid()).min(1).max(20).optional(),mediaIds:z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1).max(100).optional(),range:peopleRange.optional(),threshold:z.number().min(-1).max(1).default(0.45),limit:z.number().int().min(1).max(100).default(50)}).strict();
 const recordSchema=z.object({schema:z.literal(1),revision:z.string().uuid(),modelRevision:z.literal(FACE_REVISION),faces:z.array(faceSchema).max(1000),clusters:z.array(clusterSchema).max(1000),threshold:z.number().min(0).max(1),coverage:z.array(coverageSchema).min(1).max(20).optional()});
 type RecordData=z.infer<typeof recordSchema>;
 export const peopleEditSchema=z.discriminatedUnion("action",[
@@ -108,6 +109,27 @@ export class People {
     const faces=record.faces.map((face,index)=>({...face,index})).filter(face=>face.index>after&&(!group||group.faceIds.includes(face.faceId)));
     const page=[];for(const {embedding,crop,...face} of faces.slice(0,limit))page.push({...face,crop:await resolveReadablePath(path.join(directory,crop),[directory],"file")});
     return {indexId,revision:record.revision,faces:page,nextAfter:faces.length>limit?page.at(-1)?.index:null};
+  }
+  async similar(referenceIndexId:string,referenceFaceId:string,input:z.input<typeof peopleSearchOptions>={}){
+    faceId.parse(referenceFaceId);const options=peopleSearchOptions.parse(input),reference=await this.read(referenceIndexId),selected=reference.record.faces.find(face=>face.faceId===referenceFaceId);
+    if(!selected)throw new Error("Unknown reference face");
+    if(!selected.embedding.some(value=>value!==0))throw new Error("Reference face has no usable embedding");
+    const targets=[...new Set(options.indexIds??[referenceIndexId])],matches=[],revisions=[];
+    for(const indexId of targets){
+      const {record,directory}=indexId===referenceIndexId?reference:await this.read(indexId);revisions.push({indexId,revision:record.revision});
+      const groups=new Map(record.clusters.flatMap(cluster=>cluster.faceIds.map(id=>[id,cluster] as const)));
+      for(const face of record.faces){
+        if(indexId===referenceIndexId&&face.faceId===referenceFaceId)continue;
+        if(options.mediaIds&&!options.mediaIds.includes(face.mediaId))continue;
+        if(options.range&&(face.time<options.range.start||face.time>=options.range.end))continue;
+        const score=cosine(selected.embedding,face.embedding);if(!Number.isFinite(score)||score<options.threshold)continue;
+        const cluster=groups.get(face.faceId)!;
+        matches.push({indexId,revision:record.revision,faceId:face.faceId,mediaId:face.mediaId,time:face.time,score,clusterId:cluster.clusterId,name:cluster.name,crop:path.join(directory,face.crop),directory});
+      }
+    }
+    matches.sort((a,b)=>b.score-a.score||a.indexId.localeCompare(b.indexId)||a.faceId.localeCompare(b.faceId));
+    const results=[];for(const {directory,crop,...match} of matches.slice(0,options.limit))results.push({...match,crop:await resolveReadablePath(crop,[directory],"file")});
+    return {reference:{indexId:referenceIndexId,revision:reference.record.revision,faceId:referenceFaceId},indices:revisions,matches:results,matchingFaces:matches.length,hasMore:matches.length>options.limit,reviewRequired:true,identityVerified:false,note:"Cosine similarity between sampled face features, not identity verification or exhaustive appearances. Names are user supplied. The selected reference occurrence is excluded."};
   }
   async edit(indexId:string,expectedRevision:string,input:z.infer<typeof peopleEditSchema>){
     requireCapability(this.config.capabilities,"project-write");const operation=peopleEditSchema.parse(input),directory=await this.directory(indexId),lock=path.join(directory,"write.lock");

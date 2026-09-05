@@ -91,6 +91,10 @@ New indices retain `coverage` per media ID: range start/end and sample count, in
 
 Real queued MCP qualification sampled Sonoma [60,120) 120 times, returned 38 detections, checked every face against the requested sample plan and preserved the source hash. Script: `scripts/research/qualify-people-range.mjs`. This establishes bounded dense/ranged execution, not exhaustive appearance coverage or identity accuracy.
 
+`avid_find_similar_faces` uses a selected `referenceIndexId` and `referenceFaceId` to rank other saved face appearances. Optional `options` include up to 20 `indexIds` (defaults to the reference index), `mediaIds`, a half-open `range`, `threshold` from -1 to 1 (default 0.45), and `limit` from 1 to 100. Results include index revisions, media IDs, requested sample times, crop paths, cluster IDs and user-supplied names. The selected occurrence is excluded; the same face ID in another index is a separate occurrence. `matchingFaces` and `hasMore` report when the result limit was reached; narrow the scope or increase the limit for more results.
+
+This read-only search requires `inspect`, checks access to every requested index's media, and uses saved features without loading models. Cosine scores rank visual similarity, not verified identity or calibrated confidence. It cannot find unsampled appearances. Real MCP ranking of 37 Sonoma detections matched an independent cosine calculation, with bounded and time-filtered results verified and source unchanged. Script: `scripts/research/qualify-face-search.mjs`.
+
 `avid_edit_people` supports naming, merging, moving, removing a face and reclustering with an expected revision. Reclustering resets names. Removing a face deletes its crop and embedding; sampled source frames remain. `avid_delete_people_index` deletes all generated frames, crops and embeddings in that index after validating its contents. Source MP4s remain untouched. Unexpected files or stale revisions stop deletion. Failed jobs may leave a partial directory for inspection; automatic interrupted-job cleanup remains unfinished.
 
 

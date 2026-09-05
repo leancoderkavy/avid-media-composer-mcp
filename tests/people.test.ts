@@ -21,6 +21,19 @@ async function fixture(){
 it("groups similar features without assigning inferred names",async()=>{
   const {record}=await fixture();expect(record.clusters).toHaveLength(2);expect(record.clusters[0]?.faceIds).toHaveLength(2);expect(record.clusters.every(cluster=>cluster.name===null)).toBe(true);
 });
+it("ranks reference face appearances with half-open time filters and bounded results",async()=>{
+  const {people,indexId}=await fixture();const result=await people.similar(indexId,"f00000",{threshold:0,limit:1});
+  expect(result.matches.map(row=>row.faceId)).toEqual(["f00001"]);expect(result.hasMore).toBe(true);expect(result.identityVerified).toBe(false);expect(result.matches[0]).not.toHaveProperty("embedding");
+  const filtered=await people.similar(indexId,"f00000",{threshold:0,range:{start:1,end:2}});expect(filtered.matches.map(row=>row.faceId)).toEqual(["f00001"]);
+  expect((await people.similar(indexId,"f00000",{mediaIds:["b".repeat(64)]})).matches).toEqual([]);
+  await expect(people.similar(indexId,"f99999")).rejects.toThrow("Unknown reference");
+});
+it("uses composite index/face identity and checks authority across all requested indices",async()=>{
+  const {people,config,indexId,record,directory}=await fixture(),second=randomUUID(),target=path.join(path.dirname(directory),`people-${second}`);await mkdir(target);
+  await writeFile(path.join(target,"index.json"),JSON.stringify(record));for(const face of record.faces)await writeFile(path.join(target,face.crop),"crop");
+  const result=await people.similar(indexId,"f00000",{indexIds:[indexId,second,second],threshold:0.5});expect(result.indices).toHaveLength(2);expect(result.matches[0]).toMatchObject({indexId:second,faceId:"f00000",score:1});
+  await expect(new People({...config,allowedRoots:[]}).similar(indexId,"f00000",{indexIds:[second]})).rejects.toThrow();
+});
 it("plans dense bounded midpoint samples inside a selected source range",()=>{
   const plan=peopleSampleTimes(190,120,{start:60,end:90});expect(plan.times).toHaveLength(120);expect(plan.times[0]).toBe(60.125);expect(plan.times.at(-1)).toBe(89.875);
   expect(()=>peopleSampleTimes(10,121)).toThrow();expect(()=>peopleSampleTimes(10,12,{start:1,end:11})).toThrow();expect(()=>peopleSampleTimes(10,12,{start:2,end:1})).toThrow();
