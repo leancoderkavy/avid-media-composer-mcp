@@ -131,3 +131,13 @@ The new file is `.avid-mcp-analysis/render-range-tags-7a26beb3-2085-44f1-97f5-bd
 The corrected copy passed `compare-native-render-audio.mjs --require-source-clock-stereo`: entire 24-bit PCM equals the source-clock reference and channels remain distinct. Evidence: `audio-comparison-cba3cd91-dc20-424c-8058-73d4e905ed52/evidence.json`.
 
 This materially resolves the observed dark rendering in the diagnostic comparison for this fixture. It does not certify full-resolution color conformance, all viewing pipelines, all presets/codecs or a general automatic range override. Native output remains unchanged and incorrectly interpreted under its declared range in this experiment. Further work must qualify the native range behavior and any explicit downstream correction contract across representative sources before shipping it as a general feature.
+
+## Declared color-contract enforcement
+
+Native render contracts now optionally require an explicit range and exact space/transfer/primaries tags. The verifier refuses missing or mismatched requested declarations and reports `colorTagsChecked` on success. These checks remain distinct from pixel conformance and never rewrite tags.
+
+An actual MCP export of the PCM sequence with `tv/bt709/bt709/bt709` passed 120-frame full decoding, tag checks and consumed-token replay refusal: `.avid-mcp-analysis/native-render-mcp-475a5163-efeb-4a4c-af6c-c1fac61885cd/`. The new container SHA is `7b6961369bf13398bccb91ef0d37b42acd5ecc813336d805693ab75f616faee6`. This verifies the observed declarations, including the previously established interpretation limitation.
+
+`scripts/research/qualify-render-color-contract.mjs` independently verified the prior native file as limited-range and corrected copy as full-range, then refused a full-range contract against the native file. Files stayed unchanged and no export RPC was issued by this comparison. Evidence: `.avid-mcp-analysis/render-color-contract-0baf0f72-67f0-4e34-bd25-56a14a3568fa/evidence.json`.
+
+The initial real mismatch experiment exposed a final-probe deadline error masking the already-observed mismatch. The verifier now preserves that mismatch when the observation deadline expires and retains the process timeout as the error cause. A regression test covers this path alongside absent/mismatched tags, range-only contracts, malformed fields and legacy callers.

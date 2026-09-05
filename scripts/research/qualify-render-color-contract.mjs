@@ -1,0 +1,24 @@
+// Read-only verification of previously rendered fixtures; no native export RPC.
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {loadConfig} from '../../dist/config.js';
+import {verifyNativeRender} from '../../dist/native/render-verifier.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const native=path.resolve('.avid-mcp-analysis/native-render-mcp-e0f60e5d-67c3-49ac-9ba0-7de71d73453c/native-export-2984bde7-47e5-4d40-a287-886f9aeb454d/export/render.mp4');
+const corrected=path.resolve('.avid-mcp-analysis/render-range-tags-7a26beb3-2085-44f1-97f5-bdb413f52ace/render-full-range.mp4');
+const files=[native,corrected],before=await Promise.all(files.map(sha256File));
+assert.deepEqual(before,['8fd3fb4c04d24f3fd2200e600dab3e16edb1ad0329384a6814d1cb22d5f85cc0','c6e125caaeb2c2321f8fd7f762447c0621bbf325d1b528ca9140b914f56d5bca']);
+const base={videoCodec:'h264',width:1920,height:1080,frames:120,rate:{num:30,den:1},audio:[{codec:'pcm_s24le',channels:2,sampleRate:48000}]};
+const config=file=>loadConfig({AVID_MCP_ALLOWED_ROOTS:path.dirname(file),AVID_MCP_OUTPUT_ROOT:path.dirname(file),AVID_MCP_CAPABILITIES:'inspect'});
+const contract=range=>({...base,color:{range,space:'bt709',transfer:'bt709',primaries:'bt709'}});
+const nativeResult=await verifyNativeRender(native,config(native),contract('tv'),{pollMs:10});
+const correctedResult=await verifyNativeRender(corrected,config(corrected),contract('pc'),{pollMs:10});
+assert.equal(nativeResult.colorTagsChecked,true);assert.equal(correctedResult.colorTagsChecked,true);
+let mismatch;
+await assert.rejects(async()=>{try{await verifyNativeRender(native,config(native),contract('pc'),{pollMs:10,timeoutMs:2000});}catch(error){mismatch=error.message;throw error;}},/does not match/);
+assert.deepEqual(await Promise.all(files.map(sha256File)),before);
+const root=path.resolve('.avid-mcp-analysis',`render-color-contract-${randomUUID()}`);await mkdir(root);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({nativeResult,correctedResult,mismatchRejected:true,mismatch,filesUnchanged:true,scope:'Declared metadata and complete decode checks only; no pixel color conformance or native action.'},null,2),{flag:'wx'});
+console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),matchedDeclaredRanges:['tv','pc'],mismatchRejected:true,filesUnchanged:true}));

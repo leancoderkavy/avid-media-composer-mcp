@@ -25,6 +25,16 @@ Example operation for a four-second composition and the locally created test pre
 
 That test preset downmixes stereo to mono and has unresolved color-level differences. Its contract describes the observed output; it is not a recommended delivery preset or a fidelity guarantee.
 
+Contracts may additionally require color declarations:
+
+```json
+"color": {"range":"tv","space":"bt709","transfer":"bt709","primaries":"bt709"}
+```
+
+Inside `expected`, `color.range` must be `tv` (limited) or `pc` (full). Space, transfer and primaries are optional exact ffprobe tag strings. Requested tags must be present and equal; the verifier does not infer them from the codec, raster, preset name or pixels. Omitting `color` preserves the earlier behavior. Successful receipts report `colorTagsChecked` and retain the full expected contract and probe metadata. A probe timeout at the observation deadline preserves an earlier mismatch diagnostic and attaches the timeout cause.
+
+Matching tags is not color fidelity. The tested PCM-sequence export declares limited range but its pixel comparison supports full-range interpretation; the separately corrected research copy is not a general automatic remedy. Use the [render qualification evidence](NATIVE_RENDER_QUALIFICATION.md) when assessing that fixture. An explicit full-range requirement correctly refuses the uncorrected limited-tagged file, even though it otherwise decodes successfully.
+
 Preview binds observable project, owner, saved-bin hash, clip metadata, preset names and output-root state. Apply consumes the token once, rechecks state, obtains the per-user native write lock, creates a unique output folder and records an attempt before dispatch. The lock remains held through stable-file observation, output-contract checks, full decode, decoded frame count and hash verification. A successful receipt contains `outputVerified: true` and `sourceFidelityVerified: false`.
 
 After dispatch, an RPC or verification failure returns `NATIVE_EXPORT_UNCERTAIN` with the output path and retains `~/.avid-mcp/native-write.lock`. Inspect the recorded attempt, output and editor activity before considering recovery. The lock is never stolen based on elapsed time, and the export is never automatically repeated.
