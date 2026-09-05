@@ -1,11 +1,13 @@
-import {mkdtemp,writeFile,unlink} from "node:fs/promises";
+import {mkdtemp,writeFile,unlink,readFile} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import {it,expect,vi} from "vitest";
+import {it,expect,vi,beforeEach} from "vitest";
 import {MediaSummaries,summaryChunks} from "../src/library/summaries.js";
 import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
-vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:async()=>Object.assign(async()=>[{summary_text:"Generated test summary"}],{tokenizer:async()=>({input_ids:{dims:[1,100]}}),dispose:async()=>{}})})}));
+const inference=vi.hoisted(()=>vi.fn());
+beforeEach(()=>{inference.mockReset();inference.mockResolvedValue([{summary_text:"Generated test summary"}]);});
+vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:async()=>Object.assign(inference,{tokenizer:async()=>({input_ids:{dims:[1,100]}}),dispose:async()=>{}})})}));
 async function fixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-summary-")),source=path.join(root,"source.mp4"),id="a".repeat(64);await writeFile(source,"fixture");
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:root,AVID_MCP_CAPABILITIES:"inspect,project-write"}),library=new MediaLibrary(config),directory=await library.directory();
@@ -26,4 +28,23 @@ it("permits discovery and deletion after transcript removal while protecting sou
   const list=await summaries.list(id);expect(list.summaries).toHaveLength(1);await expect(summaries.node(saved.revision)).rejects.toThrow();
   await expect(new MediaSummaries({...config,allowedRoots:[]}).list(id)).rejects.toThrow();
   await expect(summaries.remove(saved.revision,"wrong")).rejects.toThrow("changed");expect((await summaries.remove(saved.revision,list.summaries[0]!.sha256)).deleted).toBe(true);
+});
+it("reuses an interrupted prefix after restart and validates the final output",async()=>{
+  const {id,config,transcript,summaries}=await fixture();inference.mockResolvedValueOnce([{summary_text:"First committed node."}]).mockRejectedValueOnce(new Error("interrupted"));
+  await expect(summaries.generate(id,transcript.revision)).rejects.toMatchObject({code:"SUMMARY_INCOMPLETE"});
+  const [partial]=(await summaries.runs(id)).runs;expect(partial).toMatchObject({state:"partial",completedNodes:1});
+  const directory=await new MediaLibrary(config).directory(),checkpoint=path.join(directory,`summary-run-${partial!.runId}`,"0.json"),original=await readFile(checkpoint,"utf8");
+  await expect(summaries.checkpoints.append(partial!.runId,0,JSON.parse(original))).rejects.toMatchObject({code:"EEXIST"});
+  const resumed=await new MediaSummaries(config).resume(partial!.runId);expect(resumed.reusedNodes).toBe(1);expect(inference).toHaveBeenCalledTimes(resumed.nodes+1);
+  expect(await readFile(checkpoint,"utf8")).toBe(original);expect(await summaries.runStatus(resumed.runId)).toMatchObject({state:"completed",completedNodes:resumed.nodes});
+  await expect(summaries.resume(resumed.runId)).rejects.toThrow("completed");
+  const output=path.join(directory,`summary-${resumed.revision}.json`),record=JSON.parse(await readFile(output,"utf8"));record.nodes[0].summary="Changed summary.";await writeFile(output,JSON.stringify(record));
+  await expect(summaries.runStatus(resumed.runId)).rejects.toThrow("differs");
+});
+it("rejects incompatible transcript, input checkpoints and scope without rewriting the parent",async()=>{
+  const {id,config,transcript,summaries}=await fixture();inference.mockResolvedValueOnce([{summary_text:"Saved."}]).mockRejectedValueOnce(new Error("stop"));await expect(summaries.generate(id,transcript.revision)).rejects.toThrow();
+  const run=(await summaries.runs(id)).runs[0]!.runId;await expect(new MediaSummaries({...config,allowedRoots:[]}).resume(run)).rejects.toThrow();
+  const directory=await new MediaLibrary(config).directory(),file=path.join(directory,`summary-run-${run}`,"0.json"),original=await readFile(file,"utf8"),record=JSON.parse(original);record.inputHash="0".repeat(64);await writeFile(file,JSON.stringify(record));
+  await expect(summaries.resume(run)).rejects.toThrow("input changed");await writeFile(file,original);
+  await writeFile(transcript.path,JSON.stringify({id,segments:[{start:0,end:2,text:"Different transcript"}]}));await expect(summaries.resume(run)).rejects.toThrow("changed");expect(await readFile(file,"utf8")).toBe(original);
 });

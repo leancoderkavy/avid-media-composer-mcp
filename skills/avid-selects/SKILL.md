@@ -13,7 +13,9 @@ Use `avid_index_visual_shots` to detect and embed one midpoint per shot in one o
 
 Save chosen half-open source-time ranges in seconds with `avid_save_collection`, including labels and reasons. Read the returned revision with `avid_read_collection`; use `avid_collection_range` to verify stringout-to-source mapping.
 
-For interrupted visual indexing, use `avid_visual_index_runs` and `avid_visual_index_run` to inspect persisted sample counts. A partial record does not prove its worker stopped. After cancellation reaches a terminal status, `avid_resume_visual_index` (or a `visual_resume` job) creates a new run, validates source/model/thumbnail integrity and reuses the committed embedding prefix. Keep the returned parent run ID and reused count in the receipt. Do not promise resume for other model jobs or for shot detection before its sample plan exists.
+For interrupted visual indexing, use `avid_visual_index_runs` and `avid_visual_index_run` to inspect persisted sample counts. A partial record does not prove its worker stopped. After cancellation reaches a terminal status, `avid_resume_visual_index` (or a `visual_resume` job) creates a new run, validates source/model/thumbnail integrity and reuses the committed embedding prefix. Keep the returned parent run ID and reused count in the receipt. Speech and people jobs, and shot detection before its sample plan exists, do not yet have computation resume.
+
+When using transcript summaries for editorial context, review claims against the source transcript. Interrupted summary runs are available through `avid_summary_runs` and `avid_summary_run`; `avid_resume_summary` (or a `summary_resume` job) reuses verified nodes in a new run. Keep the transcript revision and parent run identity. Recovery checks provenance and structure, not factual accuracy or visual grounding.
 
 For handoff:
 

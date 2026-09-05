@@ -41,6 +41,12 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_summary_runs",{description:"Discover persisted summary computation runs for a media ID. Partial does not prove worker termination. Transcript provenance must remain available.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},
+    ({id,after,limit})=>result("avid_summary_runs",()=>summaries.runs(id,after,limit)));
+  server.registerTool("avid_summary_run",{description:"Read persisted summary node counts and verify transcript provenance and completed output.",inputSchema:{runId:z.string().uuid()},annotations:read},
+    ({runId})=>result("avid_summary_run",()=>summaries.runStatus(runId)));
+  server.registerTool("avid_resume_summary",{description:"Resume a partial summary in a new run after verifying transcript checksum, pinned model and node input/structure. Reuses completed nodes. Requires project-write and cached summary models; use a summary_resume job for cancellable execution.",inputSchema:{runId:z.string().uuid()},annotations:write},
+    ({runId})=>result("avid_resume_summary",()=>summaries.resume(runId)));
   server.registerTool("avid_visual_index_runs",{description:"Discover persisted visual indexing runs and completed sample counts. Partial does not prove the original worker stopped. Checkpoints survive cancellation or server restart.",inputSchema:{after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
     ({after,limit})=>result("avid_visual_index_runs",()=>visual.checkpoints.list(after,limit)));
   server.registerTool("avid_visual_index_run",{description:"Read a visual indexing run's persisted progress without loading a model.",inputSchema:{runId:z.string().uuid()},annotations:read},
