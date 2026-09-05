@@ -37,7 +37,8 @@ export async function faceRuntime(cache:string,python:string,install=false){
     if(installed.exitCode!==0)throw new Error("Face runtime dependency installation failed");
     for(const model of FACE_MODELS){
       const target=path.join(root,model.name);
-      try{await access(target);}catch{
+      try{await readBoundedFile(target,model.bytes);}catch(error){
+        if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;
         const response=await fetch(`https://media.githubusercontent.com/media/opencv/opencv_zoo/${FACE_REVISION}/models/${model.folder}/${model.name}`,{signal:AbortSignal.timeout(120000)});
         if(!response.ok)throw new Error("Face model download failed");
         const bytes=await downloadBytes(response,model.bytes);
@@ -45,7 +46,8 @@ export async function faceRuntime(cache:string,python:string,install=false){
         await writeFile(target,bytes,{flag:"wx"});
       }
       const license=path.join(root,`${model.folder}.LICENSE`);
-      try{await access(license);}catch{
+      try{await readBoundedFile(license,65536);}catch(error){
+        if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;
         const response=await fetch(`https://raw.githubusercontent.com/opencv/opencv_zoo/${FACE_REVISION}/models/${model.folder}/LICENSE`,{signal:AbortSignal.timeout(30000)});
         if(!response.ok)throw new Error("Could not download model license");
         await writeFile(license,await downloadBytes(response,65536),{flag:"wx"});

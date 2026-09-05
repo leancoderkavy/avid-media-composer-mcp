@@ -10,7 +10,7 @@ This ledger preserves the complete requested scope across increments. It is not 
 | Timeline reading, range/track search, source mapping | Offline AVB/AAF/OTIO inspection; local collection range mapping | Semantic live/saved sequence graph, snapshots/diffs, actual editor range queries |
 | Sequences, selects, stringouts, trims, track assignment | Curated collections and OpenTimelineIO round trip | Avid import/export/relink/save/reopen/render; fix native subclip track discrepancy |
 | Visual/text/image/frame similarity and bounded results | Pinned local CLIP, text/image smoke tests on Sonoma | Dense/shot/range samples, reference-frame tool, scope discovery, ranking/resource benchmark |
-| Transcript search/read/ranges/export | Immutable revisions; substring/range tests; five formats; English Whisper runtime smoke | Speech accuracy fixtures, additional languages/model selection, diarization, correction/deletion |
+| Transcript search/read/ranges/export | Immutable revisions, correction ancestry and checksum-checked deletion; substring/range tests; five formats; English Whisper runtime smoke | Speech accuracy fixtures, additional languages/model selection, diarization, broader correction/recovery qualification |
 | Hierarchical summaries and node drill-down | Extractive transcript outline | Grounded generated summaries, provenance validation and whole-media/node queries |
 | People collections | Pinned YuNet/SFace runtime; bounded indexing, pagination, names/merge/move/recluster/removal; real Sonoma crop and deletion workflow | Accuracy/resource benchmarks, dense sampling, interrupted-job recovery and broader media qualification |
 | Watch folders/shared media cache | Polling CRUD/start/stop/checkpoints and moved-source aliases; synthetic MP4 runtime proof | More failure/concurrency/resource qualification; interrupted analysis resume and offline/relinked paths |
@@ -36,3 +36,5 @@ Evidence statuses distinguish implementation, offline tests, simulated adapters,
 - Saved snapshot increment: real Sonoma bin indexed into 32 mobs; the new subclip mapped exactly to source frames 2850–2880 on three tracks; identical saved snapshots had no semantic differences. Native live sequence reading/creation and Avid interchange remain open.
 
 - People increment: 12 real Sonoma samples produced three face crops; naming, merge, move, recluster, individual removal and whole-index deletion passed with the source SHA unchanged. This proves the workflow, not recognition accuracy.
+
+- Transcript review increment: real stdio MCP calls imported synthetic review text for the Sonoma preview, corrected text/timing/speaker, searched the new revision, exported and inspected SRT timing, and deleted the original revision. Source SHA unchanged; this is review workflow evidence, not speech recognition accuracy.

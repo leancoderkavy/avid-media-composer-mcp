@@ -108,7 +108,7 @@ export class MediaLibrary {
     }
     return { matchMode: "case-insensitive-substring", results: results.slice(0, limit), truncated: results.length > limit };
   }
-  async importTranscript(id: string, segments: Segment[]) {
+  async importTranscript(id: string, segments: Segment[], parentRevision?:string) {
     requireCapability(this.config.capabilities, "project-write");
     const entry = await this.entry(id);
     const parsed = transcriptSchema.parse(segments).sort((a, b) => a.start - b.start || a.end - b.end);
@@ -117,7 +117,10 @@ export class MediaLibrary {
     // Exclusive sidecar revision: source and existing transcript never overwritten.
     const revision = randomUUID();
     const output = path.join(await this.directory(), `${id}.transcript-${revision}.json`);
-    await writeFile(output, JSON.stringify({ id, segments: parsed }), { flag: "wx" });
+    if(parentRevision)z.string().uuid().parse(parentRevision);
+    const content=JSON.stringify({ id, segments: parsed, parentRevision });
+    if(Buffer.byteLength(content)>20*1024*1024)throw new Error("Transcript exceeds 20 MiB revision limit");
+    await writeFile(output, content, { flag: "wx" });
     return { revision, path: output, segmentCount: parsed.length };
   }
   async transcriptRange(id: string, start: number, end: number, after: number, limit: number, revision?: string) {

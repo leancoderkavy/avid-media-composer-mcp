@@ -10,6 +10,7 @@ import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
 import {ProjectSnapshots} from "./project-snapshots.js";
 import {People,peopleEditSchema} from "./people.js";
+import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
 
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const library = new MediaLibrary(config);
@@ -20,6 +21,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const watches = new WatchFolders(config);
   const snapshots = new ProjectSnapshots(config);
   const people = new People(config);
+  const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
   server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
@@ -38,6 +40,12 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({ids,query,limit,revisions})=>result("avid_search_media",()=>library.search(ids,query,limit,revisions)));
   server.registerTool("avid_import_transcript", {description:"Save an immutable local transcript revision for indexed media. Requires project-write. Returns a revision ID for search/range queries.",inputSchema:{id,segments:transcriptSchema},annotations:write},
     ({id,segments})=>result("avid_import_transcript",()=>library.importTranscript(id,segments)));
+  server.registerTool("avid_transcript_revisions", {description:"Discover paginated transcript revisions, checksums and correction ancestry for indexed media.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+    ({id,after,limit})=>result("avid_transcript_revisions",()=>transcripts.list(id,after,limit)));
+  server.registerTool("avid_correct_transcript", {description:"Create a corrected revision by replacing/removing original segment indices or adding segments. Supports text, timing and user-supplied speaker labels. Retains the original; requires project-write and its checksum.",inputSchema:{id,revision:z.string().uuid(),expectedSha256:id,edits:transcriptEdits},annotations:write},
+    ({id,revision,expectedSha256,edits})=>result("avid_correct_transcript",()=>transcripts.correct(id,revision,expectedSha256,edits)));
+  server.registerTool("avid_delete_transcript_revision", {description:"Delete exactly one transcript revision with checksum checking. Other revisions and exports remain. Requires project-write.",inputSchema:{id,revision:z.string().uuid(),expectedSha256:id},annotations:{...write,destructiveHint:true}},
+    ({id,revision,expectedSha256})=>result("avid_delete_transcript_revision",()=>transcripts.remove(id,revision,expectedSha256)));
   server.registerTool("avid_transcript_range", {description:"Read a bounded half-open transcript range with a continuation cursor.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(200).default(50),revision:z.string().uuid().optional()},annotations:read},
     ({id,start,end,after,limit,revision})=>result("avid_transcript_range",()=>library.transcriptRange(id,start,end,after,limit,revision)));
   server.registerTool("avid_media_artifact", {description:"Create a thumbnail, trimmed MP4 or checksum-verified copy in a unique output folder. Requires export. Validates indexed source identity and never overwrites.",inputSchema:{id,kind:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative().default(0),end:z.number().positive().optional()},annotations:write},
