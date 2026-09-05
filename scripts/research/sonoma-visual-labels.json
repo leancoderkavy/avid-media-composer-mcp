@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "sourceId": "3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca",
+  "sampleCount": 32,
+  "annotation": "Assistant visual inspection of all 32 shot midpoint thumbnails before query execution. Labels refer only to these samples. Development set, not independently reviewed or held out.",
+  "negativeQueries": ["A snowboarder descending a snowy mountain", "Scuba divers swimming above an underwater coral reef", "A person playing a violin"],
+  "queries": [
+    {"text":"An airplane wing seen through an airplane window", "relevant":[0,1]},
+    {"text":"Passengers walking on the airport tarmac beside an airplane", "relevant":[2]},
+    {"text":"Cars in a parking lot", "relevant":[3,7,8]},
+    {"text":"A wooden covered outdoor restaurant patio beside a sidewalk", "relevant":[4,5]},
+    {"text":"An indoor hallway with a bedroom visible through a doorway", "relevant":[6]},
+    {"text":"A foggy hillside landscape", "relevant":[9]},
+    {"text":"A narrow dirt walking path through tall dry grass", "relevant":[11,12]},
+    {"text":"Rows of grapevines in a vineyard", "relevant":[13,16]},
+    {"text":"A pond covered in green lily pads", "relevant":[14,15]},
+    {"text":"A green utility cart parked outdoors", "relevant":[17]},
+    {"text":"Wooden wine barrels stacked inside a cellar", "relevant":[18,19]},
+    {"text":"A bowl of noodles and food on a restaurant table", "relevant":[21]},
+    {"text":"A close-up of a hand holding a smartphone with its screen visible", "relevant":[26]},
+    {"text":"A person climbing an indoor climbing wall", "relevant":[29]},
+    {"text":"People on an outdoor dining terrace with green umbrellas", "relevant":[20,30,31]},
+    {"text":"People standing beneath a Chinese-style street gateway", "relevant":[24,25]}
+  ]
+}
