@@ -1,3 +1,4 @@
+import {CaptionBatches} from "./caption-batches.js";
 import {FrameCaptions} from "./captions.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc} from "./qc.js";
@@ -17,6 +18,8 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "caption_batch":result=await new CaptionBatches(config).generate(spec.id,spec.times);break;
+    case "caption_resume":result=await new CaptionBatches(config).resume(spec.runId);break;
     case "caption":result=await new FrameCaptions(config).generate(spec.id,spec.time);break;
     case "people_resume":result=await new People(config).resume(spec.indexId);break;
     case "speech_resume":result=await new SpeechAnalysis(config).resume(spec.runId);break;

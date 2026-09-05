@@ -1,3 +1,4 @@
+import {CaptionBatches,captionTimes} from "./caption-batches.js";
 import {FrameCaptions} from "./captions.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
@@ -21,6 +22,7 @@ import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const library = new MediaLibrary(config);
   const captions = new FrameCaptions(config);
+  const captionBatches = new CaptionBatches(config,captions);
   const visual = new VisualSearch(config);
   const speech = new SpeechAnalysis(config);
   const jobs = new AnalysisJobs(config);
@@ -43,6 +45,10 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
     catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
   };
+  server.registerTool("avid_caption_batch",{description:"Generate reviewable captions at 1–120 increasing seek times, saving each completed caption. Use a caption_batch job for cancellation.",inputSchema:{id,times:captionTimes},annotations:write},({id,times})=>result("avid_caption_batch",()=>captionBatches.generate(id,times)));
+  server.registerTool("avid_caption_runs",{description:"Discover caption batches with verified progress. A partial run does not prove that its worker stopped.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},({id,after,limit})=>result("avid_caption_runs",()=>captionBatches.list(id,after,limit)));
+  server.registerTool("avid_caption_run",{description:"Verify caption batch source, checkpoints and completion. Editing or deleting referenced captions invalidates verification.",inputSchema:{runId:z.string().uuid()},annotations:read},({runId})=>result("avid_caption_run",()=>captionBatches.status(runId)));
+  server.registerTool("avid_resume_captions",{description:"Create a new caption batch reusing verified saved captions. Stop the original worker first. Use a caption_resume job for cancellation.",inputSchema:{runId:z.string().uuid()},annotations:write},({runId})=>result("avid_resume_captions",()=>captionBatches.resume(runId)));
   server.registerTool("avid_caption_frame",{description:"Generate a local Florence caption for one requested video seek time with a retained source image and model provenance. Requires cached caption models, export and project-write. Text can omit or invent details; inspect the image before using it. Use a caption job for cancellable execution.",inputSchema:{id,time:z.number().nonnegative()},annotations:write},({id,time})=>result("avid_caption_frame",()=>captions.generate(id,time)));
   server.registerTool("avid_read_caption",{description:"Read a frame caption and its source-image path after checking source and image integrity. Edited text is not automatically fact-verified.",inputSchema:{captionId:z.string().uuid()},annotations:read},async({captionId})=>{let encoded:string|undefined;const response=await result("avid_read_caption",async()=>{const review=await captions.withImage(captionId);encoded=review.image;return review.data;});return encoded?{...response,content:[...response.content,{type:"image" as const,data:encoded,mimeType:"image/jpeg"}]}:response;});
   server.registerTool("avid_list_captions",{description:"Discover saved frame captions for authorized media, with pagination and per-caption unavailable results.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(20)},annotations:read},({id,after,limit})=>result("avid_list_captions",()=>captions.list(id,after,limit)));
