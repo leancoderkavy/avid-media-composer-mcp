@@ -1,5 +1,5 @@
 import path from "node:path";
-import { access } from "node:fs/promises";
+import { access,mkdir,writeFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import * as z from "zod/v4";
 import type { ServerConfig } from "../config.js";
@@ -8,12 +8,15 @@ import { requireCapability } from "../security/capabilities.js";
 import { AvidMcpError } from "../errors.js";
 import { sha256File } from "../analysis/file-inventory.js";
 import { NativeClient, QUALIFIED_BUILD } from "./client.js";
+import {renderContract,verifyNativeRender} from "./render-verifier.js";
+import {NativeExportUncertain} from "./lock.js";
 
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
 const id = z.string().min(1).max(256);
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("export_mp4"),bin:z.string().min(1),mobId:id,preset:name,expected:renderContract}).strict().refine(value=>value.expected.videoCodec==="h264"&&value.expected.width===1920&&value.expected.height===1080&&value.expected.rate.num===30&&value.expected.rate.den===1,"Native MP4 qualification currently requires H.264 1080p30"),
   z.object({ action: z.literal("create_bin"), name }).strict(),
   z.object({ action: z.literal("open_bin"), bin: z.string().min(1) }).strict(),
   z.object({ action: z.literal("close_bin"), bin: z.string().min(1) }).strict(),
@@ -45,13 +48,14 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "link_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "link_settings" | "export_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
     if (query === "project") return project;
     if (query === "bins") return this.client.call("GetBins", { project_path: project.path, request_flag: ["AllTypes"] });
     if (query === "link_settings") return this.client.call("GetListOfLinkSettings");
+    if (query === "export_settings") return this.client.call("GetListOfExportSettings");
     const target = await this.binPath(project.path, bin ?? "");
     const relative = path.relative(project.path, target);
     if (query === "bin") return this.client.call("GetBinInfo", { relative_bin_path: relative });
@@ -85,6 +89,20 @@ export class NativeAdapter {
     if ("guid" in action && !(markers as Record<string, unknown>[]).some(marker => marker.guid === action.guid)) throw new Error("Target marker does not exist");
     const media = action.action === "link_media" ? await resolveReadablePath(action.media, this.config.allowedRoots, "file") : undefined;
     let subclipSource:unknown;
+    let exportState:unknown;
+    if(action.action==="export_mp4"){
+      requireCapability(this.config.capabilities,"export");
+      if(!this.config.outputRoot)throw new Error("Export output root required");
+      const outputRoot=await resolveReadablePath(this.config.outputRoot,[this.config.outputRoot],"directory");
+      const presets=await this.client.call("GetListOfExportSettings");
+      if(!presets.some(value=>value.setting_names?.includes(action.preset)))throw new Error("Requested export preset is missing");
+      const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value]));
+      const duration=String(columns.Duration??"");
+      if(project.frame_rate?.num!==30||project.frame_rate?.den!==1||Number(columns.FPS)!==30||!/^\d+(?::\d{2}){1,3}$/.test(duration))throw new Error("Unqualified export source rate or duration");
+      const parts=duration.split(":").map(Number),frames=parts.pop()!;
+      if(frames>=30||parts.slice(1).some(value=>value>=60)||parts.reduce((total,value)=>total*60+value,0)*30+frames!==action.expected.frames)throw new Error("Export contract must cover the complete source duration");
+      exportState={outputRoot,info,presets};
+    }
     if(action.action==="create_subclip"){
       if(project.frame_rate?.num!==30||project.frame_rate?.den!==1)throw new Error("Subclip qualification currently requires a 30 fps project");
       const info=await this.client.call("GetMobInfo",{mob_id:action.mobId});
@@ -99,7 +117,7 @@ export class NativeAdapter {
       subclipSource=info;
     }
     return { project: project.path, owner:this.client.ownerIdentity, bin, binSha256:await sha256File(bin), clips, markers, media,
-      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), action };
+      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), action };
   }
   async preview(input: Action) {
     const action = nativeActionSchema.parse(input);
@@ -117,7 +135,7 @@ export class NativeAdapter {
       const plan = this.plans.get(token);
       this.plans.delete(token); // consume before any write; never replay uncertain operations
       if (!plan || plan.expires < Date.now()) throw new Error("Native plan expired or already consumed");
-      requireCapability(this.config.capabilities, plan.action.action === "create_bin" ? "project-write" : "edit");
+      requireCapability(this.config.capabilities, plan.action.action === "export_mp4" ? "export" : plan.action.action === "create_bin" ? "project-write" : "edit");
       const { withNativeLock } = await import("./lock.js");
       return withNativeLock(async () => {
         const observedState=await this.state(plan.action);
@@ -125,6 +143,21 @@ export class NativeAdapter {
         const action = plan.action;
         const project = await this.project();
         let result;
+        if(action.action==="export_mp4"){
+          const root=await resolveReadablePath(this.config.outputRoot!,[this.config.outputRoot!],"directory");
+          const directory=path.join(root,`native-export-${randomUUID()}`);await mkdir(directory);
+          const output=path.join(directory,"export","render.mp4"),owner=this.client.ownerIdentity;
+          await writeFile(path.join(directory,"attempt.json"),JSON.stringify({action,project:project.path,owner,output,expectedState:plan.state}),{flag:"wx"});
+          try{
+            result=await this.client.call("ExportFile",{mob_id:action.mobId,file_name:"render",export_settings_name:action.preset,destination_path:directory,in_directory:"export",option_flags:["Export_StopIf_OfflineMedia","Export_StopIf_UnknownFX"]},owner);
+            const verification=await verifyNativeRender(output,this.config,action.expected,{assertOwner:async()=>{
+              const current=await this.project();
+              if(this.client.ownerIdentity!==owner||current.path!==project.path)throw new Error("Export host or project changed");
+            }});
+            const receipt={operationId:randomUUID(),action,result,applicationCompleted:true,outputVerified:true,verification,sourceFidelityVerified:false,limitations:["Preset content cannot be fingerprinted through this API","Unsaved timeline graph and source frame/color/audio conformance are not verified"]};
+            await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return receipt;
+          }catch(error){throw new NativeExportUncertain(output,(error as Error).message);}
+        }
         switch (action.action) {
           case "create_bin": result = await this.client.call("CreateBin", { folder_path: "", bin_name: action.name, option: "LastActiveBinContainer" }); break;
           case "open_bin": case "close_bin": result = await this.client.call(action.action === "open_bin" ? "OpenBin" : "CloseBin", { bin_path: await this.binPath(project.path, action.bin) }); break;

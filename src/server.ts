@@ -182,7 +182,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
   registerLibraryTools(server, config);
   server.registerTool("avid_native_read", {
     description: "Opt-in Windows native app/project/bin/clip/marker inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots.",
-    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "link_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
+    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "link_settings", "export_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
     outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
   }, async ({ query, bin, mobId }) => execute("avid_native_read", () => native.read(query, bin, mobId)));
   server.registerTool("avid_native_preview", {
@@ -190,7 +190,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
     inputSchema: { operation: nativeActionSchema }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
   }, async ({ operation }) => execute("avid_native_preview", () => native.preview(operation)));
   server.registerTool("avid_native_apply", {
-    description: "Apply the exact reviewed native preview token once. Requires edit or project-write authority. No automatic undo or persistence guarantee.",
+    description: "Apply the exact reviewed native token once. Requires edit, project-write, or export authority for the chosen action. MP4 export verifies output under the native lock; uncertain exports retain that lock for inspection. No automatic undo.",
     inputSchema: { token: z.string().uuid() }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: EDIT_ANNOTATIONS,
   }, async ({ token }) => execute("avid_native_apply", () => native.apply(token)));
 

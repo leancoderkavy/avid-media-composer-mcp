@@ -4,11 +4,13 @@ import protobuf from "protobufjs";
 import { nativeActionSchema, NativeAdapter } from "../src/native/adapter.js";
 import { loadConfig } from "../src/config.js";
 import { withNativeLock } from "../src/native/lock.js";
+import {verifyNativeRender} from "../src/native/render-verifier.js";
 import {mkdtemp,writeFile} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-beforeEach(async()=>{vi.spyOn(os,"homedir").mockReturnValue(await mkdtemp(path.join(os.tmpdir(),"avid-native-lock-test-")));});
+vi.mock("../src/native/render-verifier.js",async(importOriginal)=>({...await importOriginal<typeof import("../src/native/render-verifier.js")>(),verifyNativeRender:vi.fn()}));
+beforeEach(async()=>{vi.spyOn(os,"homedir").mockReturnValue(await mkdtemp(path.join(os.tmpdir(),"avid-native-lock-test-")));vi.mocked(verifyNativeRender).mockReset();});
 afterEach(()=>vi.restoreAllMocks());
 
 async function hostFixture(){
@@ -21,6 +23,7 @@ async function hostFixture(){
     calls.push({method,body});
     if(method==="GetOpenProjectInfo")return [{path:root,frame_rate:{num:30,den:1}}];
     if(method==="GetAppInfo")return [{app_busy_status:"Idle"}];
+    if(method==="GetListOfExportSettings")return [{setting_names:["Fixture"]}];
     if(method==="GetListOfBinItems")return [{mob_id:"clip"}];
     if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"}];
     if(method==="GetMarkers"){if(failPost)throw new Error("post-read unavailable");return [{info:[marker]}];}
@@ -28,11 +31,28 @@ async function hostFixture(){
     if(method==="LoadMobsIntoViewer")failPost=true;
     return [];
   }};
-  const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_CAPABILITIES:"inspect,edit,project-write"}),client as unknown as NativeClient);
+  const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,edit,project-write,export"}),client as unknown as NativeClient);
   return {adapter,client,calls,marker};
 }
 
 describe("native boundaries", () => {
+  const exportAction={action:"export_mp4" as const,bin:"fixture.avb",mobId:"clip",preset:"Fixture",expected:{videoCodec:"h264",width:1920,height:1080,frames:5726,rate:{num:30,den:1},audio:[]}};
+  it("exports only once and keeps the lock through output verification",async()=>{
+    const {adapter,calls}=await hostFixture();
+    vi.mocked(verifyNativeRender).mockImplementation(async()=>{await expect(withNativeLock(async()=>1)).rejects.toThrow();return {decodePassed:true} as any;});
+    const plan=await adapter.preview(exportAction);expect(await adapter.apply(plan.token)).toMatchObject({outputVerified:true,sourceFidelityVerified:false});
+    await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");expect(calls.filter(call=>call.method==="ExportFile")).toHaveLength(1);
+    await expect(withNativeLock(async()=>2)).resolves.toBe(2);
+  });
+  it("retains the write lock and consumed token after uncertain export output",async()=>{
+    const {adapter,calls}=await hostFixture();vi.mocked(verifyNativeRender).mockRejectedValue(new Error("Output missing"));
+    const plan=await adapter.preview(exportAction);await expect(adapter.apply(plan.token)).rejects.toThrow("lock retained");
+    await expect(withNativeLock(async()=>1)).rejects.toThrow();await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");expect(calls.filter(call=>call.method==="ExportFile")).toHaveLength(1);
+  });
+  it("rejects missing export presets and incorrect whole-source contracts before writing",async()=>{
+    const {adapter,calls}=await hostFixture();await expect(adapter.preview({...exportAction,preset:"Absent"})).rejects.toThrow("preset is missing");
+    await expect(adapter.preview({...exportAction,expected:{...exportAction.expected,frames:120}})).rejects.toThrow("complete source duration");expect(calls.some(call=>call.method==="ExportFile")).toBe(false);
+  });
   it("rejects invalid or out-of-source subclip ranges before calling the writer",async()=>{
     const {adapter,calls}=await hostFixture();
     expect(nativeActionSchema.safeParse({action:"create_subclip",bin:"fixture.avb",mobId:"clip",startFrame:20,endFrame:10}).success).toBe(false);

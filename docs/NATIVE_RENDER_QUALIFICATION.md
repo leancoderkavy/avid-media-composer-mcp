@@ -1,5 +1,7 @@
 # Avid sequence render qualification
 
+The development branch now includes a preview/apply export action; see [native export usage and limits](NATIVE_EXPORT.md). The sections below preserve the research steps leading to that implementation.
+
 On Windows Media Composer Ultimate 2024.12, computer use exported the imported four-second `MCP_Sonoma_AAF_Selects` composition from the disposable `MCP_Sonoma_30p_20260905` project. This extends the saved-bin evidence in [native AAF qualification](NATIVE_AAF_QUALIFICATION.md). It does not qualify a shipped native export adapter.
 
 ## Observed procedure
@@ -47,3 +49,9 @@ Production work still needs preview/apply state guards, host serialization throu
 `src/native/render-verifier.ts` now provides the readiness check used by the render inspection script. It checks output-root scope, stable size/mtime, declared video and audio stream contracts, complete decoding and actual decoded video frame count, then rechecks file identity and SHA-256. Callers can supply a host-owner assertion for checks during polling and after decoding. It does not issue any native RPC or retry an export.
 
 Tests exercise delayed creation, missing files, contract mismatch, failed decoding, a short decode despite complete-looking metadata, host-owner changes and out-of-scope files. The retained second native render passed this verifier with all 120 frames decoded. The production native action still needs to connect preview/apply and lock lifetime to this verifier; this module alone does not qualify that action.
+
+## MCP action qualification
+
+The subsequent `scripts/research/qualify-native-render-mcp.mjs` run used real stdio MCP preview/apply with `inspect,export` authority. It generated a unique MP4, decoded all 120 frames against the explicit preset contract, wrote a receipt and rejected replay of the consumed token. Output SHA-256 was `0c7d81b052c56f47773bb1629ea5dc20d89e4f86a796e6afc42abcbf41a523ae`.
+
+Evidence is retained in `.avid-mcp-analysis/native-render-mcp-faa6dcfa-c7eb-4a06-a4d7-e48c0786f998/`. Unit tests confirm the lock is held while output verification runs, retained after uncertainty and released after verified success. The complete source-duration contract is checked before dispatch. Technical output verification does not close the source-fidelity gaps above.

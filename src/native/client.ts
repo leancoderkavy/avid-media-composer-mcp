@@ -102,9 +102,9 @@ function exchange(method: string, payload: Buffer): Promise<Buffer[]> {
 }
 
 export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetBinInfo",
-  "GetListOfBinItems", "GetListOfLinkSettings", "GetMobInfo", "GetMarkers"] as const;
+  "GetListOfBinItems", "GetListOfLinkSettings", "GetListOfExportSettings", "GetMobInfo", "GetMarkers"] as const;
 export const NATIVE_WRITES = ["CreateBin", "CloseBin", "OpenBin", "LinkFile", "AddMarker", "CreateSubClip",
-  "ChangeMarker", "DeleteMarkers", "LoadMobsIntoViewer"] as const;
+  "ChangeMarker", "DeleteMarkers", "LoadMobsIntoViewer", "ExportFile"] as const;
 type NativeMethod = typeof NATIVE_READS[number] | typeof NATIVE_WRITES[number];
 
 /** protobuf fromObject otherwise silently drops unknown keys and coerces bad enums. */
@@ -133,9 +133,10 @@ export function validateWireObject(type:protobuf.Type,value:Record<string,unknow
 export class NativeClient {
   ownerIdentity = "";
   constructor(readonly binary: string) {}
-  async call(method: NativeMethod, body: Record<string, unknown> = {}): Promise<Record<string, any>[]> {
+  async call(method: NativeMethod, body: Record<string, unknown> = {}, expectedOwner?:string): Promise<Record<string, any>[]> {
     if (![...NATIVE_READS, ...NATIVE_WRITES].includes(method)) throw new Error("Unsupported native method");
     this.ownerIdentity = await verifyOwner(this.binary);
+    if(expectedOwner&&this.ownerIdentity!==expectedOwner)throw new Error("Native listener owner changed before dispatch");
     const root = await loadNativeSchema(this.binary);
     const requestType = root.lookupType(`mcapi.${method}Request`);
     const responseType = root.lookupType(`mcapi.${method}Response`);

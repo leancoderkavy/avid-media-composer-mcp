@@ -15,4 +15,6 @@ For long work, `avid_start_analysis_job` returns a job ID; query `avid_analysis_
 
 After requesting cancellation, poll while status is `cancelling`; only `cancelled` confirms the worker has closed. This does not prove that every operating-system descendant has terminated or remove partial files.
 
-Return local deliverable paths, source ID/revision, exact range and performed validation. Native Avid sequence rendering requires a separately qualified host workflow; do not claim it from a source MP4 export.
+For an actual Avid sequence export, discover `export_settings` through `avid_native_read`, read the target MOB, then preview/apply `export_mp4` with its complete duration and explicit video/audio output contract. Current qualification is Windows 2024.12 H.264 1080p30. Review the preset in Avid: its content and unsaved timeline graph cannot be fingerprinted by the adapter. An uncertain export retains the native write lock; inspect the output and host before recovery, and never replay the consumed token. Report `outputVerified` separately from source fidelity, which this action does not establish.
+
+Return local deliverable paths, source ID/revision, exact range and performed validation. Distinguish a source MP4 export from an actual Avid sequence render.
