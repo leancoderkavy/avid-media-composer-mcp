@@ -72,3 +72,5 @@ Media QC now emits JSON/HTML reports for bounded first-stream black, freeze, sil
 Configuration lifecycle supports checksum-checked entry update/removal and selective backup restore. `scripts/research/qualify-setup-lifecycle.mjs` passed with built CLI operations and generated-command MCP ping for Claude/VS Code JSON shapes. Actual client applications and package/dependency lifecycle remain separate qualification work.
 
 Local generated summaries now provide transcript-linked hierarchy, overview/drill-down, discovery and deletion. The real optional DistilBART runtime generated a three-node synthetic-notes example; source references matched, but the overview ended at the token budget with an incomplete sentence. Missing sentence boundaries are flagged. Factual accuracy, completeness and visual grounding remain unqualified.
+
+Native AAF research now proves one 30 fps, three-track, two-cut sequence import and saved-bin conformance on the installed host. It is not yet a shipping general timeline tool; playback/render/relink/undo remain unverified. See NATIVE_AAF_QUALIFICATION.md.
