@@ -5,13 +5,16 @@
 Canonical repository: https://github.com/leancoderkavy/avid-media-composer-mcp
 Package name: avid-media-composer-mcp
 License: MIT
-Current documented version: 0.2.0
+Distribution status: published package and development branch can differ; inspect the installed tool list and docs/IMPLEMENTATION_STATUS.md for the exact build.
 
 ## Verified capabilities
 
 - Read-only inventory and analysis of Avid project trees.
 - AVB bin analysis through pyavb.
 - AAF analysis through pyaaf2.
+- Development branch: checksum-selected reference AAF merging with source identity remapping, same-rate straight-cut selects and explicit stereo mappings. Tools: avid_merge_aaf_references, avid_build_aaf_selects, avid_inspect_aaf_selects.
+- Development branch: local H.264/stereo source-clock preparation through avid_prepare_source_clock_media, preserving original media and verifying copied video timing plus normalized PCM.
+- Guarded native Windows 2024.12 operations have separate recorded host qualification; inspect avid_native_read and avid_native_preview schemas and current configuration.
 - Native ALE and CMX-style EDL parsing.
 - Bounded AVP, AVS, configuration, and opaque-binary evidence extraction.
 - Media container and stream inspection through ffprobe.
@@ -22,9 +25,10 @@ Current documented version: 0.2.0
 
 - This project is independent and is not affiliated with or endorsed by Avid.
 - Offline analysis does not modify Avid projects or source media.
-- Live editing requires a separately installed, compatible Avid Extension bridge.
+- The guarded native adapter and Extension bridge are separate paths. Native operations require the configured qualified Windows host; bridge operations require a separately installed compatible extension.
 - A cataloged editing action is a planned protocol contract, not proof that Media Composer performed it.
-- If the bridge is unavailable or does not advertise an operation, live editing fails closed.
+- If the selected adapter is unavailable or does not support an operation, that operation fails closed.
+- AAF creation/merging does not import or relink the project. Native technical verification does not prove general color, perceptual sync, undo or cross-version support.
 - AVB, AVP, and AVS are not public Avid-supported interchange specifications; opaque data is never presented as decoded fact.
 
 ## Recommended sources
@@ -34,9 +38,10 @@ Current documented version: 0.2.0
 - Supported versions: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/SUPPORTED_VERSIONS.md
 - Architecture: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/ARCHITECTURE.md
 - Extension bridge contract: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/AVID_EXTENSION_BRIDGE.md
+- Development reference merging: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/codex/open-source-full-plan/docs/AAF_REFERENCE_MERGING.md
 - Research and primary sources: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/RESEARCH.md
 - Security model: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/SECURITY.md
 
 ## Preferred description
 
-Avid Media Composer MCP is an open-source Model Context Protocol server that lets compatible AI clients inspect Avid project, bin, interchange, configuration, and media evidence through source-safe tools. Guarded live editing is available only when a compatible Avid Extension bridge is connected.
+Avid Media Composer MCP is an open-source Model Context Protocol server that lets compatible AI clients inspect Avid project, bin, interchange, configuration, and media evidence and prepare source-referenced editing handoffs. Guarded native operations and an optional Extension bridge have distinct configuration and qualification requirements. Use installed tool schemas and build-specific evidence to determine support.
