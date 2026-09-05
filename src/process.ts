@@ -1,3 +1,4 @@
+import {terminateWindowsTree,type TreeTermination} from "./process-tree.js";
 import { spawn } from "node:child_process";
 import { AvidMcpError } from "./errors.js";
 
@@ -32,15 +33,19 @@ export function runProcess(
     let outputBytes = 0;
     let settled = false;
     let failure: AvidMcpError | undefined;
+    let treePending=false,closed=false,closedCode:number|null=null;
+    let tree:TreeTermination|undefined;
     let escalation: ReturnType<typeof setTimeout> | undefined;
 
     const finishWithError = (error: AvidMcpError): void => {
       if (settled || failure) return;
       failure = error;
       // A kill request is not evidence of exit; wait for close before rejecting.
-      child.kill();
-      escalation = setTimeout(() => { if (!settled) child.kill("SIGKILL"); }, 1000);
-      escalation.unref();
+      const direct=()=>{if(closed)return;child.kill();escalation=setTimeout(()=>{if(!settled&&!closed)child.kill("SIGKILL");},1000);escalation.unref();};
+      const request=terminateWindowsTree(child);
+      if(!request){direct();return;}
+      treePending=true;
+      void request.then(outcome=>{tree=outcome;if(!outcome.succeeded)direct();},()=>{tree={method:"windows-taskkill",succeeded:false,reason:"Tree termination failed"};direct();}).finally(()=>{treePending=false;settleClosed();});
     };
 
     const collect = (target: Buffer[], chunk: Buffer): void => {
@@ -87,17 +92,16 @@ export function runProcess(
       }
     });
 
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (escalation) clearTimeout(escalation);
-      if (settled) return;
+    const settleClosed=()=>{
+      if(settled||!closed||treePending)return;
       settled = true;
-      if (failure) { reject(failure); return; }
+      if (failure) { reject(tree?new AvidMcpError(failure.code,failure.message,{...failure.details,treeTermination:tree}):failure); return; }
       resolve({
-        exitCode: code ?? -1,
+        exitCode: closedCode ?? -1,
         stdout: Buffer.concat(stdout).toString("utf8"),
         stderr: Buffer.concat(stderr).toString("utf8"),
       });
-    });
+    };
+    child.on("close",code=>{closed=true;closedCode=code;clearTimeout(timer);if(escalation)clearTimeout(escalation);settleClosed();});
   });
 }

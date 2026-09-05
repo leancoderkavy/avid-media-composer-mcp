@@ -1,9 +1,10 @@
 import {EventEmitter} from "node:events";
 import {it,expect,vi,afterEach} from "vitest";
-const mock=vi.hoisted(()=>({spawn:vi.fn()}));
+const mock=vi.hoisted(()=>({spawn:vi.fn(),tree:vi.fn()}));
 vi.mock("node:child_process",()=>({spawn:mock.spawn}));
+vi.mock("../src/process-tree.js",()=>({terminateWindowsTree:mock.tree}));
 import {runProcess} from "../src/process.js";
-afterEach(()=>{vi.useRealTimers();mock.spawn.mockReset();});
+afterEach(()=>{vi.useRealTimers();mock.spawn.mockReset();mock.tree.mockReset();});
 function child(){const value=Object.assign(new EventEmitter(),{pid:12345,stdout:new EventEmitter(),stderr:new EventEmitter(),kill:vi.fn(()=>true)});mock.spawn.mockReturnValue(value);return value;}
 it("keeps timeout pending through kill errors and escalation until confirmed close",async()=>{
  vi.useFakeTimers();const worker=child();let finished=false;
@@ -25,4 +26,15 @@ it("waits for close when a live child emits an error before a timeout",async()=>
  vi.useFakeTimers();const worker=child();let finished=false;const result=runProcess("fixture",[],{timeoutMs:5000}).catch(error=>{finished=true;return error;});
  worker.emit("error",Object.assign(new Error("runtime failure"),{code:"EPERM"}));await Promise.resolve();expect(finished).toBe(false);expect(worker.kill).toHaveBeenCalledTimes(1);
  worker.emit("close",1);expect(await result).toMatchObject({code:"PROCESS_RUNTIME_ERROR"});expect(vi.getTimerCount()).toBe(0);
+});
+
+it("waits for both parent closure and the Windows tree request",async()=>{
+ vi.useFakeTimers();const worker=child();let release!:(value:unknown)=>void,finished=false;mock.tree.mockReturnValue(new Promise(resolve=>{release=resolve;}));
+ const result=runProcess("fixture",[],{timeoutMs:50}).catch(error=>{finished=true;return error;});await vi.advanceTimersByTimeAsync(50);expect(worker.kill).not.toHaveBeenCalled();worker.emit("close",null);await Promise.resolve();expect(finished).toBe(false);
+ release({method:"windows-taskkill",succeeded:true});expect(await result).toMatchObject({code:"PROCESS_TIMEOUT",details:{treeTermination:{succeeded:true}}});expect(vi.getTimerCount()).toBe(0);
+});
+it("reports failed tree termination and still waits for direct-child fallback",async()=>{
+ vi.useFakeTimers();const worker=child();mock.tree.mockResolvedValue({method:"windows-taskkill",succeeded:false,reason:"fixture failure"});let finished=false;
+ const result=runProcess("fixture",[],{timeoutMs:50}).catch(error=>{finished=true;return error;});await vi.advanceTimersByTimeAsync(50);expect(worker.kill).toHaveBeenCalledTimes(1);expect(finished).toBe(false);worker.emit("close",null);
+ expect(await result).toMatchObject({code:"PROCESS_TIMEOUT",details:{treeTermination:{succeeded:false}}});expect(vi.getTimerCount()).toBe(0);
 });

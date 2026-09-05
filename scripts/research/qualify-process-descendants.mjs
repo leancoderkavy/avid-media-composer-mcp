@@ -16,6 +16,6 @@ for(const detached of [false,true])for(const mode of ['timeout','overflow']){
    if(!pid){try{pid=Number(await readFile(pidFile,'utf8'));}catch{}}
    if(pid){const deadline=Date.now()+10000;while(Date.now()<deadline){try{process.kill(pid,0);}catch(value){assert.equal(value.code,'ESRCH');cleanupVerified=true;break;}await new Promise(resolve=>setTimeout(resolve,50));}assert.ok(cleanupVerified,'Owned descendant did not confirm exit');}
  }
- conditions.push({mode,detached,code:error.code,pid,aliveAtReturn,continuedWriting,cleanupVerified});
+ conditions.push({mode,detached,code:error.code,treeTermination:error.details?.treeTermination,pid,aliveAtReturn,continuedWriting,cleanupVerified});
 }
-const evidence=path.join(root,'evidence.json');await writeFile(evidence,JSON.stringify({checkedAt:new Date().toISOString(),platform:process.platform,conditions,scope:'Direct runner failure is not process-tree closure. Owned descendant fixtures stop cooperatively and exit is verified. Research exposes a lifecycle gap; it does not qualify cleanup.'},null,2));console.log(JSON.stringify({evidence,conditions}));
+const evidence=path.join(root,'evidence.json');await writeFile(evidence,JSON.stringify({checkedAt:new Date().toISOString(),platform:process.platform,conditions,scope:'Direct runner failure is not process-tree closure. Owned descendant fixtures stop cooperatively and exit is verified. Research exposes a lifecycle gap; it does not qualify cleanup.'},null,2));console.log(JSON.stringify({evidence,conditions}));if(process.argv.includes("--require-stopped")){assert.ok(conditions.every(value=>!value.aliveAtReturn&&!value.continuedWriting&&value.cleanupVerified));if(process.platform==="win32")assert.ok(conditions.every(value=>value.treeTermination?.succeeded===true));}
