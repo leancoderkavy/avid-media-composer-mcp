@@ -87,6 +87,34 @@ class AafBuilderTests(unittest.TestCase):
                 with self.assertRaises(ValueError):build(request)
                 self.assertFalse(Path(request['output']).exists())
 
+    def test_multimaster_stereo_stringout_preserves_identity_and_slot_mapping(self):
+        for wrong_rate in [False,True]:
+            with self.subTest(wrong_rate=wrong_rate),tempfile.TemporaryDirectory() as folder:
+                request=self.stereo(Path(folder))
+                with aaf2.open(request['source'],'rw') as f:
+                    second=f.create.MasterMob('second camera');f.content.mobs.append(second)
+                    for slot_id,kind in [(10,'picture'),(20,'sound'),(30,'sound')]:
+                        slot=second.create_empty_sequence_slot(24 if wrong_rate else 30,slot_id=slot_id,media_kind=kind)
+                        slot.segment.components.append(f.create.SourceClip(media_kind=kind,length=200));slot.segment.length=200
+                    second_id=str(second.mob_id)
+                request['expectedSha256']=hashlib.sha256(Path(request['source']).read_bytes()).hexdigest()
+                first_id=request['selects'][0]['mobId']
+                request['selects'].insert(1,{'mobId':second_id,'start':150,'length':40,'slotIds':[10,[30,20]]})
+                if wrong_rate:
+                    with self.assertRaisesRegex(ValueError,'rate mismatch'):build(request)
+                    self.assertFalse(Path(request['output']).exists())
+                else:
+                    result=build(request);self.assertEqual(result['frames'],90)
+                    composition=inspect_selects(request['output'])['composition']
+                    picture,sound=composition['tracks']
+                    self.assertEqual([(c['mobId'],c['slotId'],c['position'],c['start'],c['length']) for c in picture['cuts']],
+                                     [(first_id,1,0,20,30),(second_id,10,30,150,40),(first_id,1,70,70,20)])
+                    self.assertEqual([(c['mobId'],c['channelIndex'],c['slotId'],c['position'],c['start'],c['length']) for c in sound['cuts']],
+                                     [(first_id,1,2,0,20,30),(first_id,2,3,0,20,30),
+                                      (second_id,1,30,30,150,40),(second_id,2,20,30,150,40),
+                                      (first_id,1,2,70,70,20),(first_id,2,3,70,70,20)])
+                self.assertEqual(hashlib.sha256(Path(request['source']).read_bytes()).hexdigest(),request['expectedSha256'])
+
     def test_stereo_inspection_rejects_modified_effects_or_unsynchronized_channels(self):
         for change in ['parameter','start','duplicate','length','format','extra_input','unknown_operation']:
             with self.subTest(change=change),tempfile.TemporaryDirectory() as folder:
