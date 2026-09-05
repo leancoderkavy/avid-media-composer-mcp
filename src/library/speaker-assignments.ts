@@ -1,0 +1,4 @@
+import * as z from "zod/v4";
+const sha=z.string().regex(/^[a-f0-9]{64}$/);
+export const speakerAssignments=z.array(z.object({index:z.number().int().min(0).max(99999),speaker:z.string().regex(/^speaker-[1-9][0-9]{0,3}$/),displayName:z.string().trim().min(1).max(100).optional(),allowAmbiguous:z.boolean().default(false),allowPartialRange:z.boolean().default(false)}).strict()).min(1).max(1000).refine(values=>new Set(values.map(value=>value.index)).size===values.length,"Duplicate transcript segment index");
+export const speakerAssignmentProvenance=z.object({schema:z.literal(1),kind:z.literal("caller-selected-speaker-candidates"),analysisId:z.string().uuid(),analysisSha256:sha,transcriptRevision:z.string().uuid(),transcriptSha256:sha,assignments:speakerAssignments,identityVerified:z.literal(false),wordAlignmentVerified:z.literal(false)}).strict();

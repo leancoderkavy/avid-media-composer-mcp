@@ -7,6 +7,7 @@ import {MediaLibrary,transcriptSchema} from "./media-library.js";
 import {readBoundedFile} from "../security/bounded-read.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {requireCapability} from "../security/capabilities.js";
+import {speakerAssignmentProvenance} from "./speaker-assignments.js";
 
 const segment=transcriptSchema.element;
 export const transcriptEdits=z.array(z.discriminatedUnion("action",[
@@ -22,10 +23,17 @@ export class TranscriptRevisions {
     z.string().uuid().parse(revision);await this.library.metadata([id]);
     const root=await this.library.directory(),file=await resolveReadablePath(path.join(root,`${id}.transcript-${revision}.json`),[root],"file");
     const bytes=await readBoundedFile(file,20*1024*1024);
-    const record=z.object({id:z.literal(id),segments:transcriptSchema,parentRevision:z.string().uuid().optional()}).parse(JSON.parse(bytes.toString("utf8")));
+    const record=z.object({id:z.literal(id),segments:transcriptSchema,parentRevision:z.string().uuid().optional(),speakerAssignment:speakerAssignmentProvenance.optional()}).refine(value=>!value.speakerAssignment||value.speakerAssignment.transcriptRevision===value.parentRevision,"Speaker assignment parent mismatch").parse(JSON.parse(bytes.toString("utf8")));
     return {file,record,sha256:createHash("sha256").update(bytes).digest("hex")};
   }
   async snapshot(id:string,revision:string){return this.read(id,revision);}
+  async speakerAssignmentPage(id:string,revision:string,expectedSha256:string,offset=0,limit=100){
+    z.string().regex(/^[a-f0-9]{64}$/).parse(expectedSha256);z.number().int().min(0).max(1000).parse(offset);z.number().int().min(1).max(500).parse(limit);
+    const {record,sha256}=await this.read(id,revision);if(sha256!==expectedSha256)throw new Error("Transcript changed; reload its checksum");
+    if(!record.speakerAssignment)return {id,revision,sha256,speakerAssignment:null,assignments:[],totalAssignments:0,nextOffset:null};
+    const {assignments,...provenance}=record.speakerAssignment;
+    return {id,revision,sha256,parentRevision:record.parentRevision,speakerAssignment:provenance,assignments:assignments.slice(offset,offset+limit),totalAssignments:assignments.length,nextOffset:offset+limit<assignments.length?offset+limit:null,reviewRequired:true};
+  }
   async list(id:string,after="",limit=50){
     await this.library.metadata([id]);z.number().int().min(1).max(100).parse(limit);
     if(after)z.string().uuid().parse(after);
@@ -47,7 +55,7 @@ export class TranscriptRevisions {
     const lock=path.join(await this.library.directory(),`${id}.transcripts.lock`),handle=await open(lock,"wx");
     try{return await operation();}finally{await handle.close();await unlink(lock);}
   }
-  async correct(id:string,revision:string,expectedSha256:string,input:z.infer<typeof transcriptEdits>){
+  async correct(id:string,revision:string,expectedSha256:string,input:z.infer<typeof transcriptEdits>,speakerAssignment?:z.infer<typeof speakerAssignmentProvenance>){
     const edits=transcriptEdits.parse(input);
     return this.locked(id,async()=>{
       const {record,sha256}=await this.read(id,revision);if(sha256!==expectedSha256)throw new Error("Transcript changed; reload its checksum");
@@ -57,7 +65,8 @@ export class TranscriptRevisions {
       }
       const segments=record.segments.flatMap((item,index)=>{const edit=changes.get(index);return !edit?[item]:edit.action==="replace"?[edit.segment]:[];});
       for(const edit of edits)if(edit.action==="add")segments.push(edit.segment);
-      const result=await this.library.importTranscript(id,segments,revision);
+      if(speakerAssignment&&(speakerAssignment.transcriptRevision!==revision||speakerAssignment.transcriptSha256!==sha256))throw new Error("Speaker assignment transcript reference mismatch");
+      const result=await this.library.importTranscript(id,segments,revision,speakerAssignment);
       return {...result,parentRevision:revision,sourceModified:false,previousRevisionRetained:true};
     });
   }

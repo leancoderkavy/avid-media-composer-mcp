@@ -10,6 +10,7 @@ import { sha256File } from "../analysis/file-inventory.js";
 import { runProcess } from "../process.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 import {AvidMcpError} from "../errors.js";
+import {speakerAssignmentProvenance} from "./speaker-assignments.js";
 
 export const transcriptSchema = z.array(z.object({
   start: z.number().nonnegative(), end: z.number().positive(), text: z.string().max(10000),
@@ -109,7 +110,7 @@ export class MediaLibrary {
     }
     return { matchMode: "case-insensitive-substring", results: results.slice(0, limit), truncated: results.length > limit };
   }
-  async importTranscript(id: string, segments: Segment[], parentRevision?:string) {
+  async importTranscript(id: string, segments: Segment[], parentRevision?:string, speakerAssignment?:z.infer<typeof speakerAssignmentProvenance>) {
     requireCapability(this.config.capabilities, "project-write");
     const entry = await this.entry(id);
     const parsed = transcriptSchema.parse(segments).sort((a, b) => a.start - b.start || a.end - b.end);
@@ -119,7 +120,9 @@ export class MediaLibrary {
     const revision = randomUUID();
     const output = path.join(await this.directory(), `${id}.transcript-${revision}.json`);
     if(parentRevision)z.string().uuid().parse(parentRevision);
-    const content=JSON.stringify({ id, segments: parsed, parentRevision });
+    const provenance=speakerAssignment?speakerAssignmentProvenance.parse(speakerAssignment):undefined;
+    if(provenance&&provenance.transcriptRevision!==parentRevision)throw new Error("Speaker assignment parent mismatch");
+    const content=JSON.stringify({ id, segments: parsed, parentRevision,...(provenance?{speakerAssignment:provenance}:{}) });
     if(Buffer.byteLength(content)>20*1024*1024)throw new Error("Transcript exceeds 20 MiB revision limit");
     await writeFile(output, content, { flag: "wx" });
     return { revision, path: output, segmentCount: parsed.length };

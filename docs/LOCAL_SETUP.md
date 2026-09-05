@@ -303,7 +303,7 @@ Actual generated commands in all five formats indexed/read the Sonoma preview. T
 
 ## Optional diarization runtime
 
-The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Read-only transcript overlap alignment is available; speaker corrections and applying reviewed assignments remain under implementation.
+The branch includes a local speaker-analysis worker, explicit setup and persisted MCP speaker analysis. Read-only transcript overlap alignment is available; explicit transcript speaker assignment is available; correcting the underlying diarization labels and boundaries remains under implementation.
 
 ```powershell
 $env:AVID_MCP_PYTHON = "C:\Python312\python.exe"
@@ -333,4 +333,13 @@ Completed results retain PCM, model-worker/runtime provenance, source/audio hash
 
 Results include transcript segments intersecting the analyzed source range, their original revision indices, unchanged text/existing speaker fields, and overlap candidates. Pagination uses `after` (default -1) and `limit` (maximum 100). `candidateLimit` defaults to 20 and supports up to 100 candidates per segment; `totalCandidates` and `candidatesTruncated` explicitly report omitted candidates. Saved speaker pages retain every interval.
 
-`single_candidate` means one anonymous label overlaps the segment. `multiple_candidates` means different labels occur sequentially; `overlapping_candidates` means at least two labels overlap simultaneously. `no_speech_overlap` means no detected span intersects the segment. These are interval classifications, not verified identity or confidence. Coverage unions repeated intervals for the same label, distinguishes uncovered analyzed time from time outside the analysis range, and reports simultaneous-speaker seconds separately. No transcript assignment is applied. Review audio and revise speaker boundaries/labels before applying attribution; word-level forced alignment and reviewed assignment writes remain open.
+`single_candidate` means one anonymous label overlaps the segment. `multiple_candidates` means different labels occur sequentially; `overlapping_candidates` means at least two labels overlap simultaneously. `no_speech_overlap` means no detected span intersects the segment. These are interval classifications, not verified identity or confidence. Coverage unions repeated intervals for the same label, distinguishes uncovered analyzed time from time outside the analysis range, and reports simultaneous-speaker seconds separately. No transcript assignment is applied. Review audio and revise speaker boundaries/labels before applying attribution; word-level forced alignment remains open. Explicit caller-selected assignment is described below.
+
+
+## Assigning transcript speakers
+
+`avid_assign_transcript_speakers` accepts the same `analysisId`, `analysisSha256`, `transcriptRevision` and `transcriptSha256` references as alignment, plus 1–1,000 explicit assignments. Each assignment contains an original transcript segment `index`, an overlapping anonymous `speaker` label, and an optional caller-supplied `displayName` (up to 100 characters). Without a display name, the anonymous label is written. Duplicate indices and conflicting names for the same anonymous label in one request are rejected.
+
+A segment with multiple interval candidates requires `allowAmbiguous: true` for that assignment. A segment extending outside the analyzed source range requires `allowPartialRange: true`. Neither flag permits selecting a label with no overlap. These flags record explicit choices; they do not establish human review or identity verification. The operation requires project-write, preserves every segment's text/timing, changes only selected speaker fields, and saves a new immutable transcript revision with its parent link and assignment provenance. Source media, speaker analysis and previous transcript are retained. A later correction starts from whichever revision is explicitly selected; there is no automatically overwritten latest transcript.
+
+`avid_transcript_speaker_assignments` reads the persisted provenance using `id`, `revision` and `expectedSha256`. Pages use `offset` and `limit` (default 100, maximum 500), with `nextOffset` and `totalAssignments`. Ordinary revisions without an assignment record return `speakerAssignment: null`. This read works with inspect-only access and requires no models. Generic transcript corrections can still remove or change speaker fields; their parent revision links retain the history. Correcting diarization cluster membership/boundaries, word-level attribution and broad speaker accuracy remain open.

@@ -13,6 +13,7 @@ import {speechAudioArguments} from "./speech-audio.js";
 import {diarizationRuntimeStatus,DIARIZATION_WORKER} from "./diarization-runtime.js";
 import {TranscriptRevisions} from "./transcripts.js";
 import {alignSpeakerSegment} from "./speaker-alignment.js";
+import {speakerAssignments,speakerAssignmentProvenance} from "./speaker-assignments.js";
 const uuid=z.string().uuid(),sha=z.string().regex(/^[a-f0-9]{64}$/);
 export const diarizationOptions=z.object({speakers:z.union([z.literal(-1),z.number().int().min(1).max(20)]).default(-1),threshold:z.number().gt(0).max(1).default(0.5)}).strict();
 export const diarizationOutput=z.object({schema:z.literal(1),recipe:z.literal(1),versions:z.object({"sherpa-onnx":z.literal("1.13.7"),"sherpa-onnx-core":z.literal("1.13.7"),numpy:z.literal("2.2.6")}).strict(),audioSha256:sha,duration:z.number().positive().max(600),options:diarizationOptions,spans:z.array(z.object({start:z.number().nonnegative(),end:z.number().positive(),speaker:z.string().regex(/^speaker-[1-9][0-9]{0,3}$/)}).strict()).max(5000),speakerCount:z.number().int().min(0).max(5000),reviewRequired:z.literal(true),identitiesInferred:z.literal(false),accuracyVerified:z.literal(false)}).strict().superRefine((value,ctx)=>{
@@ -50,6 +51,23 @@ export class SpeakerAnalysis{
     if(await sha256File(saved.file)!==analysisSha256||await sha256File(transcript.file)!==transcriptSha256)throw new Error("Speaker analysis or transcript changed during alignment");await this.source(record.id);
     return {analysisId,analysisSha256,transcriptRevision,transcriptSha256,id:record.id,start:record.start,end:record.end,segments,nextAfter:matching.length>limit?segments.at(-1)!.index:null,scope:"Transcript segments intersecting the analyzed source range; indices refer to the original transcript revision.",assignmentApplied:false,reviewRequired:true,wordAlignmentVerified:false,speakerIdentityVerified:false,note:"Candidates reflect interval overlap, not confidence or verified speaker attribution. Multiple sequential or simultaneous voices remain ambiguous. Original transcript text and speaker fields are unchanged. Candidate lists may be explicitly truncated; inspect saved speaker pages for all intervals."};
   }
+  assign(analysisId:string,analysisSha256:string,transcriptRevision:string,transcriptSha256:string,input:z.input<typeof speakerAssignments>){return this.serialize(async()=>{
+    requireCapability(this.config.capabilities,"project-write");sha.parse(analysisSha256);sha.parse(transcriptSha256);const assignments=speakerAssignments.parse(input),saved=await this.record(analysisId);
+    if(saved.sha256!==analysisSha256)throw new Error("Speaker analysis changed; reload its checksum");const revisions=new TranscriptRevisions(this.config),transcript=await revisions.snapshot(saved.record.id,transcriptRevision);if(transcript.sha256!==transcriptSha256)throw new Error("Transcript changed; reload its checksum");
+    const record=saved.record,spans=record.machine.spans.map(span=>({speaker:span.speaker,start:record.start+span.start,end:Math.min(record.end,record.start+span.end)})),names=new Map<string,string>();
+    const decisions=assignments.map(assignment=>{
+      const segment=transcript.record.segments[assignment.index];if(!segment)throw new Error("Transcript segment index missing");
+      const {candidates,candidatesTruncated,...coverage}=alignSpeakerSegment(segment,record,spans,1),candidate=alignSpeakerSegment(segment,record,spans.filter(span=>span.speaker===assignment.speaker),1).candidates[0],overlap={...coverage,selectedCandidate:candidate};if(!candidate)throw new Error(`Speaker ${assignment.speaker} does not overlap transcript segment ${assignment.index}`);
+      if(overlap.totalCandidates>1&&!assignment.allowAmbiguous)throw new Error(`Multiple candidates at segment ${assignment.index}; explicit allowAmbiguous is required`);
+      if(overlap.outsideAnalysisSeconds>0&&!assignment.allowPartialRange)throw new Error(`Segment ${assignment.index} extends outside analysis; explicit allowPartialRange is required`);
+      const value=assignment.displayName??assignment.speaker;if(names.has(assignment.speaker)&&names.get(assignment.speaker)!==value)throw new Error("Conflicting display names for one anonymous speaker");names.set(assignment.speaker,value);
+      return {index:assignment.index,previousSpeaker:segment.speaker??null,assignedSpeaker:value,anonymousSpeaker:assignment.speaker,overlap,segment:{...segment,speaker:value}};
+    });
+    if(await sha256File(saved.file)!==analysisSha256||await sha256File(saved.audio)!==record.machine.audioSha256)throw new Error("Speaker inputs changed before assignment");await this.source(record.id);
+    const provenance=speakerAssignmentProvenance.parse({schema:1,kind:"caller-selected-speaker-candidates",analysisId,analysisSha256,transcriptRevision,transcriptSha256,assignments,identityVerified:false,wordAlignmentVerified:false});
+    const updated=await revisions.correct(record.id,transcriptRevision,transcriptSha256,decisions.map(decision=>({action:"replace" as const,index:decision.index,segment:decision.segment})),provenance);
+    return {...updated,id:record.id,sha256:await sha256File(updated.path),speakerAssignment:provenance,decisions:decisions.map(({segment,...decision})=>decision),reviewRequired:true,note:"Caller-selected segment attribution saved in a new transcript revision. Interval overlap and provided display names do not verify identity or word-level alignment. Source media, speaker analysis and previous transcript revision are retained."};
+  });}
   generate(id:string,start:number,end:number,input:z.input<typeof diarizationOptions>={}){return this.serialize(async()=>{
     requireCapability(this.config.capabilities,"export");requireCapability(this.config.capabilities,"project-write");const options=diarizationOptions.parse(input);
     if(!this.config.modelDirectory)throw new Error("Install the diarization runtime explicitly and set AVID_MCP_MODEL_DIR");

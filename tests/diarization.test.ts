@@ -6,6 +6,7 @@ import {SpeakerAnalysis,diarizationOutput} from "../src/library/diarization.js";
 import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
+import {TranscriptRevisions} from "../src/library/transcripts.js";
 const mocks=vi.hoisted(()=>({run:vi.fn(),runtime:vi.fn()}));
 vi.mock("../src/process.js",()=>({runProcess:mocks.run}));
 vi.mock("../src/library/diarization-runtime.js",()=>({DIARIZATION_WORKER:"worker.py",diarizationRuntimeStatus:mocks.runtime}));
@@ -48,4 +49,22 @@ it("aligns explicit transcript revisions without changing text or speaker fields
   expect(first).toMatchObject({assignmentApplied:false,nextAfter:1});expect(first.segments[0]).toMatchObject({index:0,status:"no_speech_overlap"});expect(first.segments[1]).toMatchObject({index:1,status:"single_candidate",segment:{text:"single",speaker:"Original label"}});
   const next=await f.speakers.align(result.analysisId,result.sha256,transcript.revision,transcriptHash,1,2);expect(next.nextAfter).toBeNull();expect(next.segments.map(segment=>segment.index)).toEqual([2,3]);expect(next.segments[0]?.status).toBe("overlapping_candidates");expect(next.segments[1]?.outsideAnalysisSeconds).toBeCloseTo(0.2);
   expect(await readFile(transcript.path,"utf8")).toBe(before);await expect(f.speakers.align(result.analysisId,"0".repeat(64),transcript.revision,transcriptHash)).rejects.toThrow("Speaker analysis changed");await expect(f.speakers.align(result.analysisId,result.sha256,transcript.revision,"0".repeat(64))).rejects.toThrow("Transcript changed");
+});
+it("assigns caller-selected speakers in a new transcript with persistent provenance and unchanged timing/text",async()=>{
+  const f=await fixture(),analysis=await f.speakers.generate(f.id,0,2),library=new MediaLibrary(f.config),parent=await library.importTranscript(f.id,[{start:0.2,end:0.4,text:"first",speaker:"old"},{start:0.6,end:1,text:"ambiguous"},{start:1.8,end:2.2,text:"outside and silent"}]),parentHash=await sha256File(parent.path),before=await readFile(parent.path,"utf8");
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,parentHash,[{index:1,speaker:"speaker-1"}])).rejects.toThrow("allowAmbiguous");
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,parentHash,[{index:2,speaker:"speaker-1",allowPartialRange:true}])).rejects.toThrow("does not overlap");
+  const result=await f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,parentHash,[{index:0,speaker:"speaker-1",displayName:"Reviewer A"},{index:1,speaker:"speaker-2",displayName:"Reviewer B",allowAmbiguous:true}]);
+  expect(result.revision).not.toBe(parent.revision);expect(result).toMatchObject({previousRevisionRetained:true,sourceModified:false,parentRevision:parent.revision,speakerAssignment:{analysisId:analysis.analysisId,analysisSha256:analysis.sha256,transcriptSha256:parentHash,identityVerified:false}});
+  const saved=JSON.parse(await readFile(result.path,"utf8")),original=JSON.parse(before);expect(saved.segments.map(({speaker,...segment}:any)=>segment)).toEqual(original.segments.map(({speaker,...segment}:any)=>segment));expect(saved.segments.map((segment:any)=>segment.speaker)).toEqual(["Reviewer A","Reviewer B",undefined]);expect(saved.speakerAssignment).toEqual(result.speakerAssignment);expect(await readFile(parent.path,"utf8")).toBe(before);expect(await sha256File(f.source)).toBe(f.id);expect((await f.speakers.read(analysis.analysisId)).sha256).toBe(analysis.sha256);
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,"0".repeat(64),[{index:0,speaker:"speaker-1"}])).rejects.toThrow("Transcript changed");
+  const revisions=new TranscriptRevisions(f.config),page=await revisions.speakerAssignmentPage(f.id,result.revision,result.sha256,0,1);expect(page).toMatchObject({totalAssignments:2,nextOffset:1,speakerAssignment:{analysisId:analysis.analysisId}});expect(page.assignments[0]?.index).toBe(0);expect((await revisions.speakerAssignmentPage(f.id,result.revision,result.sha256,1,1)).assignments[0]?.index).toBe(1);expect((await revisions.speakerAssignmentPage(f.id,parent.revision,parentHash)).speakerAssignment).toBeNull();await expect(revisions.speakerAssignmentPage(f.id,result.revision,"0".repeat(64))).rejects.toThrow("Transcript changed");
+});
+it("requires explicit partial-range choices and rejects duplicates, name conflicts and missing write access",async()=>{
+  const f=await fixture(),analysis=await f.speakers.generate(f.id,10,12),parent=await new MediaLibrary(f.config).importTranscript(f.id,[{start:9.9,end:10.4,text:"partial"},{start:10.2,end:10.4,text:"single"}]),hash=await sha256File(parent.path);
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:0,speaker:"speaker-1"}])).rejects.toThrow("allowPartialRange");
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:1,speaker:"speaker-1"},{index:1,speaker:"speaker-1"}])).rejects.toThrow("Duplicate");
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:0,speaker:"speaker-1",displayName:"A",allowPartialRange:true},{index:1,speaker:"speaker-1",displayName:"B"}])).rejects.toThrow("Conflicting");
+  await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:1,speaker:"speaker-1"}])).rejects.toThrow();
+  expect(await f.speakers.assign(analysis.analysisId,analysis.sha256,parent.revision,hash,[{index:0,speaker:"speaker-1",allowPartialRange:true}])).toMatchObject({parentRevision:parent.revision});
 });
