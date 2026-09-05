@@ -6,10 +6,12 @@ import {randomUUID} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
-assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference'].includes(arg)));
+assert.ok(process.argv.slice(2).every(arg=>['--canonical-tracks','--original-reference','--stereo'].includes(arg)));
+const stereo=process.argv.includes('--stereo');
 const canonicalTracks=process.argv.includes('--canonical-tracks');
 const originalReference=process.argv.includes('--original-reference');
 assert.ok(!originalReference||canonicalTracks,'Original-reference comparison requires canonical tracks');
+assert.ok(!stereo||canonicalTracks,'Stereo requires canonical tracks');
 const upstreamFile=path.resolve('.avid-mcp-analysis/native-aaf-master-mcp-f6012198-7bad-489d-9d85-f4968f0fdcf9/evidence.json'),upstream=JSON.parse(await readFile(upstreamFile,'utf8'));
 let file=upstream.built.output,expectedSha256='eb14ed8fb9710ef2d3877fd422bc33c11611c92d644fb91786eba733ff2be8d2';assert.equal(await sha256File(file),expectedSha256);
 const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',originalBin=path.join(project,'MCP_AAF_Selects_20260905.avb'),before=await sha256File(originalBin);
@@ -26,7 +28,8 @@ try{
   assert.equal(await sha256File(reference.template),originalReference?'5c04dea1552933d8b171af3898e83fcc165709e4f283c1ba9af6b3dc4b66802d':'94ff38c9ac7256254030b3f6b24aa98d28427f5c614791a2e5e3d745423ab66c');
   if(originalReference){preserved.push(reference.template);hashes.push(reference.sha256);}
   const master=reference.masters[0];
-  const built=await call('avid_build_aaf_selects',{request:{template:reference.template,expectedSha256:reference.sha256,name:'MCP_Canonical_Pipeline_Selects',rate:'30',tracks:[{name:'V1',kind:'picture'},{name:'A1',kind:'sound'},{name:'A2',kind:'sound'}],selects:[2850,3300].map(start=>({mobId:master.mobId,start,length:60,slotIds:[1,2,3]}))}});
+  const tracks=stereo?[{name:'V1',kind:'picture'},{name:'A1',kind:'sound',channels:2}]:[{name:'V1',kind:'picture'},{name:'A1',kind:'sound'},{name:'A2',kind:'sound'}];
+  const built=await call('avid_build_aaf_selects',{request:{template:reference.template,expectedSha256:reference.sha256,name:stereo?'MCP_Explicit_Stereo_Selects':'MCP_Canonical_Pipeline_Selects',rate:'30',tracks,selects:[2850,3300].map(start=>({mobId:master.mobId,start,length:60,slotIds:stereo?[1,[2,3]]:[1,2,3]}))}});
   file=built.output;expectedSha256=built.sha256;
  }
  const inspected=await call('avid_inspect_aaf_selects',{file});assert.equal(inspected.sha256,expectedSha256);
@@ -43,11 +46,12 @@ try{
  // The host may retain separate audio tracks or combine them. Rendering must
  // independently establish channel identity; topology alone cannot do so.
  for(const channel of [1,2])assert.deepEqual(sources.filter(item=>item.mediaKind==='sound'&&item.sourceTrackId===channel).map(shape),expected);
+ if(stereo)for(const channel of [1,2])assert.deepEqual(sources.filter(item=>item.channelCombiner?.channelIndex===channel).map(shape),expected);
  assert.ok(sources.every(item=>item.sourceMobId===inspected.masters[0].mobId));
  const rendered=await action({action:'export_mp4',bin,mobId:imported.sequence.mob_id,preset:'MCP_H264_Stereo_Legal_20260905',expected:{videoCodec:'h264',width:1920,height:1080,frames:120,rate:{num:30,den:1},videoStartTime:0,audio:[{codec:'pcm_s24le',channels:2,sampleRate:48000,startTime:0}],color:{range:'tv',space:'bt709',transfer:'bt709',primaries:'bt709'}}});assert.equal(rendered.outputVerified,true);
  assert.equal(await sha256File(binFile),savedBinSha256);assert.equal(await sha256File(originalBin),before);assert.deepEqual(await Promise.all(preserved.map(sha256File)),hashes);
  const status=await call('avid_native_lock_status',{});assert.equal(status.locked,false);
  assert.equal(await sha256File(file),expectedSha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({upstreamFile,upstreamSha256:hashes[0],canonicalTracks,originalReference,stereo,file,expectedSha256,bin,imported,snapshot,ranges,rendered,savedBinSha256,reopenedIdentityVerified:true,allTokensReplayRefused:true,preserved,hashes,filesUnchanged:true},null,2),{flag:'wx'});
  console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),output:rendered.verification.output,bin,savedRangesVerified:true,filesUnchanged:true}));
 }finally{await client.close();}

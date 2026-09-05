@@ -14,7 +14,7 @@ Actual Sonoma evidence includes seven linked MP4s, marker/subclip persistence, s
 
 The prepared source-clock PCM fixture renders stereo samples exactly matching the original source-clock cuts. Native video timing matches the expected source presentation times, but a range-tag/pixel interpretation discrepancy remains. A separate research copy with corrected range declarations improves full-resolution comparisons without re-encoding; it is not a general automatic native color fix. See [render qualification](NATIVE_RENDER_QUALIFICATION.md).
 
-The [chained AAF workflow test](AAF_WORKFLOW_QUALIFICATION.md) exposed a separate stereo regression: newly imported selects from the latest reference render dual mono despite correct source ranges. The earlier fixture remains a valid narrow success; it does not establish general channel preservation. Changing destination track names did not resolve the new failure. Explicit import grouping/panning and rendered-audio acceptance remain unfinished.
+The [chained AAF workflow test](AAF_WORKFLOW_QUALIFICATION.md) exposed a stereo regression with separate audio destination tracks. [Explicit stereo authoring](AAF_STEREO_AUTHORING.md) now writes the observed stereo track/combiner structure. A fresh MCP build/import/save/reopen/render from the newer reference preserved all channel ranges and matched the complete source-clock stereo PCM exactly. This fixes the reproduced prepared-PCM fixture; the earlier failed separate-track renders remain regression evidence. Broader media, rates and host builds still require qualification.
 
 Native receipts do not establish atomic undo, preset-content identity, complete unsaved graphs, arbitrary concurrent-editor exclusion or source fidelity. General relink/trim/effect operations, broader media/rates/builds, per-action restart/undo coverage and perceptual playback remain open. The sanctioned Extension bridge and optional private-SDK work are separate from this native adapter.
 
@@ -44,6 +44,6 @@ The optional licensed Jumper provider, additional enterprise adapters and separa
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 330 TypeScript tests, 18 Python tests, 125 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. Log: `.avid-mcp-analysis/check-native-aaf-master.log`. Tool count includes existing offline/bridge tools; it does not represent 125 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 331 TypeScript tests, 21 Python tests, 125 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. Log: `.avid-mcp-analysis/check-explicit-stereo.log`. Tool count includes existing offline/bridge tools; it does not represent 125 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.

@@ -14,7 +14,7 @@ class AafBuilderTests(unittest.TestCase):
             origin=f.create.SourceMob('origin');origin.descriptor=f.create.ImportDescriptor()
             locator=f.create.NetworkLocator();locator['URLString'].value=(root/'media.mp4').as_uri();origin.descriptor['Locator'].append(locator);f.content.mobs.append(origin)
             master=f.create.MasterMob('source');f.content.mobs.append(master)
-            for slot_id,kind in [(1,'picture'),(2,'sound')]:
+            for slot_id,kind in [(1,'picture'),(2,'sound'),(3,'sound')]:
                 slot=master.create_empty_sequence_slot(30,slot_id=slot_id,media_kind=kind);slot.segment.components.append(f.create.SourceClip(media_kind=kind,length=120));slot.segment.length=120
             mob_id=str(master.mob_id)
         return {'source':str(source),'output':str(root/'output.aaf'),'expectedSha256':hashlib.sha256(source.read_bytes()).hexdigest(),'rate':'30','name':'Selects','tracks':[{'name':'V1','kind':'picture'},{'name':'A1','kind':'sound'}],'selects':[{'mobId':mob_id,'start':20,'length':30,'slotIds':[1,2]},{'mobId':mob_id,'start':70,'length':20,'slotIds':[1,2]}]}
@@ -65,5 +65,42 @@ class AafBuilderTests(unittest.TestCase):
                 before=file.read_bytes()
                 with self.assertRaises(ValueError):inspect_selects(file)
                 self.assertEqual(file.read_bytes(),before)
+
+    def stereo(self,root):
+        request=self.fixture(root);request['tracks'][1]['channels']=2
+        for select in request['selects']:select['slotIds']=[1,[2,3]]
+        return request
+
+    def test_stereo_build_and_inspect_preserve_both_channel_ranges(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request=self.stereo(Path(folder));build(request)
+            track=inspect_selects(request['output'])['composition']['tracks'][1]
+            self.assertEqual(track['channels'],2)
+            self.assertEqual([(c['channelIndex'],c['slotId'],c['position'],c['start'],c['length']) for c in track['cuts']],
+                             [(1,2,0,20,30),(2,3,0,20,30),(1,2,30,70,20),(2,3,30,70,20)])
+            self.assertEqual(hashlib.sha256(Path(request['source']).read_bytes()).hexdigest(),request['expectedSha256'])
+
+    def test_stereo_refuses_invalid_mapping_before_output(self):
+        for mapping in [2,[2,2],[1,2],[2,99],[2,3,4]]:
+            with self.subTest(mapping=mapping),tempfile.TemporaryDirectory() as folder:
+                request=self.stereo(Path(folder));request['selects'][0]['slotIds'][1]=mapping
+                with self.assertRaises(ValueError):build(request)
+                self.assertFalse(Path(request['output']).exists())
+
+    def test_stereo_inspection_rejects_modified_effects_or_unsynchronized_channels(self):
+        for change in ['parameter','start','duplicate','length','format','extra_input','unknown_operation']:
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as folder:
+                request=self.stereo(Path(folder));build(request)
+                with aaf2.open(request['output'],'rw') as f:
+                    slot=list(next(f.content.compositionmobs()).slots)[1];component=slot.segment.components[0]
+                    if change=='parameter':list(component.parameters)[0]['Value'].value=0
+                    elif change=='start':component.segments[1].start+=1
+                    elif change=='duplicate':component.segments[1].slot_id=2
+                    elif change=='length':component.segments[1].length-=1
+                    elif change=='format':slot['TimelineMobAttributeList'].clear()
+                    elif change=='extra_input':component.segments.append(f.create.SourceClip(media_kind='sound',length=30))
+                    elif change=='unknown_operation':
+                        operation=f.create.OperationDef('11111111-1111-1111-1111-111111111111','Unknown');operation.media_kind='sound';operation.number_inputs=2;f.dictionary.register_def(operation);component.operation=operation
+                with self.assertRaises(ValueError):inspect_selects(request['output'])
 
 if __name__=='__main__':unittest.main()
