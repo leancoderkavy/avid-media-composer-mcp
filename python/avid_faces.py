@@ -26,7 +26,9 @@ def analyze(request):
         _,detections=detector.detect(image)
         if detections is None:
             continue
-        for detection in detections[:50]:
+        if len(detections)>50:
+            raise ValueError('Face detections per frame exceed limit; narrow the input instead of dropping detections')
+        for detection in detections:
             if len(faces)>=1000:
                 raise ValueError('Face count exceeds limit')
             aligned=recognizer.alignCrop(image,detection)

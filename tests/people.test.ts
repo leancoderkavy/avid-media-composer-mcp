@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import {randomUUID,createHash} from "node:crypto";
 import {it,expect} from "vitest";
-import {People,clusterFaces} from "../src/library/people.js";
+import {People,clusterFaces,peopleSampleTimes} from "../src/library/people.js";
 import {FACE_REVISION} from "../src/library/face-runtime.js";
 import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
@@ -20,6 +20,16 @@ async function fixture(){
 }
 it("groups similar features without assigning inferred names",async()=>{
   const {record}=await fixture();expect(record.clusters).toHaveLength(2);expect(record.clusters[0]?.faceIds).toHaveLength(2);expect(record.clusters.every(cluster=>cluster.name===null)).toBe(true);
+});
+it("plans dense bounded midpoint samples inside a selected source range",()=>{
+  const plan=peopleSampleTimes(190,120,{start:60,end:90});expect(plan.times).toHaveLength(120);expect(plan.times[0]).toBe(60.125);expect(plan.times.at(-1)).toBe(89.875);
+  expect(()=>peopleSampleTimes(10,121)).toThrow();expect(()=>peopleSampleTimes(10,12,{start:1,end:11})).toThrow();expect(()=>peopleSampleTimes(10,12,{start:2,end:1})).toThrow();
+});
+it("retains authority for zero-face coverage and rejects faces outside sampled times",async()=>{
+  const {config,people,indexId,record,directory}=await fixture(),id=record.faces[0]!.mediaId;
+  await writeFile(path.join(directory,"index.json"),JSON.stringify({...record,faces:[],clusters:[],coverage:[{mediaId:id,start:0,end:10,samples:120}]}));
+  expect((await people.list(indexId)).coverage?.[0]?.samples).toBe(120);await expect(new People({...config,allowedRoots:[]}).list(indexId)).rejects.toThrow();
+  await writeFile(path.join(directory,"index.json"),JSON.stringify({...record,coverage:[{mediaId:id,start:0,end:10,samples:120}]}));await expect(people.list(indexId)).rejects.toThrow("timestamp");
 });
 it("supports revision-checked name/merge/move/recluster and omits embeddings from reads",async()=>{
   const {people,indexId,record}=await fixture();

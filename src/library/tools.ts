@@ -14,7 +14,7 @@ import {AafBuilder,aafBuildSchema} from "./aaf-builder.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc,qcOptions} from "./qc.js";
 import {ShotDetection,shotOptions} from "./shots.js";
-import {People,peopleEditSchema} from "./people.js";
+import {People,peopleEditSchema,peopleRange} from "./people.js";
 import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
 
 export function registerLibraryTools(server: McpServer, config: ServerConfig) {
@@ -153,8 +153,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({revision,mobId,start,end,trackOrdinal,after,limit})=>result("avid_saved_timeline_range",()=>snapshots.range(revision,mobId,start,end,trackOrdinal,after,limit)));
   server.registerTool("avid_saved_source_usage", {description:"Find direct source-mob uses across snapshot bins and tracks. Opaque effects/retimes are explicitly incomplete.",inputSchema:{revision:z.string().uuid(),sourceMobId:z.string().min(1)},annotations:read},
     ({revision,sourceMobId})=>result("avid_saved_source_usage",()=>snapshots.usage(revision,sourceMobId)));
-  server.registerTool("avid_index_people", {description:"Detect and group similar faces from sampled local frames using explicitly installed YuNet/SFace models. Requires export and project-write. Groups need review; names are never inferred. For long work use a people analysis job.",inputSchema:{ids:z.array(id).min(1).max(20),samples:z.number().int().min(1).max(24).default(12),threshold:z.number().min(0).max(1).default(0.45)},annotations:write},
-    ({ids,samples,threshold})=>result("avid_index_people",()=>people.index(ids,samples,threshold)));
+  server.registerTool("avid_index_people", {description:"Detect and group similar faces using cached YuNet/SFace models, with up to 120 samples per file and 1200 total. Optional range applies to every source. Returns sampled coverage; brief appearances may be missed. Requires export and project-write. Names are never inferred. For long work use a people analysis job.",inputSchema:{ids:z.array(id).min(1).max(20),samples:z.number().int().min(1).max(120).default(12),threshold:z.number().min(0).max(1).default(0.45),range:peopleRange.optional()},annotations:write},
+    ({ids,samples,threshold,range})=>result("avid_index_people",()=>people.index(ids,samples,threshold,range)));
   server.registerTool("avid_people_clusters", {description:"Read paginated similarity groups and user-supplied names. These are not verified identities.",inputSchema:{indexId:z.string().uuid(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
     ({indexId,after,limit})=>result("avid_people_clusters",()=>people.list(indexId,after,limit)));
   server.registerTool("avid_people_faces", {description:"Read bounded source timestamps, face boxes and local crop paths, optionally by cluster. Embeddings are not returned.",inputSchema:{indexId:z.string().uuid(),clusterId:z.string().uuid().optional(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
