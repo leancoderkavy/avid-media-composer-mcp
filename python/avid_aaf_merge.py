@@ -29,7 +29,7 @@ def merge(request):
         infos.append(inspect(file));files.append(file);hashes.append(digest)
     if sum(len(info['masters']) for info in infos)>100:raise ValueError('Master count limit exceeded')
     diagnostic.visited=0
-    seen=set();mappings=[];expected={};definitions={}
+    seen=set();mappings=[];expected={};definitions={};unresolved=[]
     for file in files:
         with aaf2.open(str(file)) as source:
             mobs=list(source.content.mobs)
@@ -43,9 +43,14 @@ def merge(request):
             for mob in mobs:
                 key=str(mapping.get(str(mob.mob_id),mob.mob_id))
                 expected[key]=substitute(diagnostic.graph(mob,weak_targets=targets),mapping)
+                for obj,_ in mob.walk_references():
+                    if isinstance(obj,aaf2.components.SourceClip) and obj.mob_id.int!=0:
+                        referenced=next((m for m in mobs if m.mob_id==obj.mob_id),None)
+                        if referenced is None:unresolved.append(str(obj.mob_id))
             for key,value in diagnostic.referenced_definitions(targets).items():
                 if key in definitions and definitions[key]!=value:raise ValueError('Conflicting weak target definitions')
                 definitions[key]=value
+    if set(unresolved)&seen:raise ValueError('Unresolved source would bind to a different input')
     with files[0].open('rb') as source,output.open('xb') as destination:shutil.copyfileobj(source,destination)
     with aaf2.open(str(output),'rw') as target:
         for file,mapping in zip(files[1:],mappings[1:]):

@@ -84,4 +84,23 @@ class AafMergeTests(unittest.TestCase):
             with aaf2.open(str(output)) as f:self.assertEqual(next(f.content.mastermobs()).name,'Changed after graph check')
             for item in request['sources']:self.assertEqual(hashlib.sha256(Path(item['file']).read_bytes()).hexdigest(),item['expectedSha256'])
 
+    def test_unresolved_reference_cannot_bind_to_a_different_input(self):
+        for missing_slot in [False,True]:
+            with self.subTest(missing_slot=missing_slot),tempfile.TemporaryDirectory() as folder:
+                request=self.fixture(Path(folder));first,second=[Path(s['file']) for s in request['sources']]
+                with aaf2.open(str(second),'rw') as f:
+                    target=f.create.SourceMob('Only in second input');target.descriptor=f.create.ImportDescriptor();f.content.mobs.append(target)
+                    target.create_empty_sequence_slot(30,slot_id=7,media_kind='picture')
+                    target_id=target.mob_id
+                with aaf2.open(str(first),'rw') as f:
+                    master=next(f.content.mastermobs());clip=master.slots[0].segment.components[0]
+                    clip.mob_id=master.mob_id if missing_slot else target_id;clip.slot_id=7
+                for item in request['sources']:item['expectedSha256']=hashlib.sha256(Path(item['file']).read_bytes()).hexdigest()
+                if missing_slot:
+                    self.assertTrue(merge(request)['graphVerified'])
+                else:
+                    with self.assertRaisesRegex(ValueError,'Unresolved source'):merge(request)
+                    self.assertFalse(Path(request['output']).exists())
+                for item in request['sources']:self.assertEqual(hashlib.sha256(Path(item['file']).read_bytes()).hexdigest(),item['expectedSha256'])
+
 if __name__=='__main__':unittest.main()
