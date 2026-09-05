@@ -11,6 +11,6 @@ For subtitles or text, discover `avid_transcript_revisions`, read the chosen rev
 
 Inspect returned paths and completion status. For video deliverables, inspect the exported file's metadata and representative frames, and review requested audio/timing expectations. A successful encoder process alone does not establish editorial correctness. Use `avid_media_qc` on an indexed output for bounded technical checks when appropriate.
 
-For long work, `avid_start_analysis_job` returns a session-owned job ID; query `avid_analysis_job_status` until completion or failure. Cancellation retains partial artifacts and does not undo completed output. Jobs currently do not resume after server restart.
+For long work, `avid_start_analysis_job` returns a job ID; query `avid_analysis_job_status` until completion or failure. Use `avid_analysis_job_history` after reconnecting to recover persisted results within the same roots/capabilities. Unfinished records from another session are unresolved: inspect possible partial outputs before deciding what to repeat. Cancellation retains partial artifacts and does not undo completed output. Computation currently does not resume after server restart.
 
 Return local deliverable paths, source ID/revision, exact range and performed validation. Native Avid sequence rendering requires a separately qualified host workflow; do not claim it from a source MP4 export.

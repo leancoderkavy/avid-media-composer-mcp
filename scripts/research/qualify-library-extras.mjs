@@ -20,13 +20,13 @@ for(const format of ['txt','json','csv','srt','vtt'])exports.push(await library.
 const outline=await library.outline(prior.thumbnail.id,revision,30);
 const sheet=await library.contactSheet(ids);
 const jobs=new AnalysisJobs(config);
-const running=jobs.start({kind:'index',files:[prior.index.entries[0].file]});
-const queued=jobs.start({kind:'index',files:[prior.index.entries[1].file]});
+const running=await jobs.start({kind:'index',files:[prior.index.entries[0].file]});
+const queued=await jobs.start({kind:'index',files:[prior.index.entries[1].file]});
 assert.equal(jobs.cancel(queued.id).status,'cancelled');
 const deadline=Date.now()+120000;
 while(['queued','running'].includes(jobs.status(running.id).status)&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,200));
 assert.equal(jobs.status(running.id).status,'completed');
-const cancelled=jobs.start({kind:'artifact',id:prior.thumbnail.id,format:'clip',start:0,end:180});
+const cancelled=await jobs.start({kind:'artifact',id:prior.thumbnail.id,format:'clip',start:0,end:180});
 assert.equal(jobs.cancel(cancelled.id).status,'cancelled');
 jobs.close();
 const result={facets,exports,outline,sheet,jobs:[jobs.status(running.id),jobs.status(queued.id),jobs.status(cancelled.id)]};

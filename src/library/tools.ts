@@ -82,10 +82,12 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({indexId,id,time,limit,scope})=>result("avid_search_visual_frame",()=>visual.searchFrame(indexId,id,time,limit,scope)));
   server.registerTool("avid_transcribe_media", {description:"Transcribe up to ten minutes of local English audio using downloaded Whisper weights. Requires export and project-write. Returns a reviewable transcript revision.",inputSchema:{id,start:z.number().nonnegative(),end:z.number().positive()},annotations:write},
     ({id,start,end})=>result("avid_transcribe_media",()=>speech.transcribe(id,start,end)));
-  server.registerTool("avid_start_analysis_job", {description:"Run indexing, visual analysis, transcription or export in a bounded local worker; returns immediately. Jobs belong to this MCP session.",inputSchema:{job:jobSchema},annotations:write},
+  server.registerTool("avid_start_analysis_job", {description:"Queue analysis in a bounded local worker after saving its job record. Execution belongs to this session; persistent history survives restart but unfinished work is not automatically resumed.",inputSchema:{job:jobSchema},annotations:write},
     ({job})=>result("avid_start_analysis_job",async()=>jobs.start(job)));
   server.registerTool("avid_analysis_job_status", {description:"Read local analysis job status and completed result.",inputSchema:{jobId:z.string().uuid()},annotations:read},
-    ({jobId})=>result("avid_analysis_job_status",async()=>jobs.status(jobId)));
+    ({jobId})=>result("avid_analysis_job_status",async()=>jobs.readStatus(jobId)));
+  server.registerTool("avid_analysis_job_history", {description:"Read paginated persistent job records within the same configured roots/capabilities. Unfinished records from another session are unresolved, never automatically replayed; outputs may exist. Does not resume computation.",inputSchema:{after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+    ({after,limit})=>result("avid_analysis_job_history",()=>jobs.journal.list(after,limit)));
   server.registerTool("avid_cancel_analysis_job", {description:"Cancel a queued or running local analysis job. Partial artifacts are retained for inspection; this does not undo completed output.",inputSchema:{jobId:z.string().uuid()},annotations:write},
     ({jobId})=>result("avid_cancel_analysis_job",async()=>jobs.cancel(jobId)));
   server.registerTool("avid_media_facets", {description:"Get observed codec, resolution, nominal frame-rate and channel-count facets for a selected library scope.",inputSchema:{ids},annotations:read},

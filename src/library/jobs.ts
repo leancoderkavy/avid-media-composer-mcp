@@ -6,6 +6,7 @@ import {qcOptions} from "./qc.js";
 import {visualRange} from "./visual.js";
 import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
+import {JobJournal} from "./job-journal.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
@@ -18,13 +19,16 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess}
+interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
   private active=0;
-  constructor(private readonly config:ServerConfig){}
-  start(input:JobSpec){
+  private closing=false;
+  readonly journal:JobJournal;
+  constructor(private readonly config:ServerConfig){this.journal=new JobJournal(config);}
+  async start(input:JobSpec){
+    if(this.closing)throw new Error("Analysis service is closing");
     requireCapability(this.config.capabilities,"inspect");
     const spec=jobSchema.parse(input);
     if(spec.kind!=="index"&&spec.kind!=="summary")requireCapability(this.config.capabilities,"export");
@@ -32,13 +36,19 @@ export class AnalysisJobs {
     if([...this.jobs.values()].filter(job=>["queued","running"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
     if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};
-    this.jobs.set(job.id,job);this.pump();return this.status(job.id);
+    this.jobs.set(job.id,job);
+    try{await this.persist(job);}catch(error){this.jobs.delete(job.id);throw error;}
+    this.pump();return this.status(job.id);
   }
+  private persist(job:Job){const {child,journalError,...record}=job;return this.journal.save(record);}
+  private checkpoint(job:Job){void this.persist(job).catch(error=>{job.journalError=(error as Error).message;});}
+  async readStatus(id:string){const current=this.jobs.get(id);return current?this.status(id):this.journal.read(id);}
   status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return value;}
   cancel(id:string){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");
     if(!["queued","running"].includes(job.status))return this.status(id);
     job.status="cancelled";
+    this.checkpoint(job);
     if(job.child?.pid){
       if(process.platform==="win32"){
         // The PID belongs to the worker created below; terminate its ffmpeg descendants too.
@@ -48,12 +58,13 @@ export class AnalysisJobs {
     }
     this.pump();return this.status(id);
   }
-  close(){for(const job of this.jobs.values())if(["running","queued"].includes(job.status))this.cancel(job.id);}
+  close(){this.closing=true;for(const job of this.jobs.values())if(["running","queued"].includes(job.status))this.cancel(job.id);}
   private pump(){
-    if(this.active>=1)return; // Bound model memory; future concurrency must be measured.
+    if(this.closing||this.active>=1)return; // Bound model memory; future concurrency must be measured.
     const job=[...this.jobs.values()].find(job=>job.status==="queued");
     if(!job)return;
     this.active++;job.status="running";
+    this.checkpoint(job);
     const child=spawn(process.execPath,[fileURLToPath(new URL("./worker.js",import.meta.url))],{stdio:["pipe","pipe","pipe"],windowsHide:true,shell:false,env:{...process.env,POSTHOG_API_KEY:""}});
     job.child=child;
     let output="",error="",settled=false;
@@ -64,7 +75,7 @@ export class AnalysisJobs {
         try{if(failure)throw new Error(failure);job.result=JSON.parse(output);job.status="completed";}
         catch(e){job.error=(e as Error).message;job.status="failed";}
       }
-      delete job.child;this.active--;this.pump();
+      delete job.child;this.checkpoint(job);this.active--;this.pump();
     };
     child.stdout.on("data",chunk=>{output+=chunk.toString();if(output.length>2*1024*1024)this.cancel(job.id);});
     child.stderr.on("data",chunk=>{error=(error+chunk.toString()).slice(-4096);});
