@@ -16,6 +16,7 @@ export const aafBuildSchema=z.object({
   selects:z.array(z.object({mobId:mob,start:z.number().int().nonnegative().max(2147483647),length:z.number().int().positive().max(2147483647),slotIds:z.array(z.number().int().positive()).min(1).max(16)}).strict()).min(1).max(500),
 }).strict();
 const infoSchema=z.object({masters:z.array(z.object({mobId:mob,name:z.string(),slots:z.array(z.object({slotId:z.number().int(),kind:z.string(),rate:z.string(),length:z.number().int().nonnegative()})).max(128)})).max(100),locators:z.array(z.string()).min(1).max(100)});
+const selectsInfoSchema=infoSchema.extend({composition:z.object({mobId:mob,name:z.string(),rate:z.string(),frames:z.number().int().positive().max(2147483647),tracks:z.array(z.object({slotId:z.number().int(),name:z.string(),kind:z.enum(["picture","sound"]),cuts:z.array(z.object({mobId:mob,slotId:z.number().int(),start:z.number().int().nonnegative(),length:z.number().int().positive(),position:z.number().int().nonnegative()})).min(1).max(500)})).min(1).max(16)})});
 export class AafBuilder {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
@@ -24,11 +25,12 @@ export class AafBuilder {
     const result=await runProcess(this.config.pythonExecutable,[fileURLToPath(new URL("../../python/avid_aaf_builder.py",import.meta.url)),manifest],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:2*1024*1024});
     if(result.exitCode!==0)throw new Error(`AAF builder failed: ${result.stderr.slice(-1500)}`);return JSON.parse(result.stdout);
   }
-  private async prepare(template:string){
+  private async prepare(template:string,selects=false){
     requireCapability(this.config.capabilities,"export");
     const source=await resolveReadablePath(template,this.config.allowedRoots,"file");if(path.extname(source).toLowerCase()!==".aaf")throw new Error("Expected an AAF template");
     const sha256=await sha256File(source),directory=path.join(await this.library.directory(),`aaf-${randomUUID()}`);await mkdir(directory);
-    const info=infoSchema.parse(await this.run({action:"inspect",source},directory));
+    const raw=await this.run({action:selects?"inspect_selects":"inspect",source},directory);
+    const info=selects?selectsInfoSchema.parse(raw):infoSchema.parse(raw);
     const media=[];for(const locator of info.locators){
       const url=new URL(locator);if(url.protocol!=="file:"||url.hostname)throw new Error("Only local file locators are supported");
       const file=await resolveReadablePath(fileURLToPath(url),this.config.allowedRoots,"file");media.push({file,sha256:await sha256File(file)});
@@ -37,6 +39,12 @@ export class AafBuilder {
     return {source,sha256,directory,info,media};
   }
   async inspect(template:string){const {source,sha256,info,media}=await this.prepare(template);return {template:source,sha256,...info,media,scope:"Source-master templates only; inspection writes a local request manifest"};}
+  async inspectSelects(file:string){
+    const {source,sha256,info,media}=await this.prepare(file,true);
+    for(const item of media)if(await sha256File(await resolveReadablePath(item.file,this.config.allowedRoots,"file"))!==item.sha256)throw new Error("Referenced media changed during inspection");
+    if(await sha256File(source)!==sha256)throw new Error("AAF changed during inspection");
+    return {file:source,sha256,...selectsInfoSchema.parse(info),media,hostImportVerified:false,scope:"One same-rate straight-cut composition with direct master references; no host import, relink, effects or playback qualification"};
+  }
   async build(input:z.infer<typeof aafBuildSchema>){
     const request=aafBuildSchema.parse(input),prepared=await this.prepare(request.template);
     if(request.expectedSha256!==prepared.sha256)throw new Error("AAF template checksum changed; inspect again");

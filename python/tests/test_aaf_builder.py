@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 import aaf2
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_aaf_builder import inspect,build
+from avid_aaf_builder import inspect,build,inspect_selects
 
 class AafBuilderTests(unittest.TestCase):
     def fixture(self,root):
@@ -34,5 +34,36 @@ class AafBuilderTests(unittest.TestCase):
             request=self.fixture(Path(folder));request['selects'][0]['start']=119
             with self.assertRaises(ValueError):build(request)
             self.assertFalse(Path(request['output']).exists())
+
+    def test_selects_inspection_reads_each_track_and_preserves_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request=self.fixture(Path(folder));build(request)
+            file=Path(request['output']);before=file.read_bytes()
+            info=inspect_selects(file);composition=info['composition']
+            self.assertEqual((composition['frames'],composition['rate']),(50,'30'))
+            self.assertEqual([t['kind'] for t in composition['tracks']],['picture','sound'])
+            for track in composition['tracks']:
+                self.assertEqual([(c['position'],c['start'],c['length']) for c in track['cuts']],[(0,20,30),(30,70,20)])
+                self.assertEqual([c['slotId'] for c in track['cuts']],[track['slotId']]*2)
+            self.assertEqual(file.read_bytes(),before)
+            with self.assertRaisesRegex(ValueError,'exactly one'):inspect_selects(request['source'])
+            with self.assertRaisesRegex(ValueError,'without existing compositions'):inspect(file)
+
+    def test_selects_inspection_refuses_unsupported_or_inconsistent_graphs(self):
+        for change in ['rate','origin','filler','range','length','multiple','source_slot']:
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as folder:
+                request=self.fixture(Path(folder));build(request);file=Path(request['output'])
+                with aaf2.open(str(file),'rw') as f:
+                    composition=next(f.content.compositionmobs());slot=next(iter(composition.slots));segment=slot.segment
+                    if change=='rate':slot.edit_rate=24
+                    elif change=='origin':slot.origin=1
+                    elif change=='filler':segment.components[0]=f.create.Filler(media_kind='picture',length=30)
+                    elif change=='range':segment.components[0].start=119
+                    elif change=='length':segment.length=51
+                    elif change=='multiple':f.content.mobs.append(f.create.CompositionMob('second'))
+                    elif change=='source_slot':segment.components[0].slot_id=99
+                before=file.read_bytes()
+                with self.assertRaises(ValueError):inspect_selects(file)
+                self.assertEqual(file.read_bytes(),before)
 
 if __name__=='__main__':unittest.main()

@@ -7,12 +7,12 @@ from pathlib import Path
 from fractions import Fraction
 import aaf2
 
-def inspect(file):
+def inspect(file,allow_composition=False):
     file=Path(file)
     if file.stat().st_size>64*1024*1024:raise ValueError('AAF exceeds 64 MiB limit')
     with aaf2.open(str(file)) as f:
         if len(f.content.essencedata):raise ValueError('Embedded essence is not supported by this builder')
-        if list(f.content.compositionmobs()):raise ValueError('Supply an exported master AAF without existing compositions')
+        if not allow_composition and list(f.content.compositionmobs()):raise ValueError('Supply an exported master AAF without existing compositions')
         masters=[];locators=[]
         def descriptor(value,depth=0):
             if depth>8:raise ValueError('Descriptor nesting limit exceeded')
@@ -32,6 +32,42 @@ def inspect(file):
             masters.append({'mobId':str(mob.mob_id),'name':mob.name,'slots':slots})
         if not 1<=len(masters)<=100 or not 1<=len(set(locators))<=100:raise ValueError('Unsupported master or locator count')
         return {'masters':masters,'locators':sorted(set(locators))}
+
+def inspect_selects(file):
+    """Describe the same-rate, direct-master straight-cut subset before host import."""
+    info=inspect(file,allow_composition=True)
+    with aaf2.open(str(file)) as f:
+        compositions=list(f.content.compositionmobs())
+        if len(compositions)!=1:raise ValueError('Expected exactly one composition')
+        composition=compositions[0];slots=list(composition.slots)
+        if not 1<=len(slots)<=16:raise ValueError('Composition track limit exceeded')
+        tracks=[];rate=None;frames=None;ids=set()
+        masters={master['mobId']:master for master in info['masters']}
+        for slot in slots:
+            if slot.slot_id in ids:raise ValueError('Duplicate composition slot')
+            ids.add(slot.slot_id)
+            if not hasattr(slot,'edit_rate') or slot.origin!=0:raise ValueError('Unsupported slot rate or origin')
+            current_rate=Fraction(slot.edit_rate)
+            if current_rate<=0 or current_rate>120 or (rate is not None and rate!=current_rate):raise ValueError('Composition rate mismatch')
+            rate=current_rate;segment=slot.segment
+            if not isinstance(segment,aaf2.components.Sequence):raise ValueError('Expected straight-cut sequence')
+            kind=segment.media_kind.lower()
+            if kind not in ('picture','sound'):raise ValueError('Unsupported track kind')
+            components=list(segment.components)
+            if not 1<=len(components)<=500:raise ValueError('Composition cut limit exceeded')
+            cuts=[];position=0
+            for clip in components:
+                if not isinstance(clip,aaf2.components.SourceClip) or clip.media_kind.lower()!=kind:raise ValueError('Only direct source clips are supported')
+                master=masters.get(str(clip.mob_id))
+                source=next((s for s in master['slots'] if s['slotId']==clip.slot_id),None) if master else None
+                if not source or source['kind']!=kind or Fraction(source['rate'])!=rate:raise ValueError('Source kind/rate or master mismatch')
+                if clip.start<0 or clip.length<=0 or clip.start+clip.length>source['length']:raise ValueError('Source range exceeds track length')
+                cuts.append({'mobId':str(clip.mob_id),'slotId':clip.slot_id,'start':clip.start,'length':clip.length,'position':position})
+                position+=clip.length
+            if position>2147483647 or position!=segment.length or (frames is not None and frames!=position):raise ValueError('Composition duration mismatch')
+            frames=position
+            tracks.append({'slotId':slot.slot_id,'name':slot.name or '', 'kind':kind,'cuts':cuts})
+        return {**info,'composition':{'mobId':str(composition.mob_id),'name':composition.name or '', 'rate':str(rate),'frames':frames,'tracks':tracks}}
 
 def build(request):
     source=Path(request['source']);output=Path(request['output']);info=inspect(source)
@@ -75,4 +111,6 @@ def build(request):
 
 if __name__=='__main__':
     with open(sys.argv[1],encoding='utf8') as stream:request=json.loads(stream.read(1024*1024+1))
-    print(json.dumps(inspect(request['source']) if request['action']=='inspect' else build(request)))
+    actions={'inspect':lambda:inspect(request['source']),'inspect_selects':lambda:inspect_selects(request['source']),'build':lambda:build(request)}
+    if request['action'] not in actions:raise ValueError('Unsupported AAF action')
+    print(json.dumps(actions[request['action']](),ensure_ascii=True))
