@@ -20,6 +20,8 @@ Native receipts do not establish atomic undo, preset-content identity, complete 
 
 ## Local analysis and editorial workflows
 
+[Source-clock preparation](SOURCE_CLOCK_PREPARATION.md) is now a shipped MCP tool for checksum-selected local H.264/stereo MP4/MOV input. It creates a new editing copy, verifies copied video and normalized PCM, and retains attempt/failure evidence. Actual Sonoma MCP execution reproduced the complete earlier research MOV checksum. The new output path has not yet been exercised through the native link/import chain; broader media and preparation-job recovery remain open.
+
 | Area | Implemented and exercised | Remaining acceptance |
 | --- | --- | --- |
 | Media library and watches | Content hashes, metadata/facets, moved-source aliases, persistent watches, stable-file polling, job journals, bounded workers and cancellation | Broader concurrency/resource/failure coverage; offline/relinked paths |
@@ -44,6 +46,6 @@ The optional licensed Jumper provider, additional enterprise adapters and separa
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 331 TypeScript tests, 22 Python tests, 125 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. Log: `.avid-mcp-analysis/check-aaf-modifiers.log`. Tool count includes existing offline/bridge tools; it does not represent 125 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 337 TypeScript tests, 22 Python tests, 126 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. Log: `.avid-mcp-analysis/check-source-clock-tool-final.log`. Tool count includes existing offline/bridge tools; it does not represent 126 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.

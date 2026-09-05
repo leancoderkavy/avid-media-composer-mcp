@@ -1,0 +1,53 @@
+import {it,expect,vi} from "vitest";
+import {mkdtemp,writeFile,readFile,readdir,realpath} from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets} from "../src/library/source-clock.js";
+import {loadConfig} from "../src/config.js";
+import {sha256File} from "../src/analysis/file-inventory.js";
+const mock=vi.hoisted(()=>({run:vi.fn()}));
+vi.mock("../src/process.js",()=>({runProcess:(...args:unknown[])=>mock.run(...args)}));
+const video={index:2,codec_type:"video",codec_name:"h264",width:1280,height:720,nb_frames:"60",avg_frame_rate:"30/1",start_time:"0.000000",duration:"2"};
+const audio={index:3,codec_type:"audio",codec_name:"aac",channels:2,start_time:"0.000000",duration:"2"};
+it("requires explicitly selected supported streams with bounded known timestamps",()=>{
+ expect(sourceClockStreams([audio,video],2,3)).toEqual({video,audio});
+ for(const change of [{duration:"N/A"},{duration:601},{start_time:-1},{start_time:null},{start_time:true},{nb_frames:"N/A"},{codec_name:"hevc"}])expect(()=>sourceClockStreams([{...video,...change},audio],2,3)).toThrow();
+ expect(()=>sourceClockStreams([video,{...audio,channels:1}],2,3)).toThrow();
+ expect(()=>sourceClockStreams([video,audio],0,3)).toThrow();
+});
+it("detects absent timestamps, nonzero origins, gaps and overlaps in normalized PCM",()=>{
+ expect(contiguousPcmPackets([{pts_time:"0",duration_time:"0.1"},{pts_time:"0.1",duration_time:"0.1"}])).toMatchObject({packets:2,endSeconds:0.2,maxGapSeconds:0});
+ for(const packets of [[],[{duration_time:1}],[{pts_time:null,duration_time:1}],[{pts_time:0.1,duration_time:1}],[{pts_time:0,duration_time:0}],[{pts_time:0,duration_time:1},{pts_time:0.5,duration_time:1}]])expect(()=>contiguousPcmPackets(packets)).toThrow();
+});
+async function fixture(mode="pass"){
+ const root=await realpath(await mkdtemp(path.join(os.tmpdir(),"avid-clock-"))),source=path.join(root,"source.mp4");await writeFile(source,"source");const expectedSha256=await sha256File(source);
+ const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"});
+ mock.run.mockReset();mock.run.mockImplementation(async(_exe:string,args:string[])=>{
+  let stdout="";
+  if(args.includes("-n")){await writeFile(args.at(-1)!,"prepared");if(mode==="source-change")await writeFile(source,"changed");}
+  else if(args.includes("-show_streams")){const original=args.at(-1)===source,hasTimecode=mode.includes("timecode"),selectedVideo={...video,...(hasTimecode?{tags:{timecode:"10:00:00:00"}}:{})};stdout=JSON.stringify({streams:original?[selectedVideo,audio]:[{...selectedVideo,index:0},{...audio,index:1,codec_name:"pcm_s24le",sample_rate:"48000"},...(hasTimecode?[{index:2,codec_type:"data",codec_tag_string:"tmcd",tags:{timecode:mode==="bad-timecode"?"11:00:00:00":"10:00:00:00"}}]:[])]});}
+  else if(args.includes("-show_packets"))stdout=JSON.stringify({packets:[{pts_time:0,duration_time:2}]});
+  else if(args.includes("hash")){const pcm=args.includes("pcm_s24le");stdout="SHA256="+(pcm?"b":mode==="video-mismatch"&&args.includes("0:v:0")?"c":"a").repeat(64);}
+  return {exitCode:0,stdout,stderr:""};
+ });
+ return {root,source,config,options:{file:source,expectedSha256,videoStream:2,audioStream:3}};
+}
+it("writes a new verified receipt with explicit maps and preserves the source",async()=>{
+ const f=await fixture(),result=await new SourceClockMedia(f.config).prepare(f.options);
+ expect(result).toMatchObject({verified:true,sourceUnchanged:true,hostImportVerified:false,sourceClockPcmSha256:"b".repeat(64)});
+ expect(await sha256File(f.source)).toBe(f.options.expectedSha256);
+ expect(JSON.parse(await readFile(path.join(path.dirname(result.output),"receipt.json"),"utf8"))).toEqual(result);
+ const transform=mock.run.mock.calls.find(call=>call[1].includes("-n"))![1];expect(transform).toContain("0:2");expect(transform).toContain("0:3");expect(transform).toContain("file,pipe");
+});
+it("rejects unauthorized or changed sources before launching media processes",async()=>{
+ const f=await fixture();await expect(new SourceClockMedia({...f.config,capabilities:new Set(["inspect"])}).prepare(f.options)).rejects.toThrow();
+ await expect(new SourceClockMedia(f.config).prepare({...f.options,expectedSha256:"0".repeat(64)})).rejects.toThrow("checksum changed");expect(mock.run).not.toHaveBeenCalled();
+});
+it("permits only the source timecode declaration on an additional tmcd stream",async()=>{
+ const f=await fixture("timecode");expect((await new SourceClockMedia(f.config).prepare(f.options)).verified).toBe(true);
+ const bad=await fixture("bad-timecode");await expect(new SourceClockMedia(bad.config).prepare(bad.options)).rejects.toThrow("timecode");
+});
+it("retains failed artifacts without a success receipt when video or source changes",async()=>{
+ for(const mode of ["video-mismatch","source-change"]){const f=await fixture(mode);await expect(new SourceClockMedia(f.config).prepare(f.options)).rejects.toThrow(mode==="video-mismatch"?"essence mismatch":"Source changed");
+ const base=path.join(f.root,"avid-mcp-library"),dir=path.join(base,(await readdir(base))[0]!);expect(await readdir(dir)).toEqual(expect.arrayContaining(["attempt.json","prepared.mov","failure.json"]));expect(await readdir(dir)).not.toContain("receipt.json");}
+});

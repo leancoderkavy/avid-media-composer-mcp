@@ -19,6 +19,8 @@ When using transcript summaries for editorial context, review claims against the
 
 For handoff:
 
+When a separate source-clock editing copy is needed, inspect the source's stream indexes and checksum, then call `avid_prepare_source_clock_media` with explicit absolute video/audio indexes. It supports bounded local H.264 plus stereo inputs and writes copied video with normalized 48 kHz/24-bit PCM. Preserve its receipt and original source; additional media streams are omitted. Preparation does not link or relink Avid media. Use the resulting file explicitly in the native link/reference-export workflow, and verify stereo source ranges and rendered audio independently.
+
 - `avid_export_collection_otio` creates a frame-quantized single-video-track interchange file. It does not author audio routing or prove Avid import.
 - For an existing master-only Avid-exported AAF, call `avid_inspect_aaf_template`, retain its checksum and master/slot identities, then use `avid_build_aaf_selects` with explicit integer frame ranges and exact track rates. Never infer MOB IDs from clip names. The builder preserves template descriptors and verifies output conformance; import and playback in Avid remain separate steps.
 - For a requested native subclip, read the actual project/bin/clip with `avid_native_read`, then preview/apply `create_subclip` and read back the returned MOB. Current qualification requires a 30 fps source/project and retains all source tracks. A subclip is not a sequence.
