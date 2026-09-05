@@ -1,4 +1,4 @@
-import {mkdtemp,mkdir,writeFile,readFile,rename} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,readFile,rename,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
@@ -55,7 +55,7 @@ describe("shared cache source aliases",()=>{
     const moved=path.join(folder,"moved.mp4");await rename(file,moved);
     const aliases=path.join(directory,`${id}.sources`);await mkdir(aliases);
     await writeFile(path.join(aliases,`${"b".repeat(64)}.json`),JSON.stringify({id,file:moved}));
-    expect((await library.metadata([id]))[0]?.file).toBe(moved);
+    expect((await library.metadata([id]))[0]?.file).toBe(await realpath(moved));
     expect((await library.transcriptRange(id,0,2,-1,50,transcript.revision)).segments[0]?.text).toBe("retained");
     await expect(new MediaLibrary({...config,allowedRoots:[path.join(root,"unrelated")]}).metadata([id])).rejects.toThrow("outside");
     const artifact=await library.artifact(id,"copy");expect(await readFile(artifact.output,"utf8")).toBe("fixture");
