@@ -1,6 +1,7 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -80,6 +81,29 @@ try {
     throw new Error("Installed package does not expose the expected CLI entry point");
   }
 
+  // A client may launch MCP from a project containing a conflicting Python file.
+  // Resolve in a separate process so the installed package and actual CWD are used.
+  await mkdir(path.join(temporary, "python"));
+  await writeFile(path.join(temporary, "python", "avid_inspector.py"), "raise RuntimeError('untrusted working-folder sidecar')\n");
+  const packagedSidecar = path.join(installedRoot, "python", "avid_inspector.py");
+  const resolverUrl = pathToFileURL(path.join(installedRoot, "dist", "analysis", "python-sidecar.js")).href;
+  const resolveInstalled = () => spawnSync(process.execPath, ["--input-type=module", "--eval",
+    `const {resolvePythonSidecar}=await import(${JSON.stringify(resolverUrl)}); console.log(await resolvePythonSidecar());`],
+    {cwd:temporary, encoding:"utf8", timeout:10000, windowsHide:true});
+  const resolved = resolveInstalled();
+  if (resolved.error || resolved.status !== 0 || resolved.stdout.trim() !== packagedSidecar) {
+    throw new Error("Installed inspector did not resolve exclusively inside its package");
+  }
+  await rename(packagedSidecar, `${packagedSidecar}.held`);
+  try {
+    const missing = resolveInstalled();
+    if (missing.error || missing.status !== 1 || !missing.stderr.includes("PYTHON_SIDECAR_MISSING")) {
+      throw new Error("Missing packaged inspector did not fail closed with a conflicting CWD script");
+    }
+  } finally {
+    await rename(`${packagedSidecar}.held`, packagedSidecar);
+  }
+
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [path.join(installedRoot, "dist", "index.js")],
@@ -118,6 +142,7 @@ try {
       tools: tools.tools.length,
       skills: skillNames.length,
       install: "fresh-tarball",
+      sidecarIsolation: "package-only; missing package fails closed",
     }),
   );
 } finally {

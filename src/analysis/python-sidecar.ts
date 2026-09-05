@@ -1,5 +1,4 @@
 import { access } from "node:fs/promises";
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AvidMcpError } from "../errors.js";
 import type { DependencyStatus } from "../types.js";
@@ -11,7 +10,7 @@ async function firstExisting(candidates: string[]): Promise<string> {
       await access(candidate);
       return candidate;
     } catch {
-      // Try the next source-tree or built-package location.
+      // Report a missing packaged sidecar without searching the client's folder.
     }
   }
   throw new AvidMcpError("PYTHON_SIDECAR_MISSING", "python/avid_inspector.py was not found", {
@@ -21,8 +20,7 @@ async function firstExisting(candidates: string[]): Promise<string> {
 
 export async function resolvePythonSidecar(): Promise<string> {
   return firstExisting([
-    path.resolve(process.cwd(), "python", "avid_inspector.py"),
-    fileURLToPath(new URL("../../../python/avid_inspector.py", import.meta.url)),
+    // src/analysis and dist/analysis share the same package-relative layout.
     fileURLToPath(new URL("../../python/avid_inspector.py", import.meta.url)),
   ]);
 }
