@@ -8,7 +8,7 @@ import {readBoundedJson} from "../security/bounded-read.js";
 import * as z from "zod/v4";
 
 const uuid=z.string().uuid();
-const recordSchema=z.object({id:uuid,session:uuid,scope:z.string(),status:z.enum(["queued","running","completed","failed","cancelled"]),createdAt:z.string(),updatedAt:z.string(),spec:z.unknown(),result:z.unknown().optional(),error:z.string().optional()});
+const recordSchema=z.object({id:uuid,session:uuid,scope:z.string(),status:z.enum(["queued","running","cancelling","completed","failed","cancelled"]),createdAt:z.string(),updatedAt:z.string(),spec:z.unknown(),result:z.unknown().optional(),error:z.string().optional()});
 export type JobRecord=z.infer<typeof recordSchema>;
 
 /** One writer per random job ID. Credentials and runtime configuration are never persisted. */
@@ -41,7 +41,7 @@ export class JobJournal {
     const directory=await this.directory(),file=await resolveReadablePath(path.join(directory,`${id}.json`),[directory],"file");
     const record=recordSchema.parse(await readBoundedJson(file,3*1024*1024));
     if(record.id!==id||record.scope!==this.scope)throw new Error("Job record is outside the current access scope");
-    const unresolved=record.session!==this.session&&["queued","running"].includes(record.status);
+    const unresolved=record.session!==this.session&&["queued","running","cancelling"].includes(record.status);
     return {...record,recordedStatus:record.status,status:unresolved?"unresolved":record.status,unresolved,automaticReplay:false};
   }
   async list(after?:string,limit=50){

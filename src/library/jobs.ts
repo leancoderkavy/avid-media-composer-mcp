@@ -19,7 +19,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string}
+interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
@@ -33,8 +33,8 @@ export class AnalysisJobs {
     const spec=jobSchema.parse(input);
     if(spec.kind!=="index"&&spec.kind!=="summary")requireCapability(this.config.capabilities,"export");
     if(spec.kind==="speech"||spec.kind==="people"||spec.kind==="summary")requireCapability(this.config.capabilities,"project-write");
-    if([...this.jobs.values()].filter(job=>["queued","running"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
-    if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
+    if([...this.jobs.values()].filter(job=>["queued","running","cancelling"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
+    if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};
     this.jobs.set(job.id,job);
     try{await this.persist(job);}catch(error){this.jobs.delete(job.id);throw error;}
@@ -47,13 +47,14 @@ export class AnalysisJobs {
   cancel(id:string){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");
     if(!["queued","running"].includes(job.status))return this.status(id);
-    job.status="cancelled";
+    job.status=job.child?"cancelling":"cancelled";
     this.checkpoint(job);
     if(job.child?.pid){
       if(process.platform==="win32"){
         // The PID belongs to the worker created below; terminate its ffmpeg descendants too.
         const killer=spawn("taskkill.exe",["/PID",String(job.child.pid),"/T","/F"],{windowsHide:true,stdio:"ignore",shell:false});
         killer.on("error",()=>job.child?.kill());
+        killer.on("close",code=>{if(code!==0&&job.child)job.child.kill();});
       }else job.child.kill("SIGTERM");
     }
     this.pump();return this.status(id);
@@ -71,15 +72,27 @@ export class AnalysisJobs {
     const timer=setTimeout(()=>this.cancel(job.id),15*60_000);timer.unref();
     const finish=(failure?:string)=>{
       if(settled)return;settled=true;clearTimeout(timer);
-      if(job.status!=="cancelled"){
+      if(job.status==="cancelling")job.status="cancelled";
+      else if(job.status!=="cancelled"){
         try{if(failure)throw new Error(failure);job.result=JSON.parse(output);job.status="completed";}
         catch(e){job.error=(e as Error).message;job.status="failed";}
       }
       delete job.child;this.checkpoint(job);this.active--;this.pump();
     };
-    child.stdout.on("data",chunk=>{output+=chunk.toString();if(output.length>2*1024*1024)this.cancel(job.id);});
+    let outputBytes=0;
+    child.stdout.on("data",chunk=>{
+      if(job.status==="cancelling"||job.status==="cancelled")return;
+      outputBytes+=Buffer.byteLength(chunk);
+      if(outputBytes>2*1024*1024){job.error="Worker output exceeded 2 MiB; cancellation requested";this.cancel(job.id);return;}
+      output+=chunk.toString();
+    });
     child.stderr.on("data",chunk=>{error=(error+chunk.toString()).slice(-4096);});
-    child.on("error",e=>finish(e.message));
+    child.on("error",e=>{
+      // A failed kill can emit error while the worker is still alive. Only a spawn
+      // failure without a PID is terminal before close.
+      if(!child.pid)finish(e.message);
+      else {job.error=e.message;this.checkpoint(job);}
+    });
     child.on("close",code=>finish(code===0?undefined:error||`Worker exited ${code}`));
     child.stdin.on("error",()=>{});
     child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec}));

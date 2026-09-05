@@ -14,11 +14,18 @@ try{
   let finished=started;const deadline=Date.now()+60000;
   while(['queued','running'].includes(finished.status)&&Date.now()<deadline){await new Promise(resolve=>setTimeout(resolve,100));finished=await call(client,'avid_analysis_job_status',{jobId:started.id});}
   assert.equal(finished.status,'completed');
-  const before=await call(client,'avid_analysis_job_history',{});assert.equal(before.records[0].status,'completed');
+  const render=await call(client,'avid_start_analysis_job',{job:{kind:'artifact',id:finished.result.entries[0].id,format:'clip',start:0,end:180}});
+  let stopped=await call(client,'avid_cancel_analysis_job',{jobId:render.id});
+  assert.ok(['cancelling','cancelled'].includes(stopped.status));
+  const stopDeadline=Date.now()+30000;
+  while(stopped.status==='cancelling'&&Date.now()<stopDeadline){await new Promise(resolve=>setTimeout(resolve,100));stopped=await call(client,'avid_analysis_job_status',{jobId:render.id});}
+  assert.equal(stopped.status,'cancelled');
+  const before=await call(client,'avid_analysis_job_history',{});assert.equal(before.records.find(record=>record.id===started.id).status,'completed');
   await client.close();client=await connect();
   const recovered=await call(client,'avid_analysis_job_status',{jobId:started.id});
   assert.equal(recovered.status,'completed');assert.deepEqual(recovered.result,finished.result);
-  const history=await call(client,'avid_analysis_job_history',{});assert.equal(history.records.length,1);assert.equal(history.automaticReplay,false);
-  await writeFile(path.join(root,'evidence.json'),JSON.stringify({started,finished,recovered,history},null,2));
+  const history=await call(client,'avid_analysis_job_history',{});assert.equal(history.records.length,2);assert.equal(history.automaticReplay,false);
+  assert.equal(history.records.find(record=>record.id===render.id).status,'cancelled');
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({started,finished,recovered,stopped,history},null,2));
   console.log(JSON.stringify({passed:true,jobId:started.id,recoveredStatus:recovered.status,evidence:path.join(root,'evidence.json')}));
 }finally{await client.close();}

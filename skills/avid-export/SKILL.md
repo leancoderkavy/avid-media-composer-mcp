@@ -13,4 +13,6 @@ Inspect returned paths and completion status. For video deliverables, inspect th
 
 For long work, `avid_start_analysis_job` returns a job ID; query `avid_analysis_job_status` until completion or failure. Use `avid_analysis_job_history` after reconnecting to recover persisted results within the same roots/capabilities. Unfinished records from another session are unresolved: inspect possible partial outputs before deciding what to repeat. Cancellation retains partial artifacts and does not undo completed output. Computation currently does not resume after server restart.
 
+After requesting cancellation, poll while status is `cancelling`; only `cancelled` confirms the worker has closed. This does not prove that every operating-system descendant has terminated or remove partial files.
+
 Return local deliverable paths, source ID/revision, exact range and performed validation. Native Avid sequence rendering requires a separately qualified host workflow; do not claim it from a source MP4 export.
