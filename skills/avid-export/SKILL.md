@@ -17,4 +17,6 @@ After requesting cancellation, poll while status is `cancelling`; only `cancelle
 
 For an actual Avid sequence export, discover `export_settings` through `avid_native_read`, read the target MOB, then preview/apply `export_mp4` with its complete duration and explicit video/audio output contract. Current qualification is Windows 2024.12 H.264 1080p30. Review the preset in Avid: its content and unsaved timeline graph cannot be fingerprinted by the adapter. An uncertain export retains the native write lock; inspect the output and host before recovery, and never replay the consumed token. Report `outputVerified` separately from source fidelity, which this action does not establish.
 
+For a retained export lock, call `avid_native_lock_status`. After Avid has stopped, `avid_recover_native_export_lock` accepts the inspected checksum and releases only an eligible unchanged lock. It preserves output and does not retry the export. Do not attempt recovery while Avid is running or clear unrelated generic locks.
+
 Return local deliverable paths, source ID/revision, exact range and performed validation. Distinguish a source MP4 export from an actual Avid sequence render.

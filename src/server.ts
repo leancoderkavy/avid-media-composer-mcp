@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {NativeLockRecovery} from "./native/lock-recovery.js";
 import * as z from "zod/v4";
 import type { ServerConfig } from "./config.js";
 import { loadConfig } from "./config.js";
@@ -179,6 +180,11 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
   );
 
   const native = new NativeAdapter(config);
+  const lockRecovery=new NativeLockRecovery(config);
+  server.registerTool("avid_native_lock_status", {description:"Inspect the per-user native lock and scoped retained export attempt. Only explicitly retained export locks are eligible for recovery; no lock is released.",inputSchema:{},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:READ_ONLY_ANNOTATIONS},
+    ()=>execute("avid_native_lock_status",()=>lockRecovery.inspect()));
+  server.registerTool("avid_recover_native_export_lock", {description:"Release an explicitly retained export lock after checksum/scope checks and observing that Avid is stopped. Requires export. Archives the lock; never retries export or removes rendered output. Generic abandoned locks are excluded.",inputSchema:{expectedSha256:z.string().regex(/^[a-f0-9]{64}$/)},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:EDIT_ANNOTATIONS},
+    ({expectedSha256})=>execute("avid_recover_native_export_lock",()=>lockRecovery.release(expectedSha256)));
   registerLibraryTools(server, config);
   server.registerTool("avid_native_read", {
     description: "Opt-in Windows native app/project/bin/clip/marker inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots.",
