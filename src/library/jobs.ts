@@ -8,6 +8,7 @@ import {visualRange} from "./visual.js";
 import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
 import {JobJournal} from "./job-journal.js";
+import {speechOptions} from "./speech-options.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
@@ -17,7 +18,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("qc"),id,options:qcOptions}).strict(),
   z.object({kind:z.literal("index"),files:z.array(z.string()).min(1).max(100)}).strict(),
   z.object({kind:z.literal("visual"),ids:z.array(id).min(1).max(100),samples:z.number().int().min(1).max(120),range:visualRange.optional()}).strict(),
-  z.object({kind:z.literal("speech"),id,start:z.number().nonnegative(),end:z.number().positive()}).strict(),
+  z.object({kind:z.literal("speech"),id,start:z.number().nonnegative(),end:z.number().positive(),options:speechOptions.default({model:"tiny.en",language:"auto"})}).strict(),
   z.object({kind:z.literal("people"),ids:z.array(id).min(1).max(20),samples:z.number().int().min(1).max(24),threshold:z.number().min(0).max(1).default(0.45)}).strict(),
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);

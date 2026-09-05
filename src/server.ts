@@ -252,7 +252,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           allowedRoots: config.allowedRoots,
           dependencies: { pythonInspector, ffprobe },
           native: { configured: Boolean(config.nativeBinary), qualification: "Windows 2024.12.58720 only; see native tools and validation evidence" },
-          mediaLibrary: { configured: Boolean(config.outputRoot), matching: "metadata/transcript substring search and optional local CLIP similarity over sparse frame samples", modelsConfigured: Boolean(config.modelDirectory), speech: "optional local English Whisper; review accuracy" },
+          mediaLibrary: { configured: Boolean(config.outputRoot), matching: "metadata/transcript substring search and optional local CLIP similarity over sparse frame samples", modelsConfigured: Boolean(config.modelDirectory), speech: "optional local English/multilingual Whisper with explicit model/language selection; review accuracy" },
           bridge,
           compatibility: {
             supportedReleaseTracks: AVID_RELEASE_TRACKS,

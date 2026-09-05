@@ -22,7 +22,7 @@ try{
     case "qc":result=await new MediaQc(config).analyze(spec.id,spec.options);break;
     case "index":result=await library.index(spec.files);break;
     case "visual":result=await new VisualSearch(config).index(spec.ids,spec.samples,spec.range);break;
-    case "speech":result=await new SpeechAnalysis(config).transcribe(spec.id,spec.start,spec.end);break;
+    case "speech":result=await new SpeechAnalysis(config).transcribe(spec.id,spec.start,spec.end,spec.options);break;
     case "people":result=await new People(config).index(spec.ids,spec.samples,spec.threshold);break;
     case "artifact":result=await library.artifact(spec.id,spec.format,spec.start,spec.end);break;
   }

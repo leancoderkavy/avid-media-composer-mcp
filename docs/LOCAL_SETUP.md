@@ -34,6 +34,7 @@ Native edits use `avid_native_preview` then the exact token with `avid_native_ap
 ```powershell
 node dist/cli.js --download-models --model-dir 'D:\MCP Models'
 node dist/cli.js --download-models --speech --model-dir 'D:\MCP Models'
+node dist/cli.js --download-models --speech --speech-model tiny --model-dir 'D:\MCP Models'
 $env:AVID_MCP_MODEL_DIR = 'D:\MCP Models'
 ```
 
@@ -41,6 +42,13 @@ These explicit commands install and audit a separate optional runtime, then down
 
 - CLIP: `Xenova/clip-vit-base-patch32`, revision `d15189d7028b43f1d3e65039190477f6af591c2a`.
 - Whisper English: `onnx-community/whisper-tiny.en`, revision `2575352d61be1bf7225cf8f8b268a4678025fc58`.
+- Whisper multilingual: `onnx-community/whisper-tiny`, revision `ff4177021cc41f7db950912b73ea4fdf7d01d8e7`. The [model card](https://huggingface.co/onnx-community/whisper-tiny/tree/ff4177021cc41f7db950912b73ea4fdf7d01d8e7) points to OpenAI Whisper; accepted language codes follow its pinned [generation configuration](https://huggingface.co/onnx-community/whisper-tiny/blob/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/generation_config.json).
+
+`avid_transcribe_media` and `speech` analysis jobs accept `options: {"model":"tiny","language":"fr"}` (for example, French). The default remains `tiny.en`; it rejects non-English language hints. `tiny` accepts the model's language codes or `auto`. Auto omits the language hint and returns `language: null`, because the pipeline result does not establish a verified detected language. The task is transcription in the source language, not translation. Responses include the pinned model revision, requested language and source-relative segment times. Calls in one direct speech service are serialized; queued jobs retain their existing single-worker bound.
+
+Qualification: both direct explicit-English and queued automatic-language calls ran the multilingual model on the Sonoma MP4 [60,80), preserving its source hash. This establishes cached-model execution and option propagation, not recognition accuracy in French or any other language, nor diarization. Use `scripts/research/qualify-multilingual-speech.mjs` after the explicit download. Machine transcripts require review.
+
+A separate local Mandarin fixture generated with Microsoft Huihui Desktop measured 13 edits across 41 reference characters (31.7% character error rate) with multilingual tiny. The comparison applies NFKC and removes punctuation/whitespace; it does not equate numeral forms or simplified/traditional characters. Exact reference, hypothesis and transcript are retained by `scripts/research/qualify-mandarin-speech.mjs`. This single synthetic result exposes accuracy limitations and is not a general language benchmark or an accuracy pass.
 
 Libraries and weights retain their own licenses; downloaded models are not relicensed as our code or bundled in the MCP package. References: [Transformers.js](https://github.com/huggingface/transformers.js), [CLIP weights](https://huggingface.co/Xenova/clip-vit-base-patch32), [OpenAI CLIP](https://github.com/openai/CLIP), [Whisper weights](https://huggingface.co/onnx-community/whisper-tiny.en), [OpenAI Whisper](https://github.com/openai/whisper). Final model license/provenance review remains a release item.
 
@@ -83,7 +91,7 @@ With `project-write` and `export` enabled, use `avid_index_people` (or a people 
 
 ## Scoped visual and reference-frame search
 
-`avid_index_visual` accepts an optional `range: {start, end}` in source seconds and 1–120 uniform samples per file, with 1200 samples total per index. The whole requested range must fit every selected media file. Visual analysis jobs accept the same range and limits. This samples frames; it does not perform shot-boundary detection or guarantee continuous coverage.
+`avid_index_visual` accepts an optional `range: {start, end}` in source seconds and 1â€“120 uniform samples per file, with 1200 samples total per index. The whole requested range must fit every selected media file. Visual analysis jobs accept the same range and limits. This samples frames; it does not perform shot-boundary detection or guarantee continuous coverage.
 
 `avid_visual_samples` browses sample timestamps and cached images with pagination, without loading the ML model. `avid_search_visual` accepts an optional `scope` containing media IDs and a half-open source-time range. `avid_search_visual_frame` extracts a reference thumbnail at an indexed source's timestamp and searches by its CLIP embedding; it requires `export`. Similarity scores are not probabilities. A reference self-match is a consistency check, not evidence of broad semantic ranking accuracy.
 

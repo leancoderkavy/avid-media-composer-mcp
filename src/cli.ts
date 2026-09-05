@@ -8,11 +8,12 @@ const { values } = parseArgs({ options: {
   doctor:{type:"boolean"}, client:{type:"string"}, root:{type:"string",multiple:true},
   output:{type:"string"}, native:{type:"string"}, config:{type:"string"}, install:{type:"boolean"},
   "download-models":{type:"boolean"}, "model-dir":{type:"string"},
-  speech:{type:"boolean"},
+  speech:{type:"boolean"},"speech-model":{type:"string"},
   faces:{type:"boolean"}, summaries:{type:"boolean"},
   "config-status":{type:"boolean"},update:{type:"boolean"},remove:{type:"boolean"},restore:{type:"string"},"expected-sha256":{type:"string"},
 } });
 try {
+  if(values["speech-model"]&&(!values.speech||!values["download-models"]))throw new Error("--speech-model requires --download-models --speech");
   if([values.doctor,values["download-models"],values["config-status"],values.install,values.update,values.remove,values.restore].filter(Boolean).length>1)throw new Error("Choose one setup operation at a time");
   if(values["config-status"]){
     if(!values.config)throw new Error("--config-status requires --config FILE");
@@ -34,9 +35,11 @@ try {
       const {faceRuntime}=await import("./library/face-runtime.js");
       console.log(JSON.stringify(await faceRuntime(values["model-dir"],loadConfig().pythonExecutable,true)));
     }else if(values.speech){
-      const {loadSpeechModel,SPEECH_MODEL,SPEECH_REVISION}=await import("./library/speech.js");
-      const model=await loadSpeechModel(values["model-dir"],true); await model.dispose();
-      console.log(JSON.stringify({downloaded:SPEECH_MODEL,revision:SPEECH_REVISION}));
+      const {loadSpeechModel}=await import("./library/speech.js");
+      const {speechModel,speechModels}=await import("./library/speech-options.js");
+      const selection=speechModel.parse(values["speech-model"]??"tiny.en"),selected=speechModels[selection];
+      const model=await loadSpeechModel(values["model-dir"],true,selection); await model.dispose();
+      console.log(JSON.stringify({downloaded:selected.model,revision:selected.revision}));
     }else{
     const {loadVisualModels,VISUAL_MODEL,VISUAL_REVISION}=await import("./library/visual.js");
     const models=await loadVisualModels(values["model-dir"],true);
@@ -51,5 +54,5 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech | --faces | --summaries]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
+  } else console.log("avid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--config FILE --install]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny] | --faces | --summaries]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: use codex mcp add with the generated command and environment.");
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }
