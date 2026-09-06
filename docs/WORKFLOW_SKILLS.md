@@ -13,7 +13,7 @@ Useful task examples:
 | avid-ingest-qc | Inventory these rushes, create contact sheets, and QC the first two minutes. |
 | avid-selects | Find landscape shots and save a collection with reviewed source ranges. |
 | avid-selects | Find shots like this reference frame, refine toward vineyards, and lower the rank of shots resembling people; review the results before saving selects. |
-| avid-review-markers | Add these review notes to the specified clip and verify the markers. |
+| avid-review-markers | Add timestamped review markers, or update requested whole-clip Comments with exact-value checks and separate saved evidence. |
 | avid-turnover | Compare these saved-bin snapshots and report changed source usage. |
 | avid-export | Export this source range and the reviewed transcript as SRT. |
 

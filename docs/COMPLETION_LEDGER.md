@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Packaged review guidance for Comments
+
+Updated the original avid-review-markers workflow to cover requested whole-clip Comments alongside timestamped markers. It uses the new column/value reads, requires exact expectedComment and writable declarations, preserves user text rather than silently converting unsupported input, and distinguishes native readback from historical saved evidence. It explains not_recorded/absent/recorded comment status and keeps unrelated bins outside persistence checks.
+
+Fresh `npm run smoke:package -- --with-python` passed with 139 tools, five matching installed workflow files, tool-reference discovery and Python/AAF checks (`.avid-mcp-analysis/check-review-comments-skill.log`). No production code changed and the full unit suite was not rerun. This verifies packaged guidance, not an additional model-driven write, broad client acceptance or full goal completion.
+
 ### Fresh installed-package native comment workflow
 
 The native comment harness accepts an absolute installed entry and expected checksum, records that identity and rechecks it after execution. Added a separate installed-comments qualifier that packs, creates a managed installation, runs live set/clear on a new owned copy, and independently reads retained AVB attributes. The ordinary installed-native read qualifier remains read-only.
