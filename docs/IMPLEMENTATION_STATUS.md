@@ -1,6 +1,6 @@
 # Open-source implementation status
 
-Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/open-source-full-plan` in [draft PR #55](https://github.com/leancoderkavy/avid-media-composer-mcp/pull/55). These changes are unreleased; the development checkout must not be confused with the published 1.1.0 package.
+Updated 2026-09-06. The full plan remains incomplete. Implementation and dependency integration are collected in [PR #55](https://github.com/leancoderkavy/avid-media-composer-mcp/pull/55); see its current merge/check state for repository integration. This work does not publish a new npm version and must not be confused with the published 1.1.0 package.
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
