@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Nested trim source trace and exact frame arithmetic
+
+Full local check passed: 550 TypeScript tests, 34 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-source-trace-arithmetic.log`).
+
+Source tracing now computes bounded relative deltas first and refuses unsafe/negative/empty mapped intervals, preventing intermediate rounding from losing an integer frame. Three regression cases cover exact large-coordinate mapping and invalid ranges. Actual MCP traversal around the restored Avid cut verified six picture/audio paths with the independently decoded offsets: three resolved references then an unresolved endpoint per path. Evidence: `.avid-mcp-analysis/trim-source-trace-20c29ed9-c3e5-4d69-8343-12b5fc3e95cf/evidence.json`; script: `qualify-trim-source-trace.mjs`. The captured input hash stayed unchanged. These results establish saved source mapping for this range; terminal convention, physical descriptors/locators and usable media handles remain open. Commit 96b15df passed all CI jobs as well as CodeQL.
+
 ### Trim-state accessibility experiment
 
 Actual computer-use observation found exactly equal accessibility objects for dual-roller trim, the visible Edit history menu and normal editing on the owned Copy.05 fixture. Screenshots distinguished these states; accessibility exposed no track selection, trim counters, mode or contextual history command. The menu was dismissed and trim mode exited without editing or saving; the saved bin retained its baseline SHA-256. Evidence: `.avid-mcp-analysis/native-ui-state-eb39fd34-26f6-45c5-843f-7fc0a1c34b64/evidence.json`; conclusions and required observation work are in NATIVE_UI_TRIM_QUALIFICATION.md. This rules out this accessibility route alone as an unattended editing precondition source; no UI executor was shipped. Commit 96b15df's CodeQL analysis and separate security gate both passed, clearing the previously reported PR findings for that head; remaining CI jobs were still running at this observation.

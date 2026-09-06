@@ -1,5 +1,13 @@
 # One-frame native UI trim and undo qualification
 
+## Nested source mapping around the restored cut
+
+`scripts/research/qualify-trim-source-trace.mjs` captures the retained restored baseline through MCP and traces [59,61), spanning both sides of the cut. All six V1/A1/A2 paths have three resolved references followed by one unresolved endpoint. Direct source ranges are [2909,2910) and [3300,3301). The master picture offset is zero and its next source offset is two; each sound channel has master offset one and next source offset one. All paths consequently reach [2911,2912) and [3302,3303) at the final captured source mob. These values were checked against the separately decoded saved nodes and asserted in the reproducible script.
+
+The last references use track ID zero and a source identity absent from this captured bin. They remain `unresolved` with `incomplete: true`: neither an intentional terminal convention nor missing physical media is inferred. Physical source descriptors, locator/essence linkage and handle availability require further qualification. Evidence: `.avid-mcp-analysis/trim-source-trace-20c29ed9-c3e5-4d69-8343-12b5fc3e95cf/evidence.json`. The baseline AVB SHA-256 remained unchanged; no editor action occurred.
+
+Source tracing also now computes relative timeline deltas before adding source offsets, avoiding intermediate integer rounding at large absolute timeline positions. Unsafe, negative or empty mapped intervals return `invalid_source_range` without emitting rounded source coordinates. Tests cover exact near-limit mapping and overflow/negative refusal. These numeric checks do not classify terminal references or validate physical media.
+
 ## Editor-state observation limits
 
 On 2026-09-06, computer use resumed the interrupted Copy.05 observation and confirmed dual-roller trim mode at 01:00:02:00 with zero/zero counters and V1/A1/A2 selected. Opening Edit visibly exposed disabled Undo and enabled `Redo Trim Tail+Head -1`. The menu was dismissed, U exited trim mode, and a fresh screenshot confirmed the normal source/record layout with no trim counters. No trim, save, undo or redo was executed during this observation.

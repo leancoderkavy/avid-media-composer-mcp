@@ -28,7 +28,10 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
    for(const node of group){
    const step={...base,start:a,end:b,kind:node.kind,...(node.channelCombiner?{channelCombiner:node.channelCombiner}:{})};
    if(node.kind!=="SCLP"||node.opaque||node.sourceMobId===undefined||node.sourceTrackId===undefined||node.sourceStart===undefined){incomplete=true;emit({...step,status:"unsupported_component"});continue;}
-   const sourceStart=node.sourceStart+a-node.timelineStart,sourceEnd=sourceStart+b-a;
+   // Compute bounded deltas first: adding absolute timeline coordinates can
+   // lose an integer frame even when the final source range would be safe.
+   const sourceStart=node.sourceStart+(a-node.timelineStart),sourceEnd=sourceStart+(b-a);
+   if(!Number.isSafeInteger(sourceStart)||!Number.isSafeInteger(sourceEnd)||sourceStart<0||sourceEnd<=sourceStart){incomplete=true;emit({...step,status:"invalid_source_range"});continue;}
    let candidates=bin.mobs.filter(m=>m.mobId===node.sourceMobId).map(mob=>({bin,mob}));
    if(!candidates.length)candidates=bins.flatMap(bin=>bin.mobs.filter(m=>m.mobId===node.sourceMobId).map(mob=>({bin,mob})));
    const targetRate=candidates.length===1?candidates[0]!.mob.rate:null;

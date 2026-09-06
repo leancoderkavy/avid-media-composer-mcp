@@ -1,6 +1,18 @@
 import {it,expect} from "vitest";
 import {traceSavedSources} from "../src/library/source-trace.js";
 const mob=(mobId:string,sourceMobId:string,offset=0)=>({mobId,rate:30,duration:200,sourceBounds:{start:0,end:200},tracks:[{index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:200,sourceMobId,sourceTrackId:1,sourceStart:offset}]}]});
+it("preserves exact offsets at large timeline coordinates without intermediate rounding",()=>{
+ const a=mob("a","external"),bin={file:"fixture",mobs:[a]},base=Number.MAX_SAFE_INTEGER-10;
+ a.duration=Number.MAX_SAFE_INTEGER;a.sourceBounds.end=a.duration;
+ Object.assign(a.tracks[0]!.nodes[0]!,{timelineStart:base,timelineEnd:base+5,sourceStart:21});
+ expect(traceSavedSources([bin],{bin,mob:a},base+1,base+4).steps[0]).toMatchObject({sourceStart:22,sourceEnd:25,status:"unresolved"});
+});
+it.each([Number.MAX_SAFE_INTEGER-1,-2])("refuses invalid mapped source intervals at offset %s",offset=>{
+ const a=mob("a","external",offset),bin={file:"fixture",mobs:[a]};
+ const result=traceSavedSources([bin],{bin,mob:a},0,5);
+ expect(result.incomplete).toBe(true);expect(result.steps).toMatchObject([{status:"invalid_source_range",start:0,end:5}]);
+ expect(result.steps[0]).not.toHaveProperty("sourceStart");
+});
 it("maps clipped ranges through equal-rate sources and reports unresolved endpoints",()=>{
  const a=mob("a","b",20),b=mob("b","external",30),bin={file:"fixture",mobs:[a,b]};const result=traceSavedSources([bin],{bin,mob:a},10,20);
  expect(result.steps).toMatchObject([{sourceStart:30,sourceEnd:40,status:"reference",originRate:30,targetRate:30,sourceRangeBasis:"equal-rate-offsets"},{sourceStart:60,sourceEnd:70,status:"unresolved",originRate:30,targetRate:null,sourceRangeBasis:"unconverted-offsets"}]);expect(result.incomplete).toBe(true);
