@@ -14,4 +14,10 @@ Use the connected Avid MCP tool schemas as the argument contract. Start with `av
 
 For recurring ingest, configure `avid_configure_watch_folder`, then explicitly start `avid_watch_service`. Two stable observations precede indexing. Polling ends with the MCP session; a saved watch configuration does not mean the service is running.
 
+When transcript QA is requested, preserve the selected revision and checksum from `avid_transcript_revisions`. Machine words can be false even when language detection returns a candidate: local negative probes produced words for tone and white noise. Do not treat language-token scores as speech-presence confidence.
+
+Use `avid_speaker_analyses` to discover existing segmentation for the same source/range. Follow discovery cursors and inspect availability. If analysis is needed and local analysis is authorized, `avid_diarize_audio` requires the separately installed runtime and export/project-write capabilities. A missing runtime, failed job or unavailable record is not evidence of no speech.
+
+Read `avid_speaker_analysis` and its `speechPresence` summary. Coverage uses all selected-view spans, not just the returned page; follow span pagination when reviewing intervals. Use machine view to inspect original model evidence and effective view to inspect corrections. Empty effective coverage can reflect removed spans. For checksum-selected transcript/analysis inputs, `avid_align_speakers` provides per-segment overlap and gaps; follow `nextAfter` until null. Flag `no_speech_overlap` for source-audio review, retaining the original text. Do not suppress phrases, infer speaker identities or certify speech absence from these model estimates. Correct a transcript only when the task authorizes review edits and the source supports the correction.
+
 Example request: “Inventory these rushes, make contact sheets, and check the first two minutes of each for black frames and silence.” Do not link media into Avid unless the request includes editor ingest.
