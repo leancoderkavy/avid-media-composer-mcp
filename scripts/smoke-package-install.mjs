@@ -339,16 +339,31 @@ try {
     parametersFingerprint:{schema:1,sha256:"a".repeat(64)},keyframesFingerprint:{schema:1,sha256:"b".repeat(64)},
     inputReference:{sourceMobId:"external-color",sourceTrackId:1,sourceStart:2850,length:60,rate:30,basis:"declared-equal-length-input"}};
   const colorMob={...fixtureMob,mobId:"color",tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"TKFX",timelineStart:0,timelineEnd:60,opaque:true,effect:colorEffect}]}]};
-  const colorRecord={...record,revision:colorBaseline,bins:[{...record.bins[0],complete:false,mobs:[colorMob]}]};
+  const secondColorMob=structuredClone(colorMob);secondColorMob.mobId="color-second";
+  secondColorMob.tracks[0].nodes[0].effect.inputReference.sourceStart=3300;
+  const colorRecord={...record,revision:colorBaseline,bins:[{...record.bins[0],complete:false,mobs:[colorMob,secondColorMob]}]};
   await writeFile(path.join(snapshotDirectory,`snapshot-${colorBaseline}.json`),JSON.stringify(colorRecord));
   const colorRange=await invoke("avid_saved_timeline_range",{revision:colorBaseline,mobId:"color",start:10,end:30});
   if(!isDeepStrictEqual(colorRange.results[0]?.effect,colorEffect)||colorRange.results[0]?.opaque!==true)throw new Error("Installed color range lost declarations or opacity");
+  const usageArgs={revision:colorBaseline,sourceMobId:"external-color",includeEffectInputs:true,limit:1};
+  const directUsage=await invoke("avid_saved_source_usage",{revision:colorBaseline,sourceMobId:"external-color"});
+  if(directUsage.usages.length!==0||directUsage.includeEffectInputs!==false)throw new Error("Installed usage exposed effect inputs without opt-in");
+  const firstUsage=await invoke("avid_saved_source_usage",usageArgs);
+  if(firstUsage.nextAfter!==0||firstUsage.totalReferences!==2||firstUsage.complete!==false||firstUsage.usages[0]?.mobId!=="color")throw new Error("Installed effect usage first page lost identity or continuation");
+  const baselineBytes=await readFile(path.join(snapshotDirectory,`snapshot-${colorBaseline}.json`));
   const colorClient=new Client({name:"avid-installed-color-reconnect",version:"1.0"});
   try{
     await colorClient.connect(new StdioClientTransport({command:generatedEntry.command,args:generatedEntry.args,cwd:temporary,stderr:"pipe",env:{...getDefaultEnvironment(),...generatedEntry.env}}));
     const colorCall=async(name,args)=>{const response=await colorClient.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed color call failed: ${name}`);return response.structuredContent.data;};
     const recovered=await colorCall("avid_saved_timeline_range",{revision:colorBaseline,mobId:"color",start:10,end:30});
     if(!isDeepStrictEqual(recovered,colorRange))throw new Error("Installed reconnect changed color range");
+    const lastUsage=await colorCall("avid_saved_source_usage",{...usageArgs,after:firstUsage.nextAfter});
+    if(lastUsage.nextAfter!==null||lastUsage.totalReferences!==2||lastUsage.complete!==false||lastUsage.usages.length!==1||lastUsage.usages[0]?.mobId!=="color-second")throw new Error("Installed effect usage reconnect lost the second page");
+    for(const row of [...firstUsage.usages,...lastUsage.usages]){
+      if(row.kind!=="TKFX"||row.opaque!==true||row.effectInputOnly!==true||"sourceStart" in row||"sourceMobId" in row)throw new Error("Installed usage flattened an opaque effect input");
+    }
+    if(lastUsage.usages[0].effect.inputReference.sourceStart!==3300)throw new Error("Installed usage changed declared input offset");
+    if(!isDeepStrictEqual(await readFile(path.join(snapshotDirectory,`snapshot-${colorBaseline}.json`)),baselineBytes))throw new Error("Installed usage changed saved snapshot bytes");
     const inputTrace=await colorCall("avid_trace_saved_sources",{revision:colorBaseline,mobId:"color",start:10,end:30});
     const step=inputTrace.steps[0];
     if(!inputTrace.incomplete||step?.effectInputOnly!==true||step.sourceStart!==2860||step.sourceEnd!==2880||step.status!=="unresolved")throw new Error("Installed color trace lost input bounds or uncertainty");
@@ -406,7 +421,7 @@ try {
       toolDefinitions: "exact checkout match",
       clientSetup: "five JSON formats and Codex argv agree; server from installed Codex argv connected from foreign working directory; JSON mutations preserve Codex TOML",
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
-      colorSnapshots: "synthetic installed/reconnected LUT declarations, input uncertainty, keyframe diff and malformed-record refusal passed",
+      colorSnapshots: "synthetic installed/reconnected LUT declarations, opt-in effect usage pagination, input uncertainty, keyframe diff and malformed-record refusal passed",
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       faceNotices: "both packaged model licenses match pinned upstream bytes",
       originalNotices: "packaged original-project notices match recorded upstream bytes",

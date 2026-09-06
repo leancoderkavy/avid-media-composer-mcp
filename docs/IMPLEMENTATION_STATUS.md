@@ -1,6 +1,6 @@
 # Open-source implementation status
 
-Updated 2026-09-05. The full plan remains incomplete. Development is on `codex/open-source-full-plan` in [draft PR #55](https://github.com/leancoderkavy/avid-media-composer-mcp/pull/55). These changes are unreleased; the development checkout must not be confused with the published 1.1.0 package.
+Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/open-source-full-plan` in [draft PR #55](https://github.com/leancoderkavy/avid-media-composer-mcp/pull/55). These changes are unreleased; the development checkout must not be confused with the published 1.1.0 package.
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
@@ -13,6 +13,8 @@ Visual-summary discovery follows the same bounded-file pagination and unavailabl
 `scripts/research/qualify-summary-revision-recovery.mjs` verifies this through stdio MCP using an isolated Sonoma library and actual local generation from synthetic editorial notes. After the damaged-record page, a new inspection-only process without model configuration continued through an unrelated-record page to the healthy summary. Media, healthy summary and damaged-fixture hashes were preserved. Evidence: `.avid-mcp-analysis/summary-revision-recovery-e7b24787-589b-4747-963c-7e3210303caa/evidence.json`. This is recovery evidence, not summary accuracy or native editing proof.
 
 ## Native Avid workflows
+
+`avid_native_read` also supports `bin_columns`, preserving scoped Avid column declarations and flags. Actual fresh managed-package reads across two MCP processes returned 179 declarations matching direct native reads with unchanged bin/entry hashes. This does not authorize arbitrary metadata writes or custom-column creation. See [column discovery](NATIVE_BIN_COLUMNS.md).
 
 `avid_native_read` supports `open_bins`, returning bounded canonical paths within the current authorized project with project checks around enumeration. Empty viewer inventories are valid; they cannot verify `show_clip` success. A fresh managed installation passed actual Sonoma open-bin, track and viewer reads plus independent saved-timeline/source hash checks (`installed-native-1a359ca7-bf96-48c0-947a-be5274da8408`). This uses the existing qualified Windows host and checkout Python oracle, not a clean machine or named AI-client GUI.
 
@@ -30,13 +32,15 @@ Implemented actions include bin creation/open/close, media linking, marker chang
 
 Actual Sonoma evidence includes seven linked MP4s, marker/subclip persistence, source-preserving AAF authoring, native import, save/reopen, saved video/stereo source ranges and 120-frame export. Retained import/export lock recovery has actual running-host refusal and stopped-host release evidence using isolated lock fixtures. A normal full Avid restart, continuation of the existing trial and reopening of the Sonoma project succeeded, followed by actual MCP reads and saved-timeline checks.
 
-The prepared source-clock PCM fixture renders stereo samples exactly matching the original source-clock cuts. Native video timing matches the expected source presentation times, but a range-tag/pixel interpretation discrepancy remains. A separate research copy with corrected range declarations improves full-resolution comparisons without re-encoding; it is not a general automatic native color fix. See [render qualification](NATIVE_RENDER_QUALIFICATION.md).
+The prepared source-clock PCM fixture renders stereo samples exactly matching the original source-clock cuts. A separate disposable copy, after Avid UI Color Adapters refresh and native export, preserves that exact stereo PCM while improving mean full-raster video SSIM to 0.958711. All 120 frames match expected source presentation timing within the retained diagnostic tolerance. Remaining scaling/color residuals and broader perceptual fidelity are unresolved; UI refresh is not a general shipped automatic correction. See [render qualification](NATIVE_RENDER_QUALIFICATION.md).
 
 The [chained AAF workflow test](AAF_WORKFLOW_QUALIFICATION.md) exposed a stereo regression with separate audio destination tracks. [Explicit stereo authoring](AAF_STEREO_AUTHORING.md) now writes the observed stereo track/combiner structure. A fresh MCP build/import/save/reopen/render from the newer reference preserved all channel ranges and matched the complete source-clock stereo PCM exactly. This fixes the reproduced prepared-PCM fixture; the earlier failed separate-track renders remain regression evidence. Broader media, rates and host builds still require qualification.
 
 Native receipts do not establish atomic undo, preset-content identity, complete unsaved graphs, arbitrary concurrent-editor exclusion or source fidelity. General relink/trim/effect operations, broader media/rates/builds, per-action restart/undo coverage and perceptual playback remain open. The sanctioned Extension bridge and optional private-SDK work are separate from this native adapter.
 
 ## Local analysis and editorial workflows
+
+Saved color-adapter inspection preserves bounded LUT declarations and parameter/keyframe fingerprints. Source tracing follows selected declared equal-length inputs with explicit incomplete status. `avid_saved_source_usage` can opt into these inputs with `includeEffectInputs: true`; default searches remain direct-reference-only. Results preserve opaque effects and nested input declarations rather than asserting rendered source correspondence. Actual saved Sonoma MCP capture/reconnect and paginated usage passed. See [color input diagnostics](COLOR_ADAPTER_INPUT_TRACE.md).
 
 [Source-clock preparation](SOURCE_CLOCK_PREPARATION.md) is now a shipped MCP tool for checksum-selected local H.264/stereo MP4/MOV input. It creates a new editing copy, verifies copied video and normalized PCM, and retains attempt/failure evidence. Actual Sonoma MCP execution reproduced the complete earlier research MOV checksum. The new output path subsequently passed native link/reference export/stereo authoring/import/save/reopen/render, with all source ranges and exact stereo PCM verified. Broader media and preparation-job recovery remain open.
 

@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Installed effect-input usage pagination
+
+Extended fresh-tarball acceptance with two synthetic saved color-effect mobs. Default installed usage omits effect inputs; opt-in one-result pages preserve opaque nodes, nested input offsets and incomplete status. A second MCP client continues the first client's cursor to the other mob without changing saved snapshot bytes. Existing keyframe-diff and malformed-declaration checks still pass. Actual `npm run smoke:package -- --with-python` succeeded with 139 tools, five matching skills and Python/AAF checks; log `.avid-mcp-analysis/check-installed-effect-usage.log`. Syntax checks passed. No production code changed and the full unit suite was not rerun. Synthetic installed-record acceptance is separate from the preceding real Sonoma saved-bin evidence.
+
+Updated IMPLEMENTATION_STATUS.md to reflect native column discovery, declared effect inputs and the combined exact-PCM/improved-color export. Previous 61fcb4f CI passed; 7dac340 CodeQL passed while its platform matrix was still running at this check. Full plan remains incomplete.
+
 ### Opt-in saved color-input usage discovery
 
 Full local `npm run check` passed: 603 TypeScript tests, Python checks, 139 tools, five matching skills, transports and fresh-package/Python/AAF acceptance. Log: `.avid-mcp-analysis/check-effect-input-usage.log`. Remote checks for this increment remain separate.
