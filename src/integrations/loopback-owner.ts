@@ -14,7 +14,7 @@ export async function verifyWindowsLoopbackOwner(input:{port:number;address:"127
   if(!Number.isInteger(input.port)||input.port<1||input.port>65535||!["127.0.0.1","::1"].includes(input.address)||!path.isAbsolute(input.binary)||!/^[a-f0-9]{64}$/.test(input.sha256))throw fail("Invalid listener qualification parameters");
   const configured=await realpath(input.binary);
   const result=await runProcess("powershell.exe",["-NoProfile","-NonInteractive","-Command",
-    `$ErrorActionPreference='Stop'; @(Get-NetTCPConnection -State Listen -LocalPort ${input.port} | Where-Object { $_.LocalAddress -eq '${input.address}' } | ForEach-Object { $p=Get-Process -Id $_.OwningProcess; @{path=$p.Path;pid=$p.Id;started=$p.StartTime.ToUniversalTime().ToString('o')} }) | ConvertTo-Json -Compress`],{timeoutMs:10000,maxOutputBytes:8192});
+    `$ErrorActionPreference='Stop'; @(Get-NetTCPConnection -State Listen -LocalPort ${input.port} | Where-Object { $_.LocalAddress -eq '${input.address}' } | ForEach-Object { $p=Get-Process -Id $_.OwningProcess; @{path=$p.Path;pid=$p.Id;started=$p.StartTime.ToUniversalTime().ToString('o')} }) | ConvertTo-Json -Compress`],{timeoutMs:30000,maxOutputBytes:8192});
   if(result.exitCode!==0)throw fail("Cannot identify the configured loopback listener");
   let parsed:unknown;try{parsed=JSON.parse(result.stdout);}catch{throw fail("Listener identity response is invalid");}
   const owners=z.array(ownerSchema).length(1).safeParse(Array.isArray(parsed)?parsed:[parsed]);

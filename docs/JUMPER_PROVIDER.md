@@ -1,5 +1,7 @@
 # Optional Jumper provider
 
+Windows ownership preflight allows up to 30 seconds for the bounded PowerShell listener/process query. A hosted Windows run exceeded the earlier 10-second allowance and failed closed; no HTTP request is sent after an ownership timeout. This allowance is separate from the HTTP timeout. The change accommodates slower probes and does not relax executable, hash or process-identity checks.
+
 `avid_get_capabilities` includes a `jumper` configuration summary: `absent`, `invalid` or `configured`, plus Windows platform support. It never returns configuration values or probes the provider. `configured` means syntax checks passed; `listenerVerified` and `runtimeVersionVerified` remain false until separate evidence is obtained. Use `avid_jumper_read` health for the paired listener check.
 
 Transcript search uses `avid_jumper_read` with `operation: "transcript"`, the same explicit `query`, `cacheDirectory`, `mediaPaths` and optional `limit`, plus an optional `speaker` display name. It searches already-loaded transcripts using the provider's case-insensitive substring contract. Requests explicitly set `search_all: false`, overriding the provider's broader default. Returned segments need a resolvable selected media path and finite nonnegative seconds with end greater than start; unresolved paths are refused rather than inferred from CRC identifiers. Speaker labels are transcript-local, not face identities. Provider timestamps are not independently aligned to source audio.

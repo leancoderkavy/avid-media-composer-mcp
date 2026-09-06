@@ -20,10 +20,10 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
     const owner=await verifyWindowsLoopbackOwner(args);
     expect(owner.pid).toBe(process.pid);
     const cliArgs=["--import","tsx",path.resolve("src/cli.ts"),"--pair-jumper",process.execPath,"--jumper-sha256",args.sha256,"--jumper-port",String(args.port)];
-    const paired=await runProcess(process.execPath,cliArgs,{timeoutMs:15000,maxOutputBytes:8192});
+    const paired=await runProcess(process.execPath,cliArgs,{timeoutMs:45000,maxOutputBytes:8192});
     expect(paired.exitCode).toBe(0);
     expect(JSON.parse(paired.stdout)).toMatchObject({provider:"jumper",owner:{identity:owner.identity,sha256:args.sha256}});
-    const invalid=await runProcess(process.execPath,[...cliArgs,"--doctor"],{timeoutMs:15000,maxOutputBytes:8192});
+    const invalid=await runProcess(process.execPath,[...cliArgs,"--doctor"],{timeoutMs:45000,maxOutputBytes:8192});
     expect(invalid.exitCode).toBe(1);expect(invalid.stdout).toBe("");
     const options={baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"fixture-license",allowedRoots:[process.cwd()],owner:{binary:process.execPath,sha256:args.sha256,identity:owner.identity}};
     const client=new JumperReadClient(options);
@@ -49,4 +49,4 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
     await expect(verifyWindowsLoopbackOwner({...args,sha256:"0".repeat(64)})).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
     await expect(verifyWindowsLoopbackOwner({...args,expectedIdentity:"different-process"})).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
   }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
-},40000);
+},120000);
