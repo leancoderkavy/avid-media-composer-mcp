@@ -144,7 +144,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 134 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 135 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
   const optionalProvider=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});

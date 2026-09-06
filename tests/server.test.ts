@@ -32,7 +32,7 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(134);
+      expect(tools.tools).toHaveLength(135);
       const unconfigured=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});
       expect(unconfigured.isError).toBe(true);
       expect(JSON.stringify(unconfigured)).toContain("Optional Jumper provider is not configured");

@@ -1,3 +1,4 @@
+import {traceSavedSources} from "./source-trace.js";
 import {readFile,writeFile,stat,access,opendir,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -54,6 +55,12 @@ export async function publishSnapshot(file:string,serialized:string){
 export class ProjectSnapshots {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  async traceSources(revision:string,mobId:string,start:number,end:number,binFile?:string,maxDepth=8){
+    const snapshot=await this.read(revision);
+    const matches=selectSnapshotBins(snapshot.bins,binFile).flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
+    if(matches.length!==1)throw new Error("Expected one matching mob; provide its captured bin path");
+    return {revision,mobId,bin:matches[0]!.bin.file,...traceSavedSources(snapshot.bins,matches[0]!,start,end,maxDepth)};
+  }
   async sourceResolution(revision:string,after=-1,limit=100){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200)throw new Error("Invalid source resolution page");
     const snapshot=await this.read(revision),counts=new Map<string,number>(),matches=new Map<string,{bin:string;name:string}[]>();
