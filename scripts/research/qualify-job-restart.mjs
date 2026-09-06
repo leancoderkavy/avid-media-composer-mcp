@@ -4,8 +4,10 @@ import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
 const root=path.resolve('.avid-mcp-analysis',`job-restart-${randomUUID()}`);await mkdir(root);
 const file='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
+const sourceSha256=await sha256File(file);assert.equal(sourceSha256,'3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca');
 const connect=async()=>{const client=new Client({name:'job-restart-proof',version:'1.0.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(file),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));return client;};
 const call=async(client,name,args)=>{const response=await client.callTool({name,arguments:args});assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
 let client=await connect();
@@ -20,12 +22,14 @@ try{
   const stopDeadline=Date.now()+30000;
   while(stopped.status==='cancelling'&&Date.now()<stopDeadline){await new Promise(resolve=>setTimeout(resolve,100));stopped=await call(client,'avid_analysis_job_status',{jobId:render.id});}
   assert.equal(stopped.status,'cancelled');
+  assert.equal(stopped.cancellationReason,'user');assert.ok(stopped.workerExit);assert.equal(stopped.result,undefined);
   const before=await call(client,'avid_analysis_job_history',{});assert.equal(before.records.find(record=>record.id===started.id).status,'completed');
   await client.close();client=await connect();
   const recovered=await call(client,'avid_analysis_job_status',{jobId:started.id});
   assert.equal(recovered.status,'completed');assert.deepEqual(recovered.result,finished.result);
   const history=await call(client,'avid_analysis_job_history',{});assert.equal(history.records.length,2);assert.equal(history.automaticReplay,false);
   assert.equal(history.records.find(record=>record.id===render.id).status,'cancelled');
+  const cancelled=history.records.find(record=>record.id===render.id);assert.equal(cancelled.cancellationReason,'user');assert.deepEqual(cancelled.workerExit,stopped.workerExit);assert.equal(cancelled.result,undefined);assert.equal(await sha256File(file),sourceSha256);
   await writeFile(path.join(root,'evidence.json'),JSON.stringify({started,finished,recovered,stopped,history},null,2));
   console.log(JSON.stringify({passed:true,jobId:started.id,recoveredStatus:recovered.status,evidence:path.join(root,'evidence.json')}));
 }finally{await client.close();}

@@ -38,7 +38,8 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null}}
+type CancellationReason="user"|"timeout"|"output_limit"|"shutdown";
+interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null};cancellationReason?:CancellationReason}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
@@ -72,9 +73,10 @@ export class AnalysisJobs {
   }
   status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return value;}
   async cancelAndReadStatus(id:string){this.cancel(id);return this.readStatus(id);}
-  cancel(id:string){
+  cancel(id:string,reason:CancellationReason="user"){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");
     if(!["queued","running"].includes(job.status))return this.status(id);
+    job.cancellationReason=reason;
     job.status=job.child?"cancelling":"cancelled";
     this.checkpoint(job);
     if(job.child?.pid){
@@ -91,7 +93,7 @@ export class AnalysisJobs {
     }
     this.pump();return this.status(id);
   }
-  close(){this.closing=true;for(const job of this.jobs.values())if(["running","queued"].includes(job.status))this.cancel(job.id);}
+  close(){this.closing=true;for(const job of this.jobs.values())if(["running","queued"].includes(job.status))this.cancel(job.id,"shutdown");}
   private pump(){
     if(this.closing||this.active>=1)return; // Bound model memory; future concurrency must be measured.
     const job=[...this.jobs.values()].find(job=>job.status==="queued");
@@ -101,7 +103,7 @@ export class AnalysisJobs {
     const child=spawn(process.execPath,[fileURLToPath(new URL("./worker.js",import.meta.url))],{stdio:["pipe","pipe","pipe"],windowsHide:true,shell:false,env:{...process.env,POSTHOG_API_KEY:""}});
     job.child=child;
     let output="",error="",settled=false;
-    const timer=setTimeout(()=>this.cancel(job.id),15*60_000);timer.unref();
+    const timer=setTimeout(()=>this.cancel(job.id,"timeout"),15*60_000);timer.unref();
     const finish=(failure?:string)=>{
       if(settled)return;settled=true;clearTimeout(timer);
       if(job.status==="cancelling")job.status="cancelled";
@@ -115,7 +117,7 @@ export class AnalysisJobs {
     child.stdout.on("data",chunk=>{
       if(job.status==="cancelling"||job.status==="cancelled")return;
       outputBytes+=Buffer.byteLength(chunk);
-      if(outputBytes>2*1024*1024){job.error="Worker output exceeded 2 MiB; cancellation requested";this.cancel(job.id);return;}
+      if(outputBytes>2*1024*1024){job.error="Worker output exceeded 2 MiB; cancellation requested";this.cancel(job.id,"output_limit");return;}
       output+=chunk.toString();
     });
     child.stderr.on("data",chunk=>{error=(error+chunk.toString()).slice(-4096);});

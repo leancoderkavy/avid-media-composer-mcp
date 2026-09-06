@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Persisted cancellation reasons
+
+Analysis jobs now distinguish explicit user cancellation, the 15-minute timeout, output-limit cancellation and server shutdown through `cancellationReason`. The first reason persists through closure and journal reconnect. Regression tests confirm a late successful exit cannot turn a cancelled job into completion or expose its buffered result; timeout, shutdown and output-limit paths retain their distinct reasons. Historical records remain readable without inferring a reason.
+
+The actual Sonoma restart harness completed indexing, cancelled a newly started artifact worker and reconnected. The cancelled record retained reason user, exit code 1, successful Windows tree-termination receipt and no result; indexing retained its completed result. Source hash was unchanged. Evidence: `.avid-mcp-analysis/job-restart-222a74af-dbd8-46ab-a47b-3eb52530ae2d/evidence.json`. This is explicit cancellation evidence, not proof of in-progress rendering, partial-artifact rollback or universal descendant containment.
+
+Full check passed: 683 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-job-cancellation-reasons.log`). Full-plan recovery, host/client and release acceptance remain open.
+
 ### Worker exit diagnostics and queue continuation
 
 Analysis job status/journals now retain direct worker exit code/signal. Unexpected exits fail the job without accepting partial JSON as a result; the queue advances only on closure. Numeric and signal exit tests verify persisted diagnostics and subsequent job completion. Old records remain readable without inventing an exit outcome.

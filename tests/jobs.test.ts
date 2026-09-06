@@ -23,6 +23,17 @@ it.each([[9,null],[null,'SIGKILL']] as const)('persists unexpected worker exit %
  state.workers[1].stdout.emit('data',Buffer.from('{"entries":[]}'));state.workers[1].emit('close',0,null);
  expect(await jobs.readStatus(next.id)).toMatchObject({status:'completed',workerExit:{code:0,signal:null}});jobs.close();
 });
+it('retains user cancellation despite a successful late worker exit',async()=>{
+ const jobs=await fixture(),job=await jobs.start({kind:'index',files:['first.mp4']});
+ state.workers[0].stdout.emit('data',Buffer.from('{"entries":[]}'));jobs.cancel(job.id);jobs.close();state.workers[0].emit('close',0,null);
+ const record=await jobs.readStatus(job.id);expect(record).toMatchObject({status:'cancelled',cancellationReason:'user',workerExit:{code:0,signal:null}});expect(record.result).toBeUndefined();
+ expect(await jobs.journal.read(job.id)).toMatchObject({status:'cancelled',cancellationReason:'user'});
+});
+it('records timeout as distinct from user cancellation',async()=>{
+ const timers=vi.spyOn(globalThis,'setTimeout');const jobs=await fixture();
+ try{const job=await jobs.start({kind:'index',files:['first.mp4']});const timeout=timers.mock.calls.find(call=>call[1]===15*60_000)?.[0];expect(typeof timeout).toBe('function');(timeout as ()=>void)();state.workers[0].emit('close',1,null);expect(await jobs.readStatus(job.id)).toMatchObject({status:'cancelled',cancellationReason:'timeout'});}
+ finally{timers.mockRestore();jobs.close();}
+});
 it.skipIf(process.platform!=="win32")("retains failed tree termination and waits for worker closure",async()=>{
  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
  state.terminate.mockResolvedValueOnce({method:"windows-taskkill",succeeded:false,reason:"Tree termination timed out"});
@@ -52,14 +63,14 @@ it("keeps cancellation pending and does not dispatch the next worker until close
 });
 it("closing cancels queued work without starting it and rejects new work",async()=>{
   const jobs=await fixture();const first=await jobs.start({kind:"index",files:["first.mp4"]}),second=await jobs.start({kind:"index",files:["second.mp4"]});
-  jobs.close();expect(jobs.status(first.id).status).toBe("cancelling");expect(jobs.status(second.id).status).toBe("cancelled");
+  jobs.close();expect(jobs.status(first.id)).toMatchObject({status:"cancelling",cancellationReason:"shutdown"});expect(jobs.status(second.id)).toMatchObject({status:"cancelled",cancellationReason:"shutdown"});
   state.workers[0].emit("close",1);expect(state.workers).toHaveLength(1);
   await expect(jobs.start({kind:"index",files:["third.mp4"]})).rejects.toThrow("closing");
 });
 it("oversized worker output requests termination and cannot become a successful result",async()=>{
   const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
   state.workers[0].stdout.emit("data",Buffer.alloc(2*1024*1024+1));
-  expect(jobs.status(first.id)).toMatchObject({status:"cancelling",error:"Worker output exceeded 2 MiB; cancellation requested"});
+  expect(jobs.status(first.id)).toMatchObject({status:"cancelling",cancellationReason:"output_limit",error:"Worker output exceeded 2 MiB; cancellation requested"});
   state.workers[0].stdout.emit("data",Buffer.from('{}'));state.workers[0].emit("close",0);
   expect(jobs.status(first.id).status).toBe("cancelled");expect(jobs.status(first.id).result).toBeUndefined();jobs.close();
 });

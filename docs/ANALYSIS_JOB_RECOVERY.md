@@ -6,6 +6,10 @@ When a worker closes while its server remains alive, the job records `workerExit
 
 The server waits for closure before releasing its one-worker queue slot. Terminal checkpoints include exit details and are awaited by status reads. A failed checkpoint remains visible through `journalError`; a later reconnect can only report the last successfully stored record. Exit details describe the direct worker, not all descendants or model/output validity.
 
+Cancellation now retains `cancellationReason`: `user` for an explicit cancel request, `timeout` for the 15-minute worker deadline, `output_limit` for excess worker output, or `shutdown` when the server closes its queue. The first cancellation reason is preserved. A zero exit after cancellation still reports cancelled without a result; it never becomes successful completion. Older journal entries can lack this field and must not be assigned an inferred reason. A cancellation request remains `cancelling` until direct worker closure, and termination diagnostics do not guarantee artifact rollback.
+
+The actual Sonoma job-restart harness completed indexing, started and explicitly cancelled an artifact worker, and reconnected. The cancelled record retained `user`, its observed worker exit and no result, while the completed index retained its result. The original MP4 hash stayed unchanged. Evidence: `.avid-mcp-analysis/job-restart-222a74af-dbd8-46ab-a47b-3eb52530ae2d/evidence.json`. This qualifies explicit worker cancellation/reconnect, not proof that rendering had already started, partial-output cleanup, timeout behavior on every model or descendant containment.
+
 ## Windows qualification
 
 The parent-only crash harness was rerun on the Sonoma preview MP4. The running and queued records remained unresolved across reconnect, with no replay, journal/source changes or QC output artifacts. The previously observed direct worker was absent at the later inspection. Evidence: `.avid-mcp-analysis/job-crash-4ffb2960-bd88-4fe7-9019-269bc352fc10/evidence.json`. This does not prove prompt termination or universal descendant containment.
