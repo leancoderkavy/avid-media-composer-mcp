@@ -172,7 +172,9 @@ export class MediaLibrary {
     const entries = await this.metadata(ids);
     const output = path.join(await this.directory(), `report-${randomUUID()}.html`);
     const rows = entries.map(entry => `<tr><td>${escape(path.basename(entry.file))}</td><td>${escape(entry.id)}</td><td>${escape(entry.metadata.format?.duration)}</td><td>${escape(entry.bytes)}</td></tr>`).join("");
-    await writeFile(output, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Media inventory</title><style>body{font:16px system-ui;margin:32px}table{border-collapse:collapse}td,th{padding:10px;border:1px solid #bbb;overflow-wrap:anywhere}</style><h1>Media inventory</h1><table><thead><tr><th>File</th><th>SHA-256</th><th>Seconds</th><th>Bytes</th></tr></thead><tbody>${rows}</tbody></table></html>`, {flag:"wx"});
+    const {inventoryStreamDetails}=await import("./inventory-report.js");
+    const details=entries.map(entry=>`<section><h2>${escape(path.basename(entry.file))}</h2>${inventoryStreamDetails(entry.metadata)}</section>`).join("");
+    await writeFile(output, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Media inventory</title><style>body{font:16px system-ui;margin:32px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:10px;border:1px solid #bbb;overflow-wrap:anywhere;text-align:left}section{margin-top:40px}</style><h1>Media inventory</h1><p>Recorded probe metadata. Missing values are not inferred. Camera tags, color declarations and timestamps do not establish camera identity, image fidelity or delivery compliance.</p><table><thead><tr><th>File</th><th>SHA-256</th><th>Seconds</th><th>Bytes</th></tr></thead><tbody>${rows}</tbody></table>${details}</html>`, {flag:"wx"});
     return { output, entries: entries.length };
   }
   async facets(ids:string[]){

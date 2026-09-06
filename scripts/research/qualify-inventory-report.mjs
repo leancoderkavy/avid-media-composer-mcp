@@ -1,0 +1,13 @@
+import {MediaLibrary} from '../../dist/library/media-library.js';
+import {loadConfig} from '../../dist/config.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
+const root=path.resolve('.avid-mcp-analysis',`inventory-report-${randomUUID()}`);await mkdir(root);
+const library=new MediaLibrary(loadConfig({AVID_MCP_ALLOWED_ROOTS:path.dirname(source),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export,project-write'}));
+const id=await sha256File(source);await library.index([source]);const result=await library.report([id]);
+const html=await readFile(result.output,'utf8');assert.ok(html.includes('Streams')&&html.includes('h264')&&html.includes('Camera tags, color declarations'));assert.ok(html.includes(id));assert.equal(await sha256File(source),id);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({result,id,sourceUnchanged:true,scope:'Actual Sonoma indexing and HTML report generation; probe declarations only, not camera identity or playback fidelity'},null,2));console.log(JSON.stringify({passed:true,...result,root}));
