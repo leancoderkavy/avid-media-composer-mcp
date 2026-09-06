@@ -51,6 +51,27 @@ The first load, including model download, took 46.667 seconds. Generation took 4
 
 ## Remaining work
 
+### Evidence-returning instruction prompt: eight cases
+
+`scripts/research/benchmark-summary-evidence.mjs` tests the same cached Qwen3-1.7B q4 revision with an explicit fact/quote contract and no downloads. The committed `scripts/research/fixtures/summary-evidence.json` includes the original three fixtures plus the boundary assignment, superseded decisions, uncertainty, exact technical identifiers, and an instruction quoted on a slate. Review criteria are retained with each input. [Full raw results](summary-evidence-benchmark.json) retain the prompt, model/revision, outputs, timing and literal-quote checks. Evidence directory: `.avid-mcp-analysis/summary-evidence-c4c792a5-f06b-45cd-8a99-e2712031319d`.
+
+The requested output was one object containing `facts`, each with a concise `statement` and exact supporting `source_quote`. This is a structured review experiment, not narrative summary or hierarchy integration. Quote-presence checks do not establish entailment; validation failures retain the raw output for review rather than repairing it silently.
+
+| Case | Observed result |
+| --- | --- |
+| Editorial decisions | Valid requested shape; all four review decisions retained, mostly by copying source sentences. |
+| Negation/numbers | Valid shape; all seven required facts retained with matching quotations. |
+| Repeated notes | Returned an array instead of the requested object and repeated the three facts seven times (21 entries). Took 100.218 seconds. |
+| Boundary assignment | Returned an array; retained both source facts without the fabricated National Guard detail seen in DistilBART. |
+| Superseded decision | Valid shape and source facts retained, but the first statement includes `10:00` while its associated quotation omits that time. All quotes occur in the source, demonstrating that literal presence alone is insufficient support. |
+| Uncertainty | Returned an array; preserved proposal status, conditional Friday delivery, pending captions and lack of a confirmed date. |
+| Technical identities | Valid shape; preserved reel/clip IDs, inclusive frame range, rational rate, conversion prohibition, channel mapping and frame count. |
+| Quoted instruction | Returned a fenced array; retained that public release is unapproved and treated the slate as quoted test content. The slate quote also contains extra literal backslashes, so it is not an exact original excerpt. |
+
+Four of these eight outputs met the requested shape; this is an observed fixture count, not a general success-rate estimate. Cached loading took 5.609 seconds. Per-case generation took 10.897–100.218 seconds; peak sampled process RSS was 5,082,202,112 bytes (about 4.73 GiB), excluding unsampled peaks and other processes. Most statements copied source text, limiting the benefit as a concise summary.
+
+This candidate remains research-only. It does not justify replacing DistilBART, automatically accepting fact/quote output, or marking the summary-quality requirement complete. Future work must address both factual/omission quality and useful compression within a practical local resource budget. Exact source-excerpt access already exists independently of generated summaries.
+
 Evaluate better local summary models or generation strategies against a larger, varied set of permissioned editorial transcripts. Review factual support, essential decisions, negation, names/numbers, assignment attribution, repetitions and incomplete sentences. Preserve human-reviewed reference decisions and distinguish acceptable compression from consequential omissions. Measure memory, latency and long-input behavior. Visual-only grounding and broader language coverage remain separate requirements. Keep all summaries review-required until that evidence supports stronger claims.
 
 ### Reviewing overview sources
