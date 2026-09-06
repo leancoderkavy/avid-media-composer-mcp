@@ -16,6 +16,15 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("rejects inconsistent saved bounds and ambiguous track identities before reporting",async()=>{
+    const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;
+    mob.sourceBounds.end=61;
+    await expect(snapshots.complexity(await save(),"sequence")).rejects.toThrow("bounds disagree");
+    mob.sourceBounds.end=60;mob.tracks[0]!.nodes[0]!.timelineEnd=61;
+    await expect(snapshots.complexity(await save(),"sequence")).rejects.toThrow("node range");
+    mob.tracks[0]!.nodes[0]!.timelineEnd=60;mob.tracks.push({...mob.tracks[0]!});
+    await expect(snapshots.complexity(await save(),"sequence")).rejects.toThrow("ordinals are duplicated");
+  });
   it("reports direct structural counts and preserves opaque completeness limits",async()=>{
     const {record,save,snapshots}=await fixture();
     const track=record.bins[0]!.mobs[0]!.tracks[0]!;
