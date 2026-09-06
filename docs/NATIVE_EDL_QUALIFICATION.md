@@ -1,5 +1,13 @@
 # Native EDL research and preset discovery
 
+## Guarded MCP action
+
+`avid_native_preview` now accepts `operation.action: "export_edl"` with `bin`, `mobId`, `preset`, `exportDirectory` and an explicit `expected` cut contract. Apply requires export authority. The export directory must be independently included in allowed roots and resolve to the observed current-user `Avid EDL Exports` directory. An output root is also required for attempt/response/receipt evidence. The contract currently requires contiguous combined AA/V cuts at 30 fps covering the complete reported duration; the request selects V1/A1/A2. Names are constrained to the existing filesystem-safe name rule.
+
+Preview/apply rechecks project/bin/clip/preset and directory inventory state. Apply uses the native write lock and single-use token, saves its attempt before dispatch and response before verification, validates the returned new path and exact cut contract, and rechecks host/project. A post-dispatch failure retains the lock as an uncertain export; do not replay it. Avid still controls physical destination selection: this action is qualified for the observed Windows build/default directory, not arbitrary destination configuration or atomic host behavior.
+
+Actual MCP export created `.002.edl` and passed the independently derived Sonoma contract: `.avid-mcp-analysis/native-edl-mcp-42877291-3eb4-4e5f-9488-bafffa2d475c/`. All 31 native tests passed, including mismatch lock retention/token consumption. Fresh-package exact tool definitions and client formats passed (`package-native-edl-action.log`; Python isolation not requested). Separate audio channel fidelity, additional rates/effects and concurrent suffix allocation remain open. The sections below retain the earlier research progression.
+
 `avid_native_read` with `query: "edl_settings"` lists EDL preset names from the qualified Windows host. It requires inspection authority and an authorized current project, checks that project again after discovery, bounds response bodies and aggregate names to 512, and returns distinct names without other native fields. Names do not verify preset contents or an export destination.
 
 Actual inspect-only MCP qualification returned `Default EDL` on Media Composer 2024.12.58720. Evidence: `.avid-mcp-analysis/native-edl-presets-3ac0eebc-d74e-4e89-8e20-a42528a04e46/evidence.json`. Repeatable harness: `scripts/research/qualify-native-edl-presets.mjs`. No export or preset modification was performed.

@@ -1,0 +1,10 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';import {mkdir,readFile,writeFile} from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const root=path.resolve('.avid-mcp-analysis',`native-edl-mcp-${randomUUID()}`);await mkdir(root);const exportDirectory=path.join(os.homedir(),'Avid EDL Exports');
+const {contract}=JSON.parse(await readFile('.avid-mcp-analysis/edl-saved-oracle-907dba21-8107-4f6c-901b-11f3bf470ca3/contract.json','utf8'));
+const client=new Client({name:'native-edl-mcp-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:['D:/Avid Projects/MCP_Sonoma_30p_20260905',exportDirectory].join(path.delimiter),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));
+try{
+ const action={action:'export_edl',bin:'MCP_AAF_Selects_20260905.avb',mobId:'060a2b340101010501010f1013-000000-3737af0e12888806-0e10d8bbc16d-18d9',preset:'Default EDL',exportDirectory,expected:contract};
+ const plan=await client.callTool({name:'avid_native_preview',arguments:{operation:action}},undefined,{timeout:120000});await writeFile(path.join(root,'preview.json'),JSON.stringify(plan,null,2));assert.ok(!plan.isError,JSON.stringify(plan));
+ const result=await client.callTool({name:'avid_native_apply',arguments:{token:plan.structuredContent.data.token}},undefined,{timeout:120000});await writeFile(path.join(root,'result.json'),JSON.stringify(result,null,2));assert.ok(!result.isError,JSON.stringify(result));assert.equal(result.structuredContent.data.outputVerified,true);console.log(JSON.stringify({root,verification:result.structuredContent.data.verification}));
+}finally{await client.close();}
+

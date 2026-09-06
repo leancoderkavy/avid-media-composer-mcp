@@ -7,7 +7,7 @@ import { withNativeLock } from "../src/native/lock.js";
 import {verifyNativeRender} from "../src/native/render-verifier.js";
 import {verifyNativeAafMaster} from "../src/native/aaf-verifier.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
-import {mkdtemp,writeFile} from "node:fs/promises";
+import {mkdtemp,writeFile,mkdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -43,6 +43,24 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it.each([false,true])("exports EDL once and retains uncertain failures (mismatch=%s)",async(failVerification)=>{
+    const f=await hostFixture(),root=path.dirname(f.source),exportDirectory=path.join(os.homedir(),"Avid EDL Exports");await mkdir(exportDirectory);
+    const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:[root,os.homedir()].join(path.delimiter),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"}),f.client as unknown as NativeClient);
+    const original=f.client.call.bind(f.client);let writes=0;
+    vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+      if(method==="GetMobInfo")return [...await original(method,body),{column_name:"Name",column_value:"Fixture"}];
+      if(method==="GetListOfExportEDLSettings")return [{setting_names:["Default EDL"]}];
+      if(method==="ExportEDL"){writes++;const output=path.join(exportDirectory,"Fixture.001.edl");await writeFile(output,`FCM: NON-DROP FRAME\n001 ${failVerification?"WRONG":"R"} AA/V C 00:00:00:00 00:03:10:26 01:00:00:00 01:03:10:26`);return [{path:output}];}
+      return original(method,body);
+    });
+    const action={action:"export_edl" as const,bin:"fixture.avb",mobId:"clip",preset:"Default EDL",exportDirectory,expected:{frameRate:30 as const,events:[{reel:"R",track:"AA/V",sourceIn:"00:00:00:00",sourceOut:"00:03:10:26",recordIn:"01:00:00:00",recordOut:"01:03:10:26"}]}};
+    const plan=await adapter.preview(action);
+    if(failVerification){await expect(adapter.apply(plan.token)).rejects.toMatchObject({code:"NATIVE_EXPORT_UNCERTAIN"});await expect(withNativeLock(async()=>1)).rejects.toThrow();await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);return;}
+    expect(await adapter.apply(plan.token)).toMatchObject({outputVerified:true,sourceFidelityVerified:false});expect(writes).toBe(1);
+    await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
+    await expect(adapter.preview({...action,expected:{...action.expected,events:[{...action.expected.events[0]!,track:"V"}]}})).rejects.toThrow("AA/V");
+  });
+
   it("bounds EDL preset discovery without exposing native extra fields",async()=>{
     const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);let payload:any[]=[{setting_names:["CMX 3600","CMX 3600"],private:"PRIVATE"}];
     vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetListOfExportEDLSettings"?Promise.resolve(payload):original(method,body));
@@ -157,7 +175,8 @@ describe("native boundaries", () => {
   it("exports AAF references once and retains the lock if structural verification fails",async()=>{
     const {adapter,calls,source}=await hostFixture();const action={action:"export_aaf_master" as const,bin:"fixture.avb",mobId:"clip",preset:"Fixture",sourceFile:source,expectedSourceSha256:await sha256File(source)};
     vi.mocked(verifyNativeAafMaster).mockImplementation(async()=>{await expect(withNativeLock(async()=>1)).rejects.toThrow();return {masterContractVerified:true} as any;});
-    const plan=await adapter.preview(action);expect(await adapter.apply(plan.token)).toMatchObject({outputVerified:true,sourceFidelityVerified:false});await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");
+    const plan=await adapter.preview(action);
+    expect(await adapter.apply(plan.token)).toMatchObject({outputVerified:true,sourceFidelityVerified:false});await expect(adapter.apply(plan.token)).rejects.toThrow("consumed");
     expect(calls.filter(call=>call.method==="ExportFile")).toHaveLength(1);
     const second=await adapter.preview(action);vi.mocked(verifyNativeAafMaster).mockRejectedValue(new Error("AAF source contract mismatch"));
     await expect(adapter.apply(second.token)).rejects.toMatchObject({code:"NATIVE_EXPORT_UNCERTAIN"});await expect(withNativeLock(async()=>1)).rejects.toThrow();

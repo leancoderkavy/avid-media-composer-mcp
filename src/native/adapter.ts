@@ -1,4 +1,7 @@
 import path from "node:path";
+import os from "node:os";
+import {edlCutContract} from "./edl-verifier.js";
+import {inventoryEdlDirectory,verifyNativeEdlOutput} from "./edl-output.js";
 import { access,mkdir,writeFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import * as z from "zod/v4";
@@ -19,6 +22,7 @@ const id = z.string().min(1).max(256);
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("export_edl"),bin:z.string().min(1),mobId:id,preset:name,exportDirectory:z.string().min(1),expected:edlCutContract}).strict(),
   z.object({action:z.literal("export_aaf_master"),bin:z.string().min(1),mobId:id,preset:name,sourceFile:z.string().min(1),expectedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
   z.object({action:z.literal("import_aaf_selects"),bin:z.string().min(1),file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),preset:name}).strict(),
   z.object({action:z.literal("export_mp4"),bin:z.string().min(1),mobId:id,preset:name,expected:renderContract}).strict().refine(value=>value.expected.videoCodec==="h264"&&value.expected.width===1920&&value.expected.height===1080&&value.expected.rate.num===30&&value.expected.rate.den===1,"Native MP4 qualification currently requires H.264 1080p30"),
@@ -138,6 +142,25 @@ export class NativeAdapter {
     const markers = "mobId" in action ? (await this.client.call("GetMarkers",{mob_id:action.mobId})).flatMap(body=>Array.isArray(body.info)?body.info:[]) : [];
     if ("guid" in action && !(markers as Record<string, unknown>[]).some(marker => marker.guid === action.guid)) throw new Error("Target marker does not exist");
     const media = action.action === "link_media" ? await resolveReadablePath(action.media, this.config.allowedRoots, "file") : undefined;
+    let edlExportState:{directory:string;existingPaths:string[];info:Record<string,any>[];presets:Record<string,any>[]} | undefined;
+    if(action.action==="export_edl"){
+      requireCapability(this.config.capabilities,"export");
+      if(!this.config.outputRoot)throw new Error("EDL evidence output root required");
+      await resolveReadablePath(this.config.outputRoot,[this.config.outputRoot],"directory");
+      const inventory=await inventoryEdlDirectory(action.exportDirectory,this.config.allowedRoots);
+      const qualified=await resolveReadablePath(path.join(os.homedir(),"Avid EDL Exports"),this.config.allowedRoots,"directory");
+      if(inventory.directory!==qualified)throw new Error("EDL qualification requires the current user's Avid EDL Exports directory");
+      const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value]));
+      if(project.frame_rate?.num!==30||project.frame_rate?.den!==1||Number(columns.FPS)!==30||!name.safeParse(columns.Name).success)throw new Error("EDL requires a 30 fps sequence with a qualified filename-safe name");
+      const frames=Number(columns["Frame Count Duration"]),events=action.expected.events;
+      const position=(tc:string)=>{const [h,m,s,f]=tc.split(":").map(Number);if(h!>=24||m!>=60||s!>=60||f!>=30)throw new Error("Invalid EDL expected timecode");return ((h!*60+m!)*60+s!)*30+f!;};
+      let end=position(events[0]!.recordIn),start=end;
+      for(const event of events){if(event.track!=="AA/V"||position(event.recordIn)!==end)throw new Error("EDL qualification requires contiguous combined AA/V cuts");const duration=position(event.recordOut)-end;if(duration<=0||position(event.sourceOut)-position(event.sourceIn)!==duration)throw new Error("EDL expected cut duration mismatch");end+=duration;}
+      if(!Number.isSafeInteger(frames)||frames<1||end-start!==frames)throw new Error("EDL expected edit must cover the full sequence duration");
+      const presets=await this.client.call("GetListOfExportEDLSettings");
+      if(!presets.some(value=>value.setting_names?.includes(action.preset)))throw new Error("EDL preset is missing");
+      edlExportState={directory:inventory.directory,existingPaths:inventory.existingPaths,info,presets};
+    }
     let subclipSource:unknown;
     let exportState:unknown;
     let aafExportState:{outputRoot:string;info:Record<string,any>[];presets:Record<string,any>[];sourceFile:string;sourceSha256:string;frames:number}|undefined;
@@ -197,7 +220,7 @@ export class NativeAdapter {
       subclipSource=info;
     }
     return { project: project.path, owner:this.client.ownerIdentity, bin, binSha256:await sha256File(bin), clips, markers, media,
-      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), ...(importState?{importState}:{}), ...(aafExportState?{aafExportState}:{}), action };
+      ...(media?{mediaSha256:await sha256File(media)}:{}), ...(subclipSource?{subclipSource}:{}), ...(exportState?{exportState}:{}), ...(importState?{importState}:{}), ...(aafExportState?{aafExportState}:{}), ...(edlExportState?{edlExportState}:{}), action };
   }
   async preview(input: Action) {
     const action = nativeActionSchema.parse(input);
@@ -215,7 +238,7 @@ export class NativeAdapter {
       const plan = this.plans.get(token);
       this.plans.delete(token); // consume before any write; never replay uncertain operations
       if (!plan || plan.expires < Date.now()) throw new Error("Native plan expired or already consumed");
-      requireCapability(this.config.capabilities, ["export_mp4","export_aaf_master"].includes(plan.action.action) ? "export" : plan.action.action === "create_bin" ? "project-write" : "edit");
+      requireCapability(this.config.capabilities, ["export_mp4","export_aaf_master","export_edl"].includes(plan.action.action) ? "export" : plan.action.action === "create_bin" ? "project-write" : "edit");
       const { withNativeLock } = await import("./lock.js");
       return withNativeLock(async () => {
         const observedState=await this.state(plan.action);
@@ -223,6 +246,21 @@ export class NativeAdapter {
         const action = plan.action;
         const project = await this.project();
         let result;
+        if(action.action==="export_edl"){
+          const state="edlExportState" in observedState?observedState.edlExportState:undefined;if(!state)throw new Error("Missing EDL export state");
+          if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("EDL host or project changed before dispatch");
+          const directory=path.join(this.config.outputRoot!,`native-export-${randomUUID()}`);await mkdir(directory);
+          const attempt=path.join(directory,"attempt.json"),owner=this.client.ownerIdentity;
+          await writeFile(attempt,JSON.stringify({action,project:project.path,owner,exportDirectory:state.directory,existingPaths:state.existingPaths}),{flag:"wx"});
+          try{
+            result=await this.client.call("ExportEDL",{mob_id:action.mobId,edl_settings_name:action.preset,track_list:{track_labels:[{type:"TRACKTYPE_PICTURE",number:1},{type:"TRACKTYPE_SOUND",number:1},{type:"TRACKTYPE_SOUND",number:2}]}},owner);
+            await writeFile(path.join(directory,"response.json"),JSON.stringify(result),{flag:"wx"});
+            const verification=await verifyNativeEdlOutput(state.directory,result,state.existingPaths,action.expected);
+            const current=await this.project();if(current.path!==project.path||this.client.ownerIdentity!==owner)throw new Error("EDL host or project changed during verification");
+            const receipt={operationId:randomUUID(),action,applicationCompleted:true,outputVerified:true,verification,evidenceDirectory:directory,sourceFidelityVerified:false,limitations:["Avid controls destination; only the observed current-user directory is qualified","Combined AA/V events do not prove separate audio channel content","No atomic editor snapshot or concurrent suffix-allocation guarantee"]};
+            await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return receipt;
+          }catch(error){throw new NativeExportUncertain(attempt,(error as Error).message);}
+        }
         if(action.action==="export_aaf_master"){
           if(!("aafExportState" in observedState)||!observedState.aafExportState)throw new Error("Missing AAF export evidence");
           if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("AAF export host or project changed before dispatch");
