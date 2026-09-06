@@ -67,3 +67,24 @@ it("paginates accessible runs across a shared cache while retaining direct scope
   await expect(scoped.status(blocked)).rejects.toMatchObject({code:"INDEXED_SOURCE_UNAVAILABLE"});
   await writeFile(path.join(directory,`visual-run-${allowed[0]}`,"manifest.json"),"broken");await expect(scoped.list()).rejects.toThrow();
 });
+
+it("softly penalizes excluded concepts without deleting samples and validates all text before inference",async()=>{
+  const {visual,id}=await fixture();
+  const v=(a:number,b:number)=>[a,b,...Array(510).fill(0)];
+  model.vision.mockResolvedValueOnce({image_embeds:{data:v(1,0)}}).mockResolvedValueOnce({image_embeds:{data:v(0,1)}});
+  const index=await visual.index([id],2);
+  model.tokenizer.mockImplementation(async(label:string)=>({label,input_ids:{dims:[1,label==='too long'?78:3]}}));
+  model.text.mockImplementation(async({label}:{label:string})=>({text_embeds:{data:label==='unwanted'?v(1,0):v(0.8,0.6)}}));
+  const baseline=await visual.search(index.indexId,{text:'scene'},2);
+  expect(baseline.results.map(s=>s.time)).toEqual([1.5,4.5]);
+  const refined=await visual.search(index.indexId,{text:'scene'},2,{}, {exclude:['unwanted','unwanted'],weight:0.5});
+  expect(refined.results.map(s=>s.time)).toEqual([4.5,1.5]);expect(refined.matchingSamples).toBe(2);
+  expect(refined.results[1]).toMatchObject({similarity:0.8,exclusionSimilarity:1});expect(refined.results[1]!.score).toBeCloseTo(0.3);
+  expect(refined.refinement).toEqual({exclude:['unwanted'],weight:0.5});
+  expect((await visual.search(index.indexId,{text:'scene'},2,{}, {exclude:['unwanted'],weight:0})).results.map(s=>s.score)).toEqual(baseline.results.map(s=>s.score));
+  model.text.mockClear();
+  await expect(visual.search(index.indexId,{text:'scene'},2,{}, {exclude:['unwanted','too long']})).rejects.toMatchObject({code:'VISUAL_QUERY_TOO_LONG'});
+  expect(model.text).not.toHaveBeenCalled();
+  await expect(visual.search(index.indexId,{text:'scene'},2,{}, {exclude:Array(9).fill('x')})).rejects.toThrow();
+  await expect(visual.search(index.indexId,{text:'scene'},2,{}, {weight:-1})).rejects.toThrow();
+});

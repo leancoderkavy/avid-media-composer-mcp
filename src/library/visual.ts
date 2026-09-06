@@ -37,6 +37,7 @@ export function cosine(a: number[], b: number[]) {
 const vector=z.array(z.number().finite()).length(512);
 export const visualRange=z.object({start:z.number().nonnegative(),end:z.number().positive()}).strict().refine(value=>value.end>value.start,"Range end must follow start");
 export const visualScope=z.object({ids:z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1).max(100).optional(),range:visualRange.optional()}).strict();
+export const visualRefinement=z.object({exclude:z.array(z.string().trim().min(1).max(500)).max(8).default([]),weight:z.number().finite().min(0).max(1).default(0.25)}).strict();
 export function sampleTimes(duration:number,count:number,range?:z.infer<typeof visualRange>){
   if(!Number.isFinite(duration)||duration<=0||!Number.isInteger(count)||count<1||count>120)throw new Error("Invalid sampling limits");
   const {start,end}=range?visualRange.parse(range):{start:0,end:duration};
@@ -115,23 +116,30 @@ export class VisualSearch {
     const page=[];for(const {vector,image,...sample} of matches.slice(0,limit))page.push({...sample,image:await resolveReadablePath(image,[directory],"file")});
     return {indexId,samples:page,totalSamples:record.samples.length,nextAfter:matches.length>limit?page.at(-1)?.index:null,coverage:"Sample points only; ranges are half-open"};
   }
-  async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={}){
+  async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
+    refinement=visualRefinement.parse(refinement);
     requireCapability(this.config.capabilities,"export");
     await this.record(indexId); // Validate index authority before creating an artifact.
     const frame=await this.library.artifact(id,"thumbnail",time);
-    return {...await this.search(indexId,{image:frame.output},limit,scope),reference:{id,time,image:frame.output}};
+    return {...await this.search(indexId,{image:frame.output},limit,scope,refinement),reference:{id,time,image:frame.output}};
   }
-  async search(indexId:string,query:{text:string}|{image:string},limit:number,scope:z.infer<typeof visualScope>={}){
+  async search(indexId:string,query:{text:string}|{image:string},limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
     z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
+    const controls=visualRefinement.parse(refinement);
     const {record,directory}=await this.record(indexId);
     const models=await this.load();
-    let embedding:number[];
-    if("text" in query){
-      const text=z.string().trim().min(1).max(500).parse(query.text),tokens=await models.tokenizer(text,{padding:true,truncation:false});
+    const tokenize=async(value:string)=>{
+      const text=z.string().trim().min(1).max(500).parse(value),tokens=await models.tokenizer(text,{padding:true,truncation:false});
       const tokenCount=tokens.input_ids.dims.at(-1);
       if(!Number.isInteger(tokenCount)||tokenCount!<1)throw new Error("Visual tokenizer returned an invalid token shape");
       if(tokenCount!>VISUAL_TEXT_TOKEN_LIMIT)throw new AvidMcpError("VISUAL_QUERY_TOO_LONG","Visual query exceeds the pinned model context; shorten it or search distinct concepts separately. No query text was silently discarded.",{tokenCount,maxTokens:VISUAL_TEXT_TOKEN_LIMIT});
-      const result=await models.text(tokens);
+      return tokens;
+    };
+    // Validate all text before any embedding inference; duplicates have no extra effect.
+    const negativeTokens=[];for(const text of new Set(controls.exclude))negativeTokens.push(await tokenize(text));
+    let embedding:number[];
+    if("text" in query){
+      const result=await models.text(await tokenize(query.text));
       embedding=Array.from(result.text_embeds.data,Number);
     }else{
       const image=await resolveReadablePath(query.image,[...this.config.allowedRoots,directory],"file");
@@ -141,8 +149,14 @@ export class VisualSearch {
       const result=await models.vision(await models.processor(decoded));
       embedding=Array.from(result.image_embeds.data,Number);
     }
-    const ranked=record.samples.filter(sample=>(!scope.ids||scope.ids.includes(sample.id))&&(!scope.range||sample.time>=scope.range.start&&sample.time<scope.range.end)).map(({vector,...sample})=>({...sample,score:cosine(embedding,vector)})).sort((a,b)=>b.score-a.score);
+    const negatives:number[][]=[];for(const tokens of negativeTokens)negatives.push(Array.from((await models.text(tokens)).text_embeds.data,Number));
+    const ranked=record.samples.filter(sample=>(!scope.ids||scope.ids.includes(sample.id))&&(!scope.range||sample.time>=scope.range.start&&sample.time<scope.range.end)).map(({vector,...sample})=>{
+      const similarity=cosine(embedding,vector);
+      if(!negatives.length)return {...sample,score:similarity};
+      const exclusionSimilarity=Math.max(0,...negatives.map(negative=>cosine(negative,vector)));
+      return {...sample,score:similarity-controls.weight*exclusionSimilarity,similarity,exclusionSimilarity};
+    }).sort((a,b)=>b.score-a.score);
     const results=[];for(const sample of ranked.slice(0,limit))results.push({...sample,image:await resolveReadablePath(sample.image,[directory],"file")});
-    return {model:VISUAL_MODEL,scoreMeaning:"CLIP cosine similarity, not probability or verified identity",matchingSamples:ranked.length,truncated:ranked.length>limit,results};
+    return {model:VISUAL_MODEL,scoreMeaning:negatives.length?"CLIP cosine similarity minus weight times maximum nonnegative excluded-concept cosine; soft ranking only, not guaranteed absence":"CLIP cosine similarity, not probability or verified identity",...(negatives.length?{refinement:{exclude:[...new Set(controls.exclude)],weight:controls.weight}}:{}),matchingSamples:ranked.length,truncated:ranked.length>limit,results};
   }
 }

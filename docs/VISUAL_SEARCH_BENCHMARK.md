@@ -46,3 +46,11 @@ Actual MCP rejected a 94-token fixture. All 16 positive query rank/score arrays 
 ## Remaining acceptance work
 
 Obtain independent relevance judgments and a held-out set across different source footage. Include subtle actions, paraphrases, negatives, repeated scenes, visually similar distractors and sparse-versus-dense sampling. Measure per-query precision/recall, resource use and end-to-end latency separately. Evaluate any model, reranker or threshold change against the frozen baseline plus held-out data. These results do not close broad ranking accuracy, detector precision/recall, unsampled appearance coverage or calibrated abstention requirements.
+
+## Local unwanted-concept refinement
+
+`avid_search_visual` and `avid_search_visual_frame` accept optional `refinement: { "exclude": ["people"], "weight": 0.5 }`. Up to eight concise concepts are supported; weight defaults to 0.25 and must be between 0 and 1. Each concept uses the same local pinned CLIP tokenizer/model and 77-token limit. Duplicate concepts are evaluated once. Existing searches without exclusions retain their original scores and result shape.
+
+For each sample, the refined score is positive/reference cosine minus weight times the largest nonnegative excluded-concept cosine. Results include `similarity` and `exclusionSimilarity` so this adjustment can be inspected. All samples remain eligible; this is a soft ranking penalty, not a filter or guarantee that unwanted content is absent. Weight zero reproduces unrefined scores/ranking. The weight is a user control, not a calibrated accuracy threshold.
+
+A real local-model MCP probe over the 32 Sonoma samples compared each refined score with separate positive and negative searches and verified zero-weight equivalence. All arithmetic checks passed; the top result stayed at 78.15 seconds for vineyard landscape excluding people. Evidence: `.avid-mcp-analysis/visual-exclusions-4297bd37-f367-4306-8ad8-374dc8c365e1/evidence.json`; script: `scripts/research/qualify-visual-exclusions.mjs`. This establishes runtime behavior, not improved semantic accuracy or independent exclusion ground truth. The original MP4 remained unchanged.
