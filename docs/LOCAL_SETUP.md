@@ -1,5 +1,11 @@
 # Unreleased local setup
 
+## Codex command generation
+
+Run `avid-mcp --client codex --root ABSOLUTE_PROJECT_PATH` to print a JSON object containing `command: "codex"` and its exact `args` array. Optional output, native executable, model/dependency paths, capabilities and checksum-bound installed server entry use the same validation as other client formats. An installer or AI can execute the generated command with an argument-array process API and `shell: false`; do not join the arguments into a shell string. Codex itself writes the TOML configuration. Inspect any existing `avid-media-composer` entry before applying the command, since Codex may replace it.
+
+This mode generates an add command; connector-managed JSON install/update/remove/restore flags do not operate on Codex TOML. Use the Codex CLI to manage that configuration. Actual isolated add/get/remove with a special-character fixture path passed using Codex 0.153.4: `.avid-mcp-analysis/codex-setup-8716bd00-3e09-4f0d-b8a2-9bdb83eb2449/evidence.json`. Reproduce with `node scripts/research/qualify-codex-setup.mjs ABSOLUTE_CODEX_EXECUTABLE`. Model calls and fresh-package acceptance are separately recorded below.
+
 This checkout contains new Windows native and local analysis tools. They have not been published as a new npm release. The public 1.1.0 package does not yet contain this work. Our original implementation remains MIT and does not require Jumper.
 
 ## Build

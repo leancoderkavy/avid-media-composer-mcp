@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Supported Codex setup command generation
+
+Full local check passed: 574 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-codex-setup.log`). The existing package check covers five JSON formats; the separate real Codex CLI probe covers the new argument-array format.
+
+The normal CLI now accepts --client codex and emits a shell-free codex mcp add argument array with validated roots, runtime options and server entry. Codex owns TOML writes; JSON configuration mutation is explicitly unsupported for this mode. A regression verifies exact special-character paths/environment arguments. Actual installed Codex add/get/remove passed in a new isolated configuration directory: `.avid-mcp-analysis/codex-setup-8716bd00-3e09-4f0d-b8a2-9bdb83eb2449/evidence.json`. This closes command generation, not connector-managed Codex update/rollback or clean-machine setup.
+
 ### Fresh installed Codex model workflow
 
 Packed the current development server, installed the archive through the managed package CLI into a new isolated directory, and supplied the resolved installed entry plus SHA-256 to the real Codex model harness. Health and hashed file inventory calls passed with exact final-answer values, no other completed tool types, unchanged fixture/client/server bytes, and unchanged archive hash. Evidence: `.avid-mcp-analysis/installed-codex-model-0215ccd0-c9a1-41bb-b621-dfa3eb2a967f/evidence.json`, linked model events under `codex-model-d9f316de-401a-4353-aab8-b93d3b9c370a`. Reproduce with `qualify-installed-codex-model.mjs`. This closes fresh-package model-driven basic read acceptance on the existing Windows host, not clean-machine prerequisites, GUI or native edits. Syntax and actual installation/model execution passed; production code did not change.

@@ -41,6 +41,16 @@ export async function installConfiguration(file: string, config: ReturnType<type
   return changeConfiguration(file,{action:"install",key,entry:(config as Record<string, any>)[key]["avid-media-composer"]});
 }
 
+/** Codex owns its TOML configuration; generate argv instead of editing it as JSON. */
+export function codexSetupCommand(roots:string[],outputRoot?:string,nativeBinary?:string,serverEntry?:string,runtime:ClientRuntimeOptions={}){
+  const config=clientConfiguration("generic",roots,outputRoot,nativeBinary,serverEntry,runtime);
+  const entry=config.mcpServers!["avid-media-composer"];
+  const args=["mcp","add","avid-media-composer"];
+  for(const [key,value] of Object.entries(entry.env))args.push("--env",`${key}=${value}`);
+  args.push("--",entry.command,...entry.args);
+  return {command:"codex",args,note:"Run this argument array with the installed Codex CLI, without a shell. Codex writes its own configuration. Inspect any existing avid-media-composer entry before replacing it."};
+}
+
 export async function doctor(config: ServerConfig) {
   const check = async (fn: () => Promise<unknown>) => { try { return {ok:true,data:await fn()}; } catch(error) { return {ok:false,error:(error as Error).message}; } };
   const dependencyCheck = async (fn: () => Promise<DependencyStatus>) => {
