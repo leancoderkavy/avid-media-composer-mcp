@@ -189,6 +189,10 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({options,watchId})=>result("avid_configure_watch_folder",()=>watches.configure(options,watchId)));
   server.registerTool("avid_list_watch_folders", {description:"List configured watch folders within current path scope and their checkpoints.",inputSchema:{},annotations:read},
     ()=>result("avid_list_watch_folders",()=>watches.list()));
+  server.registerTool("avid_watch_lock_status", {description:"Inspect a scoped watch lock and local owner liveness. Running, uncertain, foreign and legacy owners cannot be recovered automatically.",inputSchema:{watchId:z.string().uuid()},annotations:read},
+    ({watchId})=>result("avid_watch_lock_status",()=>watches.lockStatus(watchId)));
+  server.registerTool("avid_recover_watch_lock", {description:"Explicitly release the exact inspected watch lock only when its qualified local owner PID is absent. Archives evidence; preserves checkpoints and media; does not retry scanning. Requires inspect and project-write.",inputSchema:{watchId:z.string().uuid(),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/)},annotations:write},
+    ({watchId,expectedSha256})=>result("avid_recover_watch_lock",()=>watches.recoverLock(watchId,expectedSha256)));
   server.registerTool("avid_remove_watch_folder", {description:"Remove a watch configuration; source media and cached analysis remain. Requires project-write.",inputSchema:{watchId:z.string().uuid()},annotations:write},
     ({watchId})=>result("avid_remove_watch_folder",()=>watches.remove(watchId)));
   server.registerTool("avid_scan_watch_folder", {description:"Run one bounded watch-folder observation/indexing pass with per-file checkpoints. Does not upload or edit source media.",inputSchema:{watchId:z.string().uuid()},annotations:write},

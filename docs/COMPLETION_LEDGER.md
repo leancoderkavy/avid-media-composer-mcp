@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Explicit stopped-owner watch recovery
+
+Added scoped lock inspection and checksum-bound recovery for versioned locks whose local owner PID is absent. Live/reused PIDs, uncertain liveness, foreign identities/scopes and legacy records are refused. An exclusive recovery guard blocks ordinary acquisition; owner/hash rechecks precede release, and a retained preparation archive preserves evidence. Checkpoints and media are not modified and scans are not retried automatically.
+
+Actual owned-process termination after real Sonoma indexing and before checkpoint publication passed live-owner refusal, MCP reconnect, wrong-checksum refusal, correct recovery and resumed stable indexing. Checkpoint bytes at release and original/copy hashes stayed unchanged. The same workflow passed using a fresh managed installation for both worker and server. Evidence: `.avid-mcp-analysis/watch-lock-recovery-3385f073-61c1-47b7-aa2f-faaed8bb0c79` and `watch-lock-recovery-c8a18acc-7ade-4fc9-8f31-a45d586ca93c`. The first harness attempt stopped before scanning because it read the MCP response envelope incorrectly; the corrected harness uses its data field.
+
+Full local check passed: 712 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 tools and five skills (`check-watch-lock-recovery-final.log`). The preceding run found the expected tool inventory assertion still set to 140; inventory assertions and discovery annotations now cover both added tools. Power-loss, remote/container identity, descendant containment and recovery-guard crash recovery remain unqualified. The full plan is still incomplete.
+
 ### Fresh installed-server native marker writes
 
 Packed and installed the development server through the managed CLI, then used only its installed entry for the actual native marker workflow: two creations, save/reopen, comment clear/color update, save/reopen, restoration, save/reopen, cleanup and final save/reopen. Ordinary preview/apply tokens and postcondition checks remained enabled. Independent checkout Python saved-AVB comparison verified the exact decoded requested changes, preservation of other fields, restoration and final empty baseline. Protected source bin/MP4 and archive/entry hashes were unchanged.

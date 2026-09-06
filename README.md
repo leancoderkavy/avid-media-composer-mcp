@@ -34,7 +34,7 @@ The server also defines a 167-action editing catalog and a tested bridge protoco
 
 ## What works now
 
-The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 140 tools, including offline and bridge tools.
+The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 142 tools, including offline and bridge tools.
 
 Development snapshots support [saved-marker inspection](docs/SAVED_MARKERS.md) with paginated text, color declarations and explicitly unresolved or effect-input locations. This is independent of current unsaved Avid state.
 

@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Watch lock inspection and explicit stopped-local-owner recovery are available through `avid_watch_lock_status` and `avid_recover_watch_lock`, bringing development discovery to 142 tools. Recovery binds the inspected checksum to matching host/watch/scope metadata, requires an absent owner PID, retains an evidence archive and preserves checkpoints/media without replaying scans. Actual owned-process termination, MCP reconnect and resumed Sonoma indexing passed, including from a fresh managed installation. Legacy, remote, uncertain and retained recovery-guard cases remain manual; see [watch recovery](WATCH_FOLDER_RECOVERY.md).
+
 Updated 2026-09-06. The full plan remains incomplete. Implementation and dependency integration are collected in [PR #55](https://github.com/leancoderkavy/avid-media-composer-mcp/pull/55); see its current merge/check state for repository integration. This work does not publish a new npm version and must not be confused with the published 1.1.0 package.
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
