@@ -1,6 +1,7 @@
 import {mkdtemp,writeFile,readFile,mkdir,readdir,symlink,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import {pathToFileURL} from "node:url";
 import {createHash} from "node:crypto";
 import {describe,it,expect} from "vitest";
 import {MediaLibrary} from "../src/library/media-library.js";
@@ -19,6 +20,19 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it("exports collection references through verified aliases and refuses stale copies",async()=>{
+  const {config,id,file,root}=await fixture(),collections=new Collections(config);
+  const saved=await collections.save({name:"Recovered",selects:[{id,start:2,end:5,label:"",tags:[],note:""}]});
+  const alias=path.join(root,"reconnected.wav"),directory=path.join(root,"avid-mcp-library"),aliases=path.join(directory,`${id}.sources`);
+  await writeFile(alias,"fixture");await mkdir(aliases);await writeFile(path.join(aliases,`${"a".repeat(64)}.json`),JSON.stringify({id,file:alias}));await writeFile(file,"changed");
+  const exported=await new Collections(config).exportOtio(saved.revision,30),bytes=await readFile(exported.output),document=JSON.parse(bytes.toString());
+  const clip=document.tracks.children[0].children[0];
+  expect(clip.media_references.DEFAULT_MEDIA.target_url).toBe(pathToFileURL(await realpath(alias)).href);
+  expect(clip.metadata.avid_mcp.sourceSha256).toBe(id);expect(clip.source_range.start_time.value).toBe(60);expect(clip.source_range.duration.value).toBe(90);
+  const before=(await readdir(directory)).sort();await writeFile(alias,"also changed");
+  await expect(new Collections(config).exportOtio(saved.revision,30)).rejects.toThrow("Source changed since indexing");
+  expect((await readdir(directory)).sort()).toEqual(before);expect(await readFile(exported.output)).toEqual(bytes);expect(await readFile(file,"utf8")).toBe("changed");
+ });
  it.each([false,true])("refuses matching out-of-scope aliases (directory link: %s) and can select a later allowed copy",async linked=>{
   const {library,id,file,root}=await fixture(),outside=await mkdtemp(path.join(os.tmpdir(),"avid-outside-")),external=path.join(outside,"private.wav");await writeFile(external,"fixture");await writeFile(file,"changed");
   let alias=external;

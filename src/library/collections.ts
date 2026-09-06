@@ -6,7 +6,7 @@ import * as z from "zod/v4";
 import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
-import {sha256File} from "../analysis/file-inventory.js";
+
 import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 
@@ -22,8 +22,9 @@ type Collection=z.infer<typeof collectionSchema>;
 export class Collections {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
-  private async validate(input:Collection){
-    const entries=await this.library.metadata([...new Set(input.selects.map(select=>select.id))]);
+  private async validate(input:Collection,verifyContent=false){
+    const ids=[...new Set(input.selects.map(select=>select.id))];
+    const entries=verifyContent?await Promise.all(ids.map(id=>this.library.validatedMetadata(id))):await this.library.metadata(ids);
     for(const select of input.selects){
       const entry=entries.find(entry=>entry.id===select.id)!;
       const duration=Number(entry.metadata.format?.duration);
@@ -66,8 +67,8 @@ export class Collections {
     requireCapability(this.config.capabilities,"export");
     if(!Number.isFinite(rate)||rate<=0||rate>240)throw new Error("Invalid edit rate");
     const collection=await this.read(revision);
-    const entries=await this.validate(collection);
-    for(const entry of entries)if(await sha256File(await resolveReadablePath(entry.file,this.config.allowedRoots,"file"))!==entry.id)throw new Error("Source changed since indexing");
+    const entries=await this.validate(collection,true);
+
     const rational=(value:number)=>({OTIO_SCHEMA:"RationalTime.1",value,rate});
     const range=(start:number,duration:number)=>({OTIO_SCHEMA:"TimeRange.1",start_time:rational(start),duration:rational(duration)});
     const clips=collection.selects.map(select=>{

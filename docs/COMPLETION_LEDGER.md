@@ -719,3 +719,8 @@ This is a current external dependency for model-driven tool invocation: sign-in 
 
 CI for 20007a4 exposed a test expectation mismatch: validatedMetadata returns canonical paths, while temporary paths can use macOS /var aliases or Windows short user-directory names. The allowed-alias assertion now compares against filesystem realpath, retaining direct and directory-link scope refusal and unchanged external-file checks. All 10 focused library tests passed locally. Cross-platform CI remains a separate gate until the pushed revision completes.
 
+
+### Collection export alias recovery
+
+OTIO collection export now selects checksum-verified in-scope aliases before authoring external media references. Cached collection reads retain their existing semantics. Eleven library tests and typecheck passed. Actual stdio MCP indexing/save/reconnect/export against an owned one-second Sonoma derivative selected the matching copy after the original changed, retained the exact 15-frame range and source checksum, and refused export without changing prior output after both copies changed. Original Sonoma bytes remained unchanged. Evidence: .avid-mcp-analysis/collection-alias-f0fdbbac-bebd-46ba-a8ea-688af2ac9b6f/evidence.json; harness: scripts/research/qualify-collection-alias.mjs. This does not qualify native OTIO import or concurrent file-replacement races.
+
