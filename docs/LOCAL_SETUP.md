@@ -447,3 +447,5 @@ The snapshot fixture harness also covers a generated ten-frame transition betwee
 `avid_saved_source_usage` now accepts `after` and `limit` (1–500). Follow `nextAfter` with the same revision/source ID until null. `totalReferences` counts all direct matches; `truncated` indicates that more pages remain. Each result has a stable match index within that snapshot/source query. Stereo channels and overlapping transition sources remain separate references, not unique editorial cuts.
 
 `avid_diff_saved_snapshots` accepts `after` and `limit` (1–200). Follow `nextAfter` with the same baseline/candidate pair to retrieve every change. `totalChanges` is the comparison-wide count; `truncated` indicates more pages. Change indices are scoped to that pair of saved revisions, not stable identifiers across different comparisons.
+
+Snapshot comparisons reject duplicate bin identities and duplicate mob IDs within a bin rather than silently collapsing them. The same mob ID in distinct bins remains a separate comparison entry. Single-mob structure/range queries still require an unambiguous target.

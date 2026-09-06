@@ -69,7 +69,19 @@ export class ProjectSnapshots {
   async diff(baseline:string,candidate:string,after=-1,limit=200){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200)throw new Error("Invalid snapshot diff page");
     const before=await this.read(baseline),candidateRecord=await this.read(candidate);
-    const index=(value:z.infer<typeof snapshotSchema>)=>new Map(value.bins.flatMap(bin=>bin.mobs.map(mob=>[`${bin.file}\0${mob.mobId}`,{bin:bin.file,...mob}] as const)));
+    const index=(value:z.infer<typeof snapshotSchema>)=>{
+      const entries=new Map<string,{bin:string}&z.infer<typeof mob>>(),bins=new Set<string>();
+      for(const bin of value.bins){
+        if(bins.has(bin.file))throw new Error("Duplicate bin identity in snapshot comparison");
+        bins.add(bin.file);
+        for(const mob of bin.mobs){
+          const key=JSON.stringify([bin.file,mob.mobId]);
+          if(entries.has(key))throw new Error("Duplicate mob identity within snapshot bin");
+          entries.set(key,{bin:bin.file,...mob});
+        }
+      }
+      return entries;
+    };
     const a=index(before),b=index(candidateRecord),changes=[];
     for(const [key,value] of a){const next=b.get(key);if(!next)changes.push({change:"removed",bin:value.bin,mobId:value.mobId,name:value.name});else if(digest(value)!==digest(next))changes.push({change:"changed",bin:value.bin,mobId:value.mobId,before:value,after:next});}
     for(const [key,value] of b)if(!a.has(key))changes.push({change:"added",bin:value.bin,mobId:value.mobId,name:value.name});

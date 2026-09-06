@@ -16,6 +16,13 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("refuses duplicate comparison identities instead of silently overwriting mobs",async()=>{
+    const {record,save,snapshots}=await fixture(),baseline=await save();
+    record.revision=randomUUID();record.bins[0]!.mobs.push({...record.bins[0]!.mobs[0]!,name:'Conflicting'});
+    await expect(snapshots.diff(baseline,await save())).rejects.toThrow('Duplicate mob identity');
+    record.bins[0]!.mobs.pop();record.bins.push({...record.bins[0]!,mobs:[]});
+    await expect(snapshots.diff(baseline,await save())).rejects.toThrow('Duplicate bin identity');
+  });
   it("retrieves snapshot changes beyond 200 without repeating or losing changes",async()=>{
     const {record,save,snapshots}=await fixture(),template=record.bins[0]!.mobs[0]!;
     record.bins[0]!.mobs=Array.from({length:203},(_,i)=>({...template,mobId:`mob-${i}`}));
