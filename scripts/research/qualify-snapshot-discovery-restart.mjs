@@ -12,6 +12,8 @@ const root=path.resolve('.avid-mcp-analysis',`snapshot-discovery-restart-${rando
 const copied=path.join(directory,`snapshot-${revision}.json`);await copyFile(source,copied);
 const damaged='00000000-0000-4000-8000-000000000000';
 await writeFile(path.join(directory,`snapshot-${damaged}.json`),'damaged qualification fixture',{flag:'wx'});
+const abandoned=path.join(directory,`snapshot-${randomUUID()}.json.${randomUUID()}.tmp`);
+await writeFile(abandoned,'{unfinished temporary fixture',{flag:'wx'});
 const connect=async(allowedRoots='D:/Avid Projects/MCP_Sonoma_30p_20260905')=>{
  const client=new Client({name:'snapshot-discovery-restart',version:'1.0'});
  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:allowedRoots,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect'}}));return client;
@@ -32,6 +34,7 @@ try{
  await client.close();client=await connect(root);
  const denied=await call(client,'avid_saved_snapshots',{});assert.deepEqual(denied.snapshots,[]);assert.equal(denied.unavailable,2);
  assert.equal(await sha256File(source),sourceHash);assert.equal(await sha256File(copied),sourceHash);
+ assert.equal(await readFile(abandoned,'utf8'),'{unfinished temporary fixture');
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,before,after,report,denied,sourceHash,snapshotsUnchanged:true,scope:'Copied historical Sonoma snapshot, real MCP reconnect and restricted-root discovery; no current-bin equality claim'},null,2));
  console.log(JSON.stringify({ok:true,root,revision}));
 }finally{await client.close();}

@@ -16,6 +16,22 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("allows exactly one concurrent publisher per revision without mixing bytes",async()=>{
+    const directory=await mkdtemp(path.join(os.tmpdir(),'avid-snapshot-race-')),file=path.join(directory,'snapshot.json');
+    const contents=['first '.repeat(10000),'second '.repeat(10000)];
+    const outcomes=await Promise.allSettled(contents.map(content=>publishSnapshot(file,content)));
+    expect(outcomes.filter(outcome=>outcome.status==='fulfilled')).toHaveLength(1);
+    const winner=outcomes.findIndex(outcome=>outcome.status==='fulfilled');
+    expect(await readFile(file,'utf8')).toBe(contents[winner]);
+    expect(await readdir(directory)).toEqual(['snapshot.json']);
+  });
+  it("ignores abandoned temporary writes when discovering completed revisions",async()=>{
+    const {config,save,snapshots}=await fixture(),revision=await save(),directory=await new MediaLibrary(config).directory();
+    await writeFile(path.join(directory,`snapshot-${randomUUID()}.json.${randomUUID()}.tmp`),'{unfinished');
+    const result=await snapshots.list();
+    expect(result.snapshots.map(snapshot=>snapshot.revision)).toEqual([revision]);
+    expect(result.scanned).toBe(1);expect(result.unavailable).toBe(0);
+  });
   it("publishes complete snapshot bytes exclusively and cleans temporary attempts",async()=>{
     const directory=await mkdtemp(path.join(os.tmpdir(),'avid-snapshot-publish-')),file=path.join(directory,'snapshot.json');
     await publishSnapshot(file,'{"complete":true}');
