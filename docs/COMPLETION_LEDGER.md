@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Native Record request failed exact viewer verification
+
+Final full `npm run check` passed after removing the experimental option: 625 TypeScript tests, 41 Python tests, 139 tools, five packaged skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-viewer-boundaries.log`). The earlier 627-test run covered the temporary extension and is not evidence of a qualified Record feature. Production adapter code is unchanged from the preceding commit; tests and user guidance now explicitly retain the observed boundary.
+
+Investigated the installed descriptor for frame navigation. It declares no seek method or position argument on LoadMobsIntoViewer. A temporary adapter extension encoded an explicit Record request for the owned load fixture through preview/apply. Avid completed the request but returned the target only in Source, so exact viewer verification failed. Independent request encode/decode preserved Record. The experimental public option was removed rather than exposing known incorrect behavior. Original fixture/source-bin/media hashes stayed unchanged at inspection; no automatic retry or save followed.
+
+Evidence: `.avid-mcp-analysis/native-record-viewer-a7c7f56c-41b5-4be2-9e9b-007e945b71c5/observation.json`. The read-only `verify-native-record-viewer-refusal.mjs` verifies the retained request/response and qualified schema encoding without replaying the write. Added assertions for the Source request body and refusal of unsupported viewer/position arguments; packaged selects guidance keeps Record loading on the observed UI path. Prior 583142b CI and CodeQL passed. Full-plan Record execution/seek support remains open.
+
 ### Isolated record-loading metadata change
 
 Created a fresh owned PCM/color copy with a staged record-load qualification harness. Initial and extra close/reopen control graphs matched exactly. Computer use confirmed the bin through the full tab menu and loaded its only sequence into Record without comment/column edits. Native viewer readback confirmed its exact MOB. The loaded-but-unsaved file still matched control; after close/reopen, the only decoded change was one 120-frame DescriptiveMetadata filler track. Original source-bin/media and server-entry hashes remained unchanged. Evidence: `.avid-mcp-analysis/record-load-0c802313-caf2-4f5a-9be6-18ae92a5ddcb/`; detailed scope and hashes in NATIVE_VIEWER_QUALIFICATION.md. The additional track is retained as a difference, not accepted as baseline restoration.

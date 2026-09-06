@@ -240,11 +240,17 @@ describe("native boundaries", () => {
   it("verifies show_clip only when the requested MOB appears in the Source viewer",async()=>{
     for(const viewer of ["Record","Source"]){
       const f=await hostFixture(),original=f.client.call.bind(f.client);
-      vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="LoadMobsIntoViewer"?Promise.resolve([]):method==="GetViewerMobs"?Promise.resolve([{mobs:[{mob_id:"clip",view_type:viewer,current_frame:0,current_timecode:"00:00:00:00"}]}]):original(method,body));
+      vi.spyOn(f.client,"call").mockImplementation((method,body)=>{
+        if(method==="LoadMobsIntoViewer"){expect(body).toEqual({mob_ids:["clip"],view_type:"Source"});return Promise.resolve([]);}
+        return method==="GetViewerMobs"?Promise.resolve([{mobs:[{mob_id:"clip",view_type:viewer,current_frame:0,current_timecode:"00:00:00:00"}]}]):original(method,body);
+      });
       const preview=await f.adapter.preview({action:"show_clip",bin:"fixture.avb",mobId:"clip"}),result=await f.adapter.apply(preview.token);
       expect(result).toMatchObject({applicationCompleted:true,viewerVerified:viewer==="Source",postStateRead:true,persistenceVerified:false});
       await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");
     }
+  });
+  it("refuses unqualified viewer modes and position arguments",()=>{
+    for(const extra of [{viewer:"Record"},{viewer:"Popup"},{viewer:"Center"},{frame:60}])expect(nativeActionSchema.safeParse({action:"show_clip",bin:"fixture.avb",mobId:"clip",...extra}).success).toBe(false);
   });
   it("returns only viewer entries belonging to the requested bin",async()=>{
     const f=await hostFixture(),result=await f.adapter.read("viewers","fixture.avb");expect(result).toMatchObject({viewers:[{mob_id:"clip",current_frame:0}],outOfBinOmitted:1});expect(JSON.stringify(result)).not.toContain("PRIVATE");

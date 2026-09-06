@@ -1,5 +1,9 @@
 # Native viewer loading qualification
 
+The qualified descriptor declares Record as a viewer enum, but an experimental guarded request for it loaded the exact target MOB into Source instead. Native completion was true and exact Record verification was false. A locally encoded/decoded request preserved `view_type: "Record"`, so the requested value was not lost by protobuf conversion. The proposed public Record option was removed after this negative host result; `show_clip` remains Source-only. The descriptor also exposes no dedicated seek method or frame argument on `LoadMobsIntoViewer`. Record loading and frame-accurate seeking still require a separately observed UI workflow or another qualified integration.
+
+Evidence: `.avid-mcp-analysis/native-record-viewer-a7c7f56c-41b5-4be2-9e9b-007e945b71c5/observation.json`. Before the attempt, the fixture had no scoped loaded viewer; afterward it appeared only as Source at frame 0. The owned fixture, original source-bin and MP4 hashes stayed unchanged at inspection. No save, undo or automatic retry followed. This does not prove unsaved-graph preservation or explain why the host ignored the declared mode.
+
 ## Record loading can change the saved graph
 
 A controlled fresh copy of the Sonoma PCM/color sequence reproduced the added metadata track without any Comments write or bin-column adjustment. `scripts/research/qualify-native-record-load.mjs prepare` creates the owned bin and captures an initial graph, then performs an additional close/reopen control. All decoded mobs matched. Computer use confirmed the exact bin in the tab menu and double-clicked its sequence row; the record timeline loaded at 01:00:00:00 and the bin showed an unsaved-change indicator. `capture <absolute prepared directory>` required native Record-viewer identity readback before saving/reopening and retaining the resulting graph.
