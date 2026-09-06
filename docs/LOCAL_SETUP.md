@@ -2,6 +2,12 @@
 
 ## Install core Python dependencies
 
+Success receipts are written to a private temporary file, closed, then linked exclusively as `installation.json`. Existing receipts are never replaced. An interruption before that link leaves no success receipt; a staged file alone is not completion evidence. This is complete-file publication, not power-loss durability.
+
+An actual CLI experiment completed installation, paused immediately before linking the completed receipt, and terminated the owned installer. Status remained incomplete before and after closure, retry was refused, and the attempt/staged-receipt hashes remained unchanged. Evidence: `.avid-mcp-analysis/python-install-interruption-836703b2-38dc-4bb7-9077-0fdf96eaf4aa/evidence.json`.
+
+A fresh development tarball installation separately executed the normal Python installer and status commands, then doctor and Sonoma AVB/AAF MCP reads from a foreign directory. Runtime/source hashes remained unchanged across reconnect and working-directory/PYTHONPATH conflicts were ignored. Evidence: `.avid-mcp-analysis/python-cli-packaged-install.json` and `python-runtime-cli-17935416-659e-4a60-b283-a9dbbb4d96c3/evidence.json` beneath the analysis root. The harness accepts an optional absolute installed `dist/cli.js` after the runtime directory. No new npm version was published.
+
 Setup writes `attempt.json` before starting its first subprocess. If no success receipt exists, status reads that bounded record and returns `state: "incomplete"`, `executable: null` and `workerState: "unknown"`. It does not execute a partial interpreter or infer that the installer has stopped. A successful receipt returns `state: "receipt_checked"` with the existing consistency fields. Invalid/relocated records are rejected; older successful receipts remain readable.
 
 The production CLI was paused immediately after its attempt write, before any worker or download. Status returned incomplete while that installer was still live and after its confirmed closure; a retry was refused and the attempt checksum remained unchanged. Evidence: `.avid-mcp-analysis/python-install-interruption-cce8e4b0-95b3-4463-8153-81dae4ad17e3/evidence.json`. A separate normal install with the new record format passed doctor, real AVB/AAF MCP reads, reconnect and unchanged-tree checks at `python-runtime-cli-500e0a0e-a24b-4d27-9954-610139ff9018/evidence.json` beneath the same root. Mid-pip interruption and power-loss recovery remain unqualified.

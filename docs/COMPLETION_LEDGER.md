@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Publish complete Python receipts and qualify installed lifecycle commands
+
+Python setup now stages and closes its success receipt before exclusive hard-link publication. Concurrent publication tests establish one complete winner and no overwrite. An actual pre-link interruption left status incomplete, retained the staged/attempt bytes and refused retry into the existing directory. Evidence: `.avid-mcp-analysis/python-install-interruption-836703b2-38dc-4bb7-9077-0fdf96eaf4aa/evidence.json`.
+
+A fresh tarball-installed CLI completed a new isolated Python installation, then passed status, overwrite refusal, doctor, actual Sonoma AVB/AAF reads and fresh-session equality with unchanged source/runtime hashes. Evidence: `.avid-mcp-analysis/python-cli-packaged-install.json` and `python-runtime-cli-17935416-659e-4a60-b283-a9dbbb4d96c3/evidence.json`. Typecheck/build and six runtime tests passed. This closes the missing installed-command proof for this fixture; power loss, mid-pip interruption, upgrade/removal and clean-OS acceptance remain open.
+
+The full TypeScript suite passed 809 tests (`.avid-mcp-analysis/test-python-receipt-publication.log`). Earlier Python/transport gates and this fresh installed-runtime exercise remain separate evidence.
+
 ### Inspect incomplete Python installation attempts
 
 Core Python setup now records its identity before subprocesses/downloads. Status without a success receipt validates that attempt and reports incomplete with no executable and unknown worker state. It does not treat file presence as termination evidence, repair records or retry setup. Completed receipts retain their consistency checks and historical compatibility. Tests cover retained failed setup, corrupt/relocated attempts and no execution on status.

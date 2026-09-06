@@ -1,4 +1,5 @@
-import {mkdir,lstat,realpath,writeFile,readFile} from "node:fs/promises";
+import {mkdir,lstat,realpath,writeFile,readFile,open,link,unlink} from "node:fs/promises";
+import {randomUUID} from "node:crypto";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import * as z from "zod/v4";
@@ -13,6 +14,14 @@ const versions=z.object({pip:z.string(),pyavb:z.literal("1.4.0"),pyaaf2:z.litera
 const receiptSchema=z.object({schema:z.literal(1),kind:z.literal("avid-core-python"),directory:z.string(),basePython:z.string(),versions,treeSha256:z.string().regex(/^[a-f0-9]{64}$/),createdAt:z.string().datetime()}).strict();
 const attemptSchema=z.object({schema:z.literal(1),kind:z.literal("avid-core-python-attempt"),directory:z.string(),basePython:z.string(),versions,createdAt:z.string().datetime()}).strict();
 const pythonAt=(directory:string)=>path.join(directory,"runtime",process.platform==="win32"?"Scripts/python.exe":"bin/python");
+/** Publish a complete receipt exclusively. No replacement or power-loss durability claim. */
+export async function publishPythonRuntimeReceipt(directory:string,receipt:unknown){
+ const temporary=path.join(directory,`.installation-${randomUUID()}.tmp`),handle=await open(temporary,"wx",0o600);
+ try{
+  try{await handle.writeFile(JSON.stringify(receipt,null,2));}finally{await handle.close();}
+  await link(temporary,path.join(directory,"installation.json"));
+ }finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
+}
 async function direct(directory:string){
  if(!path.isAbsolute(directory))throw new Error("Python runtime path must be absolute");
  const info=await lstat(directory);if(!info.isDirectory()||info.isSymbolicLink())throw new Error("Python runtime must be a direct directory");
@@ -63,7 +72,7 @@ export async function installPythonRuntime(directory:string,basePython:string){
   const checked=versions.parse(JSON.parse(await execute(executable,["-I","-B","-c","import importlib.metadata as m,json,avb,aaf2; print(json.dumps({n:m.version(n) for n in ['pip','pyavb','pyaaf2']}))"])));
   if(checked.pip!==PIP_VERSION)throw new Error("Python runtime bootstrap version mismatch");
   const receipt=receiptSchema.parse({schema:1,kind:"avid-core-python",directory,basePython:base,versions:checked,treeSha256:await packageTreeHash(directory),createdAt:new Date().toISOString()});
-  await writeFile(path.join(directory,"installation.json"),JSON.stringify(receipt,null,2),{flag:"wx",mode:0o600});
+  await publishPythonRuntimeReceipt(directory,receipt);
   const status=await pythonRuntimeStatus(directory);
   if(status.state!=="receipt_checked")throw new Error("Python runtime success receipt disappeared");
   return status;

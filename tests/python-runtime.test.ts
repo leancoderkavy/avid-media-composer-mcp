@@ -5,8 +5,15 @@ import {it,expect,vi,beforeEach} from "vitest";
 const mock=vi.hoisted(()=>({run:vi.fn(),wheel:vi.fn()}));
 vi.mock("../src/process.js",()=>({runProcess:mock.run}));
 vi.mock("../src/library/python-bootstrap.js",()=>({PIP_VERSION:"26.2.1",preparePipWheel:mock.wheel}));
-import {installPythonRuntime,pythonRuntimeStatus} from "../src/python-runtime.js";
+import {installPythonRuntime,pythonRuntimeStatus,publishPythonRuntimeReceipt} from "../src/python-runtime.js";
 beforeEach(()=>{mock.run.mockReset();mock.wheel.mockReset();});
+it("publishes exactly one complete receipt when writers race and preserves it on retry",async()=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),"avid-runtime-receipt-"));
+ const results=await Promise.allSettled([publishPythonRuntimeReceipt(root,{writer:1}),publishPythonRuntimeReceipt(root,{writer:2})]);
+ expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);
+ const file=path.join(root,"installation.json"),before=await readFile(file,"utf8");expect([1,2]).toContain(JSON.parse(before).writer);
+ await expect(publishPythonRuntimeReceipt(root,{writer:3})).rejects.toMatchObject({code:"EEXIST"});expect(await readFile(file,"utf8")).toBe(before);
+});
 async function fixture(){
  const root=await realpath(await mkdtemp(path.join(os.tmpdir(),"avid-core-runtime-"))),directory=path.join(root,"new-runtime");
  mock.wheel.mockImplementation(async dir=>{const file=path.join(dir,"pip.whl");await writeFile(file,"verified-fixture-wheel");return file;});
