@@ -23,7 +23,7 @@ const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Blac
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
-  z.object({action:z.literal("select_clips"),bin:z.string().min(1),mobIds:selectionIds.refine(ids=>ids.length>0,"Select at least one clip"),expectedSelectedMobIds:selectionIds}).strict(),
+  z.object({action:z.literal("select_clips"),bin:z.string().min(1),mobIds:selectionIds,expectedSelectedMobIds:selectionIds}).strict(),
   z.object({action:z.literal("export_edl"),bin:z.string().min(1),mobId:id,preset:name,exportDirectory:z.string().min(1),expected:edlCutContract}).strict(),
   z.object({action:z.literal("export_aaf_master"),bin:z.string().min(1),mobId:id,preset:name,sourceFile:z.string().min(1),expectedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
   z.object({action:z.literal("import_aaf_selects"),bin:z.string().min(1),file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),preset:name}).strict(),
@@ -371,7 +371,7 @@ export class NativeAdapter {
           if(action.action==="select_clips"){
             postState=await this.read("selected_clips",action.bin);
             const selected=(postState as {clips:{mob_id:string}[]}).clips.map(item=>item.mob_id).sort();
-            const reported=z.array(z.object({selected_mob_ids:z.array(id).max(4096)})).length(1).parse(result)[0]!.selected_mob_ids;
+            const reported=action.mobIds.length===0&&result.length===0?[]:z.array(z.object({selected_mob_ids:z.array(id).max(4096)})).length(1).parse(result)[0]!.selected_mob_ids;
             if(digest(selected)!==digest([...action.mobIds].sort())||digest([...reported].sort())!==digest([...action.mobIds].sort()))throw new Error("Requested selection not verified; inspect before another attempt");
           }else if(action.action==="create_subclip"){
 

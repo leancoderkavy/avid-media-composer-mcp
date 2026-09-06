@@ -283,5 +283,16 @@ it.each([false,true])("guards replacement selection and reports postcondition mi
  await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");
  await expect(f.adapter.preview({...action,mobIds:["outside"]})).rejects.toThrow("not in bin");
  expect(nativeActionSchema.safeParse({...action,mobIds:["clip","clip"]}).success).toBe(false);
- expect(nativeActionSchema.safeParse({...action,mobIds:[]}).success).toBe(false);
+ expect(nativeActionSchema.safeParse({...action,mobIds:[]}).success).toBe(true);
+});
+
+it.each([false,true])("verifies clear-selection completion against a fresh read (mismatch=%s)",async(mismatch)=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let selected=["clip"];
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems")return body?.only_selected_flag?selected.map(mob_id=>({mob_id,mob_selected:true})):[{mob_id:"clip"}];
+  if(method==="SelectMobsInBin"){expect(body?.mob_ids).toEqual([]);if(!mismatch)selected=[];return [];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:"select_clips",bin:"fixture.avb",mobIds:[],expectedSelectedMobIds:["clip"]});
+ expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,selectionVerified:!mismatch});
 });

@@ -443,3 +443,11 @@ This is bounded research on the disposable bin, not a production MCP mutation or
 Validation: 35 native tests and build passed, including stale selection refusal before write, mismatch reporting, duplicate/out-of-bin target refusal and token replay refusal. Real MCP selection of both Sonoma fixture members passed in `.avid-mcp-analysis/native-select-mcp-7eb4da5d-1336-4205-a15d-f9e7921cf56a`; reproduction script: `scripts/research/qualify-native-select-mcp.mjs`.
 
 A separate MCP preview/apply restored the original sequence-only selection with `selectionVerified:true`: `.avid-mcp-analysis/native-select-mcp-bba1eea9-3ec8-43a8-a6a1-751c921a7cd5`.
+
+### Clear-selection qualification
+
+Follow-up qualification establishes empty replacement selection on the installed host. `SelectMobsInBin` with no MOB IDs and `add_to_selection:false` completed with no body; selected-only enumeration returned empty. A separate expected-empty restoration returned the original sequence. Research evidence: `.avid-mcp-analysis/native-selection-write-f33ddd53-dedd-4a7c-9f72-31187f8581e9` and `native-selection-write-77bfd7f0-147f-4c8c-a042-15b9e7594a1d`.
+
+Production `select_clips` now accepts an empty target list. Only an empty requested selection permits the observed bodyless completion, and a fresh selected-only read must also be empty for `selectionVerified:true`. Tests cover an unchanged selection despite empty completion; it remains unverified. Native tests: 37 passed; build passed. Actual MCP clear evidence: `.avid-mcp-analysis/native-select-mcp-6b5c2962-cbb7-46f8-91c5-ad64cf8a763e`. Fresh-tarball package validation passed with 133 tools/five skills and exact tool definitions across five generated client formats; Python isolation was not requested in this run. Log: `.avid-mcp-analysis/package-selection.log`. Additive native selection remains unqualified.
+
+MCP restoration from empty to the original sequence passed separately: `.avid-mcp-analysis/native-select-mcp-5ab05ef4-04d7-4c1a-af47-840bad1dba1c`.

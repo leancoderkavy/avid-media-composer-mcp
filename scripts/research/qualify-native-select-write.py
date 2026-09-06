@@ -14,7 +14,10 @@ ALLOWED={'GetOpenProjectInfo','GetListOfBinItems','SelectMobsInBin'}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--restore",action="store_true")
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument("--restore",action="store_true")
+    mode.add_argument("--clear",action="store_true")
+    mode.add_argument("--restore-empty",action="store_true")
     args=parser.parse_args()
     raw=BINARY.read_bytes()
     if hashlib.sha256(raw).hexdigest()!='3ca4d082a3afe00a120d6061d6ee94e20e6113238f0b016398700f3439ec9194':
@@ -48,9 +51,9 @@ def main():
     master='060a2b340101010501010f1013-000000-36b2e93612888806-a3b2d8bbc16d-18d9'
     if ids!=sorted([MOB,master]):raise ValueError('Unexpected fixture membership')
     selected=call('GetListOfBinItems',{'bin_relative_path':bin,'bin_flags':['AllTypes'],'only_selected_flag':True})
-    expected=sorted([MOB,master]) if args.restore else [MOB]
+    expected=[] if args.restore_empty else sorted([MOB,master]) if args.restore else [MOB]
     if sorted(v['mob_id'] for v in selected)!=expected:raise ValueError('Selection changed; inspect before proceeding')
-    request={'bin_path':str(PROJECT/bin),'mob_ids':[MOB] if args.restore else ids,'add_to_selection':False}
+    request={'bin_path':str(PROJECT/bin),'mob_ids':[] if args.clear else [MOB] if args.restore or args.restore_empty else ids,'add_to_selection':False}
     (directory/'attempt.json').write_text(json.dumps({'request':request,'before':selected}))
     result=call('SelectMobsInBin',request)
     after=call('GetListOfBinItems',{'bin_relative_path':bin,'bin_flags':['AllTypes'],'only_selected_flag':True})
