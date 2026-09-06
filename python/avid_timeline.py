@@ -115,6 +115,14 @@ def index_bin(filename, max_nodes=10000):
                         node['timecode']={'start':int(component.start)+left-position,'fps':int(component.fps),'flags':int(component.flags)}
                     elif kind!='FILL':
                         node['opaque']=True
+                        if kind=='TKFX':
+                            effect_id=getattr(component,'effect_id',None)
+                            if effect_id is not None:
+                                if not isinstance(effect_id,str) or len(effect_id)>1024:
+                                    raise ValueError('Invalid or oversized effect identifier')
+                                node['effect']={'id':effect_id,
+                                                'hasParameters':getattr(component,'param_list',None) is not None,
+                                                'hasKeyframes':getattr(component,'keyframes',None) is not None}
                         warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'OPAQUE_COMPONENT','kind':kind})
                     nodes.append(node)
 

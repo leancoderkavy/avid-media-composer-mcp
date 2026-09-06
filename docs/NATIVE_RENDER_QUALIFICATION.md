@@ -2,6 +2,10 @@
 
 ## Isolated color-adapter refresh result, 2026-09-06
 
+Saved-object inspection now identifies both new picture wrappers as `EFF2_LUTSFX`, each with PRLS parameters, FXPS keyframes and one nested 60-frame picture sequence. Their source IDs, source track 1 and starts 2850/3300 match the original direct clips; both audio tracks remain structurally unchanged in the recorded projection. `scripts/research/inspect-color-adapter-graph.py` retains the before/after declarations in `adapter-structure.json` alongside the fixture. Parameter and keyframe meanings are not decoded, so this does not qualify transparent traversal or effect equivalence.
+
+The production saved-bin parser now exposes bounded `effect.id`, `hasParameters` and `hasKeyframes` on opaque TKFX nodes. Saved snapshots preserve these declarations through reconnect and range queries. It does not flatten the effect, invent a source range or mark the bin complete. Actual MCP capture/reconnect of the refreshed saved bin returned both `EFF2_LUTSFX` declarations and preserved its hash: `.avid-mcp-analysis/saved-color-effects-8ceef0b0-72dd-4153-bb1b-70988919439f/evidence.json`.
+
 Created `MCP_Color_ca6d9cb31bcc.avb` with a copy of the owned Copy.05 sequence and verified saved sequence semantics before refresh, excluding its new name/identity. UI Refresh Sequence > Color Adapters was applied to the selected copy. Native close/open persisted that bin; the saved picture nodes changed to opaque TKFX wrappers. This is evidence of an adapter-related structure change, not full effect/source-graph interpretation.
 
 Export using `MCP_H264_Stereo_Legal_20260905` passed technical verification including all 120 decoded frames, legal-range BT.709 declarations and stereo 48 kHz PCM. Output SHA-256: `d182cfbf8be15552dbe4e426c175c2b15f5bf9226f94b8da923d04e61bca2d19`. Independent full-resolution comparison using the existing source-frame alignment and Lanczos reference yielded mean SSIM 0.958711, minimum 0.901226, RGB RMSE 4.429720 and aggregate PSNR 35.203279 dB. The preceding unrefreshed native render had mean SSIM 0.784061. No output range retagging was applied in this experiment.

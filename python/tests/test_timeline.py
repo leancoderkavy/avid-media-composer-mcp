@@ -105,6 +105,18 @@ class TimelineTests(unittest.TestCase):
                 nodes=result['mobs'][0]['tracks'][0]['nodes']
                 self.assertEqual(len(nodes),1);self.assertTrue(nodes[0]['opaque'])
                 self.assertNotIn('sourceMobId',nodes[0])
+                self.assertIn('effect',nodes[0])
+                self.assertFalse(nodes[0]['effect']['hasKeyframes'])
+
+    def test_effect_identifier_bounds_and_saved_declaration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result=index_bin(self.stereo_fixture(directory,lambda e:setattr(e,'effect_id','EFF2_LUTSFX')))
+            node=result['mobs'][0]['tracks'][0]['nodes'][0]
+            self.assertEqual(node['effect'],{'id':'EFF2_LUTSFX','hasParameters':False,'hasKeyframes':False})
+            self.assertTrue(node['opaque'])
+            self.assertNotIn('sourceStart',node)
+            with self.assertRaisesRegex(ValueError,'effect identifier'):
+                index_bin(self.stereo_fixture(directory,lambda e:setattr(e,'effect_id','x'*1025)))
 
     def fixture(self,directory,mixed=False):
         target=Path(directory)/'fixture.avb'
