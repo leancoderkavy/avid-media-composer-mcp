@@ -1,6 +1,17 @@
 import {it,expect} from "vitest";
 import {traceSavedSources} from "../src/library/source-trace.js";
 const mob=(mobId:string,sourceMobId:string,offset=0)=>({mobId,rate:30,duration:200,sourceBounds:{start:0,end:200},tracks:[{index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:200,sourceMobId,sourceTrackId:1,sourceStart:offset}]}]});
+it("traces declared color inputs while keeping opaque output correspondence incomplete",()=>{
+ const a=mob('a','unused'),b=mob('b','terminal'),bin={file:'fixture',mobs:[a,b]};
+ const input={sourceMobId:'b',sourceTrackId:1,sourceStart:40,length:200,rate:30,basis:'declared-equal-length-input'};
+ Object.assign(a.tracks[0]!.nodes[0]!,{kind:'TKFX',opaque:true,effect:{id:'EFF2_LUTSFX',inputReference:input}});
+ const result=traceSavedSources([bin],{bin,mob:a},10,30);
+ expect(result.incomplete).toBe(true);
+ expect(result.steps[0]).toMatchObject({kind:'TKFX',effectInputOnly:true,sourceStart:50,sourceEnd:70,status:'reference'});
+ expect(result.steps[1]).toMatchObject({mobId:'b',sourceStart:50,sourceEnd:70});
+ input.rate=24;expect(traceSavedSources([bin],{bin,mob:a},10,30).steps[0]).toMatchObject({status:'unsupported_component'});
+ input.rate=30;input.length=199;expect(traceSavedSources([bin],{bin,mob:a},10,30).steps[0]).toMatchObject({status:'unsupported_component'});
+});
 it("distinguishes historical missing metadata from captured absent and recorded descriptors",()=>{
  const a={...mob("a","b"),descriptor:null},b={...mob("b","c"),descriptor:{classId:"MDES",values:{},locator:{classId:"WINF",paths:[{field:"path",value:"Z:/offline/source.mov"}]}}},c=mob("c","terminal"),bin={file:"fixture",mobs:[a,b,c]};
  a.tracks.push({...a.tracks[0]!,index:2});

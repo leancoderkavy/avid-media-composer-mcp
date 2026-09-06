@@ -139,6 +139,32 @@ def descriptor_metadata(descriptor):
     return result
 
 
+def color_adapter_input(component):
+    """Declared equal-length input reference; not rendered/output-time verification."""
+    if component.class_id!=b'TKFX' or color_declaration(component) is None or component.media_kind!='picture':return None
+    if any(getattr(component,key,None)!=0 for key in ('info_is_reversed','mc_mode','num_scalars')):return None
+    tracks=component.tracks
+    if len(tracks)!=1 or tracks[0].index!=1:return None
+    sequence=getattr(tracks[0],'component',None)
+    if (sequence is None or sequence.class_id!=b'SEQU' or sequence.media_kind!='picture'
+        or sequence.edit_rate!=component.edit_rate or sequence.length!=component.length):return None
+    children=sequence.components
+    if len(children)>3:return None
+    clips=[]
+    for child in children:
+        if child.edit_rate!=component.edit_rate or child.media_kind!='picture':return None
+        if child.class_id==b'FILL' and child.length==0:continue
+        if child.class_id!=b'SCLP':return None
+        clips.append(child)
+    if len(clips)!=1:return None
+    clip=clips[0]
+    if clip.length!=component.length or clip.length<=0 or clip.start_time<0:return None
+    values=(clip.start_time,clip.length,clip.track_id)
+    if any(isinstance(value,bool) or not isinstance(value,int) or abs(value)>9007199254740991 for value in values):return None
+    return {'sourceMobId':str(clip.mob_id),'sourceTrackId':clip.track_id,'sourceStart':clip.start_time,
+            'length':clip.length,'rate':float(clip.edit_rate),'basis':'declared-equal-length-input'}
+
+
 def index_bin(filename, max_nodes=10000):
     import avb
     file=Path(filename)
@@ -228,6 +254,11 @@ def index_bin(filename, max_nodes=10000):
                                 for source_field,target_field in [('param_list','parametersFingerprint'),('keyframes','keyframesFingerprint')]:
                                     fingerprint=parameter_fingerprint(getattr(component,source_field,None))
                                     if fingerprint is not None:node['effect'][target_field]=fingerprint
+                                input_reference=color_adapter_input(component)
+                                if input_reference is not None:
+                                    input_reference['sourceStart']+=left-position
+                                    input_reference['length']=right-left
+                                    node['effect']['inputReference']=input_reference
                         warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'OPAQUE_COMPONENT','kind':kind})
                     nodes.append(node)
 

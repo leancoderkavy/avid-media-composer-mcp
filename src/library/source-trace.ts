@@ -1,4 +1,4 @@
-type Node={kind:string;timelineStart:number;timelineEnd:number;sourceMobId?:string|undefined;sourceTrackId?:number|undefined;sourceStart?:number|undefined;opaque?:boolean|undefined;channelCombiner?:{channelIndex:1|2;channelCount:2}|undefined};
+type Node={kind:string;timelineStart:number;timelineEnd:number;sourceMobId?:string|undefined;sourceTrackId?:number|undefined;sourceStart?:number|undefined;opaque?:boolean|undefined;channelCombiner?:{channelIndex:1|2;channelCount:2}|undefined;effect?:{id:string;inputReference?:{sourceMobId:string;sourceTrackId:number;sourceStart:number;length:number;rate:number;basis:string}|undefined}|undefined};
 type Track={index:number;mediaKind:string;nodes:Node[]};
 type Mob={mobId:string;rate:number;duration:number;sourceBounds:{start:number;end:number};tracks:Track[];descriptor?:unknown};
 type Bin={file:string;mobs:Mob[]};
@@ -27,8 +27,11 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
     // Only paired, identically bounded channel references emitted by the qualified parser can overlap.
     group.push(peer);index++;
    }
-   for(const node of group){
-   const step={...base,start:a,end:b,kind:node.kind,...(node.channelCombiner?{channelCombiner:node.channelCombiner}:{})};
+   for(const storedNode of group){
+   let node=storedNode;const input=node.effect?.inputReference;
+   const effectInputOnly=!!(node.kind==='TKFX'&&node.opaque&&node.effect?.id==='EFF2_LUTSFX'&&track.mediaKind==='picture'&&input?.basis==='declared-equal-length-input'&&input.rate===mob.rate&&input.length===node.timelineEnd-node.timelineStart&&Number.isSafeInteger(input.sourceStart)&&input.sourceStart>=0&&Number.isSafeInteger(input.sourceTrackId));
+   if(effectInputOnly&&input){incomplete=true;node={...node,kind:'SCLP',opaque:false,sourceMobId:input.sourceMobId,sourceTrackId:input.sourceTrackId,sourceStart:input.sourceStart};}
+   const step={...base,start:a,end:b,kind:storedNode.kind,...(effectInputOnly?{effectInputOnly:true,effectId:storedNode.effect!.id,mapping:'declared equal-length input; rendered output correspondence unverified'}:{}),...(node.channelCombiner?{channelCombiner:node.channelCombiner}:{})};
    if(node.kind!=="SCLP"||node.opaque||node.sourceMobId===undefined||node.sourceTrackId===undefined||node.sourceStart===undefined){incomplete=true;emit({...step,status:"unsupported_component"});continue;}
    // Compute bounded deltas first: adding absolute timeline coordinates can
    // lose an integer frame even when the final source range would be safe.

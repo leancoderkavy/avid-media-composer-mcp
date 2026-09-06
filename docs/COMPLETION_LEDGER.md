@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Diagnostic color-adapter input tracing
+
+Added bounded recognition of the saved color adapter's single equal-length picture input. It requires the supported LUT declaration, non-reversed/zero mode/scalar flags, one input track, one same-rate/full-length source clip and optional zero-length fillers. Saved nodes remain opaque with a separate `effect.inputReference`; trace steps explicitly mark `effectInputOnly` and the whole trace remains incomplete. This follows declared input chains without asserting rendered output correspondence. See COLOR_ADAPTER_INPUT_TRACE.md.
+
+Actual MCP capture/reconnect of the refreshed Sonoma bin returned both original input identities and [2850,2910)/[3300,3360) ranges. Tracing composition [30,90) returned [2880,2910) and [3300,3330), retained incomplete status and preserved the bin hash. Evidence: `.avid-mcp-analysis/saved-color-effects-61e132e4-2905-49ce-bd55-4fb7204fa85c/evidence.json`. Tests reject rate/length mismatches, reverse/mode/scalar flags, nested effects, sound inputs, extra clips and nonzero fillers.
+
+Full local check passed: 596 TypeScript tests, 40 Python tests, 139 tools, five skills, transports and fresh-package/Python checks (`.avid-mcp-analysis/check-color-input-trace.log`). Previous 11d7b4a CI and CodeQL passed. General effect interpretation, native refresh/edit automation, rendered source correspondence and remaining full-plan requirements are still open.
+
 ### Same-name effect keyframe change detection
 
 Added versioned bounded fingerprints of supported saved parameter/keyframe declarations to opaque TKFX nodes and snapshot validation/diffs. This catches changes beyond readable LUT labels without flattening effects or asserting rendered equivalence. See SAVED_EFFECT_FINGERPRINTS.md for supported classes, resource bounds and the inclusion of saved parameter UI fields. Unit tests cover deterministic hashes, byte changes, unsupported/cyclic/oversized values and saved same-name effect diffs with incomplete coverage retained.

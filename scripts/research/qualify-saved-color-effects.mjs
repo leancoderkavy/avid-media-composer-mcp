@@ -22,13 +22,19 @@ try{
  const result=await call(client,'avid_saved_timeline_range',{revision:snapshot.revision,mobId:mob.mobId,start:0,end:120,trackOrdinal:0});
  assert.equal(result.results.length,2);
  for(const [index,node] of result.results.entries()){
-  const {parametersFingerprint,keyframesFingerprint,...declarations}=node.effect;
+  const {parametersFingerprint,keyframesFingerprint,inputReference,...declarations}=node.effect;
   assert.deepEqual(declarations,{id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true,linearLutDeclaration:{name:'Levels scaling (full range to video levels)',bitDepth:10,black:64,white:940,invertedFlagPresent:true}});
   for(const fingerprint of [parametersFingerprint,keyframesFingerprint]){assert.equal(fingerprint.schema,1);assert.match(fingerprint.sha256,/^[a-f0-9]{64}$/);}
+  assert.deepEqual(inputReference,{sourceMobId:'urn:smpte:umid:060a2b34.01010105.01010f10.13000000.36b2e936.12888806.a3b2d8bb.c16d18d9',sourceTrackId:1,sourceStart:index===0?2850:3300,length:60,rate:30,basis:'declared-equal-length-input'});
   assert.equal(node.opaque,true);assert.equal(node.timelineStart,index*60);assert.equal(node.timelineEnd,(index+1)*60);
   assert.equal(node.sourceMobId,undefined);assert.equal(node.sourceStart,undefined);
  }
+ const trace=await call(client,'avid_trace_saved_sources',{revision:snapshot.revision,mobId:mob.mobId,start:30,end:90});
+ assert.equal(trace.incomplete,true);
+ const inputs=trace.steps.filter(step=>step.effectInputOnly);
+ assert.equal(inputs.length,2);assert.deepEqual(inputs.map(step=>[step.sourceStart,step.sourceEnd]),[[2880,2910],[3300,3330]]);
+ assert.ok(inputs.every(step=>step.kind==='TKFX'&&step.status==='reference'));
  assert.equal(await sha256File(file),hash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({file,hash,events,unchanged:true,scope:'Actual saved refreshed bin through MCP capture and reconnected range read; effect declarations only, no inferred source mapping or parameter meaning.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({file,hash,events,unchanged:true,scope:'Actual saved refreshed bin through MCP capture/reconnect, effect declarations and equal-length input-reference diagnostics. Rendered correspondence and parameter meaning remain unverified.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,revision:snapshot.revision,effects:result.results.map(n=>n.effect),unchanged:true}));
 }finally{await client.close();}

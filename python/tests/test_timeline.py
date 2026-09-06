@@ -4,11 +4,27 @@ import unittest
 from pathlib import Path
 import avb
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint
+from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint, color_adapter_input
+from unittest.mock import patch
 from types import SimpleNamespace
 
 
 class TimelineTests(unittest.TestCase):
+    def test_color_input_reference_requires_single_equal_length_picture_source(self):
+        clip=SimpleNamespace(class_id=b'SCLP',media_kind='picture',edit_rate=30,length=60,start_time=2850,track_id=1,mob_id='source')
+        filler=SimpleNamespace(class_id=b'FILL',media_kind='picture',edit_rate=30,length=0)
+        sequence=SimpleNamespace(class_id=b'SEQU',media_kind='picture',edit_rate=30,length=60,components=[filler,clip,filler])
+        effect=SimpleNamespace(class_id=b'TKFX',media_kind='picture',edit_rate=30,length=60,info_is_reversed=0,mc_mode=0,num_scalars=0,tracks=[SimpleNamespace(index=1,component=sequence)])
+        with patch('avid_timeline.color_declaration',return_value={}):
+            self.assertEqual(color_adapter_input(effect),{'sourceMobId':'source','sourceTrackId':1,'sourceStart':2850,'length':60,'rate':30.0,'basis':'declared-equal-length-input'})
+            for obj,key,value in [(effect,'info_is_reversed',1),(effect,'mc_mode',1),(effect,'num_scalars',1),
+                                  (sequence,'edit_rate',24),(sequence,'length',59),(clip,'length',59),
+                                  (clip,'class_id',b'TKFX'),(clip,'start_time',-1),(clip,'media_kind','sound'),
+                                  (filler,'length',1),(sequence,'components',[clip,clip]),(effect,'tracks',[])]:
+                old=getattr(obj,key);setattr(obj,key,value)
+                self.assertIsNone(color_adapter_input(effect),(key,value));setattr(obj,key,old)
+        with patch('avid_timeline.color_declaration',return_value=None):self.assertIsNone(color_adapter_input(effect))
+
     def test_parameter_fingerprints_detect_payload_changes_and_fail_closed(self):
         with avb.open() as file:
             value=file.create.CFUserParam()
