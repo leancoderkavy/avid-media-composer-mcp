@@ -191,11 +191,13 @@ def color_adapter_input(component):
 
 def index_bin(filename, max_nodes=10000):
     import avb
+    from avid_markers import saved_markers
     file=Path(filename)
     before=hashlib.sha256(file.read_bytes()).hexdigest()
     warnings=[]
     count=0
     mobs=[]
+    marker_budget={'nodes':0,'markers':0}
     with avb.open(str(file)) as source:
         for mob in source.content.mobs:
             if len(mobs)>=1000:
@@ -293,7 +295,8 @@ def index_bin(filename, max_nodes=10000):
             mobs.append({'mobId':str(mob.mob_id),'name':mob.name or '', 'mobType':mob.mob_type,
                          'usageCode':int(mob.usage_code),'rate':rate,'duration':end-start,
                          'sourceBounds':{'start':start,'end':end},'tracks':tracks,'comment':saved_comment(attributes),
-                         'descriptor':descriptor_metadata(getattr(mob,'descriptor',None))})
+                         'descriptor':descriptor_metadata(getattr(mob,'descriptor',None)),
+                         'markers':saved_markers(mob,marker_budget)})
     if hashlib.sha256(file.read_bytes()).hexdigest()!=before:
         raise ValueError('Bin changed while indexing; retry after saving')
     return {'schema':1,'file':str(file.resolve()),'sha256':before,'mobs':mobs,'warnings':warnings[:1000],

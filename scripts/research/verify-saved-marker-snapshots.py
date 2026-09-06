@@ -56,7 +56,11 @@ def verify(root, compare_positions=False):
     graphs = {label: timeline.index_bin(root / (label + '.avb')) for label in inventories}
     for label in ['persisted-markers', 'cleaned-markers']:
         for field in ['mobs', 'warnings', 'complete', 'nodeCount']:
-            assert graphs[label][field] == graphs['before-markers'][field], (label, field)
+            if field == 'mobs':
+                without_markers = lambda graph: [{key: value for key, value in mob.items() if key != 'markers'} for mob in graph['mobs']]
+                assert without_markers(graphs[label]) == without_markers(graphs['before-markers']), (label, field)
+            else:
+                assert graphs[label][field] == graphs['before-markers'][field], (label, field)
     assert hashlib.sha256(evidence_file.read_bytes()).hexdigest() == evidence_hash
     for inventory in inventories.values():
         assert hashlib.sha256(Path(inventory['file']).read_bytes()).hexdigest() == inventory['sha256']

@@ -16,6 +16,25 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it('pages saved marker occurrences after reconnect and distinguishes legacy absence',async()=>{
+    const {record,save,snapshots,config}=await fixture(),mob=record.bins[0]!.mobs[0]!;
+    let revision=await save();expect(await snapshots.markers(revision,'sequence')).toMatchObject({status:'not_recorded',total:null,markers:[]});
+    const marker={id:'legacy-id',guid:null,name:'Review',comment:'Check cut',user:'Editor',color:'Green',rgb16:[1,2,3],componentOffset:5,path:['sequence','tracks','0'],location:{status:'direct_sequence',sequenceFrame:5,trackOrdinal:0,trackIndex:1,mediaKind:'picture',effectInputsCrossed:0,rate:30}};
+    Object.assign(mob,{markers:[marker,{...marker,location:{status:'unresolved',reason:'opaque_effect',sequenceFrame:null}},{...marker,location:{...marker.location,status:'declared_effect_input',effectInputsCrossed:1}}]});
+    record.revision=randomUUID();revision=await save();
+    const first=await snapshots.markers(revision,'sequence',-1,1);expect(first).toMatchObject({status:'recorded',total:3,nextAfter:0,coverage:{unresolved:1,declaredEffectInputs:1}});
+    expect(first.markers[0]).toMatchObject({index:0,...marker});
+    const next=await new ProjectSnapshots(config).markers(revision,'sequence',first.nextAfter!,2);
+    expect(next.markers.map(marker=>marker.location.status)).toEqual(['unresolved','declared_effect_input']);expect(next.nextAfter).toBeNull();
+    Object.assign(mob,{markers:[]});await save();expect(await snapshots.markers(revision,'sequence')).toMatchObject({status:'recorded',total:0,markers:[]});
+  });
+  it('rejects invalid marker owners and mapped coordinates',async()=>{
+    const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;
+    const marker={id:null,guid:null,name:null,comment:null,user:null,color:null,rgb16:[0,0,0],componentOffset:0,path:['sequence'],location:{status:'direct_sequence',sequenceFrame:0,trackOrdinal:0,trackIndex:1,mediaKind:'picture',effectInputsCrossed:0,rate:30}};
+    for(const invalid of [{...marker,path:['other']},{...marker,location:{...marker.location,sequenceFrame:60}},{...marker,location:{...marker.location,rate:24}},{...marker,location:{...marker.location,effectInputsCrossed:1}},{...marker,rgb16:[65536,0,0]}]){
+      Object.assign(mob,{markers:[invalid]});await expect(snapshots.markers(await save(),'sequence')).rejects.toThrow();
+    }
+  });
   it('distinguishes historical unknown comments and detects saved comment-only changes',async()=>{
     const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;
     let revision=await save();expect((await snapshots.mobs(revision)).mobs[0]).toMatchObject({comment:null,commentStatus:'not_recorded'});

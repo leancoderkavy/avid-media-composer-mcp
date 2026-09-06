@@ -1,0 +1,17 @@
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const input=process.argv[2];assert.ok(input&&path.isAbsolute(input)&&process.argv.length===3,'Pass absolute completed marker evidence directory');
+const root=path.resolve('.avid-mcp-analysis',`installed-saved-markers-${randomUUID()}`);await mkdir(root);
+const run=async args=>{const result=await runProcess(process.execPath,args,{timeoutMs:300000,maxOutputBytes:4*1024*1024});assert.equal(result.exitCode,0,result.stderr);return JSON.parse(result.stdout);};
+const npm=path.join(path.dirname(process.execPath),'node_modules/npm/bin/npm-cli.js');
+const packed=await run([npm,'pack','--json','--ignore-scripts','--pack-destination',root]);assert.equal(path.basename(packed[0].filename),packed[0].filename);
+const archive=path.join(root,packed[0].filename),archiveSha256=await sha256File(archive);
+const installation=await run(['dist/cli.js','--package-install',archive,'--package-root',path.join(root,'packages'),'--package-sha256',archiveSha256]);
+const result=await run(['scripts/research/qualify-saved-markers.mjs',input,installation.entry]);
+assert.equal(await sha256File(archive),archiveSha256);assert.equal(await sha256File(installation.entry),installation.entrySha256);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({installation,archiveSha256,result,scope:'Fresh managed package, actual retained AVB capture and saved-marker reads across two stdio MCP processes. Existing Windows/Python host; no named-client GUI or clean-machine claim.'},null,2),{flag:'wx'});
+console.log(JSON.stringify({root,result,installed:true}));

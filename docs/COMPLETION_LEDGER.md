@@ -1,5 +1,17 @@
 # Completion ledger
 
+### MCP saved marker capture and discovery
+
+Promoted the bounded marker collector/location resolver into packaged Python and added `avid_saved_markers` for scoped, bin-disambiguated, paginated snapshot reads. New captures retain IDs, text, color declarations, raw offsets, paths and explicit direct/effect-input/unresolved locations. Legacy snapshots return `not_recorded`, distinct from zero markers. Validation checks owner, mapped bounds, track, rate and uncertainty; global traversal/marker limits supplement existing capture size/hash safeguards. The inventory is now 140 tools and five skills. Saved diffs include marker records while preserving legacy coverage differences.
+
+Actual retained Sonoma AVB capture/reconnect passed with two markers matching native post-save GUIDs, text, frames 15/75 and picture track 1; before/after-cleanup snapshots returned zero and ambiguous MOB lookup was refused. Evidence: `saved-markers-6f0283d1-bf27-488c-a74c-f347215dc610`. Fresh managed-package capture/reconnect also passed in `installed-saved-markers-91e42d28-b85f-4203-aa78-c0853c5a5b4f` / `saved-markers-1292de87-b976-4e78-980a-3d61d8408d17`. Inputs, archives and entries remained unchanged. This is installed evidence on the existing Windows/Python host, not clean-machine or named-client onboarding.
+
+The first package check caught the missing new Python file in an archive packed before the manifest fix. A later package test caught marker paths inherited by unrelated synthetic MOB fixtures; cloning the marker fixture independently corrected the harness. Failures are retained in `check-saved-markers.log` and `check-saved-markers-package.log`. Broader audio/effect/rate mapping, unsaved editor state, restart/undo and full-plan acceptance remain open.
+
+The final full `npm run check` passed: 653 TypeScript tests, 45 Python tests, 140 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-saved-markers-final.log`. Installed synthetic marker pagination preserved unresolved coordinates and continued correctly in a second MCP process. No release or full-plan completion is claimed.
+
+Final-code managed-install rerun also passed after tightening the signed component-offset bound: `installed-saved-markers-108f89f1-725a-46c0-aa8c-64c6e6ecf107` / `saved-markers-a809aa01-2b0d-43bb-b7ee-35dd8e7583c2`. Both actual marker records matched retained native readback across reconnect; empty before/cleaned inventories, ambiguity refusal and unchanged protected hashes passed.
+
 ### Declared saved marker locations
 
 Extended the read-only marker research inspector to follow bounded same-rate sequence paths, accumulate component positions and apply subclip bounds. Unknown effects, transitions, invalid offsets, mixed rates and inconsistent sequence lengths return unresolved coordinates. Existing recognized equal-length color-adapter input paths retain explicit `declared_effect_input` status rather than claiming verified effect output. The actual retained two-marker AVB snapshot resolves frames 15 and 75 on picture track 1, matching native evidence; report: `.avid-mcp-analysis/native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4/saved-marker-position-verification.json`. Saved snapshots/evidence hashes remained unchanged.

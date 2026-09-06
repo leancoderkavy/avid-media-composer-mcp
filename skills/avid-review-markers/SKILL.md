@@ -5,6 +5,8 @@ description: Apply requested review notes as verified native Avid clip markers o
 
 Read `avid_get_capabilities` and the current schemas for `avid_native_read`, `avid_native_preview` and `avid_native_apply`. The native adapter requires a qualified local binary and current project access.
 
+For independent saved-bin review, capture the authorized AVBs with `avid_snapshot_saved_bins`, discover the exact MOB/bin, and page `avid_saved_markers` with an unchanged revision, MOB ID and bin path. `not_recorded` means the snapshot predates marker capture; it does not mean the bin has no markers. Keep `unresolved` positions unresolved and treat `declared_effect_input` positions as input declarations, not verified effect output. Saved marker IDs that lack a normalized `guid` are not valid native-write UUIDs. This tool reads saved reachable occurrences and excludes unsaved changes; use native readback for current editor state.
+
 1. Read the project, bins, target clips and existing markers. Resolve the requested clip to an observed MOB ID and bin; ambiguous names require disambiguation before writes.
 2. Convert review timestamps to the target's edit units using its observed rate and time origin. Do not interpret displayed source timecode as a zero-based marker offset. Preserve the requested track, text and color.
 3. Preview each `add_marker`, `change_marker` or `delete_marker` operation. Review the returned state and blockers, then apply the exact token within the user's authorized scope. Tokens are single-use; a stale-state failure requires a fresh read and preview.

@@ -197,7 +197,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 139 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 140 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
   const optionalProvider=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});
@@ -239,11 +239,15 @@ try {
   trimAfter.mobs[0].name="Unexpected rename";let unrelatedRefused=false;
   try{verifySavedDualRollerTrim(trimBefore,trimAfter,trimPlan);}catch(error){unrelatedRefused=error.message.includes("exact requested trim");}
   if(!unrelatedRefused)throw new Error("Installed trim verifier accepted an unrelated edit");
-  const record={revision:baseline,createdAt:"synthetic-package-fixture",bins:[{schema:1,file:path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),sha256:"a".repeat(64),mobs:[fixtureMob,{...fixtureMob,mobId:"second"}],warnings:[],complete:true,nodeCount:4,stateOrigin:"synthetic"}]};
+  const record={revision:baseline,createdAt:"synthetic-package-fixture",bins:[{schema:1,file:path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),sha256:"a".repeat(64),mobs:[{...fixtureMob},{...fixtureMob,mobId:"second"}],warnings:[],complete:true,nodeCount:4,stateOrigin:"synthetic"}]};
+  for(const mob of record.bins[0].mobs)mob.markers=[{id:'saved-marker',guid:null,name:'Review',comment:'Inspect',user:null,color:null,rgb16:[0,0,0],componentOffset:5,path:[mob.mobId,'tracks','0'],location:{status:'unresolved',reason:'opaque_effect',sequenceFrame:null}},{id:'second-marker',guid:null,name:null,comment:null,user:null,color:null,rgb16:[0,0,0],componentOffset:15,path:[mob.mobId,'tracks','0'],location:{status:'unresolved',reason:'mixed_edit_rate',sequenceFrame:null}}];
   await writeFile(path.join(snapshotDirectory,`snapshot-${baseline}.json`),JSON.stringify(record));
   record.revision=candidate;for(const mob of record.bins[0].mobs)mob.name="After";
   await writeFile(path.join(snapshotDirectory,`snapshot-${candidate}.json`),JSON.stringify(record));
   const invoke=async(name,args)=>{const response=await client.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed pagination call failed: ${name}`);return response.structuredContent.data;};
+  const markerPage=await invoke('avid_saved_markers',{revision:baseline,mobId:fixtureMob.mobId,limit:1});
+  if(markerPage.total!==2||markerPage.nextAfter!==0||markerPage.markers[0].location.sequenceFrame!==null)throw new Error('Installed saved marker page mismatch');
+  await readFile(path.join(installedRoot,'python','avid_markers.py'));
   const collectionSource=path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),collectionBytes=await readFile(collectionSource),collectionId=createHash("sha256").update(collectionBytes).digest("hex");
   // Synthetic saved preparation records exercise installed recovery, not media conversion.
   const clockBad=path.join(snapshotDirectory,`source-clock-${baseline}`),clockGood=path.join(snapshotDirectory,`source-clock-${candidate}`);
@@ -262,6 +266,8 @@ try {
       if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed preparation call failed: ${name}`);
       return response.structuredContent.data;
     };
+    const markerNext=await clockCall('avid_saved_markers',{revision:baseline,mobId:fixtureMob.mobId,after:markerPage.nextAfter,limit:1});
+    if(markerNext.nextAfter!==null||markerNext.markers[0].id!=='second-marker'||markerNext.coverage.unresolved!==2)throw new Error('Installed saved marker reconnect mismatch');
     const next=await clockCall("avid_list_source_clock_attempts",{file:collectionSource,expectedSha256:collectionId,after:clockPage.nextAfter,limit:1});
     if(next.attempts[0]?.runId!==candidate||next.nextAfter!==null)throw new Error(`Installed preparation reconnect lost attempt: ${JSON.stringify(next)}`);
     const unresolved=await clockCall("avid_source_clock_status",{runId:candidate});

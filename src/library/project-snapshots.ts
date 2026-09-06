@@ -12,15 +12,28 @@ import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 
 const unit=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const markerLocation=z.union([
+  z.object({status:z.literal('unresolved'),reason:z.string().max(128),sequenceFrame:z.null()}).strict(),
+  z.object({status:z.enum(['direct_sequence','declared_effect_input']),sequenceFrame:unit,trackOrdinal:unit,trackIndex:z.number().int(),mediaKind:z.string().max(128),effectInputsCrossed:unit,rate:z.number().positive()}).strict()
+]);
+const savedMarker=z.object({id:z.string().max(128).nullable(),guid:z.string().regex(/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/).nullable(),name:z.string().max(65536).nullable(),comment:z.string().max(65536).nullable(),user:z.string().max(4096).nullable(),color:z.string().max(256).nullable(),rgb16:z.array(z.number().int().min(0).max(65535)).length(3),componentOffset:z.number().int().min(-2147483648).max(2147483647),path:z.array(z.string().max(256)).max(50),location:markerLocation}).strict();
 const descriptor=z.object({classId:z.string().length(4),values:z.partialRecord(z.enum(['edit_rate','length','sample_rate','channels','quantization_bits','stored_width','stored_height','mob_kind']),z.number().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER)),locator:z.object({classId:z.string().length(4),paths:z.array(z.object({field:z.enum(['path','path_posix','path_utf8','path2_utf8','last_known_volume','last_known_volume_utf8']),value:z.string().max(4096)}).strict()).max(6),mobId:z.string().max(256).optional()}).strict().nullable(),physicalMediaClassId:z.string().length(4).optional()}).strict();
 const linearLutDeclaration=z.object({name:z.string().max(256),bitDepth:z.number().int().min(1).max(32),black:unit,white:unit,invertedFlagPresent:z.boolean(),automaticConversion:z.literal(true).optional(),transformationListName:z.string().max(256).optional()}).strict().refine(v=>v.black<v.white&&v.white<2**v.bitDepth,'Invalid saved LUT bounds').refine(v=>(v.automaticConversion===true)===(v.transformationListName!==undefined),'Incomplete automatic conversion declaration');
 const parameterFingerprint=z.object({schema:z.literal(1),sha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
 const effectInput=z.object({sourceMobId:z.string(),sourceTrackId:z.number().int(),sourceStart:unit,length:unit,rate:z.number().positive(),basis:z.literal('declared-equal-length-input')}).strict();
 const node=z.object({kind:z.string(),timelineStart:unit,timelineEnd:unit,sourceMobId:z.string().optional(),sourceTrackId:z.number().int().optional(),sourceStart:z.number().int().optional(),channelCombiner:z.object({channelIndex:z.union([z.literal(1),z.literal(2)]),channelCount:z.literal(2)}).strict().optional(),effect:z.object({id:z.string().max(1024),hasParameters:z.boolean(),hasKeyframes:z.boolean(),linearLutDeclaration:linearLutDeclaration.optional(),parametersFingerprint:parameterFingerprint.optional(),keyframesFingerprint:parameterFingerprint.optional(),inputReference:effectInput.optional()}).strict().optional(),opaque:z.boolean().optional(),timecode:z.object({start:z.number().int(),fps:z.number().int().positive(),flags:z.number().int()}).optional()});
 const track=z.object({ordinal:unit,index:z.number().int(),mediaKind:z.string(),nodes:z.array(node).max(10000)});
-const mob=z.object({mobId:z.string(),name:z.string(),comment:z.string().max(65536).nullable().optional(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128),descriptor:descriptor.nullable().optional()}).superRefine((value,ctx)=>{
+const mob=z.object({mobId:z.string(),name:z.string(),comment:z.string().max(65536).nullable().optional(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128),descriptor:descriptor.nullable().optional(),markers:z.array(savedMarker).max(10000).optional()}).superRefine((value,ctx)=>{
   if(value.sourceBounds.end-value.sourceBounds.start!==value.duration)ctx.addIssue({code:"custom",message:"Snapshot source bounds disagree with duration"});
   const ordinals=new Set<number>();
+  for(const marker of value.markers??[]){
+    const location=marker.location;
+    if(marker.path[0]!==value.mobId)ctx.addIssue({code:'custom',message:'Saved marker owner mismatch'});
+    if(location.status!=='unresolved'){
+      const target=value.tracks.find(track=>track.ordinal===location.trackOrdinal);
+      if(location.sequenceFrame>=value.duration||location.rate!==value.rate||!target||target.index!==location.trackIndex||target.mediaKind!==location.mediaKind||(location.status==='direct_sequence')!==(location.effectInputsCrossed===0))ctx.addIssue({code:'custom',message:'Invalid saved marker location'});
+    }
+  }
   for(const track of value.tracks){
     if(ordinals.has(track.ordinal))ctx.addIssue({code:"custom",message:"Snapshot track ordinals are duplicated"});
     ordinals.add(track.ordinal);
@@ -178,6 +191,18 @@ export class ProjectSnapshots {
     const page=changes.slice(after+1,after+1+limit).map((change,offset)=>({index:after+1+offset,...change}));
     const more=after+1+page.length<changes.length;
     return {baseline,candidate,changes:page,totalChanges:changes.length,nextAfter:more?page.at(-1)!.index:null,truncated:more,complete:[...before.bins,...candidateRecord.bins].every(bin=>bin.complete),coverage:{baseline:snapshotCoverage(before),candidate:snapshotCoverage(candidateRecord)},comparison:"Recorded mob/track/source fields and available versioned parameter/keyframe fingerprints; excludes bin save metadata. Fingerprints include saved parameter UI fields and are not effect interpretation or complete effect coverage. Missing fingerprints mean unrecorded or unsupported structures. Zero changes do not establish equivalence when coverage is incomplete."};
+  }
+  async markers(revision:string,mobId:string,after=-1,limit=100,binFile?:string){
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200)throw new Error('Invalid saved marker page');
+    const snapshot=await this.read(revision);
+    const matches=selectSnapshotBins(snapshot.bins,binFile).flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
+    if(matches.length!==1)throw new Error('Expected one matching mob; provide its bin path from snapshot mob discovery when IDs repeat');
+    const target=matches[0]!,records=target.mob.markers;
+    const page=(records??[]).slice(after+1,after+1+limit).map((marker,index)=>({index:after+1+index,...marker}));
+    const more=after+1+page.length<(records?.length??0);
+    return {revision,mobId,bin:target.bin.file,status:records===undefined?'not_recorded':'recorded',markers:page,total:records?.length??null,nextAfter:more?page.at(-1)!.index:null,truncated:more,
+      coverage:{unresolved:records?.filter(marker=>marker.location.status==='unresolved').length??null,declaredEffectInputs:records?.filter(marker=>marker.location.status==='declared_effect_input').length??null},
+      origin:'Saved reachable marker occurrences; excludes unsaved changes and orphan records. Effect-input coordinates are declarations, not verified output mappings.'};
   }
   async range(revision:string,mobId:string,start:number,end:number,ordinal?:number,after=-1,limit=100,binFile?:string){
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start)throw new Error("Invalid edit-unit range");
