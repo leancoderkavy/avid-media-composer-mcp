@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Observed Source navigation and offset-format correction
+
+Computer use navigated the disposable loaded Source sequence from frame 0 to 60 and 119, with read-only MCP verification of exact viewer/MOB/frame after each completed move. An attempted -119 return reached frame 70, exposing interpretation as 1 second 19 frames rather than 119 frames. The explicit -210 correction returned to frame zero. All successful checkpoint bin/source-bin/media hashes matched, and the failed response remains retained. See NATIVE_UI_SEEK_QUALIFICATION.md for exact inputs, evidence directories, source-counter differences and scope.
+
+Added a read-only position observer that preserves responses before asserting expected frames, and updated packaged selects guidance to require fresh native position readback and avoid raw-integer offset assumptions. No native seek or unattended UI executor was added. Fresh-package/Python/AAF checks passed with 139 tools and five matching skills (`.avid-mcp-analysis/package-source-navigation.log`); syntax and diff checks passed. Production code is unchanged and the full unit suite was not rerun. Prior 807a6b7 CI/CodeQL passed. Broader navigation and full-plan acceptance remain open.
+
 ### Structured native RPC rejection diagnostics
 
 Full `npm run check` passed: 632 TypeScript tests, 41 Python tests, 139 tools, five skills, both transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-rpc-errors.log`). Remote checks for this change remain separate; the full implementation goal is not complete.

@@ -1,5 +1,7 @@
 # Native viewer loading qualification
 
+Separately observed [Source navigation](NATIVE_UI_SEEK_QUALIFICATION.md) reached frames 60 and 119 and returned to zero with native readback and unchanged saved hashes. A failed three-digit offset exposed timecode-format interpretation; the failure and explicit correction are retained. This does not add a native seek RPC or an unattended UI executor.
+
 The qualified descriptor declares Record as a viewer enum, but an experimental guarded request for it loaded the exact target MOB into Source instead. Native completion was true and exact Record verification was false. A locally encoded/decoded request preserved `view_type: "Record"`, so the requested value was not lost by protobuf conversion. The proposed public Record option was removed after this negative host result; `show_clip` remains Source-only. The descriptor also exposes no dedicated seek method or frame argument on `LoadMobsIntoViewer`. Record loading and frame-accurate seeking still require a separately observed UI workflow or another qualified integration.
 
 Evidence: `.avid-mcp-analysis/native-record-viewer-a7c7f56c-41b5-4be2-9e9b-007e945b71c5/observation.json`. Before the attempt, the fixture had no scoped loaded viewer; afterward it appeared only as Source at frame 0. The owned fixture, original source-bin and MP4 hashes stayed unchanged at inspection. No save, undo or automatic retry followed. This does not prove unsaved-graph preservation or explain why the host ignored the declared mode.
