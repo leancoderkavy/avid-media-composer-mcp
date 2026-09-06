@@ -806,3 +806,8 @@ Fresh-package smoke now invokes avid_verify_saved_trim through the installed std
 
 The avid-selects skill now guides snapshot-before/edit/save/snapshot-after/verify and verified same-session recovery. It distinguishes record/source viewers, frame/track coordinates, saved-state verification versus command execution, and invalidation of assumed history on close/reload/restart. A separate computer-use executor remains required. All 39 referenced MCP tools were found, and fresh-package validation passed for 137 tools and five skills, including installed saved-trim verification and Python isolation/recovery. Log: .avid-mcp-analysis/package-trim-workflow.log. Named-client execution of this guidance remains unqualified.
 
+
+### Accepted provider TCP ownership foundation
+
+Added verifyWindowsLoopbackConnection for the exact server-side established loopback tuple, retaining binary/hash/PID-start checks. Two real Windows test files passed: accepted ownership with zero received application bytes, wrong-identity and closed-tuple refusal, and the existing listener/pairing/dispatch workflow. Typecheck passed. Log: .avid-mcp-analysis/loopback-connection.log. This is not yet the HTTP dispatch gate; credentials still use the existing listener-preflight request path, so connection-race mitigation remains open.
+
