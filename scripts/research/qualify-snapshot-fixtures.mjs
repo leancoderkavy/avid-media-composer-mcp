@@ -37,7 +37,14 @@ try{
    assert.equal(overlap.complete,false);assert.equal(overlap.results.length,3);
    assert.deepEqual(overlap.results.filter(n=>n.sourceStart!==undefined).map(n=>[n.overlapSourceStart,n.overlapSourceEnd]),[[1055,1058],[2005,2008]]);
   }
-  assert.equal(await sha256File(fixture.file),before);results.push({fixture,sha256:before,report,range});
+  const source=range.results.find(node=>node.sourceMobId)?.sourceMobId,usagePages=[];
+  if(source){
+   let after=-1;
+   do{const page=await call('avid_saved_source_usage',{revision:captured.revision,sourceMobId:source,after,limit:1});usagePages.push(page);after=page.nextAfter;}while(after!==null);
+   assert.equal(usagePages.flatMap(page=>page.usages).length,range.results.filter(node=>node.sourceMobId===source).length);
+   assert.equal(new Set(usagePages.flatMap(page=>page.usages).map(node=>node.index)).size,usagePages.length);
+  }
+  assert.equal(await sha256File(fixture.file),before);results.push({fixture,sha256:before,report,range,usagePages});
  }
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,results,sourceFilesUnchanged:true,scope:'Generated pyavb subclip/stereo/opaque fixtures through real Python and MCP; not native editor import or general transition qualification'},null,2));
  console.log(JSON.stringify({ok:true,root,cases:results.length}));

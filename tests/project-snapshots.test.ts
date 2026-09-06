@@ -16,6 +16,16 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("retrieves every source reference beyond the original 500-row limit",async()=>{
+    const {record,save,snapshots}=await fixture(),track=record.bins[0]!.mobs[0]!.tracks[0]!;
+    track.nodes=Array.from({length:503},()=>({...track.nodes[0]!}));
+    const revision=await save(),first=await snapshots.usage(revision,"source");
+    expect(first.usages).toHaveLength(500);expect(first.totalReferences).toBe(503);expect(first.nextAfter).toBe(499);
+    const last=await snapshots.usage(revision,"source",first.nextAfter!);
+    expect(last.usages.map(row=>row.index)).toEqual([500,501,502]);expect(last.nextAfter).toBeNull();expect(last.truncated).toBe(false);
+    expect((await snapshots.usage(revision,"absent")).usages).toEqual([]);
+    await expect(snapshots.usage(revision,"source",-2)).rejects.toThrow("page");
+  });
   it("rejects inconsistent saved bounds and ambiguous track identities before reporting",async()=>{
     const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;
     mob.sourceBounds.end=61;

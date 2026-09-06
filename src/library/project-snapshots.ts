@@ -92,12 +92,15 @@ export class ProjectSnapshots {
     const page=results.slice(0,limit);
     return {revision,mobId,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,rangeConvention:"half-open edit units",origin:"saved-bin"};
   }
-  async usage(revision:string,sourceMobId:string){
+  async usage(revision:string,sourceMobId:string,after=-1,limit=500){
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>500)throw new Error("Invalid source usage page");
     const snapshot=await this.read(revision),usages=[];
+    let index=0;
     for(const bin of snapshot.bins)for(const mob of bin.mobs)for(const track of mob.tracks)for(const node of track.nodes){
-      if(node.sourceMobId===sourceMobId)usages.push({bin:bin.file,mobId:mob.mobId,name:mob.name,track:track.ordinal,mediaKind:track.mediaKind,rate:mob.rate,...node});
+      if(node.sourceMobId===sourceMobId){const current=index++;if(current>after&&usages.length<=limit)usages.push({index:current,bin:bin.file,mobId:mob.mobId,name:mob.name,track:track.ordinal,mediaKind:track.mediaKind,rate:mob.rate,...node});}
     }
-    return {revision,sourceMobId,usages:usages.slice(0,500),truncated:usages.length>500,complete:snapshot.bins.every(bin=>bin.complete),scope:"Direct saved-bin source references; opaque effects and retimes may hide references"};
+    const page=usages.slice(0,limit);
+    return {revision,sourceMobId,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete),scope:"Direct saved-bin source references; opaque effects and retimes may hide references"};
   }
   async complexity(revision:string,mobId:string){
     const snapshot=await this.read(revision);
