@@ -85,7 +85,7 @@ export class NativeAdapter {
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path: relative, bin_flags: ["AllTypes"] });
     if (query === "clips") return clips;
     if(query==="viewers"){
-      const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:z.string().min(1).max(256),view_type:z.string().min(1),current_frame:z.number().int(),current_timecode:z.string().max(64)})).max(16)})).min(1).max(16).parse(await this.client.call("GetViewerMobs"));
+      const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:z.string().min(1).max(256),view_type:z.string().min(1),current_frame:z.number().int(),current_timecode:z.string().max(64)})).max(16)})).max(16).parse(await this.client.call("GetViewerMobs"));
       const all=bodies.flatMap(body=>body.mobs);if(all.length>16)throw new Error("Native viewer inventory exceeds 16 entries");
       const afterProject=await this.project();if(afterProject.path!==project.path)throw new Error("Native project changed during viewer inspection");
       const after=await this.client.call("GetListOfBinItems",{bin_relative_path:relative,bin_flags:["AllTypes"]});
@@ -97,6 +97,7 @@ export class NativeAdapter {
     if (!mobId || !clips.some(clip => clip.mob_id === mobId)) throw new Error("Clip is not in the specified bin");
     const response = await this.client.call(query === "tracks" ? "GetMobTrackInfo" : query === "clip" ? "GetMobInfo" : "GetMarkers", { mob_id: mobId });
     if(query==="tracks"){
+      if(response.length===0)throw new AvidMcpError("NATIVE_TRACK_DATA_UNAVAILABLE","Avid returned no track information for this bin member. This does not establish that the clip has no tracks. Inspect its current state before relying on track data.");
       const bodies=z.array(z.object({track_info_list:z.object({track_info:z.array(z.object({label:z.object({type:z.string().min(1),number:z.number().int().nonnegative()}),num_segments:z.number().int().nonnegative()}).passthrough()).max(256)}).passthrough()}).passthrough()).min(1).max(256).parse(response);
       const labels=new Set<string>();let count=0;
       for(const body of bodies)for(const item of body.track_info_list.track_info){if(++count>256)throw new Error("Native track inventory exceeds 256 tracks");const key=JSON.stringify([item.label.type,item.label.number]);if(labels.has(key))throw new Error("Native track inventory contains duplicate labels");labels.add(key);}

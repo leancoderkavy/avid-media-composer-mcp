@@ -43,6 +43,13 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it("reports empty viewer inventory without claiming a loaded clip",async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetViewerMobs"?Promise.resolve([]):original(method,body));
+    expect(await f.adapter.read("viewers","fixture.avb")).toMatchObject({viewers:[],outOfBinOmitted:0});
+    const plan=await f.adapter.preview({action:"show_clip",bin:"fixture.avb",mobId:"clip"});
+    expect(await f.adapter.apply(plan.token)).toMatchObject({postStateRead:true,viewerVerified:false});
+  });
   it("scopes open-bin inventories and strips unqualified metadata",async()=>{
     const f=await hostFixture("inspect"),original=f.client.call.bind(f.client),file=path.join(path.dirname(f.source),"fixture.avb");
     vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
@@ -134,7 +141,7 @@ describe("native boundaries", () => {
   it("refuses missing and contradictory native track inventories",async()=>{
     const f=await hostFixture(),original=f.client.call.bind(f.client);let payload:any[]=[];
     vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetMobTrackInfo"?Promise.resolve(payload):original(method,body));
-    await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow();
+    await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toMatchObject({code:"NATIVE_TRACK_DATA_UNAVAILABLE"});
     payload=[{track_info_list:null}];await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow();
     const track={label:{type:"TRACKTYPE_PICTURE",number:1},num_segments:2};payload=[{track_info_list:{track_info:[track,track]}}];await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow("duplicate");
     payload=[{track_info_list:{track_info:[{...track,num_segments:-1}]}}];await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow();
