@@ -1,5 +1,23 @@
 # Source-viewer navigation qualification
 
+## Master-timecode entry and restoration
+
+A follow-up on September 6 selected `Master` under the monitor's Sequence Timecode TC1 menu. The visible counter changed from `V1 TC1 10:02:23:23` to `Mas TC1 01:00:00:00`, matching the native sequence clock. A Right-arrow input then advanced exactly one frame, confirming ordinary navigation reached the owned Source monitor.
+
+An attempted left-Control double-tap and initial keypad activation did not expose a visible entry field. After one Num Lock toggle, keypad `+ 1 Enter` moved frame 1 to 2. With the master counter still selected, unsigned keypad `3 0 0 Enter` moved to frame 90 (`01:00:03:00`), establishing partial absolute entry rather than a relative 90-frame increment. Unsigned `0 0 0 Enter` restored frame 0. Each input was followed by a Computer Use observation; each completed navigation was independently checked through read-only MCP for the exact Source MOB and frame. The absence of a visible entry overlay did not imply that buffered keypad input was ignored.
+
+The Num Lock toggle was repeated afterward and the counter menu restored to `V1 TC1`. Final MCP readback again reported frame 0 and `01:00:00:00`; saved bin, protected source bin and MP4 hashes stayed unchanged. Num Lock's initial Boolean state was not directly queried, so this records paired toggle actions, not an independently measured keyboard-state restoration. No save or timeline edit was issued.
+
+Evidence under `.avid-mcp-analysis`:
+
+- `ui-seek-master-right-one-503ec57e-0e6f-4b9e-bb4a-0622afd58668`: frame 1.
+- `ui-seek-master-keypad-plus-one-7b16b248-26d6-442b-aad0-939d7df2047e`: frame 2.
+- `ui-seek-master-absolute-ninety-30560cda-f5dd-4583-8632-9eefd7d45641`: frame 90.
+- `ui-seek-master-absolute-restored-5eaea8fa-f62e-4034-958e-c55e93de1fd2`: frame 0.
+- `ui-seek-master-display-restored-02789642-1d92-46f0-8fd2-3a8a298d6391`: final frame 0 after display/keyboard actions.
+
+The [Avid 2025 editing guide, “Using Timecode to Find a Frame,” page 424](https://resources.avid.com/SupportFiles/attach/Media_Composer/Media_Composer_v2025.x_Editing_Guide.pdf) explains that the selected top tracking format determines interpretation and documents partial timecode entry and optional Control double-tap activation. These instructions informed the experiment; the observed 2024.12 host results qualify only this owned 30 fps sequence and these inputs. The experiment does not isolate counter choice versus keyboard state as the sole cause of the earlier failure. A shipped executor must observe the target, counter mode and input state, verify each resulting frame and avoid blind toggles or automatic retries. Full eight-digit absolute entry, other rates, arbitrary ranges, Record navigation and visual playback fidelity remain unqualified. Monitor pixels remained black.
+
 ## Absolute-entry attempt on September 6
 
 Computer Use selected the current Avid window and clicked the owned Source monitor. The observer verified the same `MCP_Load_7006b4d8.avb` MOB at frame 0, sequence timecode `01:00:00:00`, with its retained saved hash. Individual keypad presses `0 1 0 0 0 3 0 0 Enter` attempted absolute `01:00:03:00` (frame 90 at 30 fps), with a screenshot refresh after every action. No timecode-entry field appeared; accessibility reported only the top-level window as focused. The subsequent native read still reported frame 0. The displayed counter remained configured as `V1 TC1`, showing underlying source timecode rather than the native sequence timecode.

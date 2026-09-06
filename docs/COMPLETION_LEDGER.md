@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Observed master-timecode seeking
+
+Computer Use selected the owned Source viewer's sequence master counter and confirmed Right-arrow navigation to frame 1. After a Num Lock toggle, keypad relative +1 reached frame 2; unsigned partial timecode 300 reached frame 90, and 000 restored frame 0. Exact MOB/viewer/frame MCP observations and unchanged saved-bin/source hashes passed at every completed step. The counter was restored to V1 TC1 and the Num Lock toggle repeated; final frame 0 was independently verified. Initial Boolean keyboard state was not measured. The underlying cause of earlier failed entry is not isolated, and no unattended executor or visual playback claim is added. See `NATIVE_UI_SEEK_QUALIFICATION.md` for evidence and the official tracking-format reference.
+
+This research changes no runtime source. All CI and CodeQL checks for preceding a40ed22 passed. The full goal remains incomplete, including robust UI focus/input-state handling and broad seek qualification.
+
 ### Absolute Source navigation negative result
 
 Current Computer Use inspection found the owned four-second Source sequence at native frame 0. An observed, individual-key absolute `01:00:03:00` attempt left it at 0 rather than expected frame 90, without a visible entry field or specific input-focus evidence. The UI displayed underlying `V1 TC1` timecode. This keeps absolute seeking and unattended focus/entry handling unqualified; the cause is not established. No save or edit was issued, and final MCP observation verified frame 0 and unchanged saved-bin/source hashes. Details and evidence are in `NATIVE_UI_SEEK_QUALIFICATION.md`.
