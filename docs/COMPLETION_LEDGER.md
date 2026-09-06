@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Refuse new runtime imports while setup is locked
+
+Published-runtime status previously ignored a sibling setup lock, allowing a matching historical receipt to pass inference preflight. Status now keeps tree consistency separate from `setup_lock_present`/`passed: false`, and new runtime imports refuse that state. Internal installer status can recognize only its exact owned lock record; success still passes the existing final lock-ownership check and release. Unit coverage verifies lock preservation, refusal and successful local pinned-component loading after removing the test-owned fixture lock. Existing installer reuse tests pass.
+
+Actual fresh Windows runtime installation, reuse and cached summary inference passed, followed by owned-lock status/refusal and identical inference after removing that fixture lock. Runtime lockfile hashes stayed unchanged and changed-tree refusal still passed. Evidence: `.avid-mcp-analysis/runtime-install-proof-c6c0abb4-e0b8-4b25-8b2a-a23eb324b6d6/evidence.json`. The generated summary remains repetitive/truncated; no quality claim follows from identical output. Full check passed: 638 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-runtime-inference-lock.log`). This does not clear real retained locks, stop already-loaded models, prevent concurrent setup/import races or close general lifecycle recovery. Full-plan acceptance remains open.
+
 ### Diagnose unpublished model runtime setup
 
 Runtime status now reports absent, locked or retained setup state for an existing cache without a published runtime. It enumerates at most 512 entries, returns only direct matching staging directories, marks truncated inventory, and never parses unknown lock contents or imports staged code. It explicitly does not establish worker termination or authorize lock removal. Existing published-runtime validation remains unchanged. Tests cover empty cache, retained staging, unreadable-as-content lock diagnostics and bounded enumeration without worker execution.

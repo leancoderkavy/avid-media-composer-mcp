@@ -1,10 +1,10 @@
-import {mkdtemp,mkdir,writeFile,realpath} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,realpath,unlink,readFile} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {pathToFileURL} from "node:url";
 import {it,expect} from "vitest";
 import {modelRuntime} from "../src/library/model-runtime.js";
-import {runtimeManifest} from "../src/library/model-runtime-install.js";
+import {runtimeManifest,modelRuntimeStatus} from "../src/library/model-runtime-install.js";
 import {packageTreeHash} from "../src/package-lifecycle.js";
 it("rejects a changed runtime before executing its entry module",async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),"avid-runtime-refusal-")),runtime=path.join(root,"runtime"),directory=path.join(runtime,"node_modules","@huggingface","transformers");
@@ -31,6 +31,10 @@ it("bypasses pipeline preflight and enforces local pinned component options",asy
  await expect(modelRuntime(root)).rejects.toThrow("no installation receipt");
  const treeSha256=await packageTreeHash(path.join(root,"runtime"));
  await writeFile(path.join(root,"runtime","installation.json"),JSON.stringify({schema:1,kind:"avid-model-runtime",transformers:"4.2.0",treeSha256,checkedAt:new Date().toISOString(),nodeVersion:process.versions.node,checks:{scriptsDisabled:true,auditHighPassed:true,importPassed:true},adoptedLegacy:false}));
+ const setupLock=path.join(root,'.runtime-install.lock');await writeFile(setupLock,'unknown retained owner',{flag:'wx'});
+ expect(await modelRuntimeStatus(root)).toMatchObject({managed:true,unchanged:true,inferencePreflight:{state:'setup_lock_present',passed:false}});
+ await expect(modelRuntime(root)).rejects.toThrow('setup lock exists');expect(await readFile(setupLock,'utf8')).toBe('unknown retained owner');
+ await unlink(setupLock); // This test created the fixture lock and has no setup worker.
  const loaded=await modelRuntime(root),revision="a".repeat(40);
  for(const task of ["summarization","automatic-speech-recognition","text-generation"] as const)await loaded.pipeline(task,"owner/fixture",{revision,local_files_only:false,cache_dir:"wrong",dtype:"q8"});
  const internal=await import(pathToFileURL(await realpath(entry)).href);expect(internal.env).toMatchObject({allowRemoteModels:false,cacheDir:path.resolve(root)});expect(internal.calls).toHaveLength(7);

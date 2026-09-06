@@ -29,7 +29,8 @@ async function basic(directory:string){
  if(metadata.version!=="4.2.0")throw new Error("Unsupported model runtime version");
  return resolveReadablePath(path.join(directory,"node_modules","@huggingface","transformers","dist","transformers.node.mjs"),[directory],"file");
 }
-export async function modelRuntimeStatus(cache:string){
+export async function modelRuntimeStatus(cache:string){return runtimeStatus(cache);}
+async function runtimeStatus(cache:string,ownedLock?:string){
  const root=await realpath(path.resolve(cache)),directory=path.join(root,"runtime");
  if(!await exists(directory)){
   const lockPresent=await exists(path.join(root,".runtime-install.lock")),staging:string[]=[];let entriesExamined=0,truncated=false;
@@ -42,10 +43,12 @@ export async function modelRuntimeStatus(cache:string){
   return {directory,entry:null,managed:false as const,unchanged:null,receipt:null,setup:{lockPresent,staging:staging.sort(),entriesExamined:Math.min(entriesExamined,512),truncated,workerTerminationVerified:false},inferencePreflight:{state,passed:false,modelLoadVerified:false,nextStep:state==="not_installed"?"Explicitly run --install-model-runtime --model-dir PATH.":"Retain this cache for inspection and use a fresh model cache. A lock or staging directory does not establish worker termination; do not clear it based on PID or age."},note:"Read-only setup inventory. Retained staging is not a qualified runtime and is never imported or repaired by status."};
  }
  const entry=await basic(directory),receiptFile=path.join(directory,"installation.json");
+ const lock=path.join(root,".runtime-install.lock"),lockPresent=await exists(lock);
+ const locked=lockPresent&&(!ownedLock||(await readBoundedFile(lock,16384)).toString("utf8")!==ownedLock);
  if(!await exists(receiptFile))return {directory,entry,managed:false as const,unchanged:null,receipt:null,inferencePreflight:{state:"adoption_required" as const,passed:false,modelLoadVerified:false,nextStep:"Explicitly run --install-model-runtime --model-dir PATH to audit and adopt this legacy runtime."},note:"Legacy runtime has no tree receipt. Explicit installation can audit and adopt it without reinstalling dependencies."};
  if((await lstat(receiptFile)).isSymbolicLink())throw new Error("Model runtime receipt cannot be a link");
  const receipt=receiptSchema.parse(await readBoundedJson(receiptFile,16384)),treeSha256=await packageTreeHash(directory);
- return {directory,entry,managed:true as const,unchanged:treeSha256===receipt.treeSha256,treeSha256,receipt,inferencePreflight:{state:treeSha256===receipt.treeSha256?"verified" as const:"tree_changed" as const,passed:treeSha256===receipt.treeSha256,modelLoadVerified:false,nextStep:treeSha256===receipt.treeSha256?"Runtime receipt verification passed; model availability and actual loading require separate checks.":"Use a fresh model directory; changed dependencies will not be imported or automatically repaired."},note:"Tree consistency and previous audit/import evidence; not publisher authentication or a current vulnerability audit."};
+ return {directory,entry,managed:true as const,unchanged:treeSha256===receipt.treeSha256,treeSha256,receipt,inferencePreflight:{state:locked?"setup_lock_present" as const:treeSha256===receipt.treeSha256?"verified" as const:"tree_changed" as const,passed:!locked&&treeSha256===receipt.treeSha256,modelLoadVerified:false,nextStep:locked?"Model runtime setup lock exists; retain the cache and finish setup or use a fresh cache. Worker termination is unverified.":treeSha256===receipt.treeSha256?"Runtime receipt verification passed; model availability and actual loading require separate checks.":"Use a fresh model directory; changed dependencies will not be imported or automatically repaired."},note:"Tree consistency and previous audit/import evidence; not publisher authentication or a current vulnerability audit."};
 }
 /** Explicit setup only. Inference never invokes npm or fetches dependencies. */
 export async function installModelRuntime(cache:string){
@@ -77,9 +80,9 @@ export async function installModelRuntime(cache:string){
    await publishRuntimeReceipt(directory,receipt);
   };
   if(await exists(runtime)){
-   const status=await modelRuntimeStatus(root);
+   const status=await runtimeStatus(root,lockRecord);
    if(status.managed){if(!status.unchanged)throw new Error("Model runtime tree changed; use a fresh model directory");return {...status,reused:true,notices:await installRuntimeNotices(root,runtime)};}
-   await qualify(runtime,true);return {...await modelRuntimeStatus(root),reused:true,notices:await installRuntimeNotices(root,runtime)};
+   await qualify(runtime,true);return {...await runtimeStatus(root,lockRecord),reused:true,notices:await installRuntimeNotices(root,runtime)};
   }
   staging=path.join(root,`.runtime-install-${randomUUID()}`);await mkdir(staging);
   await writeFile(path.join(staging,"package.json"),JSON.stringify(runtimeManifest),{flag:"wx",mode:0o600});
@@ -88,7 +91,7 @@ export async function installModelRuntime(cache:string){
   await qualify(staging,false);
   if(await exists(runtime))throw new Error("Runtime destination appeared during installation; staged files retained");
   await rename(staging,runtime);staging=undefined;
-  return {...await modelRuntimeStatus(root),reused:false,notices};
+  return {...await runtimeStatus(root,lockRecord),reused:false,notices};
  }catch(error){throw new Error(`${(error as Error).message}${staging?"; staging retained at "+staging:""}${retainLock?"; setup lock retained because worker termination is unverified. Use a fresh model cache; do not remove the lock based only on PID or age.":""}`,{cause:error});}
  finally{if((await readBoundedFile(lock,16384)).toString("utf8")!==lockRecord)throw new Error("Model runtime setup lock changed; replacement retained");if(!retainLock)await unlink(lock);}
 }

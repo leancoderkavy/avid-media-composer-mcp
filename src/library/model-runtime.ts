@@ -12,6 +12,7 @@ export async function modelRuntime(cache:string,install=false):Promise<typeof im
   try{await access(entry);}catch{throw new Error("Optional model runtime is missing; run avid-mcp --download-models --model-dir PATH explicitly");}
   const status=await modelRuntimeStatus(cache);
   if(!status.managed)throw new Error("Model runtime has no installation receipt; explicitly run --install-model-runtime --model-dir PATH to audit and adopt it");
+  if(status.inferencePreflight.state==="setup_lock_present")throw new Error(status.inferencePreflight.nextStep);
   if(!status.unchanged)throw new Error("Model runtime tree changed; refusing dependency import. Use a fresh model directory");
   const loaded=await import(pathToFileURL(status.entry).href) as typeof import("@huggingface/transformers");
   loaded.env.cacheDir=path.resolve(cache);
