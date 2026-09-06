@@ -10,7 +10,16 @@ import {readBoundedFile} from "../security/bounded-read.js";
 import {sha256File} from "../analysis/file-inventory.js";
 
 const digest=z.string().regex(/^[a-f0-9]{64}$/),revisionSchema=z.string().uuid();
-const reportSchema=z.object({schema:z.literal(1),id:digest,range:z.object({start:z.number().nonnegative(),end:z.number().positive()}).refine(r=>r.end>r.start),options:qcOptions,streams:z.object({video:z.number().int().nonnegative().nullable(),audio:z.number().int().nonnegative().nullable()}),findings:z.record(z.string(),z.unknown()),streamDetails:z.unknown().optional(),timing:z.unknown().optional(),audioCoverage:z.unknown().optional(),reviewRequired:z.literal(true),limitations:z.array(z.string().max(10000)).max(100),sourceModified:z.literal(false)}).refine(value=>value.range.start===value.options.start&&value.range.end===value.options.end,"QC range and options disagree");
+const coverageSchema=z.object({samplesPerChannel:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),sampleRate:z.number().int().positive().max(768000),decodedSeconds:z.number().positive(),requestedSeconds:z.number().positive().max(600),amountMatchesRequestedDuration:z.boolean(),meaning:z.string().max(10000)}).strict();
+const reportSchema=z.object({schema:z.literal(1),id:digest,range:z.object({start:z.number().nonnegative(),end:z.number().positive()}).refine(r=>r.end>r.start),options:qcOptions,streams:z.object({video:z.number().int().nonnegative().nullable(),audio:z.number().int().nonnegative().nullable()}),findings:z.record(z.string(),z.unknown()),streamDetails:z.unknown().optional(),timing:z.unknown().optional(),audioCoverage:coverageSchema.nullable().optional(),reviewRequired:z.literal(true),limitations:z.array(z.string().max(10000)).max(100),sourceModified:z.literal(false)})
+  .refine(value=>value.range.start===value.options.start&&value.range.end===value.options.end,"QC range and options disagree")
+  .superRefine((value,ctx)=>{
+    const coverage=value.audioCoverage;
+    if(coverage===undefined)return; // Legacy reports predate measured sample counts.
+    const invalid=()=>ctx.addIssue({code:"custom",message:"QC audio coverage is inconsistent"});
+    if(coverage===null){if(value.streams.audio!==null)invalid();return;}
+    if(value.streams.audio===null||coverage.requestedSeconds!==value.range.end-value.range.start||coverage.decodedSeconds!==coverage.samplesPerChannel/coverage.sampleRate||coverage.samplesPerChannel!==value.findings.audioSamplesPerChannel||coverage.amountMatchesRequestedDuration!==(Math.abs(coverage.samplesPerChannel-coverage.requestedSeconds*coverage.sampleRate)<=1))invalid();
+  });
 const checksum=(data:Buffer)=>createHash("sha256").update(data).digest("hex");
 
 export class QcReports {
@@ -37,7 +46,7 @@ export class QcReports {
     if(result.report.id!==id)throw new Error("QC report belongs to another media ID");
     if(expectedSha256!==undefined&&result.sha256!==expectedSha256)throw new Error("QC report checksum mismatch");
     if(await sha256File(source)!==id)throw new Error("QC source changed while reading");
-    return {...result,sourceCurrent:true,meaning:"Stored JSON findings, not a new decode or authenticated delivery verdict"};
+    return {...result,sourceCurrent:true,audioCoverageStatus:result.report.audioCoverage===undefined?"not_recorded":result.report.audioCoverage===null?"audio_not_selected":"recorded",meaning:"Stored JSON findings, not a new decode or authenticated delivery verdict"};
   }
   async list(id:string,after?:string,limit=20){
     if(after!==undefined)revisionSchema.parse(after);

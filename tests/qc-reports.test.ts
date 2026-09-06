@@ -19,11 +19,22 @@ it("discovers and reads reports in a fresh service using inspect-only authority"
  const f=await fixture(),page=await f.service.list(f.id);
  expect(page.reports).toHaveLength(1);expect(page.next).toBeNull();
  const read=await new QcReports(f.config).read(f.id,first,page.reports[0]!.sha256);
+ expect(read.audioCoverageStatus).toBe("not_recorded");
  expect(read.sourceCurrent).toBe(true);expect(read.report.id).toBe(f.id);
   await expect(f.service.read(f.id,first,"0".repeat(64))).rejects.toThrow("checksum mismatch");
   await writeFile(f.reportPath,JSON.stringify({...f.report,range:{start:0,end:5}}));
   await expect(f.service.read(f.id,first)).rejects.toThrow("range and options disagree");
  await expect(f.service.read(f.id,"../outside")).rejects.toThrow();
+});
+
+it("validates stored sample amount arithmetic and stream selection without inventing legacy coverage",async()=>{
+ const f=await fixture(),coverage={samplesPerChannel:48000,sampleRate:48000,decodedSeconds:1,requestedSeconds:4,amountMatchesRequestedDuration:false,meaning:"fixture"};
+ const current={...f.report,findings:{...f.report.findings,audioSamplesPerChannel:48000},audioCoverage:coverage};
+ await writeFile(f.reportPath,JSON.stringify(current));expect((await f.service.read(f.id,first)).audioCoverageStatus).toBe("recorded");
+ for(const bad of [{...current,audioCoverage:{...coverage,decodedSeconds:4}},{...current,audioCoverage:{...coverage,amountMatchesRequestedDuration:true}},{...current,audioCoverage:null},{...current,streams:{video:0,audio:null}},{...current,findings:f.report.findings}]){
+  await writeFile(f.reportPath,JSON.stringify(bad));await expect(f.service.read(f.id,first)).rejects.toThrow("coverage is inconsistent");
+ }
+ await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:0,audio:null},audioCoverage:null}));expect((await f.service.read(f.id,first)).audioCoverageStatus).toBe("audio_not_selected");
 });
 it("keeps media identities isolated and paginates unreadable reports without hiding later pages",async()=>{
  const f=await fixture();await writeFile(f.reportPath,JSON.stringify({...f.report,id:"0".repeat(64)}));
