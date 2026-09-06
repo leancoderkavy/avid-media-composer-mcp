@@ -146,7 +146,7 @@ export class NativeClient {
     if (invalid) throw new Error(invalid);
     const payload = Buffer.from(requestType.encode(message).finish());
     const frames = await exchange(method, payload);
-    const responses = frames.map(frame => responseType.toObject(responseType.decode(frame), { longs: String, enums: String }));
+    const responses = frames.map(frame => responseType.toObject(responseType.decode(frame), { longs: String, enums: String, defaults: method === "GetMobTrackInfo" }));
     if (!responses.length || responses.some(value => !value.header || value.header.error) ||
       responses.at(-1)?.header.status !== "Completed") throw new Error("Native application did not complete the operation");
     return responses.filter(value => value.body).map(value => value.body);
