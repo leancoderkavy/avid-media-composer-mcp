@@ -1,4 +1,4 @@
-"""Inspect locally installed MCAPI descriptors; optionally perform three read-only RPCs.
+"""Inspect locally installed MCAPI descriptors; optionally perform bounded read-only RPCs.
 
 Research utility, separate from the production MCP/Extension bridge. Does not
 extract credentials, install panels, write host files, or issue editing RPCs.
@@ -21,7 +21,7 @@ from google.protobuf.message import DecodeError
 
 MAX_DESCRIPTOR = 2_000_000
 MAX_RESPONSE = 1_048_576
-READ_METHODS = frozenset({"GetAppInfo", "GetOpenProjectInfo", "GetBins"})
+READ_METHODS = frozenset({"GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetMediaVolumeList"})
 
 
 def varint(data, pos, limit):
@@ -190,7 +190,7 @@ def typed_read(pool, method, body=None):
             for m in messages if m.HasField("body")]
 
 
-def probe(pool, binary):
+def probe(pool, binary, media_volumes=False):
     verify_listener_owner(binary)
     app = typed_read(pool, "GetAppInfo")
     project = typed_read(pool, "GetOpenProjectInfo")
@@ -200,18 +200,31 @@ def probe(pool, binary):
     # Retain project/bin names and technical fields, excluding full paths, dates,
     # task identifiers, host identifiers, and any unknown future response fields.
     project_keys = {"project_type", "frame_rate", "color_space", "raster_width", "raster_height"}
-    return {
+    result = {
         "endpoint": "127.0.0.1:9100", "transport": "HTTP/2 gRPC",
-        "methods_completed": sorted(READ_METHODS),
+        "methods_completed": ["GetAppInfo", "GetOpenProjectInfo", "GetBins"],
         "credentials_supplied": False,
         "app": {k: app[0][k] for k in ("app_name", "app_version", "sdk_version") if k in app[0]},
         "project": {"name": PureWindowsPath(project[0]["path"]).name,
                     **{k: v for k, v in project[0].items() if k in project_keys}},
         "bins": [PureWindowsPath(b["absolute_path"]).name for b in bins if b.get("absolute_path")],
     }
+    if media_volumes:
+        verify_listener_owner(binary)
+        bodies = typed_read(pool, "GetMediaVolumeList")
+        volumes = [volume for body in bodies for volume in body.get("volumes", [])]
+        if len(volumes) > 256:
+            raise ValueError("Media-volume inventory exceeds research bound")
+        result["media_volumes"] = [{k: v for k, v in volume.items()
+                                    if k in {"name", "is_shared", "free_space"}} for volume in volumes]
+        result["methods_completed"].append("GetMediaVolumeList")
+        result["media_volume_limits"] = "Host declarations only; omitted protobuf defaults remain omitted. No path mapping, units, media online, writeability, relink or shared-storage health qualification."
+    return result
 
 
-def inspect(binary, live=False):
+def inspect(binary, live=False, media_volumes=False):
+    if media_volumes and not live:
+        raise ValueError("Media-volume probe requires explicit live read-only mode")
     if binary.stat().st_size > 512 * 1024 * 1024:
         raise ValueError("Executable exceeds the research size bound")
     raw = binary.read_bytes()
@@ -242,7 +255,7 @@ def inspect(binary, live=False):
         "method_count": len(methods), "methods": methods,
     }
     if live:
-        report["live_read_only"] = probe(pool, binary)
+        report["live_read_only"] = probe(pool, binary, media_volumes)
     return report
 
 
@@ -250,6 +263,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path, help="Installed AvidMediaComposer.exe to inspect read-only")
     parser.add_argument("--probe-read-only", action="store_true", help="Read app, open project, and bins from loopback port 9100")
+    parser.add_argument("--media-volumes", action="store_true", help="Also read media-volume declarations; requires --probe-read-only")
     parser.add_argument("--output", type=Path, help="Create a new JSON report; refuses to overwrite an existing file")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
@@ -257,7 +271,7 @@ def main():
         raise ValueError("Live probe requires AvidMediaComposer.exe")
     if args.output and args.output.exists():
         raise FileExistsError("Output already exists; choose a new report path")
-    report = inspect(binary, args.probe_read_only)
+    report = inspect(binary, args.probe_read_only, args.media_volumes)
     rendered = json.dumps(report, indent=2) + "\n"
     if args.output:
         with args.output.open("x", encoding="utf-8") as output:

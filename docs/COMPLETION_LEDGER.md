@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Native media-volume discovery
+
+The installed descriptor and an actual listener-owner-verified read established that `GetMediaVolumeList` returns three display names and raw uint64 free-space declarations on the qualified Windows host. Added an explicit opt-in to the bounded research utility; default inspection and its three ordinary reads remain unchanged. Unknown units and non-atomic comparison with Windows free-byte counts prevent a capacity or path-mapping claim. See [media-volume research](NATIVE_MEDIA_VOLUMES.md) and `.avid-mcp-analysis/native-media-volumes-20260906.json`.
+
+This broadens actual native research toward media diagnostics but does not ship a new MCP/native operation. Full timeline graphs, online/relink identity, canonical paths and shared-storage qualification remain open.
+
 ### Source-viewer transport and restoration observation
 
 Computer use clicked Play on the disposable loaded Sonoma source. Screenshots showed playhead/counter movement and audio meter activity; independent MCP reads verified frame 0 before and frame 119 after. Home with Play-button focus did not restore the position and its failed expectation was retained. Clicking the freshly observed ruler start restored frame 0, verified through MCP. Fixture, protected source bin and original MP4 hashes remained unchanged; no edit/save was requested.
