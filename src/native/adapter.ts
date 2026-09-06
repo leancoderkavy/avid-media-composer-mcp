@@ -21,7 +21,9 @@ const clipName=z.string().min(1).max(120).refine(value=>value.trim().length>0,"C
 const id = z.string().min(1).max(256);
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
+const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("select_clips"),bin:z.string().min(1),mobIds:selectionIds.refine(ids=>ids.length>0,"Select at least one clip"),expectedSelectedMobIds:selectionIds}).strict(),
   z.object({action:z.literal("export_edl"),bin:z.string().min(1),mobId:id,preset:name,exportDirectory:z.string().min(1),expected:edlCutContract}).strict(),
   z.object({action:z.literal("export_aaf_master"),bin:z.string().min(1),mobId:id,preset:name,sourceFile:z.string().min(1),expectedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
   z.object({action:z.literal("import_aaf_selects"),bin:z.string().min(1),file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),preset:name}).strict(),
@@ -147,6 +149,14 @@ export class NativeAdapter {
     if(action.action==="open_bin")return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),action};
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path:path.relative(project.path,bin),bin_flags:["AllTypes"] });
     if ("mobId" in action && !clips.some(clip => clip.mob_id === action.mobId)) throw new Error("Target clip is not in bin");
+    if(action.action==="select_clips"){
+      requireCapability(this.config.capabilities,"edit");
+      if(action.mobIds.some(id=>!clips.some(clip=>clip.mob_id===id)))throw new Error("Selection target is not in bin");
+      const selection=await this.read("selected_clips",action.bin) as {clips:{mob_id:string}[]};
+      if(digest(selection.clips.map(item=>item.mob_id).sort())!==digest([...action.expectedSelectedMobIds].sort()))throw new Error("Native selection differs from expected selection; inspect before applying");
+      if((await this.project()).path!==project.path)throw new Error("Native project changed during selection preview");
+      return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),clips,selection,action};
+    }
     if(action.action==="rename_clip"){
       const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),names=info.filter(row=>row.column_name==="Name");
       if(names.length!==1||names[0]!.column_value!==action.expectedName)throw new Error("Native clip name differs from expectedName; inspect before renaming");
@@ -343,6 +353,10 @@ export class NativeAdapter {
               comment: action.comment, color: action.color } }); break;
           }
           case "delete_marker": result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] }); break;
+          case "select_clips": {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Selection host or project changed before dispatch");
+            result=await this.client.call("SelectMobsInBin",{bin_path:await this.binPath(project.path,action.bin),mob_ids:action.mobIds,add_to_selection:false},observedState.owner);break;
+          }
           case "show_clip": result = await this.client.call("LoadMobsIntoViewer", { mob_ids: [action.mobId], view_type: "Source" }); break;
           case "rename_clip": result=await this.client.call("SetMobInfo",{mob_id:action.mobId,column:{column_name:"Name",column_value:action.name}});break;
           case "create_subclip": result=await this.client.call("CreateSubClip",{
@@ -354,7 +368,13 @@ export class NativeAdapter {
         }
         let postState:unknown,verificationError:string|undefined;
         try {
-          if(action.action==="create_subclip"){
+          if(action.action==="select_clips"){
+            postState=await this.read("selected_clips",action.bin);
+            const selected=(postState as {clips:{mob_id:string}[]}).clips.map(item=>item.mob_id).sort();
+            const reported=z.array(z.object({selected_mob_ids:z.array(id).max(4096)})).length(1).parse(result)[0]!.selected_mob_ids;
+            if(digest(selected)!==digest([...action.mobIds].sort())||digest([...reported].sort())!==digest([...action.mobIds].sort()))throw new Error("Requested selection not verified; inspect before another attempt");
+          }else if(action.action==="create_subclip"){
+
             const after=await this.read("clips",action.bin) as Record<string,any>[];
             const before="clips" in observedState?observedState.clips:[];
             const created=after.filter(item=>!before.some((old:Record<string,any>)=>old.mob_id===item.mob_id));
@@ -375,7 +395,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false, postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
+          persistenceVerified: false,...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;

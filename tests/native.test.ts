@@ -269,3 +269,19 @@ it("refuses selection when bin membership changes across reads",async()=>{
  vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>method==="GetListOfBinItems"?(body?.only_selected_flag?[{mob_id:"clip",mob_selected:true}]:(++reads===1?[{mob_id:"clip"}]:[])):original(method,body));
  await expect(f.adapter.read("selected_clips","fixture.avb")).rejects.toThrow("changed");
 });
+
+it.each([false,true])("guards replacement selection and reports postcondition mismatch (%s)",async(mismatch)=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let selected=["clip"],writes=0;
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems")return body?.only_selected_flag?selected.map(mob_id=>({mob_id,mob_selected:true})):[{mob_id:"clip"},{mob_id:"second"}];
+  if(method==="SelectMobsInBin"){writes++;expect(body?.add_to_selection).toBe(false);if(!mismatch)selected=body!.mob_ids as string[];return [{selected_mob_ids:body!.mob_ids}];}
+  return original(method,body);
+ });
+ const action={action:"select_clips" as const,bin:"fixture.avb",mobIds:["second"],expectedSelectedMobIds:["clip"]};
+ const stale=await f.adapter.preview(action);selected=[];await expect(f.adapter.apply(stale.token)).rejects.toThrow("selection");expect(writes).toBe(0);selected=["clip"];
+ const plan=await f.adapter.preview(action),result=await f.adapter.apply(plan.token);expect(result).toMatchObject({applicationCompleted:true,selectionVerified:!mismatch});expect(writes).toBe(1);
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");
+ await expect(f.adapter.preview({...action,mobIds:["outside"]})).rejects.toThrow("not in bin");
+ expect(nativeActionSchema.safeParse({...action,mobIds:["clip","clip"]}).success).toBe(false);
+ expect(nativeActionSchema.safeParse({...action,mobIds:[]}).success).toBe(false);
+});

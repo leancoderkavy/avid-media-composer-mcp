@@ -1,0 +1,10 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';import {mkdir,readFile,writeFile} from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const root=path.resolve('.avid-mcp-analysis',`native-select-mcp-${randomUUID()}`);await mkdir(root);
+const client=new Client({name:'native-select-mcp-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:'D:/Avid Projects/MCP_Sonoma_30p_20260905',AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit'}}));
+try{
+ const sequence='060a2b340101010501010f1013-000000-3737af0e12888806-0e10d8bbc16d-18d9',master='060a2b340101010501010f1013-000000-36b2e93612888806-a3b2d8bbc16d-18d9';
+ const restore=process.argv.includes('--restore');
+ const action={action:'select_clips',bin:'MCP_AAF_Selects_20260905.avb',mobIds:restore?[sequence]:[sequence,master],expectedSelectedMobIds:restore?[sequence,master]:[sequence]};
+ const plan=await client.callTool({name:'avid_native_preview',arguments:{operation:action}},undefined,{timeout:120000});await writeFile(path.join(root,'preview.json'),JSON.stringify(plan,null,2));assert.ok(!plan.isError,JSON.stringify(plan));
+ const result=await client.callTool({name:'avid_native_apply',arguments:{token:plan.structuredContent.data.token}},undefined,{timeout:120000});await writeFile(path.join(root,'result.json'),JSON.stringify(result,null,2));assert.ok(!result.isError,JSON.stringify(result));assert.equal(result.structuredContent.data.selectionVerified,true);console.log(JSON.stringify({root,verification:result.structuredContent.data.postState}));
+}finally{await client.close();}
