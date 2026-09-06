@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Codex model-selected native Avid inspection
+
+Actual authenticated Codex called avid_native_read once each for app, project and open_bins against the existing Media Composer 2024.12.58720 Sonoma session. All three successful structured payloads matched direct NativeAdapter reads before and after; all 23 open-bin SHA-256 values and the server entry hash remained unchanged. The final answer reported the build, project and all returned bin filenames. No other completed tool types appeared. Evidence: `.avid-mcp-analysis/codex-native-read-14f00355-56ad-4aca-8ff4-434b1d40fd9f/evidence.json` and event stream; reproducible `qualify-codex-native-read.mjs`. Syntax and real execution passed. This advances model-driven live native inspection, not writes, atomic session snapshots, playback, fresh-machine installation or GUI qualification. No production code changed.
+
 ### Installed Codex setup regression gate
 
 The fresh-package smoke check now decodes the installed Codex argument array, rejects malformed/duplicate environment assignments, and compares its server command, entry and environment exactly with all five JSON client formats. It then connects using that decoded command from a foreign working directory. Installed CLI install/update/remove/restore attempts against an owned Codex TOML fixture are refused and preserve every byte. Actual fresh-tarball execution passed with 137 tools, five skills and Python/AAF package checks: `.avid-mcp-analysis/check-installed-codex-argv-protection.log`. This gate requires no authenticated client or Codex binary; actual Codex/model executions remain separately evidenced. No production code changed.

@@ -1,5 +1,9 @@
 # Unreleased local setup
 
+## Qualified model-driven native read
+
+The existing authenticated Windows Codex CLI completed app/project/open-bin inspection through avid_native_read against Media Composer 2024.12.58720. Responses matched bracketing direct adapter reads, and all 23 saved open bins retained their hashes. `scripts/research/qualify-codex-native-read.mjs` reproduces this read-only test for the explicitly named Sonoma project and installed Avid executable. It exposes only the native read tool with inspect capability, records model events, and refuses mismatched results. This uses existing host prerequisites and does not prove native writes, UI state, playback, atomic snapshots or clean-machine installation. Evidence: `.avid-mcp-analysis/codex-native-read-14f00355-56ad-4aca-8ff4-434b1d40fd9f/evidence.json`.
+
 ## Codex command generation
 
 The regular fresh-package check now covers the generated Codex argument array alongside the five JSON client formats, starts the installed server using that decoded command from a foreign directory, and verifies that JSON lifecycle flags leave an existing Codex TOML fixture unchanged. This is an automated package regression gate; it does not substitute for the real Codex client/model acceptance runs.
