@@ -2,6 +2,8 @@
 
 Use `avid_jumper_read` with `{ "operation": "health" }` for paired connectivity, or `{ "operation": "search", "query": "person walking", "cacheDirectory": "<authorized existing cache>", "mediaPaths": ["<authorized media file>"], "limit": 20 }` for metadata results from already-loaded analysis. Both operations require `inspect` and complete provider configuration. Health accepts no search fields. The server does not load analysis or download/install Jumper for you.
 
+MCP refusal tests cover missing inspection authority, partial configuration, search fields on health, missing media scope, an empty media list and an excessive result limit. These cases return errors before listener inspection, omit the configured license from results and leave core ping available. Successful paired fixture dispatch and licensed-provider qualification are separate evidence scopes.
+
 Windows pairing preflight is available after building:
 
 ```powershell
