@@ -63,11 +63,20 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "mob_bin" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
     if (query === "project") return project;
+    if(query==="mob_bin"){
+      const requested=id.parse(mobId);
+      const bodies=z.array(z.object({absolute_path:z.string().min(1).max(32768)})).length(1).parse(await this.client.call("GetBinFromMob",{mob_id:requested}));
+      if(!path.isAbsolute(bodies[0]!.absolute_path))throw new Error("Native clip bin path must be absolute");
+      const resolved=await resolveReadablePath(bodies[0]!.absolute_path,[project.path],"file");
+      if(path.extname(resolved).toLowerCase()!==".avb")throw new Error("Native clip bin must be an AVB file");
+      if((await this.project()).path!==project.path)throw new Error("Native project changed during clip-bin lookup");
+      return {mobId:requested,bin:resolved,scope:"Bin location reported by Avid within the current authorized project. Does not open the bin or establish saved clip membership, viewer identity mapping or uniqueness across copies."};
+    }
     if (query === "open_bins") {
       const bodies = z.array(z.object({absolute_path:z.string().min(1).max(32768)})).max(4096).parse(
         await this.client.call("GetBins", {request_flag:["AllTypes", "OnlyOpen"]}));

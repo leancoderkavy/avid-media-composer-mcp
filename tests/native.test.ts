@@ -41,6 +41,24 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
   const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:capabilities}),client as unknown as NativeClient);
   return {adapter,client,calls,marker,source};
 }
+it('resolves a native MOB bin within project scope and omits extra host fields',async()=>{
+ const f=await hostFixture('inspect'),original=f.client.call.bind(f.client),project=await f.adapter.project(),file=path.join(project.path,'fixture.avb');
+ vi.spyOn(f.client,'call').mockImplementation((method,body)=>{if(method==='GetBinFromMob'){expect(body).toEqual({mob_id:'clip'});return Promise.resolve([{absolute_path:file,private:'PRIVATE_HOST_FIELD'}]);}return original(method,body);});
+ const result=await f.adapter.read('mob_bin',undefined,'clip');expect(result).toMatchObject({mobId:'clip',bin:file});expect(JSON.stringify(result)).not.toContain('PRIVATE_HOST_FIELD');
+ expect(f.calls.every(call=>call.method==='GetOpenProjectInfo')).toBe(true);
+});
+it('refuses malformed, missing and outside-project native bin locations',async()=>{
+ const f=await hostFixture('inspect'),original=f.client.call.bind(f.client),outside=await mkdtemp(path.join(os.tmpdir(),'avid-outside-')),file=path.join(outside,'other.avb');await writeFile(file,'preserve');
+ let payload:unknown=[];vi.spyOn(f.client,'call').mockImplementation((method,body)=>method==='GetBinFromMob'?Promise.resolve(payload as any):original(method,body));
+ await expect(f.adapter.read('mob_bin')).rejects.toThrow();
+ for(payload of [[],[{}],[{absolute_path:'relative.avb'}],[{absolute_path:file}],[{absolute_path:f.source}],[{absolute_path:file},{absolute_path:file}]])await expect(f.adapter.read('mob_bin',undefined,'clip')).rejects.toThrow();
+});
+it('refuses a project change during native bin lookup',async()=>{
+ const f=await hostFixture('inspect'),project=await f.adapter.project(),other=await mkdtemp(path.join(os.tmpdir(),'avid-project-change-'));
+ let count=0;vi.spyOn(f.adapter,'project').mockImplementation(async()=>({...project,path:++count===1?project.path:other}));
+ vi.spyOn(f.client,'call').mockResolvedValue([{absolute_path:path.join(project.path,'fixture.avb')}]);
+ await expect(f.adapter.read('mob_bin',undefined,'clip')).rejects.toThrow('project changed');
+});
 
 describe("native boundaries", () => {
   it('sets and clears Comments with expected-value checks and single-use plans',async()=>{

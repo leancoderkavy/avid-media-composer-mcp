@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+[Native clip-bin lookup](NATIVE_MOB_BIN.md) resolves an observed MOB ID to Avid's reported bin within the current authorized project. Two known Sonoma sequence IDs resolved correctly across reconnect with source/bin hashes unchanged. Saved membership, uniqueness across copies and viewer alias mapping remain separate.
+
 Transcript summary node reads include `quality.potentiallyTruncatedNodeIds` across the selected node and all descendants. This keeps an incomplete leaf visible even when its parent overview ends with punctuation. The signal uses the existing sentence-ending heuristic; an empty list does not verify completeness, factual accuracy or source-claim coverage. Saved summaries remain unchanged and inspection does not require a loaded model.
 
 Summary revision discovery reports unreadable records in `unavailable` and continues through `nextAfter`. Its limit bounds examined revision files, including other media, so a page may contain no matching summaries while still offering a continuation cursor. An unreadable record with `mediaIdentityVerified: false` is not attributed to the requested media. Damaged content is not returned; discovery does not repair or delete it.
@@ -74,7 +76,7 @@ The optional licensed Jumper provider has a [bounded loopback health, text/image
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 638 TypeScript tests, 41 Python tests, 139 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-summary-model-input.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 139 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 641 TypeScript tests, 41 Python tests, 139 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-native-mob-bin.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 139 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
 

@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Resolve a native MOB to its current project bin
+
+Added `avid_native_read` query `mob_bin` backed by locally derived GetBinFromMob. It requires a MOB ID and accepts exactly one absolute existing AVB path within the current authorized project, with project checks bracketing the call. Malformed/multiple/outside-project/non-AVB results and project changes are refused; unrelated native fields are omitted. No bin is opened and no write occurs. Native allowlist: 15 reads and 15 writes; MCP inventory remains 139 tools.
+
+Actual two-process MCP qualification resolved both known Sonoma disposable sequence IDs to their expected color/load bins in all four lookups, preserving source/bin hashes: `.avid-mcp-analysis/native-mob-bin-6a3b9ad3-5d1e-4f07-960e-9a091bc779d6/evidence.json`. Responses are retained before assertions. Full check passed with 641 TypeScript tests, 41 Python tests, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-mob-bin.log`). See NATIVE_MOB_BIN.md for usage and boundaries. Saved membership, duplicate identity behavior, closed bins, missing-ID host behavior and Source-viewer alias mapping are not qualified by these two known IDs. Full-plan scope remains open.
+
 ### Installed summary review after reconnect
 
 Added `qualify-installed-summary-review.mjs`, which installs a fresh checksum-selected branch archive and starts its MCP entry from a foreign working directory with inspect-only capability and no model configuration. Two independent processes read the overview and both leaves from the existing Sonoma synthetic-note boundary evidence. Reconstructed input text/hash/kind, original sources and exact excerpts matched the prior checkout results on every node and after reconnect. Evidence, summary, transcript, original MP4, archive and installed entry hashes were preserved.

@@ -127,7 +127,7 @@ function exchange(method: string, payload: Buffer): Promise<Buffer[]> {
   });
 }
 
-export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetBinInfo", "GetBinColumnInfo", "GetMobTrackInfo", "GetViewerMobs",
+export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetBinInfo", "GetBinFromMob", "GetBinColumnInfo", "GetMobTrackInfo", "GetViewerMobs",
   "GetListOfBinItems", "GetListOfLinkSettings", "GetListOfExportSettings", "GetListOfExportEDLSettings", "GetListOfImportSettings", "GetMobInfo", "GetMarkers"] as const;
 export const NATIVE_WRITES = ["CreateBin", "CloseBin", "OpenBin", "LinkFile", "AddMarker", "CreateSubClip",
   "CopyBinItems", "SelectMobsInBin", "ChangeMarker", "DeleteMarkers", "SetMobInfo", "LoadMobsIntoViewer", "ExportFile", "ExportEDL", "ImportFile"] as const;
