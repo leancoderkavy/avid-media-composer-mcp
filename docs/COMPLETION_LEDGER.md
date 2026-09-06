@@ -708,3 +708,9 @@ Added direct and directory-link boundary tests: a checksum-matching alias outsid
 ### Full regression after caption, people and speaker alias integration
 
 Full `npm run check` passed on source commit `e1aa3f6`: 491 TypeScript tests across 83 files, 32 Python tests, 135-tool stdio/HTTP checks, dry packing and fresh installation including exact definitions, six notice mappings, inventory/source refusal, source tracing, five client formats and Python available/missing/restored isolation. Log: `.avid-mcp-analysis/check-all-model-aliases.log`. The cumulative real MCP/model alias and narrowed-root evidence remains separate in `alias-reconnect-6c17cd28-5d2d-4a99-8aa1-44dc1c548d3a`. Current-head CI was pending when checked; CodeQL for `87570a2` was successful. Native editing, broader accuracy, client installation and all other open ledger requirements remain incomplete.
+
+### Named-client model invocation preflight
+
+Rechecked installed Windows Claude Code 2.1.260 at `C:/Users/kavyr/AppData/Roaming/Claude/claude-code/2.1.260/claude.exe`. Its `auth status --json` command reported loggedIn:false, authMethod:none and apiProvider:firstParty. Only these nonpersonal status fields were inspected in the visible result; no authentication or configuration was changed. The separate `.local/bin/claude.exe` resolves to older version 2.1.37, so future qualification must keep the intended binary explicit.
+
+This is a current external dependency for model-driven tool invocation: sign-in to the intended client is required before a real model can select and invoke Avid MCP tools. Prior isolated CLI MCP connection/lifecycle evidence remains valid within its stated scope and does not close model invocation. No model request was attempted, and the overall implementation goal remains open with other actionable work.
