@@ -94,3 +94,32 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
     await unlink(file);await unlink(other);await rmdir(root);
   }
 });
+
+it("scopes image/frame references, preserves refinement and refuses mismatched search fields",async()=>{
+  const root=await realpath(await mkdtemp(path.join(os.tmpdir(),"avid-jumper-reference-")));
+  const file=path.join(root,"clip.mp4"),reference=path.join(root,"reference.jpg");
+  await writeFile(file,"fixture");await writeFile(reference,"image fixture");
+  const posts:Array<{url:string|undefined;body:Record<string,unknown>;key:unknown}>=[];
+  const server=createServer(async(req,res)=>{
+    let body="";for await(const chunk of req)body+=chunk;
+    posts.push({url:req.url,body:JSON.parse(body),key:req.headers["x-license-key"]});
+    res.setHeader("content-type","application/json");res.end('{"matches":[]}');
+  });
+  await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const address=server.address();if(!address||typeof address==="string")throw new Error("Missing listener");
+  try{
+    const client=new JumperReadClient({baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"fixture",allowedRoots:[root]});
+    const common={cacheDirectory:root,mediaPaths:[file],limit:3};
+    expect(await client.searchReference({...common,kind:"image",referencePath:reference})).toMatchObject({matches:[],imagesOmitted:true});
+    expect(await client.searchReference({...common,kind:"frame",referencePath:file,timeSeconds:2.5,query:"vineyard"})).toMatchObject({matches:[]});
+    expect(posts).toEqual([
+      {url:"/api/v1/search/image",key:"fixture",body:{image_path:reference,cache_dir:root,media_paths:[file],max_results:3,search_all:false}},
+      {url:"/api/v1/search/frame",key:"fixture",body:{media_path:file,time_seconds:2.5,query:"vineyard",cache_dir:root,media_paths:[file],max_results:3,search_all:false}},
+    ]);
+    await expect(client.searchReference({...common,kind:"frame",referencePath:file})).rejects.toMatchObject({code:"JUMPER_INPUT"});
+    await expect(client.searchReference({...common,kind:"image",referencePath:reference,timeSeconds:0})).rejects.toMatchObject({code:"JUMPER_INPUT"});
+    await expect(client.searchReference({...common,kind:"image",referencePath:process.execPath})).rejects.toThrow();
+    await expect(client.searchReference({...common,kind:"frame",referencePath:file,timeSeconds:-1})).rejects.toThrow();
+    expect(posts).toHaveLength(2);
+  }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));await unlink(file);await unlink(reference);await rmdir(root);}
+});

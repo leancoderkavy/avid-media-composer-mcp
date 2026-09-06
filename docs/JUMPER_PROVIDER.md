@@ -46,3 +46,13 @@ The paired dispatch path now uses `verified-http.ts`: a fresh TCP socket is with
 
 The preceding foundation-only entries describe earlier evidence. Current paired requests perform both checks. Real loopback transport tests observed zero application bytes while verification was pending, after refusal and after late approval following timeout; successful approval delivered the expected header/body. Response-size, MIME, JSON, redirect and stalled-body failures were refused. The Windows owner/pairing/MCP tests passed through this transport with the actual accepted-tuple check. This mitigates replacement between listener preflight and connection establishment; it does not authenticate vendor software, loaded process memory or a licensed runtime.
 
+
+## Reference image and frame search
+
+The public OpenAPI contract was fetched again on 2026-09-06. `avid_jumper_read` supports `operation: "image"` and `operation: "frame"`. Both require `referencePath`, `cacheDirectory`, and a nonempty explicit `mediaPaths` selection, with optional `query` refinement and `limit` (1–100). Frame search additionally requires finite nonnegative `timeSeconds`; image search rejects that field. Speaker filters belong only to transcript search. Example:
+
+```json
+{"operation":"frame","referencePath":"C:\\Media\\reference.mp4","timeSeconds":2.5,"cacheDirectory":"C:\\Media\\cache","mediaPaths":["C:\\Media\\clip.mp4"],"query":"vineyard","limit":10}
+```
+
+The reference may be a different authorized file from the search selection. Every reference, media and cache path is resolved through allowed roots before dispatch. Requests explicitly set `search_all: false`. Responses use the same bounded, selected-media-only metadata validator as text search, omitting image payloads and unknown fields. Reference decoding, frame timestamp alignment and similarity ranking are delegated to the provider and remain unqualified against a licensed runtime. A successful fixture request does not prove the file is a decodable image/video or that the requested time exists. The core local image/frame search remains independent of this optional provider.

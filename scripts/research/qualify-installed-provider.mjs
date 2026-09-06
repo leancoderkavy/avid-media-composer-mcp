@@ -34,7 +34,15 @@ try{
   const result=await client.callTool({name:'avid_jumper_read',arguments:{operation:'search',query:'fixture',cacheDirectory:root,mediaPaths:[media],limit:1}},undefined,{timeout:30000});
   assert.ok(!result.isError,JSON.stringify(result));assert.equal(result.structuredContent.data.matches.length,1);
   assert.equal(result.structuredContent.data.imagesOmitted,true);assert.ok(!JSON.stringify(result).includes('omitted-preview'));assert.equal(requests,1);assert.ok(headerMatched&&selectionMatched);
+  const referenceResults=[];
+  for(const operation of ['image','frame']){
+    const referenceResult=await client.callTool({name:'avid_jumper_read',arguments:{operation,cacheDirectory:root,mediaPaths:[media],referencePath:media,limit:1,...(operation==='frame'?{timeSeconds:0}:{})}},undefined,{timeout:30000});
+    assert.ok(!referenceResult.isError,JSON.stringify(referenceResult));assert.equal(referenceResult.structuredContent.data.matches.length,1);
+    assert.equal(referenceResult.structuredContent.data.imagesOmitted,true);assert.ok(headerMatched&&selectionMatched);
+    referenceResults.push(referenceResult);
+  }
+  assert.equal(requests,3);
   assert.equal(await sha256File(media),mediaSha256);assert.equal(await sha256File(installation.entry),installation.entrySha256);assert.equal(await sha256File(archive),archiveSha256);
-  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,checkedAt:new Date().toISOString(),installation,archiveSha256,mediaSha256,result,requests,headerMatched,selectionMatched,limitations:'Fresh installed MCP paired dispatch to harness-owned Windows HTTP fixture. Synthetic path only, no decoded media, licensed Jumper, runtime-version or connection-race qualification.'},null,2));
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,checkedAt:new Date().toISOString(),installation,archiveSha256,mediaSha256,result,referenceResults,requests,headerMatched,selectionMatched,limitations:'Fresh installed MCP paired text/image/frame dispatch to harness-owned Windows HTTP fixture. Synthetic path only, no decoded reference image/video, licensed Jumper or runtime-version qualification.'},null,2));
   console.log(JSON.stringify({ok:true,root}));
 }finally{await client?.close();listener.closeAllConnections();await new Promise((resolve,reject)=>listener.close(error=>error?reject(error):resolve()));}

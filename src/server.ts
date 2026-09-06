@@ -182,17 +182,23 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
 
   const native = new NativeAdapter(config);
   server.registerTool("avid_jumper_read",{
-    description:"Optional licensed Jumper provider: paired Windows loopback health, visual text search or transcript substring search over explicit authorized media. Requires configured license/executable/hash/process identity. No analysis loading or writes. Images omitted; provider frame indices use 1 FPS, not Avid edit frames. Runtime version and licensed-provider behavior remain unqualified.",
-    inputSchema:{operation:z.enum(["health","search","transcript"]),query:z.string().min(1).max(4096).optional(),cacheDirectory:z.string().optional(),mediaPaths:z.array(z.string()).min(1).max(100).optional(),limit:z.number().int().min(1).max(100).optional(),speaker:z.string().min(1).max(256).optional()},
+    description:"Optional licensed Jumper provider: paired Windows loopback health, visual text/image/frame search or transcript substring search over explicit authorized media. Image/frame require authorized referencePath; frame requires nonnegative timeSeconds. Reference searches accept optional query refinement. Requires configured license/executable/hash/process identity. No analysis loading or writes. Images omitted; provider frame indices use 1 FPS, not Avid edit frames. Runtime version and licensed-provider behavior remain unqualified.",
+    inputSchema:{operation:z.enum(["health","search","transcript","image","frame"]),query:z.string().min(1).max(4096).optional(),referencePath:z.string().min(1).optional(),timeSeconds:z.number().finite().nonnegative().optional(),cacheDirectory:z.string().optional(),mediaPaths:z.array(z.string()).min(1).max(100).optional(),limit:z.number().int().min(1).max(100).optional(),speaker:z.string().min(1).max(256).optional()},
     outputSchema:TOOL_OUTPUT_SCHEMA,annotations:NETWORK_READ_ANNOTATIONS,
   },args=>execute("avid_jumper_read",async()=>{
     requireInspect(config);
     const provider=configuredJumperClient(config.jumperEnvironment??{},config.allowedRoots);
     if(!provider)throw new Error("Optional Jumper provider is not configured");
     if(args.operation==="health"){
-      if(args.query!==undefined||args.cacheDirectory!==undefined||args.mediaPaths!==undefined||args.limit!==undefined||args.speaker!==undefined)throw new Error("Health does not accept search fields");
+      if(args.query!==undefined||args.cacheDirectory!==undefined||args.mediaPaths!==undefined||args.limit!==undefined||args.speaker!==undefined||args.referencePath!==undefined||args.timeSeconds!==undefined)throw new Error("Health does not accept search fields");
       return provider.health();
     }
+    if(args.operation==="image"||args.operation==="frame"){
+      if(!args.referencePath||!args.cacheDirectory||!args.mediaPaths)throw new Error("Reference search requires referencePath, cacheDirectory and explicit mediaPaths");
+      if(args.speaker!==undefined)throw new Error("Speaker filter requires transcript search");
+      return provider.searchReference({kind:args.operation,referencePath:args.referencePath,cacheDirectory:args.cacheDirectory,mediaPaths:args.mediaPaths,...(args.timeSeconds!==undefined?{timeSeconds:args.timeSeconds}:{}),...(args.query!==undefined?{query:args.query}:{}),...(args.limit!==undefined?{limit:args.limit}:{})});
+    }
+    if(args.referencePath!==undefined||args.timeSeconds!==undefined)throw new Error("Reference fields require image or frame search");
     if(!args.query||!args.cacheDirectory||!args.mediaPaths)throw new Error("Search requires query, cacheDirectory and explicit mediaPaths");
     if(args.operation==="transcript")return provider.searchTranscript({query:args.query,cacheDirectory:args.cacheDirectory,mediaPaths:args.mediaPaths,...(args.limit!==undefined?{limit:args.limit}:{}),...(args.speaker!==undefined?{speaker:args.speaker}:{})});
     if(args.speaker!==undefined)throw new Error("Speaker filter requires transcript search");

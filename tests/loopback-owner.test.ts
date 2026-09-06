@@ -41,11 +41,15 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
       expect(result.isError).not.toBe(true);expect(result.structuredContent).toMatchObject({ok:true,data:{matches:[],imagesOmitted:true,ownershipPreflight:"passed"}});
       const transcript=await mcpClient.callTool({name:"avid_jumper_read",arguments:{operation:"transcript",...search,speaker:"Anna"}});
       expect(transcript.isError).not.toBe(true);expect(transcript.structuredContent).toMatchObject({ok:true,data:{matches:[],speakerBasis:"transcript-local labels, not face identities"}});
+      for(const operation of ["image","frame"]){
+        const reference=await mcpClient.callTool({name:"avid_jumper_read",arguments:{operation,cacheDirectory:search.cacheDirectory,mediaPaths:search.mediaPaths,referencePath:search.mediaPaths[0],...(operation==="frame"?{timeSeconds:0}:{} )}});
+        expect(reference.isError).not.toBe(true);expect(reference.structuredContent).toMatchObject({ok:true,data:{matches:[],imagesOmitted:true,ownershipPreflight:"passed"}});
+      }
     }finally{await mcpClient.close();await mcp.close();}
-    expect(requests).toBe(3);
+    expect(requests).toBe(5);
     const refused=new JumperReadClient(options);
     await expect(refused.searchText(search)).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
-    expect(requests).toBe(3);
+    expect(requests).toBe(5);
     await expect(verifyWindowsLoopbackOwner({...args,sha256:"0".repeat(64)})).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
     await expect(verifyWindowsLoopbackOwner({...args,expectedIdentity:"different-process"})).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
   }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}

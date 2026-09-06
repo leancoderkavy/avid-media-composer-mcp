@@ -53,7 +53,7 @@ export class JumperReadClient {
     this.base=base.href;
     this.options=Object.freeze({...options,allowedRoots:Object.freeze([...options.allowedRoots]),...(options.owner?{owner:Object.freeze({...options.owner})}:{})});
   }
-  private async request(endpoint:"/health"|"/search/text"|"/search/transcript",body?:unknown):Promise<unknown>{
+  private async request(endpoint:"/health"|"/search/text"|"/search/transcript"|"/search/image"|"/search/frame",body?:unknown):Promise<unknown>{
     if(this.options.owner){
       const url=new URL(this.base);
       await verifyWindowsLoopbackOwner({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",binary:this.options.owner.binary,sha256:this.options.owner.sha256,expectedIdentity:this.options.owner.identity});
@@ -100,12 +100,19 @@ export class JumperReadClient {
     }
     return boundedResult({provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"});
   }
-  async searchText(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
-    const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).parse(input);
+  async searchReference(input:{kind:"image"|"frame";referencePath:string;timeSeconds?:number;query?:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
+    const args=z.object({kind:z.enum(["image","frame"]),referencePath:z.string().min(1),timeSeconds:z.number().finite().nonnegative().optional(),query:z.string().trim().min(1).max(4096).optional(),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).strict().parse(input);
+    if(args.kind==="frame"&&args.timeSeconds===undefined)throw fail("INPUT","Frame search requires timeSeconds");
+    if(args.kind==="image"&&args.timeSeconds!==undefined)throw fail("INPUT","Image search does not accept timeSeconds");
+    const reference=await resolveReadablePath(args.referencePath,this.options.allowedRoots,"file");
     const cache=await resolveReadablePath(args.cacheDirectory,this.options.allowedRoots,"directory");
     const media=[...new Set(await Promise.all(args.mediaPaths.map(file=>resolveReadablePath(file,this.options.allowedRoots,"file"))))];
-    const parsed=responseSchema.safeParse(await this.request("/search/text",{query:args.query,cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false}));
-    if(!parsed.success||parsed.data.matches.length>args.limit)throw fail("SCHEMA","Provider search response does not match the bounded public contract");
+    const result=await this.request(args.kind==="image"?"/search/image":"/search/frame",{...(args.kind==="image"?{image_path:reference}:{media_path:reference,time_seconds:args.timeSeconds}),...(args.query!==undefined?{query:args.query}:{}),cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false});
+    return this.visualResult(result,media,args.limit);
+  }
+  private async visualResult(result:unknown,media:string[],limit:number){
+    const parsed=responseSchema.safeParse(result);
+    if(!parsed.success||parsed.data.matches.length>limit)throw fail("SCHEMA","Provider search response does not match the bounded public contract");
     const matches=[];
     for(const match of parsed.data.matches){
       const file=await resolveReadablePath(match.video_path,this.options.allowedRoots,"file");
@@ -113,5 +120,11 @@ export class JumperReadClient {
       matches.push({...match,video_path:file});
     }
     return boundedResult({provider:"jumper",matches,imagesOmitted:true,scoreAvailable:false,indexBasis:"one frame per second; not source edit frames",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"});
+  }
+  async searchText(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
+    const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).parse(input);
+    const cache=await resolveReadablePath(args.cacheDirectory,this.options.allowedRoots,"directory");
+    const media=[...new Set(await Promise.all(args.mediaPaths.map(file=>resolveReadablePath(file,this.options.allowedRoots,"file"))))];
+    return this.visualResult(await this.request("/search/text",{query:args.query,cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false}),media,args.limit);
   }
 }

@@ -8,6 +8,10 @@ import {verifyWindowsLoopbackOwner} from "../src/integrations/loopback-owner.js"
 vi.mock("../src/integrations/loopback-owner.js",()=>({verifyWindowsLoopbackOwner:vi.fn(()=>{throw new Error("Unexpected listener inspection");})}));
 
 it.each([
+  {name:"missing reference",capabilities:"inspect",partial:false,args:{operation:"image",cacheDirectory:process.cwd(),mediaPaths:["package.json"]},message:"Reference search requires"},
+  {name:"missing frame time",capabilities:"inspect",partial:false,args:{operation:"frame",referencePath:"package.json",cacheDirectory:process.cwd(),mediaPaths:["package.json"]},message:"Frame search requires timeSeconds"},
+  {name:"time on image",capabilities:"inspect",partial:false,args:{operation:"image",referencePath:"package.json",timeSeconds:0,cacheDirectory:process.cwd(),mediaPaths:["package.json"]},message:"Image search does not accept timeSeconds"},
+  {name:"reference on text",capabilities:"inspect",partial:false,args:{operation:"search",referencePath:"package.json",query:"scene",cacheDirectory:process.cwd(),mediaPaths:["package.json"]},message:"Reference fields require"},
   {name:"authority",capabilities:"export",partial:false,args:{operation:"health"},message:"CAPABILITY_DENIED"},
   {name:"partial configuration",capabilities:"inspect",partial:true,args:{operation:"health"},message:"JUMPER_CONFIG"},
   {name:"health with search fields",capabilities:"inspect",partial:false,args:{operation:"health",query:"scene"},message:"Health does not accept search fields"},
