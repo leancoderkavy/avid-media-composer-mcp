@@ -126,6 +126,8 @@ This read-only search requires `inspect`, checks access to every requested index
 
 ## Media QC
 
+Queued QC uses `avid_start_analysis_job` with `kind: "qc"`. Poll `avid_analysis_job_status` for its result. Status reads wait for that job's pending journal writes, including a terminal write queued while an earlier write finishes. A `journalError` means the live result has not been reliably persisted; retain that result and investigate the storage failure. This does not guarantee survival of abrupt process termination before acknowledgement or restart unfinished computation. Completed and failed QC records have been verified in a new server session without a separate history request before disconnecting.
+
 `avid_media_qc` (or a `qc` analysis job) decodes a selected range of up to 600 seconds and writes JSON/HTML findings in the library output directory. It requires `export` and uses the first video and audio streams. All thresholds are included in the report: black pixel/picture ratio and minimum duration, freeze noise/duration, and silence dB/duration. Source hashes are checked before and after processing.
 
 The measurements use FFmpeg's [blackdetect](https://ffmpeg.org/ffmpeg-filters.html#blackdetect), [freezedetect](https://ffmpeg.org/ffmpeg-filters.html#freezedetect), [silencedetect](https://ffmpeg.org/ffmpeg-filters.html#silencedetect), [vfrdet](https://ffmpeg.org/ffmpeg-filters.html#vfrdet), and input statistics from [loudnorm](https://ffmpeg.org/ffmpeg-filters.html#loudnorm). The normalized filter output is discarded; no replacement audio or media is written. Silence can have nonfinite loudness, represented as null with the raw `-inf` value retained.

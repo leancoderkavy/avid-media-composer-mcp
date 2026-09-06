@@ -41,6 +41,7 @@ interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"co
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
+  private checkpoints=new Map<string,Promise<void>>();
   private active=0;
   private closing=false;
   readonly journal:JobJournal;
@@ -52,15 +53,22 @@ export class AnalysisJobs {
     if(!["index","summary","summary_resume","visual_summary"].includes(spec.kind))requireCapability(this.config.capabilities,"export");
     if(["diarization_resume","diarization","visual_summary","caption_batch","caption_resume","caption","speech","speech_resume","people","people_resume","summary","summary_resume"].includes(spec.kind))requireCapability(this.config.capabilities,"project-write");
     if([...this.jobs.values()].filter(job=>["queued","running","cancelling"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
-    if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished)this.jobs.delete(finished.id);}
+    if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished){this.jobs.delete(finished.id);this.checkpoints.delete(finished.id);}}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};
     this.jobs.set(job.id,job);
     try{await this.persist(job);}catch(error){this.jobs.delete(job.id);throw error;}
     this.pump();return this.status(job.id);
   }
   private persist(job:Job){const {child,journalError,...record}=job;return this.journal.save(record);}
-  private checkpoint(job:Job){void this.persist(job).catch(error=>{job.journalError=(error as Error).message;});}
-  async readStatus(id:string){const current=this.jobs.get(id);return current?this.status(id):this.journal.read(id);}
+  private checkpoint(job:Job){
+    this.checkpoints.set(job.id,this.persist(job).then(()=>{delete job.journalError;},error=>{job.journalError=(error as Error).message;}));
+  }
+  async readStatus(id:string){
+    // Include a terminal checkpoint queued while an earlier write is settling.
+    let pending:Promise<void>|undefined;
+    do{pending=this.checkpoints.get(id);await pending;}while(pending!==this.checkpoints.get(id));
+    const current=this.jobs.get(id);return current?this.status(id):this.journal.read(id);
+  }
   status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return value;}
   cancel(id:string){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");

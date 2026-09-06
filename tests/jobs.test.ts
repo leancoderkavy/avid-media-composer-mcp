@@ -35,3 +35,35 @@ it("oversized worker output requests termination and cannot become a successful 
   state.workers[0].stdout.emit("data",Buffer.from('{}'));state.workers[0].emit("close",0);
   expect(jobs.status(first.id).status).toBe("cancelled");expect(jobs.status(first.id).result).toBeUndefined();jobs.close();
 });
+
+it("does not expose a completed status before its terminal journal write settles",async()=>{
+  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
+  await jobs.readStatus(first.id);
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const original=jobs.journal.save.bind(jobs.journal);
+  const save=vi.spyOn(jobs.journal,"save").mockImplementation(async record=>{
+    // Delay actual disk publication rather than merely the caller's promise.
+    if(record.status==="completed")await gate;
+    return original(record);
+  });
+  state.workers[0].stdout.emit("data",Buffer.from('{"entries":[]}'));
+  state.workers[0].emit("close",0);
+  let settled=false;
+  const reading=jobs.readStatus(first.id).then(value=>{settled=true;return value;});
+  await new Promise(resolve=>setImmediate(resolve));
+  try{expect(settled).toBe(false);}finally{release();}
+  expect(await reading).toMatchObject({status:"completed",result:{entries:[]}});
+  expect(await jobs.journal.read(first.id)).toMatchObject({status:"completed",result:{entries:[]}});
+  save.mockRestore();jobs.close();
+});
+
+it("keeps terminal persistence failures visible in status",async()=>{
+  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
+  await jobs.readStatus(first.id);
+  const save=vi.spyOn(jobs.journal,"save").mockRejectedValueOnce(new Error("journal volume unavailable"));
+  state.workers[0].stdout.emit("data",Buffer.from('{"entries":[]}'));state.workers[0].emit("close",0);
+  expect(await jobs.readStatus(first.id)).toMatchObject({status:"completed",journalError:"journal volume unavailable"});
+  expect((await jobs.journal.read(first.id)).status).toBe("running");
+  save.mockRestore();jobs.close();
+});

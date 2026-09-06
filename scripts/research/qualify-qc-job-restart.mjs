@@ -21,8 +21,7 @@ try{
  }
  assert.equal(results[0].status,'completed');assert.equal(results[0].result.audioCoverage.samplesPerChannel,48000);assert.equal(results[0].result.audioCoverage.amountMatchesRequestedDuration,false);
  assert.equal(results[1].status,'failed');assert.match(results[1].error,/decoded no samples/);assert.equal(results[1].result,undefined);
- // History waits for pending journal writes before closing the server session.
- await call(client,'avid_analysis_job_history',{});
+ // Disconnect after terminal status without relying on a history request to flush writes.
  const reportHash=await sha256File(results[0].result.output);
  const artifacts=(await readdir(path.join(root,'avid-mcp-library'))).filter(n=>n.startsWith('qc-')).sort();assert.equal(artifacts.length,2);
  await client.close();client=await connect();
