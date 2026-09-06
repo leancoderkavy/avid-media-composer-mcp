@@ -1,0 +1,10 @@
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const stage=process.argv[2];if(!['trim','undo','redo','restored'].includes(stage)||process.argv.length!==3)throw new Error('Expected one stage: trim, undo, redo, restored');
+const root=path.resolve('.avid-mcp-analysis/native-ui-redo-20260906');await mkdir(root,{recursive:true});
+const file='D:/Avid Projects/MCP_Sonoma_30p_20260905/MCP_CopyMCP_93108dc0c7b8.avb',target=path.join(root,stage+'.avb');
+await writeFile(target,await readFile(file),{flag:'wx'});
+const result=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',target],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(result.exitCode,0,result.stderr);const graph=JSON.parse(result.stdout);assert.equal(graph.sha256,await sha256File(target));await writeFile(path.join(root,stage+'.json'),JSON.stringify(graph,null,2),{flag:'wx'});console.log(JSON.stringify({root,stage,sha256:graph.sha256}));

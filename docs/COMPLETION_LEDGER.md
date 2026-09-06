@@ -786,3 +786,8 @@ Full npm run check passed after adding installed-package trim-verifier execution
 
 After reloading Copy.05 and focusing the timeline, the Edit menu showed Undo, Redo and Undo-Redo List disabled. No history action was invoked, and the saved bin checksum still matched reopened.avb. The earlier redo action is unavailable in this tested close/reopen context. Adapter recovery must invalidate assumed UI history on close/reload/restart and inspect saved state; same-session redo remains untested. See NATIVE_UI_TRIM_QUALIFICATION.md.
 
+
+### Same-session redo verified
+
+A fresh controlled UI trim/save/undo/save/redo/save/undo/save cycle on the disposable sequence passed saved-graph verification. Redo exactly reproduced every decoded mob of the trimmed state; both undo results matched every baseline mob. Production trim verification passed in both directions. Evidence: .avid-mcp-analysis/native-ui-redo-20260906/verification.json; capture and verification scripts are under scripts/research. The saved fixture is restored with a new binary save hash. No bin closure occurred inside this cycle; the prior negative cross-close history result remains valid. Shipping UI execution and broader edits remain open.
+
