@@ -766,3 +766,8 @@ The UI-test copy now has independent AVB graph comparison evidence: sequence sem
 
 One dual-roller one-frame trim was performed on the owned copy through computer use, saved, independently decoded, undone and saved again. All three media tracks changed from cut 60 to 61 and incoming source start 3300 to 3301; complete decoded sequence semantics returned to baseline after undo, with other decoded mobs unchanged. See NATIVE_UI_TRIM_QUALIFICATION.md and scripts/research/verify-native-ui-trim.mjs. No shipping UI adapter, post-edit close/reopen or general trim/undo support is claimed. CI 34018970601 attempt 2 passed on unchanged 902e3d2; the first PowerShell ownership-query timeout remains unexplained.
 
+
+### Native UI undo persistence
+
+Guarded MCP close/reopen of the trimmed-then-undone disposable bin passed after checking its current checksum against the retained undo artifact. The expected single sequence remained and every decoded AVB mob equaled the pre-edit baseline after reopening. Evidence: .avid-mcp-analysis/native-ui-undo-reopen-05c6a9f4-3c68-4b6f-900a-697bc4d1dc52/evidence.json; script: scripts/research/qualify-native-ui-undo-reopen.mjs. Undo-history persistence, redo, intermediate-trim reopening and the shipping UI adapter remain open. CI and CodeQL for 7c1660a completed successfully; later heads have separate checks.
+

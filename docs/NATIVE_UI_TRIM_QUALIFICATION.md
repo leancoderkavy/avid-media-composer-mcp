@@ -11,3 +11,7 @@ Evidence: .avid-mcp-analysis/native-ui-trim-20260906 contains baseline.json, tri
 This is one observed manual computer-use workflow on Avid 2024.12, not a shipped UI adapter or native trim RPC. Post-edit close/reopen, redo, other trim modes, selection combinations, keyboard mappings, concurrent edits, unknown AVB fields and playback fidelity remain unqualified. The monitors remained black in captures. Do not infer undo support for native API mutations from this UI trim result.
 
 Avid's [Media Composer User Guide](https://resources.avid.com/SupportFiles/attach/MC_UserGuide.pdf) provides trim-mode background. Actual key behavior and ranges above were established by the installed editor and saved-bin experiment, not inferred from documentation for another Avid product.
+
+## Saved undo after bin close/reopen
+
+The fixture-specific qualify-native-ui-undo-reopen.mjs first required the current bin checksum to equal the captured undone.avb, then used guarded MCP close_bin/open_bin operations and verified the single expected sequence identity. Independent parsing of a newly captured reopened.avb matched every decoded mob to the original pre-edit baseline, with no name or identity exclusions. Evidence: .avid-mcp-analysis/native-ui-undo-reopen-05c6a9f4-3c68-4b6f-900a-697bc4d1dc52/evidence.json. This closes bin-reopen persistence for the saved undo result only. It does not establish that undo/redo history survives closure or that the intermediate trimmed result was independently reopened.
