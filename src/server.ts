@@ -41,7 +41,7 @@ import { telemetry } from "./telemetry.js";
 import { SERVER_VERSION } from "./version.js";
 import { NativeAdapter, nativeActionSchema } from "./native/adapter.js";
 import { registerLibraryTools } from "./library/tools.js";
-import {configuredJumperClient} from "./integrations/jumper.js";
+import {configuredJumperClient,jumperConfigurationStatus} from "./integrations/jumper.js";
 
 const INSTRUCTIONS = `Avid Media Composer MCP separates verified capability from aspiration.
 
@@ -273,6 +273,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           allowedRoots: config.allowedRoots,
           dependencies: { pythonInspector, ffmpeg, ffprobe },
           native: { configured: Boolean(config.nativeBinary), qualification: "Windows 2024.12.58720 only; see native tools and validation evidence" },
+          jumper:jumperConfigurationStatus(config.jumperEnvironment??{}),
           mediaLibrary: { configured: Boolean(config.outputRoot), matching: "metadata/transcript substring search and optional local CLIP similarity over sparse frame samples", modelsConfigured: Boolean(config.modelDirectory), speech: "optional local English/multilingual Whisper with explicit model/language selection; review accuracy" },
           bridge,
           compatibility: {

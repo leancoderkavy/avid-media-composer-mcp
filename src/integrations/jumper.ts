@@ -28,6 +28,15 @@ export function configuredJumperClient(env:NodeJS.ProcessEnv,allowedRoots:readon
     owner:{binary:env.AVID_MCP_JUMPER_BINARY!,sha256:env.AVID_MCP_JUMPER_SHA256!,identity:env.AVID_MCP_JUMPER_IDENTITY!}});
 }
 
+/** Configuration syntax only: no filesystem, process or network probes. */
+export function jumperConfigurationStatus(env:NodeJS.ProcessEnv){
+  let state:"absent"|"invalid"|"configured";
+  try{state=configuredJumperClient(env,[])?"configured":"absent";}catch{state="invalid";}
+  return {state,platformSupported:process.platform==="win32",listenerVerified:false,runtimeVersionVerified:false,
+    nextStep:state==="absent"?"Optional provider is disabled":state==="invalid"?"Correct provider URL, license, binary, checksum and identity configuration":"Use avid_jumper_read health to verify the current paired listener",
+    scope:"Configuration validation only; no provider or listener request performed"};
+}
+
 /** Optional licensed provider. No SDK, model downloads, analysis writes or image output. */
 export class JumperReadClient {
   private readonly base:string;

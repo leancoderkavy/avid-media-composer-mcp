@@ -3,13 +3,17 @@ import {createServer} from "node:http";
 import {mkdtemp,writeFile,unlink,rmdir,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {JumperReadClient,configuredJumperClient} from "../src/integrations/jumper.js";
+import {JumperReadClient,configuredJumperClient,jumperConfigurationStatus} from "../src/integrations/jumper.js";
 
 it("keeps the optional provider disabled or fully paired and rejects partial configuration without leaking keys",()=>{
   expect(configuredJumperClient({},[])).toBeUndefined();
+  expect(jumperConfigurationStatus({})).toMatchObject({state:"absent",listenerVerified:false});
+  const invalidStatus=jumperConfigurationStatus({AVID_MCP_JUMPER_LICENSE_KEY:"private-test-key"});
+  expect(invalidStatus.state).toBe("invalid");expect(JSON.stringify(invalidStatus)).not.toContain("private-test-key");
   expect(()=>configuredJumperClient({AVID_MCP_JUMPER_LICENSE_KEY:"private-test-key"},[])).toThrow("Provider configuration requires");
   const env={AVID_MCP_JUMPER_LICENSE_KEY:"private-test-key",AVID_MCP_JUMPER_BINARY:process.execPath,AVID_MCP_JUMPER_SHA256:"a".repeat(64),AVID_MCP_JUMPER_IDENTITY:"1:2000-01-01T00:00:00Z"};
   expect(configuredJumperClient(env,[])).toBeInstanceOf(JumperReadClient);
+  expect(jumperConfigurationStatus(env)).toMatchObject({state:"configured",listenerVerified:false,runtimeVersionVerified:false});
   expect(()=>configuredJumperClient({...env,AVID_MCP_JUMPER_IDENTITY:""},[])).toThrow("Provider configuration requires");
   expect(()=>new JumperReadClient({licenseKey:"private-test-key",allowedRoots:[],owner:{binary:process.execPath,sha256:"a".repeat(64),identity:undefined as unknown as string}})).toThrow("Provider pairing requires");
 });
