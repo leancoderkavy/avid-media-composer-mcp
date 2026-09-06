@@ -188,6 +188,20 @@ try {
   const range=await invoke("avid_saved_timeline_range",{revision:recoveredRevision,mobId:recoveredMobs.mobs[0].mobId,start:0,end:60,limit:1});
   const rangeLast=await invoke("avid_saved_timeline_range",{revision:recoveredRevision,mobId:recoveredMobs.mobs[0].mobId,start:0,end:60,limit:1,after:range.nextAfter});
   if(diff.totalChanges!==2||diffLast.changes[0]?.index!==1||diffLast.nextAfter!==null||usage.totalReferences!==4||usageLast.usages[0]?.index!==3||usageLast.nextAfter!==null||rangeLast.results[0]?.overlapSourceStart!==120||rangeLast.nextAfter!==null)throw new Error("Installed snapshot pagination contract failed");
+  const resolutionRevision="00000000-0000-4000-8000-000000000003";
+  const resolutionMob={...fixtureMob,tracks:[{...fixtureMob.tracks[0],nodes:Array.from({length:12},(_,i)=>({kind:"SCLP",timelineStart:i*5,timelineEnd:(i+1)*5,sourceMobId:`source-${String(i).padStart(2,"0")}`,sourceStart:0}))}]};
+  const sourceRecord=id=>({...fixtureMob,mobId:id,tracks:[]});
+  const resolutionRecord={...record,revision:resolutionRevision,bins:[{...record.bins[0],mobs:[resolutionMob,sourceRecord("source-00"),sourceRecord("source-01"),sourceRecord("source-01")],nodeCount:12}]};
+  await writeFile(path.join(snapshotDirectory,`snapshot-${resolutionRevision}.json`),JSON.stringify(resolutionRecord));
+  const resolutionRows=[];let resolutionAfter=-1;
+  for(let page=0;page<4;page++){
+    const result=await invoke("avid_saved_source_resolution",{revision:resolutionRevision,after:resolutionAfter,limit:5});
+    resolutionRows.push(...result.sources);
+    if(result.nextAfter===null)break;
+    if(result.nextAfter<=resolutionAfter)throw new Error("Installed source-resolution cursor did not advance");
+    resolutionAfter=result.nextAfter;
+  }
+  if(resolutionRows.length!==12||new Set(resolutionRows.map(row=>row.sourceMobId)).size!==12||resolutionRows[0]?.status!=="resolved"||resolutionRows[1]?.status!=="ambiguous"||resolutionRows.slice(2).some(row=>row.status!=="unresolved"))throw new Error("Installed source-resolution pagination or classification failed");
   if (withPython) {
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
@@ -229,7 +243,7 @@ try {
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
       clientSetup: "five installed CLI formats agree; generated command connected from foreign working directory",
-      snapshotPagination: "synthetic diff, usage and range continuation passed",
+      snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
