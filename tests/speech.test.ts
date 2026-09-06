@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile,unlink} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,unlink,mkdir} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,beforeEach} from "vitest";
@@ -56,6 +56,16 @@ it("persists the base model and explicit language in completed speech checkpoint
 });
 it("rejects changed sources before inference",async()=>{
   const {config,id,source}=await fixture();await writeFile(source,"changed");await expect(new SpeechAnalysis(config).transcribe(id,0,1,{model:"tiny",language:"es"})).rejects.toThrow("changed");expect(mocks.pipeline).not.toHaveBeenCalled();
+});
+it("resumes a saved speech run through a matching alias after the original changes",async()=>{
+ const {config,id,source}=await fixture(),speech=new SpeechAnalysis(config);
+ try{
+  mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
+  await expect(speech.transcribe(id,0,65)).rejects.toThrow();const parent=(await speech.checkpoints.list(id)).runs[0]!.runId;
+  const directory=await new MediaLibrary(config).directory(),aliases=path.join(directory,`${id}.sources`),alias=path.join(path.dirname(source),"alias.mp4");await mkdir(aliases);await writeFile(alias,"fixture");await writeFile(path.join(aliases,`${"a".repeat(64)}.json`),JSON.stringify({id,file:alias}));await writeFile(source,"changed");
+  const result=await speech.resume(parent);expect(result.reusedWindows).toBe(1);expect(await speech.checkpoints.status(result.runId)).toMatchObject({state:"completed"});
+  await writeFile(alias,"changed too");await expect(speech.checkpoints.status(result.runId)).rejects.toThrow("changed");
+ }finally{await speech.dispose();}
 });
 it("returns no language for digital silence without model inference or transcript creation",async()=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis({...config,capabilities:new Set(["inspect","export"])});

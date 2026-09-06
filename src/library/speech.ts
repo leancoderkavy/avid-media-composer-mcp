@@ -45,7 +45,7 @@ export class SpeechAnalysis {
   private async detect(id:string,start:number,end:number){
     requireCapability(this.config.capabilities,"export");
     if(!this.config.modelDirectory)throw new Error("Download multilingual speech weights explicitly and set AVID_MCP_MODEL_DIR");
-    const library=new MediaLibrary(this.config),[entry]=await library.metadata([id]);
+    const library=new MediaLibrary(this.config),entry=await library.validatedMetadata(id);
     if(!entry||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>Number(entry.metadata.format?.duration)||end-start>30)throw new Error("Language detection range must be within media and at most 30 seconds");
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
     const directory=path.join(await library.directory(),randomUUID());await mkdir(directory);const audio=path.join(directory,"language.f32");
@@ -68,7 +68,7 @@ export class SpeechAnalysis {
     requireCapability(this.config.capabilities,"project-write");
     if(!this.config.modelDirectory)throw new Error("Download speech models explicitly and set AVID_MCP_MODEL_DIR");
     const library=new MediaLibrary(this.config);
-    const [entry]=await library.metadata([id]);
+    const entry=await library.validatedMetadata(id);
     if(!entry)throw new Error("Media missing");
     const duration=Number(entry.metadata.format?.duration);
     if(!Number.isFinite(end)||!Number.isFinite(start)||end<=start||start<0||end>duration||end-start>600)throw new Error("Transcription range must be within media and at most 600 seconds");

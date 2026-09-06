@@ -28,7 +28,7 @@ export class SpeechCheckpoints{
   async read(runId:string){
     const directory=await this.directory(runId),record=header.parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"manifest.json"),[directory],"file"),8192)),selected=speechModels[record.options.model];
     if(record.runId!==runId||record.model!==selected.model||record.modelRevision!==selected.revision)throw new Error("Speech run identity or model revision mismatch");
-    const [entry]=await new MediaLibrary(this.config).metadata([record.id]);if(!entry||await sha256File(await resolveReadablePath(entry.file,this.config.allowedRoots,"file"))!==record.id)throw new Error("Speech source changed; reindex");
+    const entry=await new MediaLibrary(this.config).validatedMetadata(record.id);if(!entry||await sha256File(await resolveReadablePath(entry.file,this.config.allowedRoots,"file"))!==record.id)throw new Error("Speech source changed; reindex");
     let complete:z.infer<ReturnType<typeof completionSchema>>|undefined;
     try{complete=completionSchema().parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"complete.json"),[directory],"file"),8192));}
     catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}
