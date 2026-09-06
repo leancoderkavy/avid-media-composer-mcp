@@ -4,6 +4,8 @@ Use `avid_jumper_read` with `{ "operation": "health" }` for paired connectivity,
 
 MCP refusal tests cover missing inspection authority, partial configuration, search fields on health, missing media scope, an empty media list and an excessive result limit. These cases return errors before listener inspection, omit the configured license from results and leave core ping available. Successful paired fixture dispatch and licensed-provider qualification are separate evidence scopes.
 
+After building on Windows, `node scripts/research/qualify-installed-provider.mjs` packs and installs an isolated artifact, starts a harness-owned HTTP listener, pairs its Node executable, and sends a scoped search through the installed server's stdio MCP entry from another working directory. It verifies returned-image omission, selection/header behavior and unchanged fixture/archive/entry hashes. Evidence: `installed-provider-12daf05c-26d7-45c3-8a11-946bfe924763`. The media path is a synthetic file, not a decoded clip, and the fixture key is not a vendor license. This does not establish Jumper model/search quality or licensed-runtime compatibility.
+
 Windows pairing preflight is available after building:
 
 ```powershell
