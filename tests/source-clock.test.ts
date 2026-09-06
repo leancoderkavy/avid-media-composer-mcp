@@ -1,5 +1,5 @@
 import {it,expect,vi} from "vitest";
-import {mkdtemp,writeFile,readFile,readdir,realpath} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,readdir,realpath,unlink} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets,verifyVideoPacketClock} from "../src/library/source-clock.js";
@@ -62,4 +62,26 @@ it("checks every packet clock including reordered presentation times and negativ
   expect(()=>verifyVideoPacketClock(packets,packets.map((p,i)=>i===1?{...p,[field]:null}:p),3)).toThrow("Unsupported");
  }
  expect(()=>verifyVideoPacketClock(packets,packets.slice(1),3)).toThrow("count");
+});
+it("inspects completed and unresolved attempts without invoking media processes or inferring worker state",async()=>{
+ const f=await fixture(),service=new SourceClockMedia(f.config),receipt=await service.prepare(f.options),directory=path.dirname(receipt.output),runId=path.basename(directory).slice(13);
+ mock.run.mockClear();
+ expect(await service.status(runId)).toMatchObject({state:"receipt_matches_files",outputSha256:receipt.outputSha256,workerState:"unknown"});
+ await unlink(path.join(directory,"receipt.json"));
+ expect(await service.status(runId)).toMatchObject({state:"unresolved",outputSha256:null,workerState:"unknown"});
+ expect(mock.run).not.toHaveBeenCalled();
+});
+it("rejects changed output, conflicting records and mismatched receipt identity",async()=>{
+ const f=await fixture(),service=new SourceClockMedia(f.config),receipt=await service.prepare(f.options),directory=path.dirname(receipt.output),runId=path.basename(directory).slice(13),record=path.join(directory,"receipt.json");
+ await writeFile(record,JSON.stringify({...receipt,audioStream:7}));await expect(service.status(runId)).rejects.toThrow("identity mismatch");
+ await writeFile(record,JSON.stringify(receipt));await writeFile(path.join(directory,"failure.json"),'{}');await expect(service.status(runId)).rejects.toThrow("Conflicting");
+ await unlink(path.join(directory,"failure.json"));await writeFile(receipt.output,"changed");await expect(service.status(runId)).rejects.toThrow("output changed");
+});
+it("reports caught failures and refuses changed or unauthorized preparation sources",async()=>{
+ const f=await fixture("video-mismatch"),service=new SourceClockMedia(f.config);await expect(service.prepare(f.options)).rejects.toThrow();
+ const root=path.join(f.root,"avid-mcp-library"),runId=(await readdir(root))[0]!.slice(13);
+ expect(await service.status(runId)).toMatchObject({state:"failure_recorded",workerState:"unknown",outputSha256:null});
+ await expect(new SourceClockMedia({...f.config,allowedRoots:[root]}).status(runId)).rejects.toThrow();
+ await writeFile(f.source,"changed");await expect(service.status(runId)).rejects.toThrow("source changed");
+ await expect(service.status("../outside")).rejects.toThrow();
 });

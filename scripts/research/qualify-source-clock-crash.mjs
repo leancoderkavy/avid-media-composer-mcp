@@ -52,13 +52,17 @@ if(process.argv[2]==='child'){
    const client=new Client({name:'source-clock-crash-retry',version:'1.0'});
    try{
     await client.connect(new StdioClientTransport({command:process.execPath,args:['dist/index.js'],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));
+    const interruptedStatus=await client.callTool({name:'avid_source_clock_status',arguments:{runId:path.basename(directory).slice(13)}});
+    assert.ok(!interruptedStatus.isError,JSON.stringify(interruptedStatus));assert.equal(interruptedStatus.structuredContent.data.state,'unresolved');assert.equal(interruptedStatus.structuredContent.data.workerState,'unknown');
     const result=await client.callTool({name:'avid_prepare_source_clock_media',arguments:{options:{file,expectedSha256,videoStream:0,audioStream:1}}},undefined,{timeout:120000});
     assert.ok(!result.isError,JSON.stringify(result));const receipt=result.structuredContent.data;
     assert.equal(receipt.verified,true);assert.notEqual(path.dirname(receipt.output),directory);
     assert.equal(await sha256File(receipt.output),receipt.outputSha256);
+    const completedStatus=await client.callTool({name:'avid_source_clock_status',arguments:{runId:path.basename(path.dirname(receipt.output)).slice(13)}});
+    assert.ok(!completedStatus.isError,JSON.stringify(completedStatus));assert.equal(completedStatus.structuredContent.data.state,'receipt_matches_files');assert.equal(completedStatus.structuredContent.data.outputSha256,receipt.outputSha256);
     assert.deepEqual(JSON.parse(await readFile(path.join(path.dirname(receipt.output),'receipt.json'),'utf8')),receipt);
     assert.deepEqual(await inventory(),before);assert.equal(await sha256File(file),expectedSha256);
-    results.push({phase,termination,interruptedDirectory:directory,retainedHashes:before,retryOutput:receipt.output,retryOutputSha256:receipt.outputSha256,retryVerified:true,sourceUnchanged:true,interruptedArtifactsUnchanged:true});
+    results.push({phase,termination,interruptedDirectory:directory,retainedHashes:before,interruptedStatus:interruptedStatus.structuredContent.data,completedStatus:completedStatus.structuredContent.data,retryOutput:receipt.output,retryOutputSha256:receipt.outputSha256,retryVerified:true,sourceUnchanged:true,interruptedArtifactsUnchanged:true});
    }finally{await client.close();}
   }finally{clearTimeout(timer);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await closed;}
  }

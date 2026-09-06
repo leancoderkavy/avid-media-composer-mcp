@@ -8,10 +8,14 @@ import {resolveReadablePath} from "../security/path-policy.js";
 import {requireCapability} from "../security/capabilities.js";
 import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
+import {readBoundedJson} from "../security/bounded-read.js";
 
 export const sourceClockOptions=z.object({file:z.string().min(1),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),videoStream:z.number().int().min(0).max(127),audioStream:z.number().int().min(0).max(127)}).strict();
 const CLOCK="aresample=48000:async=1:first_pts=0";
 const MAX_MEDIA_BYTES=4*1024**3;
+const digest=z.string().regex(/^[a-f0-9]{64}$/);
+const attemptSchema=z.object({source:z.string().min(1).max(32768),sourceSha256:digest,videoStream:sourceClockOptions.shape.videoStream,audioStream:sourceClockOptions.shape.audioStream,output:z.string().min(1).max(32768),recipe:z.literal(CLOCK),startedAt:z.string().datetime()}).strict();
+const receiptStatusSchema=attemptSchema.omit({startedAt:true}).extend({outputSha256:digest,verified:z.literal(true),sourceUnchanged:z.literal(true),hostImportVerified:z.literal(false)}).strip();
 type Stream=Record<string,unknown>;
 const number=(value:unknown)=>typeof value==="number"||typeof value==="string"&&value.trim()!==""?Number(value):NaN;
 export function sourceClockStreams(streams:Stream[],videoIndex:number,audioIndex:number){
@@ -48,6 +52,34 @@ export function verifyVideoPacketClock(source:Stream[],output:Stream[],frames:nu
 }
 export class SourceClockMedia {
   constructor(private config:ServerConfig){}
+  async status(runId:string){
+    requireCapability(this.config.capabilities,"inspect");z.string().uuid().parse(runId);
+    const root=await new MediaLibrary(this.config).directory();
+    const directory=await resolveReadablePath(path.join(root,`source-clock-${runId}`),[root],"directory");
+    const read=async(name:string,maxBytes:number)=>readBoundedJson(await resolveReadablePath(path.join(directory,name),[directory],"file"),maxBytes);
+    const attempt=attemptSchema.parse(await read("attempt.json",65536));
+    const source=await resolveReadablePath(attempt.source,this.config.allowedRoots,"file");
+    if((await stat(source)).size>MAX_MEDIA_BYTES||await sha256File(source)!==attempt.sourceSha256)throw new Error("Preparation source changed");
+    const output=path.join(directory,"prepared.mov");
+    if(path.resolve(attempt.output)!==output)throw new Error("Preparation output path mismatch");
+    const optional=async(name:string)=>{try{return await read(name,1024*1024);}catch(error){if((error as {code?:string}).code==="PATH_NOT_FOUND")return undefined;throw error;}};
+    const receiptRaw=await optional("receipt.json"),failureRaw=await optional("failure.json");
+    if(receiptRaw!==undefined&&failureRaw!==undefined)throw new Error("Conflicting preparation outcome records");
+    let state:"unresolved"|"failure_recorded"|"receipt_matches_files"="unresolved",outputSha256:string|null=null;
+    if(failureRaw!==undefined){
+      const failure=z.object({verified:z.literal(false),message:z.string().max(100000),output:z.string(),attempt:z.string()}).strict().parse(failureRaw);
+      if(failure.output!==attempt.output||failure.attempt!==path.join(directory,"attempt.json"))throw new Error("Preparation failure identity mismatch");
+      state="failure_recorded";
+    }
+    if(receiptRaw!==undefined){
+      const receipt=receiptStatusSchema.parse(receiptRaw);
+      for(const key of ["source","sourceSha256","videoStream","audioStream","output","recipe"] as const)if(receipt[key]!==attempt[key])throw new Error("Preparation receipt identity mismatch");
+      const checked=await resolveReadablePath(output,[directory],"file");
+      if((await stat(checked)).size>MAX_MEDIA_BYTES||await sha256File(checked)!==receipt.outputSha256)throw new Error("Prepared output changed");
+      outputSha256=receipt.outputSha256;state="receipt_matches_files";
+    }
+    return {runId,state,source,sourceSha256:attempt.sourceSha256,videoStream:attempt.videoStream,audioStream:attempt.audioStream,startedAt:attempt.startedAt,output,outputSha256,workerState:"unknown",meaning:"Saved record inspection with current source/output checksum checks; not a new essence verification or authenticated receipt. No worker termination, retry, cleanup or Avid import is inferred."};
+  }
   async prepare(input:z.infer<typeof sourceClockOptions>){
     requireCapability(this.config.capabilities,"export");
     const options=sourceClockOptions.parse(input),source=await resolveReadablePath(options.file,this.config.allowedRoots,"file");

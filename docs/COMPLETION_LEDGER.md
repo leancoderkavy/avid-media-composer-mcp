@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Source-clock preparation status through MCP
+
+Full local check passed: 591 TypeScript tests, 36 Python tests, 138 tools, five skills, both transports and fresh-package definition/client setup checks (`.avid-mcp-analysis/check-source-clock-status.log`). Inventory assertions and smoke gates were updated for the new tool; all remaining scope stays open.
+
+Added `avid_source_clock_status` for explicit saved run UUIDs. Bounded record reads check scoped source checksum, attempt/receipt identity and completed output checksum; conflicting outcomes and changed files fail. Results distinguish unresolved, failure_recorded and receipt_matches_files, always with unknown worker state and no implied essence revalidation or receipt authenticity. Ten focused preparation tests/build passed, including changed/unauthorized sources, changed outputs, conflicts and identity mismatch. Actual interrupted/retried production preparation status calls passed in `.avid-mcp-analysis/source-clock-crash-a9172092-6b09-4a87-9279-9c24a2393050/evidence.json`, preserving source and interrupted artifacts. Discovery, worker monitoring, automatic recovery/cleanup and crash containment remain open.
+
 ### Source-clock preparation interruption and fresh retry
 
 Added and ran `qualify-source-clock-crash.mjs` against production preparation using an owned two-second H.264/stereo-AAC fixture. Killed the exact child at instrumented barriers after attempt publication and before success-receipt publication, with no active subprocess. Both left no success/failure receipt. New MCP server invocations recomputed verified outputs in distinct directories; saved receipts matched returned payloads, output checksums passed, and source/interrupted-artifact hashes stayed unchanged. Evidence: `.avid-mcp-analysis/source-clock-crash-e7d2f0fe-991d-4a7f-9886-fbdc6ab969b2/evidence.json`. Syntax and actual execution passed; no production code changed and the full suite was not rerun. Corrected documentation to distinguish caught failure records from abrupt-exit artifacts. Discovery/status, mid-worker crash containment, interrupted receipt writes, cleanup and power-loss durability remain open.
