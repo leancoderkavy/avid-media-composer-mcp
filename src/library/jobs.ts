@@ -1,4 +1,5 @@
 import {diarizationOptions} from "./diarization.js";
+import {audioSyncOptions} from "./audio-sync-analysis.js";
 import {visualSummaryReferences} from "./visual-summaries.js";
 import {captionTimes} from "./caption-batches.js";
 import {spawn, type ChildProcess} from "node:child_process";
@@ -17,6 +18,7 @@ import {peopleRange} from "./people.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("audio_sync"),options:audioSyncOptions}).strict(),
   z.object({kind:z.literal("diarization_resume"),analysisId:z.string().uuid(),expectedSha256:id}).strict(),
   z.object({kind:z.literal("diarization"),id,start:z.number().nonnegative(),end:z.number().positive(),options:diarizationOptions.default({speakers:-1,threshold:0.5})}).strict(),
   z.object({kind:z.literal("visual_summary"),id,references:visualSummaryReferences}).strict(),

@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,6 +9,9 @@ import {
 } from "../src/bridge/security.js";
 
 const temporary: string[] = [];
+// These tests validate response semantics, not one-second hosted-filesystem
+// scheduling. Keep a bounded shared budget for the producer and consumer.
+const responseBudgetMs = 5_000;
 const auth = {
   keyId: "bridge-status-tests",
   secret: "bridge-status-tests-secret-that-is-long-enough",
@@ -64,7 +67,8 @@ async function respond(
   transformResponse: (response: Record<string, unknown>) => Record<string, unknown> = (response) =>
     response,
 ): Promise<Record<string, unknown>> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  const started = Date.now();
+  while (Date.now() - started < responseBudgetMs) {
     const names = await readdir(path.join(root, "requests"));
     const name = names.find((entry) => entry === operationId + ".json");
     if (name) {
@@ -80,16 +84,18 @@ async function respond(
         completedAt: new Date().toISOString(),
         ...responseData,
       }));
+      const responsePath = path.join(root, "responses", operationId + ".json");
       await writeFile(
-        path.join(root, "responses", operationId + ".json"),
+        responsePath + ".tmp",
         JSON.stringify(response),
-        "utf8",
+        {encoding:"utf8",flag:"wx"},
       );
+      await rename(responsePath + ".tmp", responsePath);
       return request;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error("test bridge did not observe request");
+  throw new Error(`Test bridge did not observe ${operationId} request within ${responseBudgetMs}ms (elapsed ${Date.now()-started}ms)`);
 }
 
 afterEach(async () => {
@@ -168,7 +174,7 @@ describe("Media Composer bridge status", () => {
       ok: true,
       data: { stateRevision: "revision-1", project: { id: "project-1" }, state: {} },
     });
-    const first = await sendBridgeCommand(root, "inspect.getState", {}, 1_000, "first");
+    const first = await sendBridgeCommand(root, "inspect.getState", {}, responseBudgetMs, "first");
     const firstRequest = await firstResponder;
     expect(first).toMatchObject({ ok: true, data: { stateRevision: "revision-1" } });
     expect(firstRequest).toMatchObject({
@@ -184,7 +190,7 @@ describe("Media Composer bridge status", () => {
       ok: true,
       data: { stateRevision: "revision-2", project: { id: "project-1" }, state: {} },
     });
-    await sendBridgeCommand(root, "inspect.getState", {}, 1_000, "second");
+    await sendBridgeCommand(root, "inspect.getState", {}, responseBudgetMs, "second");
     const secondRequest = await secondResponder;
     expect(secondRequest.requestSequence).toBe((firstRequest.requestSequence as number) + 1);
     expect(secondRequest.nonce).not.toBe(firstRequest.nonce);
@@ -206,7 +212,7 @@ describe("Media Composer bridge status", () => {
         requestNonce: "b4d57513-90d0-4c55-9f3a-aa3f3655107d",
       }),
     );
-    await expect(sendBridgeCommand(root, "inspect.getState", {}, 1_000, "replayed")).rejects.toMatchObject({
+    await expect(sendBridgeCommand(root, "inspect.getState", {}, responseBudgetMs, "replayed")).rejects.toMatchObject({
       code: "BRIDGE_REPLAY_DETECTED",
     });
     await responder;
@@ -226,7 +232,7 @@ describe("Media Composer bridge status", () => {
       ok: false,
       error: { code: "BIN_LOCKED", message: "The bin is locked" },
     });
-    await expect(sendBridgeCommand(root, "edit.applyPlan", {}, 1_000, "failed")).rejects.toMatchObject({
+    await expect(sendBridgeCommand(root, "edit.applyPlan", {}, responseBudgetMs, "failed")).rejects.toMatchObject({
       code: "BIN_LOCKED",
     });
     await failedResponder;
@@ -236,7 +242,7 @@ describe("Media Composer bridge status", () => {
       data: { applied: 1 },
     });
     await expect(
-      sendBridgeCommand(root, "edit.applyPlan", {}, 1_000, "incomplete-edit"),
+      sendBridgeCommand(root, "edit.applyPlan", {}, responseBudgetMs, "incomplete-edit"),
     ).rejects.toMatchObject({ code: "BRIDGE_INVALID_RESPONSE" });
     await invalidResponder;
   });

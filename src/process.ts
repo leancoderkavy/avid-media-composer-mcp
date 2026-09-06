@@ -8,6 +8,12 @@ export interface ProcessResult {
   stderr: string;
 }
 
+export interface BinaryProcessResult {
+  exitCode: number;
+  stdout: Buffer;
+  stderr: string;
+}
+
 export interface ProcessOptions {
   timeoutMs: number;
   maxOutputBytes?: number;
@@ -19,6 +25,16 @@ export function runProcess(
   args: readonly string[],
   options: ProcessOptions,
 ): Promise<ProcessResult> {
+  return runBinaryProcess(executable, args, options).then(result => ({...result, stdout: result.stdout.toString("utf8")}));
+}
+
+/** Capture exact stdout bytes with the same combined output/time/tree bounds as
+ * text execution. Never decode arbitrary media bytes as UTF-8. */
+export function runBinaryProcess(
+  executable: string,
+  args: readonly string[],
+  options: ProcessOptions,
+): Promise<BinaryProcessResult> {
   const maxOutputBytes = options.maxOutputBytes ?? 20 * 1024 * 1024;
   return new Promise((resolve, reject) => {
     const child = spawn(executable, [...args], {
@@ -98,7 +114,7 @@ export function runProcess(
       if (failure) { reject(tree?new AvidMcpError(failure.code,failure.message,{...failure.details,treeTermination:tree}):failure); return; }
       resolve({
         exitCode: closedCode ?? -1,
-        stdout: Buffer.concat(stdout).toString("utf8"),
+        stdout: Buffer.concat(stdout),
         stderr: Buffer.concat(stderr).toString("utf8"),
       });
     };

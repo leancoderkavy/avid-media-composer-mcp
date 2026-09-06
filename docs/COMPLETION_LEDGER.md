@@ -1,5 +1,77 @@
 # Completion ledger
 
+### Missing source-bin evidence in locator reports
+
+Locator availability now returns row-level bin presence and captured bin hashes, plus snapshot creation time, missing-bin paths and explicit non-revalidation of current bin hashes on every page. Previously the snapshot reader knew a bin was missing but this endpoint omitted that fact. Historical locator access remains available while the source bin is absent; file presence does not silently imply current saved-bin contents.
+
+Regression coverage includes missing-bin evidence on empty pages and a replacement bin whose changed bytes must not be presented as matching the captured hash. The extended real copied-AVB experiment passed bin disappearance/reconnect/restoration alongside file/root recovery, with originals and restored fixtures unchanged: `.avid-mcp-analysis/locator-recovery-a58ec915-2da5-4619-ae99-c831d21346fa/evidence.json`. Native online/relink, network storage and current-bin content equivalence remain separate checks.
+
+Full local pipeline passed 771 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation with 143 tools/five skills (`.avid-mcp-analysis/check-locator-bin-presence.log`).
+
+### Bridge response fixture timing in Windows CI
+
+Windows Node 20 job `101563851071` in run `34061926260` failed the simulated bridge error-response assertion: it received `BRIDGE_TIMEOUT` instead of `BIN_LOCKED` within the fixture's one-second response budget. Log retained at `.avid-mcp-analysis/ci-locator-windows20-failure.log`. The failure does not establish a live Extension defect or its exact scheduling cause.
+
+The response-semantic tests now share a bounded five-second producer/consumer budget and atomically publish complete response JSON. Nonce, signed-envelope, error-code and complete-edit evidence assertions remain unchanged; production bridge deadlines are untouched. The focused bridge/snapshot run passed 41 tests after this test-only adjustment, which followed the full pipeline's TypeScript phase.
+
+### Locator absence and recovery through MCP
+
+A real parsed copied-AVB fixture now exercises one unchanged snapshot across file presence, owned-file absence, file restoration, configured-root absence and root restoration. Fresh MCP connections observe `file_present → not_found → file_present → unavailable → file_present`, proving results are current filesystem observations rather than cached availability. Only the owned fixture paths are moved, all moves are checked inside their experiment directory, and original/fixture hashes are verified afterward.
+
+Evidence: `.avid-mcp-analysis/locator-recovery-f743beda-7412-43a2-ac44-c3119b1af4a3/evidence.json`, from `qualify-locator-recovery.mjs`. The copied bin has two deliberately edited locator fields and is not loaded into Avid; no native relink/online or essence correspondence is claimed. This research/docs-only increment uses the existing runtime validation; network-share disconnection and managed-MXF recovery remain separate gaps.
+
+### Saved locator availability for turnover review
+
+Added `avid_saved_locator_availability`: bounded pages of saved descriptor/locator declarations with metadata-only file checks under configured roots. It distinguishes absent/unrecorded declarations, unsupported paths, volume hints, out-of-scope paths, symlinks, missing files and unavailable roots, preserving snapshot omissions on every page. Explicit opt-in Windows `D//...` interpretation retains raw declarations and still enforces scope. File presence does not claim content identity, Avid online status or relink success.
+
+The real saved Sonoma fixture produced eight declaration rows across reconnecting pagination. Default interpretation left two Avid-style paths unsupported; opt-in interpretation found their explicitly scoped prepared MOV, with all bin/source hashes unchanged. Evidence: `.avid-mcp-analysis/locator-availability-620ad702-428c-4400-8aff-feb8ed782592/evidence.json`. Initial literal-only evidence is retained under `locator-availability-26128341-9faa-4ec1-a7e2-9e00e8cb01d4`. See `SAVED_LOCATOR_AVAILABILITY.md`. This expands development discovery to 143 tools; managed-MXF lookup, broader mappings and full host-online qualification remain open.
+
+Full local `npm run check` passed 770 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation with 143 tools/five skills. Log: `.avid-mcp-analysis/check-locator-availability.log`.
+
+### Audio-sync stereo/rate selection from a fresh package
+
+A real MCP experiment now compares distinct media IDs at 48 kHz and 44.1 kHz, selecting explicit absolute stream indices and a delayed/inverted target channel in a stereo derived fixture. Forward/reverse jobs recovered ±1.24 seconds; selecting the noise channel returned weak match, and a nonexistent stream failed. Saved results were identical after reconnect, and both original/derived hashes stayed unchanged.
+
+The same experiment passed from a fresh development tarball installed outside the checkout; installed core runtime hashes matched the tested build. Evidence: `.avid-mcp-analysis/audio-sync-channels-6385ac09-0024-405f-982b-fe2a3211856f/evidence.json` (checkout) and `audio-sync-channels-8f8a845b-3641-4716-844c-eb03da9a1d01/evidence.json` (installed). Package receipt: `.avid-mcp-analysis/audio-sync-installed-runtime.json`. The existing host FFmpeg was used. This research/docs-only change does not claim independent recordings, clean-machine setup, model-selected execution, broad multichannel accuracy or a new registry release.
+
+### Audio decoding no longer leaves PCM scratch
+
+Replaced audio-sync temporary PCM files with bounded binary stdout capture. `runBinaryProcess` preserves arbitrary bytes while sharing the existing text process runner's timeout, combined-output and tree-termination logic. The decoder verifies exact byte/sample counts, retains hashes/timing provenance, and returns `pcmStorage: bounded-memory`. It no longer creates scratch directories; this removes the new-file cleanup problem instead of guessing ownership of old files.
+
+The real Windows cancellation harness passed again with an observed FFmpeg descendant, cancelled terminal journal, queued follow-on completion, reconnected status and no retained PCM scratch (`audio-sync-cancel-37911020-2084-4530-a2c9-a272cc2be904`). The normal real MCP analysis/reconnect test passed (`audio-sync-mcp-2cef15ce-0a54-48c2-bc10-1c9f48f8ad77`). Both are under `.avid-mcp-analysis/`; source hashes remained unchanged. Earlier experiment artifacts remain as evidence. Binary-byte fidelity and combined stdout/stderr limits have regression coverage; allocator ceilings, abrupt parent-loss containment and Mac runtime remain separate gaps.
+
+Full local `npm run check` passed 765 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation after the shared process-runner change. Log: `.avid-mcp-analysis/check-audio-sync-memory.log`. Tool and skill counts remain 142/five.
+
+### Real audio-sync decoder cancellation
+
+The HTTP MCP cancellation harness observed an actual FFmpeg descendant of the owned 60-second audio-sync worker, cancelled through `avid_cancel_analysis_job`, verified the terminal cancellation/worker-exit/tree-attempt record and successful queued follow-on analysis, then read the cancelled result through a fresh connection without replay. Post-action process inventory confirmed the observed worker/descendant identities disappeared. Original Sonoma source hash stayed unchanged. Evidence: `.avid-mcp-analysis/audio-sync-cancel-62ef2db2-4a45-4912-bb39-a124436ef050/evidence.json`.
+
+Two PCM scratch files remained, each 11,520,000 bytes, with stable hashes across reconnect. The harness retained them; cancellation is not complete artifact cleanup. Scratch currently lacks a durable job-owner manifest, so explicit bounded discovery/recovery remains an implementation gap. No arbitrary folder deletion, automatic resume, atomic containment, abrupt server-loss or Mac proof is claimed. This turn changes research/docs only; the latest runtime retains its existing validation evidence.
+
+### Audio offset degradation and window consistency
+
+Controlled Sonoma derivatives now cover off-grid delays, deterministic additive noise, a 32 kbit/s MP3 round trip and a 0.5% speed-change diagnostic. Clean/moderate-noise/MP3 candidates were within 5 ms for these fixtures; heavy noise returned weak match. The speed-change probe initially exposed a misleading strong overall candidate. Three independent window searches now withhold a single-offset candidate when supported offsets differ by more than 30 ms, and explicitly report insufficient or partial window support. This does not infer a drift cause or rate.
+
+The changed-offset regression retains an overall correlation above 0.8 while requiring `inconsistent_offset`; other regressions cover partial, insufficient and unassessed support. Revised real derivative evidence: `.avid-mcp-analysis/audio-sync-variants-2c309749-e808-40a9-9ee2-a2d60a059c2c/evidence.json`. Real MCP analysis, invalid-channel failure and saved-result reconnect passed again: `.avid-mcp-analysis/audio-sync-mcp-ab3a2be8-f5ad-4ca8-a90c-9a3a8a41c70a/evidence.json`. Original source unchanged. Independent microphone recordings, native sync edits and active-decoder cancellation remain open.
+
+The final rule additionally checks deviation from the overall best offset. Its focused tests, typecheck, derivative matrix (`audio-sync-variants-93e37a82-9969-480e-b310-a04036d22e65`) and real MCP rerun (`audio-sync-mcp-4cd11bd9-d8a5-44c6-8d16-73e9a46cb433`) passed. Full local pipeline passed 763 TypeScript/46 Python tests, both transports and fresh-package/Python/AAF validation; the final deviation check was added after the full TypeScript phase and verified by the focused rerun. Log: `.avid-mcp-analysis/check-audio-sync-consistency.log`. Tool/skill counts remain 142/five.
+
+### Audio content offset MCP job integration
+
+`avid_start_analysis_job` now accepts `audio_sync` with two indexed media IDs, explicit absolute stream/zero-based channel selectors, bounded decoded-sample windows and an offset-search limit. The worker verifies source hashes, exact PCM/sample counts, and timing observations, records extraction/PCM provenance, removes temporary PCM on normal completion, and retains the result through the existing job journal. Content offsets never become a source-clock edit offset; gaps/overlaps remain explicit.
+
+Real stdio qualification compared Sonoma first-channel windows starting at 0 and 1.23 decoded seconds, returned a -1.23-second candidate, rejected unavailable channel 2, and recovered an identical completed result in a fresh MCP session. Original media hashes stayed unchanged. The windows had 10/11 decoded timestamp discontinuities and 8192/8384 overlapping samples, demonstrating the significance of the sample-domain boundary. Evidence: `.avid-mcp-analysis/audio-sync-mcp-7cea567c-b2b6-4a9d-ac3c-6addecfeedfd/evidence.json`. Independent recordings, native sync editing and this decoder's active-process cancellation still require separate qualification.
+
+Full `npm run check` passed 761 TypeScript tests, 46 Python tests, both transports, and fresh-package/Python/AAF validation (`.avid-mcp-analysis/check-audio-sync-mcp.log`). The ingest/QC skill now describes the job recipe and interpretation limits. This extends an existing tool schema; count remains 142 tools and five skills.
+
+### Audio content offset foundation and Sonoma experiment
+
+Added bounded 10 ms RMS envelope comparison with explicit comparison-minus-reference offset convention, overlap normalization, competing peaks and insufficient/weak/ambiguous/boundary outcomes. The protected Sonoma preview's decoded first-channel audio, deliberately delayed 1.23 seconds with polarity inversion and reduced gain, recovered +1.23 seconds and -1.23 seconds in reverse; silence and repeated-content controls refused an unambiguous candidate. The source SHA remained unchanged. Evidence: `.avid-mcp-analysis/audio-sync-468cd53f-bc2e-4696-8f44-83a9d263acef/evidence.json`.
+
+The first duration-based decode failed its exact sample-count assertion (241,365 versus 240,000). The revised sample-bounded recipe and its scope are documented in `AUDIO_SYNC_RESEARCH.md`. This establishes a tested estimator foundation, not an exposed MCP sync tool, source-clock correction, independent-recording accuracy, or native editing. MCP integration and broader qualification remain open.
+
+Full local `npm run check` passed: 752 TypeScript tests, 46 Python tests, both MCP transports, package contents, and fresh installation/Python/AAF validation. Tool count remains 142 and skill count five. Log: `.avid-mcp-analysis/check-audio-sync-foundation.log`.
+
 ### Forced stdio client deadline preserves caption resume
 
 Real Windows SDK stdio closure was exercised during a 12-frame direct Florence batch after a partial checkpoint appeared. The harness observed only the exact child handle owned by its SDK transport, recorded the SDK's kill requests, and confirmed that child's closure before resuming. Close took about 2.1 seconds; the recorded exit signal was SIGTERM, and the original RPC reported `Connection closed`. Kill requests are recorded separately from the observed exit; they are not all claimed as effective terminations.

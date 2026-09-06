@@ -1,4 +1,5 @@
 import {traceSavedSources} from "./source-trace.js";
+import {probeSavedLocator} from "./locator-availability.js";
 import {verifySavedDualRollerTrim} from "../native/trim-verifier.js";
 import {readFile,writeFile,stat,access,opendir,link,unlink} from "node:fs/promises";
 import path from "node:path";
@@ -73,6 +74,26 @@ export async function publishSnapshot(file:string,serialized:string){
 export class ProjectSnapshots {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  async locatorAvailability(revision:string,after=-1,limit=50,interpretAvidDrivePaths=false){
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>50)throw new Error("Invalid locator availability page");
+    const snapshot=await this.read(revision);
+    const rows:{index:number;bin:string;binPresent:boolean;binSha256:string;mobId:string;field:string|null;value:string|null;status?:string}[]=[];
+    let total=0;
+    const add=(row:Omit<(typeof rows)[number],"index">)=>{const index=total++;if(index>after&&rows.length<limit)rows.push({index,...row});};
+    for(const bin of snapshot.bins)for(const mob of bin.mobs){
+      const base={bin:bin.file,binPresent:!snapshot.missingBins.includes(bin.file),binSha256:bin.sha256,mobId:mob.mobId};
+      if(mob.descriptor===undefined){add({...base,field:null,value:null,status:"descriptor_not_recorded"});continue;}
+      if(mob.descriptor===null){add({...base,field:null,value:null,status:"descriptor_absent"});continue;}
+      if(!mob.descriptor.locator?.paths.length){add({...base,field:null,value:null,status:"locator_absent"});continue;}
+      for(const locator of mob.descriptor.locator.paths)add({...base,field:locator.field,value:locator.value});
+    }
+    const results=[];
+    for(const row of rows)results.push(row.status?row:{...row,...await probeSavedLocator(row.field!,row.value!,this.config.allowedRoots,interpretAvidDrivePaths)});
+    return {revision,results,totalDeclarations:total,nextAfter:after+1+rows.length<total?rows.at(-1)?.index??null:null,
+      coverage:snapshotCoverage(snapshot),missingBins:snapshot.missingBins,snapshotCreatedAt:snapshot.createdAt,binHashesRevalidated:false,
+      checkedAt:new Date().toISOString(),origin:"saved-bin",interpretAvidDrivePaths,
+      meaning:"Explicit metadata-only checks of saved locator declarations under configured roots. Host-native absolute paths, plus opt-in Windows letter//path interpretation; raw declarations remain intact. Foreign/relative/UNC paths, volume hints and locator symlinks are not followed. File presence does not verify content identity, Avid online status, relink, ranges, codecs or playback. Historical declarations may be stale; checks are non-atomic and each page is observed separately."};
+  }
   async verifyTrim(baseline:string,candidate:string,binFile:string,candidateBin:string,mobId:string,cut:number,delta:1|-1,trackOrdinals:number[]){
     const before=await this.read(baseline),after=await this.read(candidate);
     const a=selectSnapshotBins(before.bins,binFile),b=selectSnapshotBins(after.bins,candidateBin);
