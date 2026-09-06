@@ -88,6 +88,14 @@ it("closing cancels queued work without starting it and rejects new work",async(
   state.workers[0].emit("close",1);expect(state.workers).toHaveLength(1);
   await expect(jobs.start({kind:"index",files:["third.mp4"]})).rejects.toThrow("closing");
 });
+it("awaits worker closure and the terminal journal before shutdown resolves",async()=>{
+ const jobs=await fixture(),job=await jobs.start({kind:'index',files:['first.mp4']});let release!:()=>void;
+ const gate=new Promise<void>(resolve=>{release=resolve;}),save=jobs.journal.save.bind(jobs.journal);
+ vi.spyOn(jobs.journal,'save').mockImplementation(async record=>{if(record.status==='cancelled')await gate;return save(record);});
+ let done=false;const closing=jobs.closeAndWait().then(()=>{done=true;});await new Promise(resolve=>setImmediate(resolve));expect(done).toBe(false);
+ state.workers[0].emit('close',1);await new Promise(resolve=>setImmediate(resolve));expect(done).toBe(false);
+ release();await closing;expect(await jobs.journal.read(job.id)).toMatchObject({status:'cancelled',cancellationReason:'shutdown'});
+});
 it("oversized worker output requests termination and cannot become a successful result",async()=>{
   const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
   state.workers[0].stdout.emit("data",Buffer.alloc(2*1024*1024+1));

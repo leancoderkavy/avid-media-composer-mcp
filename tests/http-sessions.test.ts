@@ -1,4 +1,5 @@
-import {afterEach,expect,it} from 'vitest';
+import {afterEach,expect,it,vi} from 'vitest';
+import {VisualSearch} from '../src/library/visual.js';
 import {createHttpServer} from '../src/http-app.js';
 import {loadConfig} from '../src/config.js';
 import {mkdtemp} from 'node:fs/promises';
@@ -6,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 const token='session-lifecycle-test-bearer-token-32';
 const servers:ReturnType<typeof createHttpServer>[]=[];
-afterEach(async()=>{await Promise.all(servers.splice(0).map(server=>new Promise<void>(resolve=>{server.close(()=>resolve());server.closeAllConnections();})));});
+afterEach(async()=>{await Promise.all(servers.splice(0).map(server=>new Promise<void>(resolve=>{server.close(()=>resolve());server.closeAllConnections();})));vi.restoreAllMocks();});
 async function fixture(options:Omit<Parameters<typeof createHttpServer>[0],'authToken'>={}){
  const server=createHttpServer({authToken:token,...options});servers.push(server);await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
  const address=server.address();if(!address||typeof address==='string')throw new Error('No listener');
@@ -31,6 +32,26 @@ it('expires an idle session and refuses stale identifiers',async()=>{
  const f=await fixture({sessionIdleTimeoutMs:40}),init=await f.initialize(),session=init.headers.get('mcp-session-id')!;await init.text();
  await new Promise(resolve=>setTimeout(resolve,100));
  const expired=await f.request({jsonrpc:'2.0',id:2,method:'ping'},session);expect(expired.status).toBe(404);await expired.text();
+});
+it('retains session capacity until model cleanup settles',async()=>{
+ let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+ vi.spyOn(VisualSearch.prototype,'dispose').mockImplementationOnce(async()=>{enter();await gate;});
+ const f=await fixture({maxSessions:1}),init=await f.initialize(),session=init.headers.get('mcp-session-id')!;await init.text();
+ const deletion=f.request(null,session,'DELETE');await entered;
+ try{
+   const full=await f.initialize();expect(full.status).toBe(503);await full.text();
+   const stale=await f.request({jsonrpc:'2.0',id:2,method:'ping'},session);expect(stale.status).toBe(404);await stale.text();
+ }finally{release();}
+ const removed=await deletion;expect(removed.status).toBe(200);await removed.text();
+ const available=await f.initialize();expect(available.status).toBe(200);await available.text();
+});
+it('does not recycle capacity after failed model cleanup',async()=>{
+ vi.spyOn(console,'error').mockImplementation(()=>{});
+ vi.spyOn(VisualSearch.prototype,'dispose').mockRejectedValueOnce(new Error('model cleanup failed'));
+ const f=await fixture({maxSessions:1}),init=await f.initialize(),session=init.headers.get('mcp-session-id')!;await init.text();
+ const deletion=await f.request(null,session,'DELETE');expect(deletion.status).toBe(500);await deletion.text();
+ const full=await f.initialize();expect(full.status).toBe(503);await full.text();
 });
 it('invalid initialization does not consume session capacity',async()=>{
  const f=await fixture({maxSessions:1});

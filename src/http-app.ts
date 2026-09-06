@@ -185,14 +185,16 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
   let activeRequests = 0;
   const maxSessions=positiveLimit(options.maxSessions,32,"maxSessions");
   const sessionIdleTimeoutMs=positiveLimit(options.sessionIdleTimeoutMs,30*60_000,"sessionIdleTimeoutMs");
-  type Session={server:ReturnType<typeof createServer>;transport:StreamableHTTPServerTransport;lastUsed:number;active:number};
+  type Session={server:ReturnType<typeof createServer>;transport:StreamableHTTPServerTransport;lastUsed:number;active:number;closing?:Promise<void>};
   const sessions=new Map<string,Session>(),contexts=new Set<Session>();
-  const closeSession=async(session:Session)=>{
-    if(!contexts.delete(session))return;
+  const closeSession=(session:Session)=>{
+    if(session.closing)return session.closing;
     if(session.transport.sessionId)sessions.delete(session.transport.sessionId);
-    await session.server.close();
+    // A closing (or failed-cleanup) session still owns capacity. Release only
+    // after its workers, watches and model services have actually drained.
+    return session.closing=Promise.resolve().then(()=>session.server.close()).then(()=>{contexts.delete(session);});
   };
-  const expire=()=>{for(const session of contexts)if(session.active===0&&Date.now()-session.lastUsed>=sessionIdleTimeoutMs)void closeSession(session).catch(error=>console.error("MCP session cleanup failed",error));};
+  const expire=()=>{for(const session of contexts)if(!session.closing&&session.active===0&&Date.now()-session.lastUsed>=sessionIdleTimeoutMs)void closeSession(session).catch(error=>console.error("MCP session cleanup failed",error));};
   const expiryTimer=setInterval(expire,Math.min(sessionIdleTimeoutMs,60_000));expiryTimer.unref();
 
   const httpServer = http.createServer(async (request, response) => {

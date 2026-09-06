@@ -96,6 +96,14 @@ export class AnalysisJobs {
     this.pump();return this.status(id);
   }
   close(){this.closing=true;for(const job of this.jobs.values())if(["running","queued"].includes(job.status))this.cancel(job.id,"shutdown");}
+  async closeAndWait(){
+    const closed=[...this.jobs.values()].flatMap(job=>{
+      const child=job.child;if(!child?.pid)return [];
+      return [new Promise<void>(resolve=>{if(child.exitCode!=null||child.signalCode!=null)resolve();else child.once("close",()=>resolve());})];
+    });
+    this.close();await Promise.all([...closed,...this.terminations.values()]);
+    await Promise.all([...this.checkpoints.values()]);
+  }
   private pump(){
     if(this.closing||this.active>=1)return; // Bound model memory; future concurrency must be measured.
     const job=[...this.jobs.values()].find(job=>job.status==="queued");

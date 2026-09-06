@@ -46,7 +46,14 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const aafBuilder = new AafBuilder(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
-  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose(),captionBatches.dispose(),visualSummaries.dispose()]);previousClose?.();};
+  let cleanup:Promise<void>|undefined;
+  const dispose=()=>cleanup??=Promise.allSettled([jobs.closeAndWait(),watches.stopAndWait(),visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose(),captionBatches.dispose(),visualSummaries.dispose()]).then(results=>{
+    const errors=results.flatMap(result=>result.status==="rejected"?[result.reason]:[]);
+    if(errors.length)throw new AggregateError(errors,"MCP library cleanup failed");
+  });
+  server.server.onclose=()=>{void dispose().catch(()=>{});previousClose?.();};
+  const close=server.close.bind(server);
+  server.close=async()=>{try{await close();}finally{await dispose();}};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
   const ids = z.array(id).min(1).max(100);
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};

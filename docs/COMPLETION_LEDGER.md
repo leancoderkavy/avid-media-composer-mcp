@@ -1,5 +1,15 @@
 # Completion ledger
 
+### Closing HTTP sessions retain resource admission slots
+
+HTTP previously removed a context before asynchronous model/worker cleanup finished, letting new initializations replace a still-draining session. MCP server close now awaits registered library cleanup; analysis shutdown waits for worker closure, tree-attempt completion and terminal checkpoints, and watch shutdown waits for the polling pass. HTTP invalidates the session ID immediately but releases capacity only after cleanup succeeds. Failed cleanup remains counted and is reported, preventing repeated replacement sessions from bypassing the limit.
+
+Regression tests cover delayed cleanup with 503 admission refusal, capacity release after success, retained capacity after failure, and worker/journal completion before shutdown resolves. Real Florence qualification with capacity two verified 503 during owner drain and 200 after cleanup, completed captions, preserved checkpoint/source hashes and a refused stale session ID (`http-caption-drain-34299543-dc4f-4183-aa7f-0d2cfce43592`). Real FFmpeg-backed deletion (`http-session-delete-bd13ad87-b6af-4770-bf39-4b318eacb700`) and two-session listener shutdown (`http-session-shutdown-4808c4e5-715f-4e87-9877-bf2682ac1337`) also passed again. Evidence directories are under `.avid-mcp-analysis/`.
+
+This is bounded session admission while registered services drain, not process-wide memory measurement, every direct tool's cancellation, guaranteed descendant containment or recovery from forced parent exit. The full feature/host goal remains incomplete.
+
+Full local check passed 747 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 tool definitions and five skills (`check-session-drain-capacity.log`). Preceding e7a0389 completed all CI/CodeQL checks successfully; this runtime change has separate remote validation.
+
 ### Direct caption batch completion after HTTP session deletion
 
 Real MCP integration now verifies the caption batch lifecycle through HTTP: load a standalone Florence caption service, start a four-frame direct batch, observe a verified partial checkpoint, then DELETE the owning session. The original RPC rejected with `Connection closed` and the old session returned 404. An independent observer session verified the accepted batch reached four completed captions from the observed one, with its first checkpoint byte-for-byte unchanged and original source hash preserved. This separates RPC delivery failure from persisted computation completion.
