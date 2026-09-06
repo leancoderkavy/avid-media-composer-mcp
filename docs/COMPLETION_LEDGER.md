@@ -724,3 +724,10 @@ CI for 20007a4 exposed a test expectation mismatch: validatedMetadata returns ca
 
 OTIO collection export now selects checksum-verified in-scope aliases before authoring external media references. Cached collection reads retain their existing semantics. Eleven library tests and typecheck passed. Actual stdio MCP indexing/save/reconnect/export against an owned one-second Sonoma derivative selected the matching copy after the original changed, retained the exact 15-frame range and source checksum, and refused export without changing prior output after both copies changed. Original Sonoma bytes remained unchanged. Evidence: .avid-mcp-analysis/collection-alias-f0fdbbac-bebd-46ba-a8ea-688af2ac9b6f/evidence.json; harness: scripts/research/qualify-collection-alias.mjs. This does not qualify native OTIO import or concurrent file-replacement races.
 
+
+### Full regression after collection alias export
+
+Source 272c056 passed npm run check: 492 TypeScript tests across 83 files, 32 Python tests, 135-tool stdio/HTTP checks, dry packing and fresh-tarball installation. Installed tool definitions matched the checkout; five client formats, model notices, inventory reporting, source tracing and Python isolation/recovery passed. Log: .avid-mcp-analysis/check-collection-alias.log.
+
+CI run 34018448921 for 34c36f3 completed successfully across Windows/macOS and Node 20/24 plus landing, confirming the canonical-path test correction. CI for 272c056 was still running at this checkpoint; local validation is not substituted for that result. Native/client/quality and remaining full-scope acceptance stay open.
+
