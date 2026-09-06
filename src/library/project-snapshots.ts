@@ -25,14 +25,14 @@ const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCod
 });
 const bin=z.object({schema:z.literal(1),file:z.string(),sha256:z.string().regex(/^[a-f0-9]{64}$/),mobs:z.array(mob).max(1000),warnings:z.array(z.record(z.string(),z.unknown())).max(1000),complete:z.boolean(),nodeCount:unit,stateOrigin:z.string()});
 const snapshotSchema=z.object({revision:z.string().uuid(),createdAt:z.string(),bins:z.array(bin).max(100)});
-function sourceReferenceCoverage(value:z.infer<typeof bin>){
-  const identities=new Map<string,number>();for(const mob of value.mobs)identities.set(mob.mobId,(identities.get(mob.mobId)??0)+1);
+function sourceReferenceCoverage(value:z.infer<typeof bin>,candidates:z.infer<typeof bin>[]=[value]){
+  const identities=new Map<string,number>();for(const candidate of candidates)for(const mob of candidate.mobs)identities.set(mob.mobId,(identities.get(mob.mobId)??0)+1);
   const referenced=new Set<string>();let references=0;
   for(const mob of value.mobs)for(const track of mob.tracks)for(const node of track.nodes)if(node.sourceMobId!==undefined){references++;referenced.add(node.sourceMobId);}
   const unresolved=[...referenced].filter(id=>!identities.has(id)).sort(),ambiguous=[...referenced].filter(id=>(identities.get(id)??0)>1).sort();
-  return {references,distinctSourceIds:referenced.size,resolvedSourceIds:referenced.size-unresolved.length-ambiguous.length,unresolvedCount:unresolved.length,ambiguousCount:ambiguous.length,unresolvedIds:unresolved.slice(0,10),ambiguousIds:ambiguous.slice(0,10),truncated:unresolved.length>10||ambiguous.length>10,allReferencesResolve:unresolved.length===0&&ambiguous.length===0,scope:"Direct references within this saved bin only. Unresolved IDs may be external or terminal; this does not establish missing media, acyclic graphs, valid source ranges or playback."};
+  return {references,distinctSourceIds:referenced.size,resolvedSourceIds:referenced.size-unresolved.length-ambiguous.length,unresolvedCount:unresolved.length,ambiguousCount:ambiguous.length,unresolvedIds:unresolved.slice(0,10),ambiguousIds:ambiguous.slice(0,10),truncated:unresolved.length>10||ambiguous.length>10,allReferencesResolve:unresolved.length===0&&ambiguous.length===0,scope:candidates.length===1?"Direct references matched within one saved bin; no media availability, cycle or source-range validation.":"References from this bin matched across all captured bins. Repeated matching identities remain ambiguous even when names agree; unresolved IDs may be external or terminal. No media availability, cycle or source-range validation."};
 }
-const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,sourceReferences:sourceReferenceCoverage(bin),warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
+const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,sourceReferences:sourceReferenceCoverage(bin),snapshotSourceReferences:sourceReferenceCoverage(bin,snapshot.bins),warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
 const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 /** Publish only fully written bytes, without replacing an existing revision. */
@@ -157,7 +157,7 @@ export class ProjectSnapshots {
       }
     }
     const page=results.slice(0,limit);
-    return {revision,mobId,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(target.bin),rangeConvention:"half-open edit units",origin:"saved-bin"};
+    return {revision,mobId,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(target.bin),snapshotSourceReferenceCoverage:sourceReferenceCoverage(target.bin,snapshot.bins),rangeConvention:"half-open edit units",origin:"saved-bin"};
   }
   async usage(revision:string,sourceMobId:string,after=-1,limit=500){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>500)throw new Error("Invalid source usage page");

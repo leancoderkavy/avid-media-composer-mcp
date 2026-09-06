@@ -184,3 +184,11 @@ it("separates parsed completeness from unresolved and ambiguous saved-bin refere
  record.bins[0]!.mobs.push({...source});revision=await save();
  expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({sourceReferenceCoverage:{allReferencesResolve:false,ambiguousCount:1,ambiguousIds:["source"]}});
 });
+
+it("distinguishes cross-bin matches from missing and repeated source identities",async()=>{
+ const {record,save,snapshots}=await fixture();const first=record.bins[0]!,otherFile=path.join(path.dirname(first.file),"sources.avb");await writeFile(otherFile,"sources");
+ const source={...first.mobs[0]!,mobId:"source",name:"Source",tracks:[]};record.bins.push({...first,file:otherFile,mobs:[source]});let revision=await save();
+ expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({sourceReferenceCoverage:{allReferencesResolve:false},snapshotSourceReferenceCoverage:{allReferencesResolve:true,resolvedSourceIds:1}});
+ first.mobs.push({...source});revision=await save();
+ expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({sourceReferenceCoverage:{allReferencesResolve:true},snapshotSourceReferenceCoverage:{allReferencesResolve:false,ambiguousCount:1}});
+});
