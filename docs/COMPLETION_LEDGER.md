@@ -1,5 +1,41 @@
 # Completion ledger
 
+### Observed master-timecode seeking
+
+Computer Use selected the owned Source viewer's sequence master counter and confirmed Right-arrow navigation to frame 1. After a Num Lock toggle, keypad relative +1 reached frame 2; unsigned partial timecode 300 reached frame 90, and 000 restored frame 0. Exact MOB/viewer/frame MCP observations and unchanged saved-bin/source hashes passed at every completed step. The counter was restored to V1 TC1 and the Num Lock toggle repeated; final frame 0 was independently verified. Initial Boolean keyboard state was not measured. The underlying cause of earlier failed entry is not isolated, and no unattended executor or visual playback claim is added. See `NATIVE_UI_SEEK_QUALIFICATION.md` for evidence and the official tracking-format reference.
+
+This research changes no runtime source. All CI and CodeQL checks for preceding a40ed22 passed. The full goal remains incomplete, including robust UI focus/input-state handling and broad seek qualification.
+
+### Absolute Source navigation negative result
+
+Current Computer Use inspection found the owned four-second Source sequence at native frame 0. An observed, individual-key absolute `01:00:03:00` attempt left it at 0 rather than expected frame 90, without a visible entry field or specific input-focus evidence. The UI displayed underlying `V1 TC1` timecode. This keeps absolute seeking and unattended focus/entry handling unqualified; the cause is not established. No save or edit was issued, and final MCP observation verified frame 0 and unchanged saved-bin/source hashes. Details and evidence are in `NATIVE_UI_SEEK_QUALIFICATION.md`.
+
+The research observer now records hash-verified position mismatches before its assertion exits, rather than leaving only a raw response. Actual read-only mismatch and matching-baseline invocations exercised both outcomes; syntax validation passed. No runtime source changed, so the preceding 717 TypeScript/46 Python result remains separate from this research evidence. The full goal remains open.
+
+### Interrupted recovery guard visibility
+
+An interrupted recovery could delete the owner lock while retaining its recovery guard. The old inspection then returned `locked: false` without explaining why scans remained blocked, and a guard-only orphan could disappear from listing. Inspection now reports `blockedByRecoveryGuard`, bounded guard bytes/hash and ineligibility for ordinary recovery. Listing includes guard-only IDs and marks them unavailable, with or without a manifest. Internal owner validation remains separate so an active recovery can verify its own guarded release.
+
+Actual fresh installed-runtime qualification paused an owned recovery process after owner-lock deletion and guard-handle closure, killed it before guard deletion, then reconnected through MCP. Before and after termination, inspection correctly distinguished absent owner from retained guard; discovery, scan refusal, recovery refusal and unchanged guard/media/entry hashes passed. Evidence: `.avid-mcp-analysis/watch-lock-recovery-186ac1d7-8ddd-4308-804a-2440ac2150ca/evidence.json`. That owned guard remains intentionally retained. Automatic guard recovery and power-loss qualification remain open.
+
+Full local check passed 717 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 tools/five skills (`check-watch-guard-status.log`). CI and CodeQL for preceding 00640f2 passed; the new commit has separate CI. The full goal remains incomplete.
+
+### Interrupted watch creation recovery
+
+Lock inspection previously required a published watch manifest, making a process crash during first-time configuration undiscoverable through watch listing and ineligible for recovery. Listing now includes orphan lock IDs, while inspection explicitly distinguishes missing configuration from malformed or inaccessible existing state. Only actual absence skips manifest validation; matching versioned owner ID, local host, configured-root scope, stopped PID and checksum remain required. Recovery does not invent a manifest or retry creation.
+
+The fresh installed-runtime crash harness now terminates two owned processes: one after real Sonoma indexing but before checkpoint publication, and one after initial lock creation but before any manifest save. Actual MCP live-owner refusal, reconnect, orphan discovery, recovery without manifest publication and new configuration creation passed. Original/copy media and installed entry hashes were unchanged; existing checkpoint bytes were preserved at recovery. Evidence: `.avid-mcp-analysis/watch-lock-recovery-e5d7377b-dd59-4b83-b016-e74bd73c44ad/evidence.json`.
+
+Full local check passed 715 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks, with 142 tools/five skills (`check-watch-create-recovery.log`). All CI/CodeQL checks for the preceding d35c652 passed; subsequent commit CI is separate. Full-plan acceptance, power-loss, remote identity and recovery-guard interruption remain open.
+
+### Explicit stopped-owner watch recovery
+
+Added scoped lock inspection and checksum-bound recovery for versioned locks whose local owner PID is absent. Live/reused PIDs, uncertain liveness, foreign identities/scopes and legacy records are refused. An exclusive recovery guard blocks ordinary acquisition; owner/hash rechecks precede release, and a retained preparation archive preserves evidence. Checkpoints and media are not modified and scans are not retried automatically.
+
+Actual owned-process termination after real Sonoma indexing and before checkpoint publication passed live-owner refusal, MCP reconnect, wrong-checksum refusal, correct recovery and resumed stable indexing. Checkpoint bytes at release and original/copy hashes stayed unchanged. The same workflow passed using a fresh managed installation for both worker and server. Evidence: `.avid-mcp-analysis/watch-lock-recovery-3385f073-61c1-47b7-aa2f-faaed8bb0c79` and `watch-lock-recovery-c8a18acc-7ade-4fc9-8f31-a45d586ca93c`. The first harness attempt stopped before scanning because it read the MCP response envelope incorrectly; the corrected harness uses its data field.
+
+Full local check passed: 712 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 tools and five skills (`check-watch-lock-recovery-final.log`). The preceding run found the expected tool inventory assertion still set to 140; inventory assertions and discovery annotations now cover both added tools. Power-loss, remote/container identity, descendant containment and recovery-guard crash recovery remain unqualified. The full plan is still incomplete.
+
 ### Fresh installed-server native marker writes
 
 Packed and installed the development server through the managed CLI, then used only its installed entry for the actual native marker workflow: two creations, save/reopen, comment clear/color update, save/reopen, restoration, save/reopen, cleanup and final save/reopen. Ordinary preview/apply tokens and postcondition checks remained enabled. Independent checkout Python saved-AVB comparison verified the exact decoded requested changes, preservation of other fields, restoration and final empty baseline. Protected source bin/MP4 and archive/entry hashes were unchanged.

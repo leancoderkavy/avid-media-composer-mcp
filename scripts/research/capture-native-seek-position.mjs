@@ -22,8 +22,9 @@ try{
  const result=await client.callTool({name:'avid_native_read',arguments:{query:'viewers',bin}},undefined,{timeout:120000});
  await writeFile(path.join(root,'response.json'),JSON.stringify(result,null,2),{flag:'wx'});assert.ok(!result.isError,JSON.stringify(result));
  const rows=result.structuredContent.data.viewers.filter(v=>v.mob_id===mobId&&v.view_type===viewer);
- assert.equal(rows.length,1);assert.equal(rows[0].current_frame,frame);
  assert.equal(await sha256File(file),expectedBinHash);assert.equal(await sha256File(sourceBin),sourceHash);assert.equal(await sha256File(media),mediaHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({label,bin,mobId,viewer,expectedFrame:frame,observed:rows[0],binHash:expectedBinHash,sourceHash,mediaHash,sourceUnchanged:true,scope:'Read-only MCP position observation after separate UI input. No automatic key execution, visual-frame fidelity, source-time mapping or general seeking support.'},null,2),{flag:'wx'});
- console.log(JSON.stringify({root,observed:rows[0],savedBinUnchanged:true}));
+ const positionVerified=rows.length===1&&rows[0].current_frame===frame;
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({label,bin,mobId,viewer,expectedFrame:frame,observed:rows[0]??null,matchingViewers:rows,positionVerified,binHash:expectedBinHash,sourceHash,mediaHash,sourceUnchanged:true,scope:'Read-only MCP position observation after separate UI input. Position mismatches retain hash-verified evidence and still fail. No automatic key execution, visual-frame fidelity, source-time mapping or general seeking support.'},null,2),{flag:'wx'});
+ console.log(JSON.stringify({root,observed:rows[0]??null,positionVerified,savedBinUnchanged:true}));
+ assert.equal(rows.length,1);assert.equal(rows[0].current_frame,frame);
 }finally{await client.close();}

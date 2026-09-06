@@ -1,4 +1,24 @@
-# Watch folder relocation
+# Watch folder recovery
+
+## Interrupted recovery status
+
+`locked` describes the ordinary owner lock only. Always also check `blockedByRecoveryGuard`: a recovery process can release that owner lock and then stop before removing its recovery guard. Inspection reports the guard's SHA-256 and byte size, forces `recoverable: false`, and explains that separate inspection is required. Listing includes a guard-only ID even without a configuration manifest, and polling reports it as unavailable. No guard is silently removed or interpreted as proof of a live process.
+
+The fresh installed-runtime harness with `--installed --guard-crash` paused an owned recovery process after owner-lock deletion and guard-handle closure, then terminated that process before guard deletion. Actual MCP inspection reported `locked: false` together with `blockedByRecoveryGuard: true` both before termination and after reconnect. Listing retained the guard-only ID; scanning and recovery were refused, with guard bytes, media hashes and installed entry unchanged. Evidence: `.avid-mcp-analysis/watch-lock-recovery-186ac1d7-8ddd-4308-804a-2440ac2150ca/evidence.json`. The guard is intentionally retained in that owned evidence directory. This qualifies visibility and refusal, not automatic recovery of an interrupted recovery operation.
+
+## Stopped local owner recovery
+
+Interrupted creation can leave a lock before the first configuration manifest exists. `avid_list_watch_folders` discovers these orphan IDs with `configurationMissing: true`; `avid_watch_lock_status` reports `configurationPresent: false`. Only actual absence skips manifest validation. A malformed, unreadable or out-of-scope existing manifest still fails. The owner record must still match the watch ID, local hostname and current root scope, and its PID must be absent before recovery. Release does not invent a configuration; create a new watch explicitly afterward.
+
+Fresh installed-runtime qualification killed a separate owned creation process after lock publication and before its first save. MCP refused recovery while that owner was alive, discovered the orphan after reconnect, recovered it without creating a manifest, omitted it from subsequent listing, and accepted a new watch configuration. The same run repeated the interrupted-index/resume test. Checkpoints, original/copy media and installed entry hashes were unchanged by recovery. Evidence: `.avid-mcp-analysis/watch-lock-recovery-e5d7377b-dd59-4b83-b016-e74bd73c44ad/evidence.json`.
+
+Use `avid_watch_lock_status` with a watch ID to inspect its lock. New locks record the local hostname, process ID, watch ID, random ownership nonce and configured-root fingerprint. Recovery is eligible only when these identities match and the OS reports that PID absent. A running PID (including reuse), uncertain process access, another host/scope, and legacy or malformed records remain ineligible. Lock age alone never authorizes release.
+
+Pass the observed `sha256` as `expectedSha256` to `avid_recover_watch_lock`. This requires inspection and project-write capabilities, rechecks the saved watch's path scope, serializes recovery through an exclusive guard, archives the inspected owner and rechecks its checksum/liveness before release. Ordinary watch operations check that guard before and after exclusive lock creation. The operation preserves checkpoints, cached analysis and media; scanning must be requested separately. An archive records preparation for release, not proof that a process survived to complete it. A recovery-process crash can leave its guard retained for separate inspection; no timeout steals it.
+
+Actual Windows qualification terminated an owned Node process after real Sonoma indexing but before its checkpoint update. Through stdio MCP, live-owner recovery was refused, a new session confirmed the stopped owner, a wrong checksum was refused, and correct recovery preserved checkpoint bytes. A resumed scan indexed the MP4, and a further scan avoided duplicate indexing. Original/copy hashes stayed unchanged. Evidence: `.avid-mcp-analysis/watch-lock-recovery-3385f073-61c1-47b7-aa2f-faaed8bb0c79/evidence.json`; harness: `scripts/research/qualify-watch-lock-recovery.mjs`. This does not qualify power loss, remote filesystems, container identity, arbitrary descendant processes or legacy-lock recovery.
+
+The same crash/reconnect/recovery workflow also passed from a freshly packed, managed installation. Both the owned worker and MCP server imported installed runtime files, whose entry hash stayed unchanged. Evidence: `.avid-mcp-analysis/watch-lock-recovery-c8a18acc-7ade-4fc9-8f31-a45d586ca93c/evidence.json`. Run the qualification harness with `--installed` to repeat this on the existing configured host; this is not clean-machine qualification.
 
 ## Readable checkpoint publication
 

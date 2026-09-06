@@ -1,4 +1,5 @@
-import {mkdir, open, readFile, readdir, rename, stat, unlink, writeFile} from "node:fs/promises";
+import {mkdir, open, readFile, readdir, rename, stat, unlink, writeFile,lstat} from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {createHash,randomUUID} from "node:crypto";
 import {AvidMcpError} from "../errors.js";
@@ -7,7 +8,7 @@ import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {MediaLibrary} from "./media-library.js";
-import {readBoundedJson} from "../security/bounded-read.js";
+import {readBoundedJson,readBoundedFile} from "../security/bounded-read.js";
 import {directoryPage} from "./directory-page.js";
 
 export const watchOptions=z.object({folder:z.string().min(1),depth:z.number().int().min(0).max(8).default(2),maxFiles:z.number().int().min(1).max(1000).default(100),enabled:z.boolean().default(true)}).strict();
@@ -15,6 +16,7 @@ const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.st
 const watchRecord=z.object({id:z.string().uuid(),options:watchOptions,observations:z.record(z.string(),observation),scannedAt:z.string().optional(),scope:z.string().regex(/^[a-f0-9]{64}$/).optional(),cursor:z.array(z.string().min(1).max(255)).max(9).optional(),cycle:z.string().uuid().optional()});
 type Watch=z.infer<typeof watchRecord>;
 const maxWatchManifestBytes=4*1024*1024;
+const watchOwner=z.object({version:z.literal(1),id:z.string().uuid(),nonce:z.string().uuid(),pid:z.number().int().positive(),host:z.string().min(1),scope:z.string(),at:z.string().datetime()}).strict();
 const extensions=new Set([".mp4",".mov",".mxf",".wav",".mp3",".mkv",".avi",".aiff",".flac"]);
 
 /** Persistent polling manifests; no file is indexed before two matching stat observations. */
@@ -40,9 +42,57 @@ export class WatchFolders {
   private async locked<T>(id:string,fn:()=>Promise<T>){
     z.string().uuid().parse(id);
     const lock=path.join(await this.directory(),`${id}.lock`);
+    await this.noRecovery(id);
     const handle=await open(lock,"wx");
-    try{await handle.writeFile(JSON.stringify({pid:process.pid,at:new Date().toISOString()}));return await fn();}
+    try{await this.noRecovery(id);await handle.writeFile(JSON.stringify({version:1,id,nonce:randomUUID(),pid:process.pid,host:os.hostname(),scope:this.scope,at:new Date().toISOString()}));return await fn();}
     finally{await handle.close();await unlink(lock);}
+  }
+  private async noRecovery(id:string){
+    try{await lstat(path.join(await this.directory(),`${id}.recovery.lock`));}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return;throw error;}
+    throw new Error("Watch lock recovery is active or unresolved; inspect its recovery guard");
+  }
+  async lockStatus(id:string){
+    const status=await this.ownerLockStatus(id),file=path.join(await this.directory(),`${id}.recovery.lock`);
+    try{if((await lstat(file)).isSymbolicLink())throw new Error("Watch recovery guard cannot be a symbolic link");}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return {...status,blockedByRecoveryGuard:false};throw error;}
+    const bytes=await readBoundedFile(file,4096),sha256=createHash("sha256").update(bytes).digest("hex");
+    return {...status,recoverable:false,blockedByRecoveryGuard:true,recoveryGuard:{sha256,bytes:bytes.length,reason:"Recovery is active or interrupted; this guard requires separate inspection and is never automatically released"}};
+  }
+  private async ownerLockStatus(id:string){
+    requireCapability(this.config.capabilities,"inspect");z.string().uuid().parse(id);
+    const directory=await this.directory();let configurationPresent=true;
+    // A process can die after taking a creation lock but before its first manifest.
+    // Only actual manifest absence skips configuration validation, never damaged state.
+    try{await lstat(path.join(directory,`${id}.json`));}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")configurationPresent=false;else throw error;}
+    if(configurationPresent)await this.read(id,true);
+    const file=path.join(directory,`${id}.lock`),base={id,configurationPresent};
+    try{if((await lstat(file)).isSymbolicLink())throw new Error("Watch lock cannot be a symbolic link");}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return {...base,locked:false as const,recoverable:false};throw error;}
+    const bytes=await readBoundedFile(file,4096),sha256=createHash("sha256").update(bytes).digest("hex");
+    let owner:z.infer<typeof watchOwner>;
+    try{owner=watchOwner.parse(JSON.parse(bytes.toString("utf8")));}
+    catch{return {...base,locked:true as const,recoverable:false,sha256,reason:"Legacy or malformed owner record requires separate inspection"};}
+    if(owner.id!==id||owner.host!==os.hostname()||owner.scope!==this.scope)return {...base,locked:true as const,recoverable:false,sha256,reason:"Owner identity, local host or configured scope does not match"};
+    try{process.kill(owner.pid,0);return {...base,locked:true as const,recoverable:false,sha256,owner,reason:"Owner PID is running (including possible PID reuse)"};}
+    catch(error){if((error as NodeJS.ErrnoException).code!=="ESRCH")return {...base,locked:true as const,recoverable:false,sha256,owner,reason:"Owner liveness is uncertain"};}
+    return {...base,locked:true as const,recoverable:true,sha256,owner,reason:"Local owner PID is absent; explicit checksum-bound recovery is available"};
+  }
+  async recoverLock(id:string,expectedSha256:string){
+    requireCapability(this.config.capabilities,"project-write");z.string().uuid().parse(id);z.string().regex(/^[a-f0-9]{64}$/).parse(expectedSha256);
+    const directory=await this.directory(),guardFile=path.join(directory,`${id}.recovery.lock`),guard=await open(guardFile,"wx");
+    try{
+      await guard.writeFile(JSON.stringify({pid:process.pid,at:new Date().toISOString()}));
+      const status=await this.ownerLockStatus(id);
+      if(!status.locked||!status.recoverable||status.sha256!==expectedSha256)throw new Error("Watch lock is absent, changed or not eligible for recovery; inspect again");
+      const file=path.join(directory,`${id}.lock`),archive=path.join(directory,`${id}.recovered-${randomUUID()}.json`);
+      await writeFile(archive,JSON.stringify({state:"prepared-for-release",preparedAt:new Date().toISOString(),lock:status,checkpointModified:false,mediaModified:false}),{flag:"wx"});
+      const current=await this.ownerLockStatus(id);
+      if(!current.locked||!current.recoverable||current.sha256!==expectedSha256)throw new Error("Watch owner or lock changed before recovery release");
+      await unlink(file);
+      return {id,released:true,archive,checkpointModified:false,mediaModified:false,scanRetried:false};
+    }finally{await guard.close();await unlink(guardFile);}
   }
   private async save(record:Watch){
     const serialized=JSON.stringify(watchRecord.parse(record)),bytes=Buffer.byteLength(serialized,"utf8");
@@ -64,12 +114,18 @@ export class WatchFolders {
   }
   async list(){
     const directory=await this.directory();
-    const files=(await readdir(directory)).filter(name=>/^[a-f0-9-]{36}\.json$/.test(name));
-    if(files.length>100)throw new Error("Watch count exceeds limit");
+    const names=await readdir(directory),files=new Set(names.filter(name=>/^[a-f0-9-]{36}\.json$/.test(name)));
+    const ids=[...new Set(names.filter(name=>/^[a-f0-9-]{36}\.(json|lock|recovery\.lock)$/.test(name)).map(name=>name.slice(0,36)))];
+    if(ids.length>100)throw new Error("Watch count exceeds limit");
     const records=[];
-    for(const file of files){
-      try{const record=await this.read(file.slice(0,-5));records.push({id:record.id,options:record.options,scannedAt:record.scannedAt,files:Object.keys(record.observations).length});}
-      catch(error){records.push({id:file.slice(0,-5),unavailable:true,error:(error as Error).message});}
+    for(const id of ids){
+      try{
+        if(!files.has(`${id}.json`)||names.includes(`${id}.recovery.lock`)){
+          const lock=await this.lockStatus(id);if(!lock.locked&&!lock.blockedByRecoveryGuard)continue;
+          records.push({id,unavailable:true,configurationMissing:!lock.configurationPresent,lock,error:lock.blockedByRecoveryGuard?"Watch recovery guard is active or interrupted; separate inspection required":"Watch owner lock exists without a published configuration; inspect before recovery"});continue;
+        }
+        const record=await this.read(id);records.push({id:record.id,options:record.options,scannedAt:record.scannedAt,files:Object.keys(record.observations).length});
+      }catch(error){records.push({id,unavailable:true,error:(error as Error).message});}
     }
     return records;
   }
@@ -163,5 +219,5 @@ export class WatchFolders {
     this.timer.unref();return this.status();
   }
   stop(){if(this.timer)clearInterval(this.timer);this.timer=undefined;this.pollingAbort?.abort();return this.status();}
-  status(){return {running:Boolean(this.timer),scanInProgress:Boolean(this.pending),lastError:this.lastError??null,watchErrors:this.watchErrors.map(error=>({...error})),automaticRestart:false,staleLockPolicy:"Inspect PID and operation state before manually removing a stale watch lock"};}
+  status(){return {running:Boolean(this.timer),scanInProgress:Boolean(this.pending),lastError:this.lastError??null,watchErrors:this.watchErrors.map(error=>({...error})),automaticRestart:false,staleLockPolicy:"Inspect with avid_watch_lock_status; explicitly recover eligible stopped local owners with avid_recover_watch_lock. Legacy and uncertain locks remain guarded."};}
 }
