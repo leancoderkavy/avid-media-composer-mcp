@@ -43,6 +43,28 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it("reads scoped column declarations with whitespace names and no extra fields",async()=>{
+    const f=await hostFixture('inspect'),original=f.client.call.bind(f.client);
+    const column={column_name:'   ',column_value_type:'Undefined',column_hidden:false,column_is_custom:false,column_is_readonly:true};
+    vi.spyOn(f.client,'call').mockImplementation((method,body)=>method==='GetBinColumnInfo'?Promise.resolve([{column:[{...column,unrequested:'private'}]}]):original(method,body));
+    const result=await f.adapter.read('bin_columns','fixture.avb');
+    expect(result).toMatchObject({columns:[column]});expect(JSON.stringify(result)).not.toContain('private');
+    expect(f.calls.filter(c=>c.method==='GetOpenProjectInfo')).toHaveLength(2);
+  });
+  it.each(['duplicate','oversized','malformed','changed-project'])('refuses %s native column results',async variant=>{
+    const f=await hostFixture('inspect'),original=f.client.call.bind(f.client);let queried=false;
+    const column={column_name:'Name',column_value_type:'String',column_hidden:false,column_is_custom:false,column_is_readonly:false};
+    vi.spyOn(f.client,'call').mockImplementation((method,body)=>{
+      if(method==='GetBinColumnInfo'){queried=true;return Promise.resolve([{column:variant==='duplicate'?[column,column]:variant==='oversized'?Array.from({length:513},(_,i)=>({...column,column_name:String(i)})):variant==='malformed'?[{...column,column_hidden:'false'}]:[column]}]);}
+      if(queried&&variant==='changed-project'&&method==='GetOpenProjectInfo')return Promise.resolve([{path:os.tmpdir(),frame_rate:{num:30,den:1}}]);
+      return original(method,body);
+    });
+    await expect(f.adapter.read('bin_columns','fixture.avb')).rejects.toThrow();
+  });
+  it("refuses a missing bin before requesting native column data",async()=>{
+    const f=await hostFixture('inspect');await expect(f.adapter.read('bin_columns','missing.avb')).rejects.toThrow();
+    expect(f.calls.some(c=>c.method==='GetBinColumnInfo')).toBe(false);
+  });
   it.each([false,true])("exports EDL once and retains uncertain failures (mismatch=%s)",async(failVerification)=>{
     const f=await hostFixture(),root=path.dirname(f.source),exportDirectory=path.join(os.homedir(),"Avid EDL Exports");await mkdir(exportDirectory);
     const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:[root,os.homedir()].join(path.delimiter),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"}),f.client as unknown as NativeClient);

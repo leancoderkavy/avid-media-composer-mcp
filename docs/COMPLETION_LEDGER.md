@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Live native bin-column discovery
+
+Added `bin_columns` to `avid_native_read`, using the locally derived GetBinColumnInfo contract. The native allowlist now has 14 reads and 15 writes. Inspection is bin/project scoped, rechecks project/path after the call, bounds total columns/string lengths, rejects duplicate names and malformed flags, preserves whitespace names and strips unrelated fields. Protobuf defaults are materialized. Avid's writable flag is not connector write authorization or proof of arbitrary metadata editing support.
+
+Actual inspect-only MCP returned 179 columns from the disposable PCM/color bin, with Comments as its single custom column. Results matched direct native calls before and after; the saved bin hash stayed unchanged. Evidence: `.avid-mcp-analysis/native-bin-columns-90a1ccb2-9907-48df-9d6d-8f46b6e7189c/evidence.json`; see NATIVE_BIN_COLUMNS.md. Full local check passed: 602 TypeScript tests, 40 Python tests, 139 tools, five matching skills, transports and fresh-package/Python checks (`.avid-mcp-analysis/check-native-bin-columns.log`). Previous 4b3f839 CI passed. This adds live metadata discovery, not arbitrary field edits, custom-column creation, native timeline manipulation or full-plan completion.
+
 ### Installed color snapshot and workflow acceptance
 
 Extended fresh-tarball package checks with synthetic saved effect records. The installed MCP server preserves automatic-conversion/LUT declarations, parameter/keyframe fingerprints and opacity; a second client reads the identical range, traces the declared input with explicit incomplete status, detects a same-name keyframe change and rejects an incomplete automatic-conversion record. The authorized source fixture remains byte-identical. This checks installed record handling, not new native editing, media decoding or Python capture evidence.

@@ -62,7 +62,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "clips" | "selected_clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -97,6 +97,14 @@ export class NativeAdapter {
     const target = await this.binPath(project.path, bin ?? "");
     const relative = path.relative(project.path, target);
     if (query === "bin") return this.client.call("GetBinInfo", { relative_bin_path: relative });
+    if(query==="bin_columns"){
+      const column=z.object({column_name:z.string().min(1).max(1024),column_value_type:z.string().min(1).max(256),column_hidden:z.boolean(),column_is_custom:z.boolean(),column_is_readonly:z.boolean()});
+      const bodies=z.array(z.object({column:z.array(column).max(512)})).max(512).parse(await this.client.call("GetBinColumnInfo",{bin_path:target}));
+      const columns=bodies.flatMap(body=>body.column);
+      if(columns.length>512||new Set(columns.map(c=>c.column_name)).size!==columns.length)throw new Error("Native bin columns exceed bounds or contain duplicate names");
+      if((await this.project()).path!==project.path||await this.binPath(project.path,bin??"")!==target)throw new Error("Native project or bin path changed during column inspection");
+      return {bin:target,columns,scope:"Column declarations reported by Avid for the scoped bin. Names preserve whitespace; flags include protobuf defaults. Read-only flags do not grant connector write support. Project/path checks are not an atomic snapshot."};
+    }
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path: relative, bin_flags: ["AllTypes"] });
     if (query === "clips") return clips;
     if(query==="selected_clips"){

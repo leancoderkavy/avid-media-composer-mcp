@@ -4,7 +4,7 @@ Original [workflow skills](docs/WORKFLOW_SKILLS.md) are included for ingest/QC, 
 
 > Unreleased development: this checkout adds a separate Windows native adapter and local media/search tools. See [local setup](docs/LOCAL_SETUP.md) and [implementation status](docs/IMPLEMENTATION_STATUS.md). These changes are not yet in the public 1.1.0 package.
 
-The development adapter now includes [guarded AAF selects import](docs/NATIVE_AAF_IMPORT.md): inspect source ranges and local media, preview an import into an empty bin, apply once, and verify native composition metadata. Save/reopen, source-graph and render evidence remain separately reported.
+The development adapter now includes [guarded AAF selects import](docs/NATIVE_AAF_IMPORT.md): inspect source ranges and local media, preview an import into an empty bin, apply once, and verify native composition metadata. Save/reopen, source-graph and render evidence remain separately reported. [Native bin-column discovery](docs/NATIVE_BIN_COLUMNS.md) reports Avid's column names, types and flags without implying support for arbitrary field edits.
 
 Native inspection also exposes bin-scoped track counts/flags and viewer positions. Clip renaming checks the expected current name before applying and verifies name readback; the disposable Sonoma sequence passed rename, restoration and save/reopen checks. [Source-viewer loading](docs/NATIVE_VIEWER_QUALIFICATION.md) verifies the requested MOB ID: the sequence case passed, while source-master identity mapping remains unresolved. These operations do not establish full timeline editing or atomic undo.
 

@@ -101,7 +101,7 @@ function exchange(method: string, payload: Buffer): Promise<Buffer[]> {
   });
 }
 
-export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetBinInfo", "GetMobTrackInfo", "GetViewerMobs",
+export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetBinInfo", "GetBinColumnInfo", "GetMobTrackInfo", "GetViewerMobs",
   "GetListOfBinItems", "GetListOfLinkSettings", "GetListOfExportSettings", "GetListOfExportEDLSettings", "GetListOfImportSettings", "GetMobInfo", "GetMarkers"] as const;
 export const NATIVE_WRITES = ["CreateBin", "CloseBin", "OpenBin", "LinkFile", "AddMarker", "CreateSubClip",
   "CopyBinItems", "SelectMobsInBin", "ChangeMarker", "DeleteMarkers", "SetMobInfo", "LoadMobsIntoViewer", "ExportFile", "ExportEDL", "ImportFile"] as const;
@@ -146,7 +146,7 @@ export class NativeClient {
     if (invalid) throw new Error(invalid);
     const payload = Buffer.from(requestType.encode(message).finish());
     const frames = await exchange(method, payload);
-    const responses = frames.map(frame => responseType.toObject(responseType.decode(frame), { longs: String, enums: String, defaults: method === "GetBinInfo" || method === "GetMobTrackInfo" || method === "GetViewerMobs" }));
+    const responses = frames.map(frame => responseType.toObject(responseType.decode(frame), { longs: String, enums: String, defaults: method === "GetBinInfo" || method === "GetBinColumnInfo" || method === "GetMobTrackInfo" || method === "GetViewerMobs" }));
     if (!responses.length || responses.some(value => !value.header || value.header.error) ||
       responses.at(-1)?.header.status !== "Completed") throw new Error("Native application did not complete the operation");
     return responses.filter(value => value.body).map(value => value.body);
