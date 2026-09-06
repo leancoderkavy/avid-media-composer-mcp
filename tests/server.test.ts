@@ -32,7 +32,7 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(138);
+      expect(tools.tools).toHaveLength(139);
       expect(tools.tools.find(tool=>tool.name==="avid_source_clock_status")?.annotations?.readOnlyHint).toBe(true);
       const unconfigured=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});
       expect(unconfigured.isError).toBe(true);

@@ -60,9 +60,15 @@ if(process.argv[2]==='child'){
     assert.equal(await sha256File(receipt.output),receipt.outputSha256);
     const completedStatus=await client.callTool({name:'avid_source_clock_status',arguments:{runId:path.basename(path.dirname(receipt.output)).slice(13)}});
     assert.ok(!completedStatus.isError,JSON.stringify(completedStatus));assert.equal(completedStatus.structuredContent.data.state,'receipt_matches_files');assert.equal(completedStatus.structuredContent.data.outputSha256,receipt.outputSha256);
+    const discovered=[];let after;
+    do{
+     const listing=await client.callTool({name:'avid_list_source_clock_attempts',arguments:{file,expectedSha256,limit:1,...(after?{after}:{})}});
+     assert.ok(!listing.isError,JSON.stringify(listing));const page=listing.structuredContent.data;discovered.push(...page.attempts.map(item=>item.runId));after=page.nextAfter;
+    }while(after);
+    assert.ok(discovered.includes(path.basename(directory).slice(13)));assert.ok(discovered.includes(path.basename(path.dirname(receipt.output)).slice(13)));
     assert.deepEqual(JSON.parse(await readFile(path.join(path.dirname(receipt.output),'receipt.json'),'utf8')),receipt);
     assert.deepEqual(await inventory(),before);assert.equal(await sha256File(file),expectedSha256);
-    results.push({phase,termination,interruptedDirectory:directory,retainedHashes:before,interruptedStatus:interruptedStatus.structuredContent.data,completedStatus:completedStatus.structuredContent.data,retryOutput:receipt.output,retryOutputSha256:receipt.outputSha256,retryVerified:true,sourceUnchanged:true,interruptedArtifactsUnchanged:true});
+    results.push({phase,termination,discovered,interruptedDirectory:directory,retainedHashes:before,interruptedStatus:interruptedStatus.structuredContent.data,completedStatus:completedStatus.structuredContent.data,retryOutput:receipt.output,retryOutputSha256:receipt.outputSha256,retryVerified:true,sourceUnchanged:true,interruptedArtifactsUnchanged:true});
    }finally{await client.close();}
   }finally{clearTimeout(timer);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await closed;}
  }

@@ -1,5 +1,5 @@
 import {it,expect,vi} from "vitest";
-import {mkdtemp,writeFile,readFile,readdir,realpath,unlink} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,readdir,realpath,unlink,mkdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets,verifyVideoPacketClock} from "../src/library/source-clock.js";
@@ -84,4 +84,19 @@ it("reports caught failures and refuses changed or unauthorized preparation sour
  await expect(new SourceClockMedia({...f.config,allowedRoots:[root]}).status(runId)).rejects.toThrow();
  await writeFile(f.source,"changed");await expect(service.status(runId)).rejects.toThrow("source changed");
  await expect(service.status("../outside")).rejects.toThrow();
+});
+it("discovers attempts after damaged pages without disclosing other source records",async()=>{
+ const f=await fixture(),service=new SourceClockMedia(f.config),receipt=await service.prepare(f.options),root=path.dirname(path.dirname(receipt.output));
+ const bad="00000000-0000-4000-8000-000000000001",other="00000000-0000-4000-8000-000000000002";
+ for(const runId of [bad,other])await mkdir(path.join(root,`source-clock-${runId}`));
+ await writeFile(path.join(root,`source-clock-${bad}`,"attempt.json"),'{"private":"damaged');
+ const record=JSON.parse(await readFile(path.join(path.dirname(receipt.output),"attempt.json"),"utf8"));
+ await writeFile(path.join(root,`source-clock-${other}`,"attempt.json"),JSON.stringify({...record,source:path.join(f.root,"private-other.mp4")}));
+ const first=await service.list(f.source,f.options.expectedSha256,undefined,1);expect(first).toMatchObject({attempts:[],scanned:1,unreadable:1,nextAfter:bad});
+ const second=await new SourceClockMedia(f.config).list(f.source,f.options.expectedSha256,first.nextAfter!,1);expect(second).toMatchObject({attempts:[],scanned:1,unreadable:0,nextAfter:other});
+ const third=await service.list(f.source,f.options.expectedSha256,second.nextAfter!,1);expect(third.attempts.map(a=>a.runId)).toEqual([path.basename(path.dirname(receipt.output)).slice(13)]);expect(third.nextAfter).toBeNull();
+ expect(JSON.stringify([first,second,third])).not.toContain("private");
+ await expect(service.list(f.source,f.options.expectedSha256,undefined,51)).rejects.toThrow();
+ await expect(new SourceClockMedia({...f.config,allowedRoots:[root]}).list(f.source,f.options.expectedSha256)).rejects.toThrow();
+ await writeFile(f.source,"changed");await expect(service.list(f.source,f.options.expectedSha256)).rejects.toThrow("source changed");
 });

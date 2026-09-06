@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Reconnect discovery for source-clock attempts
+
+Full local check passed: 592 TypeScript tests, 36 Python tests, 139 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-source-clock-discovery.log`). At the preceding remote head 94a43a9, CodeQL, macOS and landing checks had passed; Windows jobs were still running. These remain separate from current local evidence.
+
+Added `avid_list_source_clock_attempts` with scoped checksum-selected source, bounded pages, UUID continuation and unattributed unreadable-record counts. Other-source records are omitted; empty pages retain continuation. Returned UUIDs support existing status inspection without implying completed output or worker state. Eleven focused tests/build passed, including damaged-page recovery, other-source omission and denied/changed sources. Actual MCP one-record pagination found interrupted and completed retries while retaining source/artifact hashes: `.avid-mcp-analysis/source-clock-crash-df5d0e5a-d211-4343-9c85-de070d544753/evidence.json`. Automatic retry, cleanup and worker containment remain open.
+
 ### Source-clock preparation status through MCP
 
 Full local check passed: 591 TypeScript tests, 36 Python tests, 138 tools, five skills, both transports and fresh-package definition/client setup checks (`.avid-mcp-analysis/check-source-clock-status.log`). Inventory assertions and smoke gates were updated for the new tool; all remaining scope stays open.

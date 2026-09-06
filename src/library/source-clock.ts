@@ -1,4 +1,4 @@
-import {mkdir,writeFile,stat} from "node:fs/promises";
+import {mkdir,writeFile,stat,opendir} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
@@ -52,6 +52,31 @@ export function verifyVideoPacketClock(source:Stream[],output:Stream[],frames:nu
 }
 export class SourceClockMedia {
   constructor(private config:ServerConfig){}
+  async list(file:string,expectedSha256:string,after?:string,limit=20){
+    requireCapability(this.config.capabilities,"inspect");digest.parse(expectedSha256);
+    const uuid=z.string().uuid();if(after!==undefined)uuid.parse(after);z.number().int().min(1).max(50).parse(limit);
+    const source=await resolveReadablePath(file,this.config.allowedRoots,"file");
+    if((await stat(source)).size>MAX_MEDIA_BYTES||await sha256File(source)!==expectedSha256)throw new Error("Preparation source changed");
+    const root=await new MediaLibrary(this.config).directory(),names:string[]=[];let scanned=0;
+    for await(const entry of await opendir(root)){
+      if(++scanned>10000)throw new Error("Preparation discovery limit exceeded");
+      if(entry.isDirectory()&&entry.name.startsWith("source-clock-")){
+        const runId=entry.name.slice(13);if(uuid.safeParse(runId).success&&(!after||runId>after))names.push(runId);
+      }
+    }
+    const candidates=names.sort(),page=candidates.slice(0,limit),attempts=[];let unreadable=0;
+    for(const runId of page){
+      try{
+        const directory=await resolveReadablePath(path.join(root,`source-clock-${runId}`),[root],"directory");
+        const record=attemptSchema.parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"attempt.json"),[directory],"file"),65536));
+        if(record.source!==source||record.sourceSha256!==expectedSha256)continue;
+        if(path.resolve(record.output)!==path.join(directory,"prepared.mov"))throw new Error("Preparation output path mismatch");
+        attempts.push({runId,startedAt:record.startedAt,videoStream:record.videoStream,audioStream:record.audioStream});
+      }catch{unreadable++;}
+    }
+    if(await sha256File(await resolveReadablePath(source,this.config.allowedRoots,"file"))!==expectedSha256)throw new Error("Preparation source changed during discovery");
+    return {source,sourceSha256:expectedSha256,attempts,nextAfter:candidates.length>page.length?page.at(-1):null,scanned:page.length,unreadable,meaning:"Pages scan saved attempt records, including other sources. Empty pages may have continuation. Records are not completion or worker-state evidence; inspect each run with avid_source_clock_status. Unreadable records are counted without attributing them to this source."};
+  }
   async status(runId:string){
     requireCapability(this.config.capabilities,"inspect");z.string().uuid().parse(runId);
     const root=await new MediaLibrary(this.config).directory();
