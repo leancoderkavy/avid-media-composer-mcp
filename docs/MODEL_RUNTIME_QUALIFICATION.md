@@ -4,6 +4,8 @@ The optional Transformers.js runtime is installed separately from the core MCP p
 
 An existing receipt is checked before reuse; setup does not rerun npm install or silently repair changed dependencies. A legacy runtime with the exact expected manifest can be audited and imported, then adopted with a tree receipt without reinstalling dependencies. For adoption, scriptsDisabled:false means this operation does not establish the original installation's script policy. It does not prove that scripts ran.
 
+Normal `modelRuntime()` loading now also checks the managed receipt and complete dependency-tree hash before importing the runtime entry. Missing receipts require explicit `--install-model-runtime --model-dir PATH` adoption; mismatched trees are refused without automatic repair. Each loader call repeats the check, including when Node may already cache the module. This adds filesystem hashing cost and establishes on-disk consistency with the receipt, not publisher authentication, loaded-memory integrity or protection against an external writer changing files between verification and import.
+
 A cache-level exclusive setup lock prevents cooperating installers from running together. The lock is checked before removal, and an unexpected replacement is retained. Failed staging remains available for inspection. A surviving lock does not establish whether its worker stopped; automatic stale-lock recovery, runtime update/rollback/removal, arbitrary concurrent writers and cross-platform setup qualification remain open.
 
 ## Fresh runtime evidence
