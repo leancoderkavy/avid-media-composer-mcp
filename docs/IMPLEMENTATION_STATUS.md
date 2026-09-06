@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Saved locator availability now has a separate opt-in MCP check for bounded file metadata under configured roots, with paginated source declarations and coverage. The Windows `D//...` fixture spelling requires explicit interpretation; raw paths remain intact. Real saved-bin/reconnect evidence and limits are in [saved locator availability](SAVED_LOCATOR_AVAILABILITY.md). File presence does not establish Avid online or relink success.
+
 Watch inspection now distinguishes an absent owner lock from a retained recovery guard. Guard-only IDs remain discoverable after reconnect, `blockedByRecoveryGuard` explains why scans are refused, and the guard checksum is returned without releasing it. Actual fresh installed-runtime recovery-process termination passed; see [interrupted recovery status](WATCH_FOLDER_RECOVERY.md#interrupted-recovery-status).
 
 Interrupted watch creation is now discoverable and recoverable even when no initial manifest was published. Listing reports the orphan ID and lock status; actual manifest absence is distinguished from damaged configuration. A fresh installed-runtime process-crash test passed live-owner refusal, orphan discovery after reconnect, release without inventing a manifest and new configuration creation. See [watch recovery](WATCH_FOLDER_RECOVERY.md).

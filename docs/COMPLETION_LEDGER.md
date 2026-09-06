@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Saved locator availability for turnover review
+
+Added `avid_saved_locator_availability`: bounded pages of saved descriptor/locator declarations with metadata-only file checks under configured roots. It distinguishes absent/unrecorded declarations, unsupported paths, volume hints, out-of-scope paths, symlinks, missing files and unavailable roots, preserving snapshot omissions on every page. Explicit opt-in Windows `D//...` interpretation retains raw declarations and still enforces scope. File presence does not claim content identity, Avid online status or relink success.
+
+The real saved Sonoma fixture produced eight declaration rows across reconnecting pagination. Default interpretation left two Avid-style paths unsupported; opt-in interpretation found their explicitly scoped prepared MOV, with all bin/source hashes unchanged. Evidence: `.avid-mcp-analysis/locator-availability-620ad702-428c-4400-8aff-feb8ed782592/evidence.json`. Initial literal-only evidence is retained under `locator-availability-26128341-9faa-4ec1-a7e2-9e00e8cb01d4`. See `SAVED_LOCATOR_AVAILABILITY.md`. This expands development discovery to 143 tools; managed-MXF lookup, broader mappings and full host-online qualification remain open.
+
+Full local `npm run check` passed 770 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation with 143 tools/five skills. Log: `.avid-mcp-analysis/check-locator-availability.log`.
+
 ### Audio-sync stereo/rate selection from a fresh package
 
 A real MCP experiment now compares distinct media IDs at 48 kHz and 44.1 kHz, selecting explicit absolute stream indices and a delayed/inverted target channel in a stereo derived fixture. Forward/reverse jobs recovered ±1.24 seconds; selecting the noise channel returned weak match, and a nonexistent stream failed. Saved results were identical after reconnect, and both original/derived hashes stayed unchanged.

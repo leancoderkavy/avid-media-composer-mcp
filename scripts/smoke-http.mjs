@@ -65,7 +65,7 @@ try {
   try {
     const tools = await client.listTools();
     const ping = await client.callTool({ name: "avid_ping", arguments: {} });
-    if (tools.tools.length !== 142 || ping.isError || ping.structuredContent?.ok !== true) {
+    if (tools.tools.length !== 143 || ping.isError || ping.structuredContent?.ok !== true) {
       throw new Error("Authenticated Streamable HTTP MCP validation failed");
     }
     console.log(

@@ -16,6 +16,25 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it('pages locator declarations with current file metadata and snapshot omissions intact',async()=>{
+    const {record,save,snapshots,config}=await fixture(),mob=record.bins[0]!.mobs[0]!;
+    const file=path.join(path.dirname(record.bins[0]!.file),'media.mp4');await writeFile(file,'metadata-only fixture');
+    const source=structuredClone(mob);source.mobId='file-source';
+    Object.assign(source,{descriptor:{classId:'WAVE',values:{},locator:{classId:'FILE',paths:[
+      {field:'path',value:file},{field:'path_utf8',value:path.join(path.dirname(file),'missing.mp4')},
+      {field:'path_posix',value:'relative.mp4'},{field:'last_known_volume',value:'Media'},
+    ]}}});
+    record.bins[0]!.mobs.push(source);record.bins[0]!.complete=false;record.bins[0]!.warnings.push({reason:'fixture omission'});
+    const revision=await save(),first=await snapshots.locatorAvailability(revision,-1,2);
+    expect(first.totalDeclarations).toBe(5);expect(first.nextAfter).toBe(1);
+    expect(first.results.map(row=>row.status)).toEqual(['descriptor_not_recorded','file_present']);
+    expect(first.coverage[0]).toMatchObject({complete:false,warnings:[{reason:'fixture omission'}]});
+    const second=await new ProjectSnapshots(config).locatorAvailability(revision,first.nextAfter!,50);
+    expect(second.results.map(row=>row.status)).toEqual(['not_found','unsupported_path','volume_hint']);expect(second.nextAfter).toBeNull();
+    expect((await snapshots.locatorAvailability(revision,99,2)).results).toEqual([]);
+    await expect(snapshots.locatorAvailability(revision,-2,1)).rejects.toThrow();
+    await expect(snapshots.locatorAvailability(revision,-1,51)).rejects.toThrow();
+  });
   it('pages saved marker occurrences after reconnect and distinguishes legacy absence',async()=>{
     const {record,save,snapshots,config}=await fixture(),mob=record.bins[0]!.mobs[0]!;
     let revision=await save();expect(await snapshots.markers(revision,'sequence')).toMatchObject({status:'not_recorded',total:null,markers:[]});
