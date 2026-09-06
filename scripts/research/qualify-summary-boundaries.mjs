@@ -27,7 +27,10 @@ try{
  const transcript=await call('avid_import_transcript',{id,segments:[{start:0,end:10,text}]});
  const generated=await call('avid_generate_summary',{id,transcriptRevision:transcript.revision});
  const overview=await call('avid_summary_node',{revision:generated.revision});assert.equal(overview.sources[0].text,text);assert.equal(overview.factualEntailmentVerified,false);
+ assert.equal(overview.sourceExcerptsStatus,'verified_recipe');assert.equal(overview.sourceExcerpts.map(e=>e.text).join(''),text);
+ for(const excerpt of overview.sourceExcerpts){assert.equal(excerpt.index,0);assert.equal(text.slice(excerpt.charStart,excerpt.charEnd),excerpt.text);}
  const leaves=[];for(const child of overview.children)leaves.push(await call('avid_summary_node',{revision:generated.revision,nodeId:child.nodeId}));
+ for(const leaf of leaves){assert.ok(leaf.sourceExcerpts.every(e=>e.leafNodeId===leaf.node.nodeId));assert.ok(leaf.sourceExcerpts.map(e=>e.text).join(' ').length<=2000);}
  assert.equal(await sha256File(source),id);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,text,decision,comparisons,generated,overview,leaves,sourceUnchanged:true,limitations:['Synthetic repeated editorial note attached to a real source; not a transcript of Sonoma speech','Exact input preservation and workflow qualification, not broad factual quality acceptance','Sentence/word boundary heuristics can still split long sentences and do not perform linguistic parsing']},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,comparisons:comparisons.map(c=>({recipe:c.recipe,intactDecisionInput:c.intactDecisionInput,outputs:c.outputs.map(o=>o.output)})),overview:overview.node.summary}));

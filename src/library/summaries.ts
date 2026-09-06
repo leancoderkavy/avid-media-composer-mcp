@@ -19,9 +19,10 @@ type Source={start:number;end:number;text:string;index:number};
 const hash=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const nodeSchema=summaryNodeSchema;
 type Node=SummaryNode;
-const recordSchema=z.object({schema:z.literal(1),id:z.string().regex(/^[a-f0-9]{64}$/),transcriptRevision:z.string().uuid(),sourceHash:z.string().regex(/^[a-f0-9]{64}$/),model:z.literal(SUMMARY_MODEL),modelRevision:z.literal(SUMMARY_REVISION),root:z.string(),nodes:z.array(nodeSchema).max(100)});
+const recordSchema=z.object({schema:z.literal(1),id:z.string().regex(/^[a-f0-9]{64}$/),transcriptRevision:z.string().uuid(),sourceHash:z.string().regex(/^[a-f0-9]{64}$/),model:z.literal(SUMMARY_MODEL),modelRevision:z.literal(SUMMARY_REVISION),root:z.string(),nodes:z.array(nodeSchema).max(100),chunkRecipe:z.union([z.literal(1),z.literal(2)]).optional()});
 export function summaryChunks(segments:Source[],recipe:1|2=2){
-  const chunks:{text:string;sources:Source[]}[]=[];let current={text:"",sources:[] as Source[]};
+  type Chunk={text:string;sources:Source[];spans:{index:number;charStart:number;charEnd:number}[]};
+  const chunks:Chunk[]=[];let current:Chunk={text:"",sources:[],spans:[]};
   for(const segment of segments){
     if(!segment.text.trim())continue;
     for(let offset=0;offset<segment.text.length;){
@@ -37,9 +38,9 @@ export function summaryChunks(segments:Source[],recipe:1|2=2){
         // A long unbroken token must still be bounded, but never split UTF-16 pairs.
         if(end>offset&&/[\uD800-\uDBFF]/.test(segment.text[end-1]!)&&/[\uDC00-\uDFFF]/.test(segment.text[end]!))end--;
       }
-      const text=segment.text.slice(offset,end);offset=end;
-      if(current.text.length+text.length+1>2000&&current.text){chunks.push(current);current={text:"",sources:[]};}
-      current.text+=(current.text?" ":"")+text;current.sources.push(segment);
+      const charStart=offset,text=segment.text.slice(offset,end);offset=end;
+      if(current.text.length+text.length+1>2000&&current.text){chunks.push(current);current={text:"",sources:[],spans:[]};}
+      current.text+=(current.text?" ":"")+text;current.sources.push(segment);current.spans.push({index:segment.index,charStart,charEnd:end});
     }
   }
   if(current.text)chunks.push(current);
@@ -102,7 +103,7 @@ export class MediaSummaries{
       const next=[];for(let i=0;i<level.length;i+=4){const children=level.slice(i,i+4),node=await build({nodeId:`n${nodes.length}`,start:Math.min(...children.map(n=>n.start)),end:Math.max(...children.map(n=>n.end)),children:children.map(n=>n.nodeId),sourceIndices:[]},children.map(n=>n.summary).join(" "));next.push(node);}level=next;
     }
     if((await this.source(id,transcriptRevision)).sourceHash!==source.sourceHash)throw new Error("Transcript changed during generation");
-    const record=recordSchema.parse({schema:1,id,transcriptRevision,sourceHash:source.sourceHash,model:SUMMARY_MODEL,modelRevision:SUMMARY_REVISION,root:level[0]!.nodeId,nodes});
+    const record=recordSchema.parse({schema:1,id,transcriptRevision,sourceHash:source.sourceHash,model:SUMMARY_MODEL,modelRevision:SUMMARY_REVISION,root:level[0]!.nodeId,nodes,chunkRecipe:recipe});
     validateSummaryTree(record.root,record.nodes,source.segments);
     const revision=randomUUID();await writeFile(path.join(await this.library.directory(),`summary-${revision}.json`),JSON.stringify(record),{flag:"wx"});
     await this.checkpoints.finish(runId,revision);
@@ -115,6 +116,10 @@ export class MediaSummaries{
     await this.library.metadata([record.id]);
     if(source.sourceHash!==record.sourceHash)throw new Error("Summary transcript provenance changed");
     validateSummaryTree(record.root,record.nodes,verify?source.segments:undefined);
+    if(verify&&record.chunkRecipe!==undefined){
+      const chunks=summaryChunks(source.segments,record.chunkRecipe),leaves=record.nodes.filter(n=>!n.children.length);
+      if(leaves.length!==chunks.length||chunks.some((chunk,i)=>leaves[i]?.nodeId!==`n${i}`||JSON.stringify(leaves[i]?.sourceIndices)!==JSON.stringify([...new Set(chunk.sources.map(s=>s.index))])))throw new Error("Summary chunk recipe and leaf provenance disagree");
+    }
     return {file,record,source,sha256:hash(record)};
   }
   async node(revision:string,nodeId?:string){
@@ -122,10 +127,12 @@ export class MediaSummaries{
     if(!node)throw new Error("Unknown summary node");
     // read() validates the tree before walking descendants. A split transcript
     // segment can occur in multiple leaves; return its original text only once.
-    const indices=new Set<number>(),potentiallyTruncatedNodeIds:string[]=[];
-    const collect=(current:Node)=>{if(current.mayBeTruncated)potentiallyTruncatedNodeIds.push(current.nodeId);for(const index of current.sourceIndices)indices.add(index);for(const child of current.children)collect(byId.get(child)!);};
+    const indices=new Set<number>(),leafIds=new Set<string>(),potentiallyTruncatedNodeIds:string[]=[];
+    const collect=(current:Node)=>{if(!current.children.length)leafIds.add(current.nodeId);if(current.mayBeTruncated)potentiallyTruncatedNodeIds.push(current.nodeId);for(const index of current.sourceIndices)indices.add(index);for(const child of current.children)collect(byId.get(child)!);};
     collect(node);
-    return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>byId.get(id)!),sources:source.segments.filter(s=>indices.has(s.index)),quality:{potentiallyTruncatedNodeIds,subtreeMayBeTruncated:potentiallyTruncatedNodeIds.length>0,scope:"Selected node and all descendants",note:"Sentence-ending heuristic only; an empty list does not verify completeness or factual accuracy."},sourceScope:node.children.length?"descendant_leaves":"direct_leaf",reviewRequired:true,factualEntailmentVerified:false};
+    const segments=new Map(source.segments.map(s=>[s.index,s]));
+    const sourceExcerpts=record.chunkRecipe===undefined?null:summaryChunks(source.segments,record.chunkRecipe).flatMap((chunk,i)=>leafIds.has(`n${i}`)?chunk.spans.map(span=>({...span,leafNodeId:`n${i}`,text:segments.get(span.index)!.text.slice(span.charStart,span.charEnd)})):[]);
+    return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>byId.get(id)!),sources:source.segments.filter(s=>indices.has(s.index)),sourceExcerpts,sourceExcerptsStatus:sourceExcerpts===null?"not_recorded":"verified_recipe",sourceExcerptsMeaning:"Exact original UTF-16 character spans used by descendant leaves, in chunk order. Segment timestamps are not character-level timings; quotes do not verify generated claims.",quality:{potentiallyTruncatedNodeIds,subtreeMayBeTruncated:potentiallyTruncatedNodeIds.length>0,scope:"Selected node and all descendants",note:"Sentence-ending heuristic only; an empty list does not verify completeness or factual accuracy."},sourceScope:node.children.length?"descendant_leaves":"direct_leaf",reviewRequired:true,factualEntailmentVerified:false};
   }
   async list(id:string,after="",limit=20){
     await this.library.metadata([id]);if(after)z.string().uuid().parse(after);z.number().int().min(1).max(100).parse(limit);

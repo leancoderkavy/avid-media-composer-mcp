@@ -19,6 +19,26 @@ it("bounds summary chunks without silently dropping long source segments",()=>{
   const text="a".repeat(5001),chunks=summaryChunks([{start:0,end:1,index:0,text}]);expect(chunks.map(c=>c.text).join("")).toBe(text);expect(chunks).toHaveLength(3);
   expect(()=>summaryChunks([])).toThrow();expect(()=>summaryChunks([{start:0,end:1,index:0,text:"a".repeat(130000)}])).toThrow();
 });
+it("returns exact leaf input spans and preserves historical summaries without guessing their recipe",async()=>{
+ const {id,config,transcript,summaries}=await fixture(),saved=await summaries.generate(id,transcript.revision),root=await summaries.node(saved.revision);
+ expect(root.sourceExcerptsStatus).toBe('verified_recipe');expect(root.sourceExcerpts).not.toBeNull();
+ for(const source of root.sources){
+  const excerpts=root.sourceExcerpts!.filter(e=>e.index===source.index);
+  expect(excerpts.map(e=>e.text).join('')).toBe(source.text);
+  for(const excerpt of excerpts)expect(source.text.slice(excerpt.charStart,excerpt.charEnd)).toBe(excerpt.text);
+ }
+ const leaf=await summaries.node(saved.revision,'n0');expect(leaf.sourceExcerpts!.map(e=>e.text).join(' ')).toBe(summaryChunks(root.sources)[0]!.text);
+ expect(leaf.sourceExcerpts!.every(e=>e.leafNodeId==='n0')).toBe(true);
+ const file=path.join(await new MediaLibrary(config).directory(),`summary-${saved.revision}.json`),record=JSON.parse(await readFile(file,'utf8'));
+ delete record.chunkRecipe;await writeFile(file,JSON.stringify(record));
+ const legacy=await summaries.node(saved.revision);expect(legacy.sourceExcerpts).toBeNull();expect(legacy.sourceExcerptsStatus).toBe('not_recorded');
+});
+it("refuses recipe-bearing records with reordered leaf provenance",async()=>{
+ const {id,config,transcript,summaries}=await fixture(),saved=await summaries.generate(id,transcript.revision);
+ const file=path.join(await new MediaLibrary(config).directory(),`summary-${saved.revision}.json`),record=JSON.parse(await readFile(file,'utf8'));
+ [record.nodes[0],record.nodes[1]]=[record.nodes[1],record.nodes[0]];await writeFile(file,JSON.stringify(record));
+ await expect(summaries.node(saved.revision)).rejects.toThrow('recipe and leaf provenance');
+});
 it("keeps a boundary-crossing decision intact and preserves exact single-segment text",()=>{
  const prefix='The approved footage remains unchanged. '.repeat(49),decision='Alexandra must remove the roadside interview before the Friday delivery.',text=prefix+decision;
  const source={start:0,end:10,index:0,text},chunks=summaryChunks([source]);expect(chunks.map(c=>c.text).join('')).toBe(text);expect(chunks.every(c=>c.text.length<=2000)).toBe(true);

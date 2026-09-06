@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Exact summary source spans
+
+Full local check passed: 565 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-summary-source-spans.log`). The preceding pushed head f875960 passed all CI and CodeQL checks; these local changes require their own remote checks after push.
+
+New summary records retain their chunk recipe; node reads reconstruct and return exact UTF-16 transcript spans for descendant leaf inputs, with leaf IDs and source indices. Full segment reads stay compatible. Historical records without recipes explicitly return not_recorded; inconsistent leaf provenance is refused. Existing recipe-one/two checkpoint hashing remains unchanged. Actual cached-model MCP generation/readback passed exact text and span assertions with the original MP4 unchanged: `.avid-mcp-analysis/summary-boundaries-e330bc6d-4ebe-4a39-83cb-fdb832bfb30b/evidence.json`. The model still produced the known unsupported National Guard claim; this improves review provenance and does not close factual quality. See SUMMARY_QUALITY_QUALIFICATION.md.
+
 ### Extractive summary quality counterexamples
 
 Evaluated an original source-offset sentence-selection candidate on eight existing synthetic editorial cases plus a cancellation/reinstatement case. Every selected quote matched its exact source span, but sentence budgeting omitted a responsible person and filming prohibition, and deduplication removed a later reinstatement. Raw omitted occurrences are retained so distinct-text coverage cannot conceal temporal information loss. Candidate remains research-only; no production summary backend changed. Committed evidence: `docs/extractive-summary-benchmark.json`; local run: `.avid-mcp-analysis/extractive-summary-ba7ae7da-2d54-48ad-839e-0a64855fd215/evidence.json`. Syntax and actual execution passed. Generated and extractive factual/context acceptance both remain open; see SUMMARY_QUALITY_QUALIFICATION.md.
