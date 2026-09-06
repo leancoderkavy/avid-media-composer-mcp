@@ -1,5 +1,11 @@
 # Completion ledger
 
+### UI comment-column inspection and current status reconciliation
+
+Computer use reopened the disposable comment fixture and inspected Choose Columns. The observed alphabetical Color-to-Creation Date section did not include Comments. Cancel closed the dialog without applying changes; no comment edit or save was invoked. Populated-value UI acceptance remains open, as detailed in NATIVE_CLIP_COMMENTS.md. The timeline remained Copy.05 at 01:00:02:00. This observation does not replace native or saved-bin verification.
+
+Reconciled IMPLEMENTATION_STATUS.md with the latest full local check (621 TypeScript, 41 Python, 139 tools, five skills), historical client/package counts and already-integrated provider accepted-connection checks. Remote CI and CodeQL for e0ec2a8 are now verified successful. This documentation-only checkpoint does not add production functionality or claim full-plan completion.
+
 ### Installed read regression and explicit doctor paths
 
 Full local check passed: 621 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-doctor-path-overrides.log`). Previous 92379f1 CI/CodeQL passed; current-change remote checks remain pending. Broader native editing, clean-machine setup and full-plan requirements remain open.
