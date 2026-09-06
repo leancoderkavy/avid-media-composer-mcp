@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile,mkdir,readdir,symlink} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,mkdir,readdir,symlink,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
@@ -26,7 +26,7 @@ describe("local library boundaries",()=>{
   const aliases=path.join(root,"avid-mcp-library",`${id}.sources`);await mkdir(aliases);await writeFile(path.join(aliases,`${"a".repeat(64)}.json`),JSON.stringify({id,file:alias}));
   await expect(library.validatedMetadata(id)).rejects.toThrow("Source changed since indexing");
   const allowed=path.join(root,"allowed.wav");await writeFile(allowed,"fixture");await writeFile(path.join(aliases,`${"b".repeat(64)}.json`),JSON.stringify({id,file:allowed}));
-  expect((await library.validatedMetadata(id)).file).toBe(allowed);const report=await library.report([id]);const html=await readFile(report.output,"utf8");expect(html).toContain("allowed.wav");expect(html).not.toContain("private.wav");expect(await readFile(external,"utf8")).toBe("fixture");
+  expect((await library.validatedMetadata(id)).file).toBe(await realpath(allowed));const report=await library.report([id]);const html=await readFile(report.output,"utf8");expect(html).toContain("allowed.wav");expect(html).not.toContain("private.wav");expect(await readFile(external,"utf8")).toBe("fixture");
  });
  it("uses a matching indexed alias when the original path contains changed media",async()=>{
   const {library,id,file,root}=await fixture(),alias=path.join(root,"reconnected.wav");await writeFile(alias,"fixture");

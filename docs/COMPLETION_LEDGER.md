@@ -714,3 +714,8 @@ Full `npm run check` passed on source commit `e1aa3f6`: 491 TypeScript tests acr
 Rechecked installed Windows Claude Code 2.1.260 at `C:/Users/kavyr/AppData/Roaming/Claude/claude-code/2.1.260/claude.exe`. Its `auth status --json` command reported loggedIn:false, authMethod:none and apiProvider:firstParty. Only these nonpersonal status fields were inspected in the visible result; no authentication or configuration was changed. The separate `.local/bin/claude.exe` resolves to older version 2.1.37, so future qualification must keep the intended binary explicit.
 
 This is a current external dependency for model-driven tool invocation: sign-in to the intended client is required before a real model can select and invoke Avid MCP tools. Prior isolated CLI MCP connection/lifecycle evidence remains valid within its stated scope and does not close model invocation. No model request was attempted, and the overall implementation goal remains open with other actionable work.
+
+### Cross-platform alias assertion correction
+
+CI for 20007a4 exposed a test expectation mismatch: validatedMetadata returns canonical paths, while temporary paths can use macOS /var aliases or Windows short user-directory names. The allowed-alias assertion now compares against filesystem realpath, retaining direct and directory-link scope refusal and unchanged external-file checks. All 10 focused library tests passed locally. Cross-platform CI remains a separate gate until the pushed revision completes.
+
