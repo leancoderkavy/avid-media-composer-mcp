@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Audio offset matrix across seven original Sonoma exports
+
+The new repeatable `qualify-audio-sync-matrix.mjs` exercised 14 real stdio MCP worker jobs: separate left/right channels on every original Sonoma MP4, including both 4K exports and the 2.68 GB asset. All returned the known -1.23-second decoded-window offset with three supported consistent windows. Fresh connection readback matched each saved result without replay, and every original SHA-256 was unchanged. Evidence: `.avid-mcp-analysis/audio-sync-matrix-b97ca018-5052-45fd-b6d0-b9c0370abdaf/evidence.json`.
+
+Build, harness syntax, diff checks and actual matrix execution passed. This is research/docs-only work on the merged implementation at `b63d1ea`, whose Windows/macOS CI, CodeQL and Pages checks passed; no new full-suite run is claimed. Same-source offsets do not establish independent-recording accuracy, lip sync, native edits or full-plan completion. See [audio research](AUDIO_SYNC_RESEARCH.md).
+
 ### Missing source-bin evidence in locator reports
 
 Locator availability now returns row-level bin presence and captured bin hashes, plus snapshot creation time, missing-bin paths and explicit non-revalidation of current bin hashes on every page. Previously the snapshot reader knew a bin was missing but this endpoint omitted that fact. Historical locator access remains available while the source bin is absent; file presence does not silently imply current saved-bin contents.

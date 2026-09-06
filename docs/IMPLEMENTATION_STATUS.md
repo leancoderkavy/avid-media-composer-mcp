@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Audio offset jobs now have actual stereo-channel coverage across all seven original Sonoma exports: 14 jobs returned the known decoded-window offset with three agreeing windows, preserved source hashes and retained identical results across fresh MCP connections. See [audio research](AUDIO_SYNC_RESEARCH.md). Independent-recording accuracy and native sync editing remain separate requirements.
+
 Saved locator availability now has a separate opt-in MCP check for bounded file metadata under configured roots, with paginated source declarations and coverage. The Windows `D//...` fixture spelling requires explicit interpretation; raw paths remain intact. Real saved-bin/reconnect evidence and limits are in [saved locator availability](SAVED_LOCATOR_AVAILABILITY.md). File presence does not establish Avid online or relink success.
 
 Watch inspection now distinguishes an absent owner lock from a retained recovery guard. Guard-only IDs remain discoverable after reconnect, `blockedByRecoveryGuard` explains why scans are refused, and the guard checksum is returned without releasing it. Actual fresh installed-runtime recovery-process termination passed; see [interrupted recovery status](WATCH_FOLDER_RECOVERY.md#interrupted-recovery-status).

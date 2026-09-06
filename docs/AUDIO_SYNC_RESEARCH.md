@@ -1,5 +1,13 @@
 # Audio content offset research
 
+## Seven-export stereo qualification
+
+`node scripts/research/qualify-audio-sync-matrix.mjs` tests all seven explicitly named original Sonoma exports serially through the built stdio MCP server. Each file is indexed, then both audio channels are individually compared using 30-second decoded windows starting at 0 and 1.23 seconds. The expected comparison-relative offset is -1.23 seconds. Every file's completed results are read through a fresh MCP connection, automatic replay is checked false, and its SHA-256 is checked before and after.
+
+All 14 jobs passed on 2026-09-06, including both 4K exports and the 2.68 GB file. Every result returned `candidate`, -1.23 seconds and three supported, consistent windows; every selected channel was 48 kHz. All source hashes and reconnected results were unchanged. Full observations and tool responses are retained under `.avid-mcp-analysis/audio-sync-matrix-b97ca018-5052-45fd-b6d0-b9c0370abdaf/`, with acceptance in `evidence.json`. The script preserves observations before checking final acceptance, including failed jobs.
+
+This broadens actual export/channel coverage for same-source content offsets. It does not qualify independent microphones, arbitrary sample rates, full-duration drift, source-clock alignment, audio/video lip sync or native editing. Production code is unchanged; build, harness syntax and actual matrix execution passed against the implementation whose resulting-main CI/CodeQL passed at `b63d1ea`.
+
 `src/library/audio-sync.ts` adds a bounded content-offset estimator for the roadmap's sync-analysis work. It accepts explicitly supplied 100 Hz RMS envelopes covering 2–60 seconds and searches at most ±5 seconds. The PCM envelope helper accepts normalized mono samples, computes complete 10 ms RMS windows and discards an incomplete last window. It is available through `avid_start_analysis_job` with `kind: "audio_sync"`.
 
 For each lag, correlation is mean-centered and normalized over the overlapping portion, requiring at least one second and half of the shorter input. Positive offset means matching content occurs later in the comparison: `reference[i]` matches `comparison[i + lag]`. This explicit convention follows the positive-displacement form in [SciPy's correlation-lag definition](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.correlation_lags.html); no SciPy code or dependency is included.
