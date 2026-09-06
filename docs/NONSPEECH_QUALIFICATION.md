@@ -27,3 +27,9 @@ This suggests the existing segmentation model may help identify these ASR failur
 With `--stress`, the presence harness also generates speech reduced to 0.01 amplitude (-40 dB) and speech mixed with seeded white noise at amplitude 0.03. In `speech-presence-f1617092-3f28-41a0-8abe-b180b18b94f5`, English clean/quiet/noise-mixed variants each produced two spans; Mandarin variants each produced three. The three non-speech probes again produced zero. Original and analyzed file hashes were preserved.
 
 These nine cases test whole-file speech presence only. Equal span counts do not prove identical boundaries or complete spoken-word coverage. The noise amplitude is a generation parameter, not a measured SNR. Actual recordings, short utterances, other noise/music types and overlapping voices remain unqualified; no production rejection threshold was changed.
+
+## Reviewing suspect transcript text
+
+The existing `avid_align_speakers` tool can compare a checksum-selected transcript revision with saved segmentation evidence. `qualify-nonspeech-review.mjs` imported the actual false tone/noise transcripts into an isolated library, generated segmentation, reconnected with inspection-only authority and aligned both revisions. Every returned segment had `no_speech_overlap`, zero speech seconds and no candidates. Transcript and source hashes stayed unchanged. Evidence: `nonspeech-review-13209188-fc62-4ed0-a5f8-53e530459f87`.
+
+This provides a review signal using existing tools: inspect unexpected text where model speech spans are absent. It is not proof that those words are false in an arbitrary recording, since segmentation can miss real speech. Retain the text and review source audio before correcting a transcript; this workflow applies no automatic suppression.
