@@ -8,13 +8,19 @@ const root=path.resolve('.avid-mcp-analysis',`posthog-notices-${randomUUID()}`);
 await mkdir(root);
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const artifacts=[];
-for(const file of ['LICENSE','packages/core/package.json','packages/core/src/vendor/uuidv7.ts']){
+const expectedArtifacts=[
+  ['LICENSE','a4a2a1ca3b22fe608ea29144452418e4a91f11ca44666a8a91cb72ec0a70f6ee'],
+  ['packages/core/package.json','b8affcfc5f7ebfa83837143783bda26066ccaa3906d344d3ac830a26edbd0349'],
+  ['packages/core/src/vendor/uuidv7.ts','6397ce81aeb83a515c2e413b9a0d8d7ccb05da030ca49cf2942f554559dfe258'],
+];
+for(const [file,expectedSha256] of expectedArtifacts){
   const url=`https://raw.githubusercontent.com/PostHog/posthog-js/${revision}/${file}`;
   const response=await fetch(url,{signal:AbortSignal.timeout(30000)});
   assert.ok(response.ok,`${response.status}: ${url}`);
   const bytes=Buffer.from(await response.arrayBuffer());
   assert.ok(bytes.length<100000);
-  const output=path.join(root,file.replaceAll('/','_'));
+  if(hash(bytes)!==expectedSha256)throw new Error(`Upstream evidence checksum mismatch: ${file}`);
+  const output=path.join(root,`${file.replaceAll('/','_')}.txt`);
   await writeFile(output,bytes,{flag:'wx'});
   artifacts.push({url,output,sha256:hash(bytes)});
 }

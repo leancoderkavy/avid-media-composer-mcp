@@ -35,6 +35,11 @@ it("refuses a source changed during inspection",async()=>{
  const {file,expected,config,inspection,inspect}=await fixture();inspect.mockImplementation(async()=>{await writeFile(expected.sourceFile,"changed");return inspection;});
  await expect(verifyNativeAafMaster(file,config,expected,{timeoutMs:1000,pollMs:2})).rejects.toThrow("changed during");
 });
+it("refuses output changed during inspection even when its header remains valid",async()=>{
+ const {file,expected,config,inspection,inspect}=await fixture();
+ inspect.mockImplementation(async()=>{const bytes=Buffer.alloc(512,1);Buffer.from("d0cf11e0a1b11ae1","hex").copy(bytes);await writeFile(file,bytes);return inspection;});
+ await expect(verifyNativeAafMaster(file,config,expected,{timeoutMs:1000,pollMs:2})).rejects.toThrow("changed during");
+});
 it("rejects non-AAF output before calling the parser and leaves missing files unproven",async()=>{
  const {file,expected,config,inspect,root}=await fixture();await writeFile(file,Buffer.alloc(512));
  await expect(verifyNativeAafMaster(file,config,expected,{timeoutMs:1000,pollMs:2})).rejects.toThrow("compound file");expect(inspect).not.toHaveBeenCalled();

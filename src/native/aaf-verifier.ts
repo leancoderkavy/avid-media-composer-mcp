@@ -20,11 +20,13 @@ export async function verifyNativeAafMaster(file:string,config:ServerConfig,expe
     await options.assertOwner?.();let resolved:string|undefined;
     try{resolved=await resolveReadablePath(file,[root],"file");}catch(error){if(!["ENOENT","PATH_NOT_FOUND"].includes((error as {code?:string}).code??""))throw error;}
     if(resolved){
-      const info=await stat(resolved);if(info.size>64*1024*1024)throw new Error("AAF exceeds 64 MiB limit");
+      const handle=await open(resolved,"r");
+      try{
+      const info=await handle.stat();if(!info.isFile())throw new Error("AAF output must be a regular file");if(info.size>64*1024*1024)throw new Error("AAF exceeds 64 MiB limit");
       const stamp=`${resolved}:${info.size}:${info.mtimeMs}:${info.ino}`;
       stable=stamp===previous?stable+1:0;previous=stamp;
       if(info.size>=512&&stable>=2){
-        const handle=await open(resolved,"r"),header=Buffer.alloc(8);try{await handle.read(header,0,8,0);}finally{await handle.close();}
+        const header=Buffer.alloc(8);await handle.read(header,0,8,0);
         if(header.toString("hex")!=="d0cf11e0a1b11ae1")throw new Error("Native output is not an AAF compound file");
         const hash=await sha256File(resolved);
         const inspection=await new AafBuilder({...config,allowedRoots:[...config.allowedRoots,root],commandTimeoutMs:Math.max(1,Math.min(config.commandTimeoutMs,deadline-Date.now()))}).inspect(resolved);
@@ -36,6 +38,7 @@ export async function verifyNativeAafMaster(file:string,config:ServerConfig,expe
         if(Date.now()>deadline||finalPath!==resolved||`${resolved}:${after.size}:${after.mtimeMs}:${after.ino}`!==stamp||await sha256File(resolved)!==hash||await sha256File(await resolveReadablePath(source,config.allowedRoots,"file"))!==expected.sourceSha256)throw new Error("AAF or source changed during verification, or observation deadline exceeded");
         return {output:resolved,sha256:hash,bytes:after.size,inspection,sourceFilesUnchanged:true,masterContractVerified:true,sourceFidelityVerified:false,exportRetried:false};
       }
+      }finally{await handle.close();}
     }else{previous="";stable=0;}
     await delay(Math.min(pollMs,Math.max(1,deadline-Date.now())));
   }

@@ -1,5 +1,11 @@
 # Completion ledger
 
+### CodeQL finding hardening
+
+Full local check passed: 547 TypeScript tests, 34 Python tests, 137 tools, five skills, stdio/HTTP and fresh-package checks. Log: `.avid-mcp-analysis/check-codeql-hardening.log`.
+
+The AAF readiness observer now obtains file metadata and reads the compound-file header through the same open handle, checks that it is a regular file, and closes the handle on every path. Existing final path, checksum, source and deadline checks remain; this does not establish atomicity across the separate Python inspector. A regression refuses an output changed during inspection even when its compound header remains valid. The PostHog notice research downloader now requires the three SHA-256 values from retained prior evidence before publishing downloads, and saves them with inert `.txt` suffixes. Actual pinned downloads and vendor-source comparison passed in `.avid-mcp-analysis/posthog-notices-c6b2d874-3305-491b-868e-6a0be08c4bb6/evidence.json`. These changes address the two reported CodeQL locations; the new remote security gate must be checked separately before claiming alert closure.
+
 ### Immediate source-track trim coverage
 
 Saved trim verification now resolves the referenced track by numeric index and media kind, requires unique direct SCLP coverage across before/after ranges, and refuses gaps, filler, opaque/combiner nodes, overlaps and malformed track intervals. Bounds records expose source track IDs/ordinals and media kinds. Tests cover shared picture/sound indices, missing/duplicate tracks, gap crossings in both directions, adjacent direct nodes and unsupported coverage. Actual MCP checks verified the expected six V1/A1/A2 mappings for retained forward, inverse and backward Avid captures with unchanged input hashes: `.avid-mcp-analysis/saved-trim-mcp-f7ec7b6b-9d4d-45d1-86c7-0ae9c0017cc4/evidence.json`. Full check passed: 546 TypeScript tests, 34 Python tests, 137 tools, five skills, transports and fresh package (`check-trim-track-coverage.log`). This validates the immediate declared track only; nested physical handles, online media, UI execution and playback remain open.
