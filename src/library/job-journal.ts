@@ -50,12 +50,13 @@ export class JobJournal {
     // Bounded directory discovery, including unexpected files, avoids unbounded allocation.
     const {opendir}=await import("node:fs/promises");
     const entries=await opendir(directory);let scanned=0;
-    for await(const entry of entries){if(++scanned>10000)throw new Error("Job journal exceeds 10000 directory entries");if(/^[a-f0-9-]{36}\.json$/.test(entry.name))names.push(entry.name.slice(0,-5));}
+    for await(const entry of entries){if(++scanned>10000)throw new Error("Job journal exceeds 10000 directory entries");if(entry.isFile()&&/^[a-f0-9-]{36}\.json$/.test(entry.name)&&uuid.safeParse(entry.name.slice(0,-5)).success)names.push(entry.name.slice(0,-5));}
     const records=[];
-    for(const id of names.sort().filter(id=>!after||id>after)){
-      try{records.push(await this.read(id));}catch(error){if((error as Error).message==="Job record is outside the current access scope")continue;throw error;}
-      if(records.length>limit)break;
+    const candidates=names.sort().filter(id=>!after||id>after),page=candidates.slice(0,limit);
+    let unreadable=0;
+    for(const id of page){
+      try{records.push(await this.read(id));}catch(error){if((error as Error).message==="Job record is outside the current access scope")continue;unreadable++;}
     }
-    const page=records.slice(0,limit);return {records:page,nextAfter:records.length>limit?page.at(-1)!.id:null,order:"job-id",automaticReplay:false};
+    return {records,nextAfter:candidates.length>page.length?page.at(-1)!:null,scanned:page.length,unreadable,order:"job-id",automaticReplay:false,meaning:"Pages scan journal files and may contain no accessible records. Follow nextAfter even for empty pages. Unreadable files are counted; direct reads still reject them."};
   }
 }

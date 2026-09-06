@@ -1,4 +1,4 @@
-import {mkdtemp,readFile} from "node:fs/promises";
+import {mkdtemp,readFile,writeFile,mkdir} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {randomUUID} from "node:crypto";
@@ -26,4 +26,18 @@ it("snapshots queued writes and never stores runtime configuration",async()=>{
   const text=await readFile(path.join(root,"avid-mcp-library","jobs",`${value.id}.json`),"utf8");
   expect(text).toContain("fixture.mp4");expect(text).not.toContain("changed.mp4");expect(text).not.toContain("capabilities");
   await expect(journal.read("../outside")).rejects.toThrow();
+});
+it("paginates past damaged records without returning their contents or losing healthy records",async()=>{
+ const {root,journal}=await fixture(),first={...job(),id:"00000000-0000-4000-8000-000000000001"},second={...job(),id:"00000000-0000-4000-8000-000000000002"};
+ await journal.save(first);await journal.save(second);
+ const directory=path.join(root,"avid-mcp-library","jobs");
+ await writeFile(path.join(directory,`${first.id}.json`),'{"private":"damaged');
+ await writeFile(path.join(directory,`${"-".repeat(36)}.json`),'invalid filename');
+ await mkdir(path.join(directory,"00000000-0000-4000-8000-000000000003.json"));
+ await expect(journal.read(first.id)).rejects.toThrow();
+ const page=await journal.list(undefined,1);
+ expect(page).toMatchObject({records:[],scanned:1,unreadable:1,nextAfter:first.id});
+ expect(JSON.stringify(page)).not.toContain("private");
+ const last=await journal.list(page.nextAfter!,1);
+ expect(last.records[0]!.id).toBe(second.id);expect(last.nextAfter).toBeNull();
 });

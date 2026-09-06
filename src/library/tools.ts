@@ -158,7 +158,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({job})=>result("avid_start_analysis_job",async()=>jobs.start(job)));
   server.registerTool("avid_analysis_job_status", {description:"Read local analysis job status and completed result.",inputSchema:{jobId:z.string().uuid()},annotations:read},
     ({jobId})=>result("avid_analysis_job_status",async()=>jobs.readStatus(jobId)));
-  server.registerTool("avid_analysis_job_history", {description:"Read paginated persistent job records within the same configured roots/capabilities. Unfinished records from another session are unresolved, never automatically replayed; outputs may exist. Does not resume computation.",inputSchema:{after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
+  server.registerTool("avid_analysis_job_history", {description:"Read paginated persistent job records within the same configured roots/capabilities. Pages scan files; follow nextAfter even when records is empty. Unreadable files are counted. Unfinished records from another session are unresolved, never automatically replayed; outputs may exist. Does not resume computation.",inputSchema:{after:z.string().uuid().optional(),limit:z.number().int().min(1).max(100).default(50)},annotations:read},
     ({after,limit})=>result("avid_analysis_job_history",()=>jobs.journal.list(after,limit)));
   server.registerTool("avid_cancel_analysis_job", {description:"Cancel a queued or running local analysis job. Partial artifacts are retained for inspection; this does not undo completed output.",inputSchema:{jobId:z.string().uuid()},annotations:write},
     ({jobId})=>result("avid_cancel_analysis_job",async()=>jobs.cancelAndReadStatus(jobId)));

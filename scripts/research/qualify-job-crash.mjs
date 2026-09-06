@@ -54,6 +54,12 @@ try{
  // Requests in the new session must not rewrite or replay the abandoned records.
  assert.deepEqual(await Promise.all(journalFiles.map(sha256File)),hashes);
  assert.equal(await sha256File(file),id);
+ const damagedId='00000000-0000-4000-8000-000000000000';
+ await writeFile(path.join(root,'avid-mcp-library','jobs',`${damagedId}.json`),'invalid interrupted fixture',{flag:'wx'});
+ const damagedPage=await call(connection.client,'avid_analysis_job_history',{limit:1});
+ assert.deepEqual(damagedPage.records,[]);assert.equal(damagedPage.unreadable,1);assert.equal(damagedPage.nextAfter,damagedId);
+ const healthyPage=await call(connection.client,'avid_analysis_job_history',{after:damagedPage.nextAfter});
+ assert.equal(healthyPage.records.length,2);assert.ok(healthyPage.records.every(record=>record.status==='unresolved'));
  if(parentOnly){
   const live=spawnSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "ParentProcessId = ${pid}" | Select-Object ProcessId,CreationDate | ConvertTo-Json -Compress`],{encoding:'utf8',windowsHide:true,timeout:15000});
   assert.equal(live.status,0,live.stderr);
@@ -62,7 +68,7 @@ try{
  }
  const qcArtifacts=(await readdir(path.join(root,'avid-mcp-library'))).filter(name=>name.startsWith('qc-'));
  assert.deepEqual(qcArtifacts,[],'Interrupted QC left report artifacts requiring review');
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,pid,parentOnly,ownedWorkers,termination:{status:killed.status,stdout:killed.stdout},before,recovered,history,journalHashes:hashes,qcArtifacts,sourceUnchanged:true,limitations:[parentOnly?'Parent-only forced termination; child absence at later observation does not establish prompt termination or all descendant behavior':'Forced termination of the owned Windows process tree; not power loss or parent-only death with orphaned workers','Unresolved status recovery only; QC computation is not resumed']},null,2));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,pid,parentOnly,ownedWorkers,termination:{status:killed.status,stdout:killed.stdout},before,recovered,history,damagedPage,healthyPage,journalHashes:hashes,qcArtifacts,sourceUnchanged:true,limitations:[parentOnly?'Parent-only forced termination; child absence at later observation does not establish prompt termination or all descendant behavior':'Forced termination of the owned Windows process tree; not power loss or parent-only death with orphaned workers','Unresolved status recovery only; QC computation is not resumed']},null,2));
  console.log(JSON.stringify({ok:true,root,statuses:recovered.map(job=>job.status)}));
 }catch(error){await writeFile(path.join(root,'failure.json'),JSON.stringify({error:String(error),before},null,2));throw error;}
 finally{
