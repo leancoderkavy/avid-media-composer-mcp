@@ -1,4 +1,4 @@
-import {readFile,writeFile,stat,access,opendir} from "node:fs/promises";
+import {readFile,writeFile,stat,access,opendir,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {randomUUID,createHash} from "node:crypto";
@@ -27,6 +27,14 @@ const bin=z.object({schema:z.literal(1),file:z.string(),sha256:z.string().regex(
 const snapshotSchema=z.object({revision:z.string().uuid(),createdAt:z.string(),bins:z.array(bin).max(100)});
 const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
 const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+/** Publish only fully written bytes, without replacing an existing revision. */
+export async function publishSnapshot(file:string,serialized:string){
+  if(Buffer.byteLength(serialized)>32*1024*1024)throw new Error("Snapshot exceeds size limit");
+  const temporary=`${file}.${randomUUID()}.tmp`;
+  try{await writeFile(temporary,serialized,{flag:"wx",mode:0o600});await link(temporary,file);}
+  finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
+}
 
 export class ProjectSnapshots {
   private library:MediaLibrary;
@@ -66,7 +74,7 @@ export class ProjectSnapshots {
     const revision=randomUUID(),record={revision,createdAt:new Date().toISOString(),bins};
     const serialized=JSON.stringify(record);
     if(Buffer.byteLength(serialized)>32*1024*1024)throw new Error("Snapshot exceeds size limit");
-    await writeFile(path.join(await this.library.directory(),`snapshot-${revision}.json`),serialized,{flag:"wx"});
+    await publishSnapshot(path.join(await this.library.directory(),`snapshot-${revision}.json`),serialized);
     return {revision,complete:bins.every(bin=>bin.complete),bins:bins.map(bin=>({file:bin.file,sha256:bin.sha256,mobs:bin.mobs.map(mob=>({mobId:mob.mobId,name:mob.name,mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration})),warnings:bin.warnings})),origin:"saved-bin; excludes unsaved editor changes"};
   }
   private async read(revision:string){

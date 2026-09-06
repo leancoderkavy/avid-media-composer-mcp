@@ -1,11 +1,11 @@
-import {mkdtemp,writeFile} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,readdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
 import {describe,it,expect} from "vitest";
 import {loadConfig} from "../src/config.js";
 import {MediaLibrary} from "../src/library/media-library.js";
-import {ProjectSnapshots} from "../src/library/project-snapshots.js";
+import {ProjectSnapshots,publishSnapshot} from "../src/library/project-snapshots.js";
 
 async function fixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-snapshot-")),file=path.join(root,"fixture.avb");await writeFile(file,"fixture");
@@ -16,6 +16,15 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("publishes complete snapshot bytes exclusively and cleans temporary attempts",async()=>{
+    const directory=await mkdtemp(path.join(os.tmpdir(),'avid-snapshot-publish-')),file=path.join(directory,'snapshot.json');
+    await publishSnapshot(file,'{"complete":true}');
+    await expect(publishSnapshot(file,'replacement')).rejects.toThrow();
+    expect(await readFile(file,'utf8')).toBe('{"complete":true}');
+    expect(await readdir(directory)).toEqual(['snapshot.json']);
+    await expect(publishSnapshot(path.join(directory,'oversized.json'),'x'.repeat(32*1024*1024+1))).rejects.toThrow('size limit');
+    expect(await readdir(directory)).toEqual(['snapshot.json']);
+  });
   it("discovers revisions after reconnect and hides snapshots outside current roots",async()=>{
     const {config,record,save,snapshots}=await fixture();const revision=await save();
     const discovered=await new ProjectSnapshots(config).list();
