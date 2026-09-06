@@ -22,3 +22,9 @@ Avid creates a new identity for the qualified sequence copy, while the qualified
 `persistenceVerified` and `sourceFidelityVerified` remain false in the copy receipt. Save/reopen and saved timeline comparison are separate operations. On the Sonoma sequence fixture, separate close/open MCP operations retained the copied identity and the decoded saved timeline matched the original, including four reachable source nodes. Both graphs retained one unresolved source reference. Other clip types beyond this sequence/master fixture, effects, shared bins, media-copy behavior and playback fidelity require additional qualification.
 
 After a lost response or mismatch, inspect both bins before creating another plan. Do not automatically retry. A populated destination is refused on a new preview even when the earlier response was lost. No automatic undo or deletion is performed.
+
+## Copy several results
+
+Use `copy_clips` with a nonempty, unique `mobIds` array instead of `copy_clip` and `mobId`. The same empty-destination, authorization and preview-state requirements apply. Up to 4096 IDs are accepted by the schema; live batch qualification currently covers the two-item Sonoma master/sequence fixture, not a large-batch throughput guarantee.
+
+Verification requires the complete returned identity set to equal destination membership and have the requested count. It rejects duplicate, missing or extra IDs. Response order is not a source-to-copy mapping: the qualified master retained its ID while the sequence received a new ID, and destination enumeration used a different order. No automatic retry follows partial results or a lost response. Inspect both bins before deciding the next operation.

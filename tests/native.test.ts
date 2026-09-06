@@ -362,3 +362,19 @@ it("accepts a master copy retaining its source MOB identity in a different empty
  const plan=await f.adapter.preview({action:"copy_clip",bin:"fixture.avb",mobId:"clip",destinationBin:"target.avb"});
  expect(await f.adapter.apply(plan.token)).toMatchObject({copyIdentityVerified:true,persistenceVerified:false,sourceFidelityVerified:false});
 });
+
+it.each(["ok","partial","duplicate","extra"])("verifies batch copy identity sets without order assumptions (%s)",async(mode)=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);await writeFile(path.join(path.dirname(f.source),"target.avb"),"empty");let target:any[]=[];
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems")return body?.bin_relative_path==="target.avb"?target:[{mob_id:"clip"},{mob_id:"sequence"}];
+  if(method==="CopyBinItems"){
+   expect(body?.mob_id).toEqual(["clip","sequence"]);const ids=mode==="partial"?["clip"]:mode==="duplicate"?["clip","clip"]:["clip","new-sequence"];
+   target=[...ids].reverse().map(mob_id=>({mob_id}));if(mode==="extra")target.push({mob_id:"concurrent-addition"});return [{mob_id:ids}];
+  }
+  return original(method,body);
+ });
+ const action={action:"copy_clips" as const,bin:"fixture.avb",mobIds:["clip","sequence"],destinationBin:"target.avb"};
+ await expect(f.adapter.preview({...action,mobIds:["outside"]})).rejects.toThrow("not in source");
+ expect(nativeActionSchema.safeParse({...action,mobIds:[]}).success).toBe(false);expect(nativeActionSchema.safeParse({...action,mobIds:["clip","clip"]}).success).toBe(false);
+ const plan=await f.adapter.preview(action);expect(await f.adapter.apply(plan.token)).toMatchObject({copyIdentityVerified:mode==="ok",sourceFidelityVerified:false,persistenceVerified:false});
+});
