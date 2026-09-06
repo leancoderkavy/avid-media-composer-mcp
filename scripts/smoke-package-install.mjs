@@ -202,6 +202,16 @@ try {
     resolutionAfter=result.nextAfter;
   }
   if(resolutionRows.length!==12||new Set(resolutionRows.map(row=>row.sourceMobId)).size!==12||resolutionRows[0]?.status!=="resolved"||resolutionRows[1]?.status!=="ambiguous"||resolutionRows.slice(2).some(row=>row.status!=="unresolved"))throw new Error("Installed source-resolution pagination or classification failed");
+  const traceRevision="00000000-0000-4000-8000-000000000004";
+  const stereo={...fixtureMob,mobId:"stereo",tracks:[{ordinal:0,index:1,mediaKind:"sound",nodes:[1,2].map(channel=>({kind:"SCLP",timelineStart:0,timelineEnd:30,sourceMobId:"master",sourceTrackId:channel,sourceStart:5,channelCombiner:{channelIndex:channel,channelCount:2}}))}]};
+  const master={...fixtureMob,mobId:"master",tracks:[1,2].map(channel=>({ordinal:channel-1,index:channel,mediaKind:"sound",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:60,sourceMobId:"external",sourceTrackId:channel,sourceStart:channel===1?7:9}]}))};
+  const traceRecord={...record,revision:traceRevision,bins:[{...record.bins[0],mobs:[stereo,master],nodeCount:4}]};
+  await writeFile(path.join(snapshotDirectory,`snapshot-${traceRevision}.json`),JSON.stringify(traceRecord));
+  const trace=await invoke("avid_trace_saved_sources",{revision:traceRevision,mobId:"stereo",bin:traceRecord.bins[0].file,start:15,end:25});
+  const mapped=trace.steps.map(step=>[step.depth,step.sourceTrackId,step.sourceStart,step.sourceEnd,step.status,step.channelCombiner?.channelIndex??null]);
+  if(!trace.incomplete||!isDeepStrictEqual(mapped,[[0,1,20,30,"reference",1],[1,1,27,37,"unresolved",null],[0,2,20,30,"reference",2],[1,2,29,39,"unresolved",null]]))throw new Error("Installed stereo source trace lost channel identity or clipped offsets");
+  const invalidTrace=await client.callTool({name:"avid_trace_saved_sources",arguments:{revision:traceRevision,mobId:"stereo",start:0,end:61}});
+  if(!invalidTrace.isError)throw new Error("Installed source trace accepted a range beyond the mob duration");
   if (withPython) {
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
@@ -244,6 +254,7 @@ try {
       toolDefinitions: "exact checkout match",
       clientSetup: "five installed CLI formats agree; generated command connected from foreign working directory",
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
+      sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
