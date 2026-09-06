@@ -441,3 +441,5 @@ For a current saved-bin report, capture a fresh snapshot first. `node scripts/re
 Snapshot reads reject inconsistent duration/source bounds, duplicate track ordinals and node ranges outside the mob duration. These checks validate stored structure; they do not authenticate an externally edited snapshot or establish current media availability.
 
 `node scripts/research/qualify-snapshot-fixtures.mjs` exercises generated AVB subclips, stereo channel mapping and opaque effects through the real Python sidecar and MCP snapshot/report/range tools. It requires the repository Python environment and retains inputs and results. This complements the Sonoma saved-bin check; generated AVB acceptance does not establish native import or general transition support.
+
+The snapshot fixture harness also covers a generated ten-frame transition between two sixty-frame sources. Source nodes overlap during the transition; overlapping references must not be counted as sequential cuts or summed to infer sequence duration. The transition remains opaque and makes coverage incomplete. Exact effect identity, native rendering and broader transition variants are not qualified by this fixture.

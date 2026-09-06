@@ -8,6 +8,34 @@ from avid_timeline import index_bin
 
 
 class TimelineTests(unittest.TestCase):
+    def transition_fixture(self,directory):
+        target=Path(directory)/'transition.avb'
+        with avb.open() as file:
+            mob=file.create.Composition(mob_type='CompositionMob')
+            mob.name='Transition';mob.edit_rate=30;mob.length=110
+            track=file.create.Track();track.index=1
+            sequence=file.create.Sequence(edit_rate=30,media_kind='picture')
+            first=file.create.SourceClip(edit_rate=30,media_kind='picture');first.length=60;first.start_time=1000;first.track_id=1
+            second=file.create.SourceClip(edit_rate=30,media_kind='picture');second.length=60;second.start_time=2000;second.track_id=1
+            effect=file.create.TransitionEffect(edit_rate=30,media_kind='picture');effect.length=10
+            for key,value in dict(cutpoint=5,left_length=5,right_length=5,info_version=2,info_current=0,info_smooth=0,
+                                  info_color_item=1,info_quality=1,info_is_reversed=0,info_aspect_on=False,
+                                  keyframes=None,info_force_software=False,info_never_hardware=False).items():
+                setattr(effect,key,value)
+            sequence.components.extend([first,effect,second]);track.component=sequence;mob.tracks.append(track)
+            file.content.add_mob(mob);file.write(str(target))
+        return target
+
+    def test_transition_overlap_remains_opaque_without_shifting_source_ranges(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result=index_bin(self.transition_fixture(directory))
+            self.assertFalse(result['complete'])
+            nodes=result['mobs'][0]['tracks'][0]['nodes']
+            self.assertEqual([(n['kind'],n['timelineStart'],n['timelineEnd']) for n in nodes],
+                             [('SCLP',0,60),('TNFX',50,60),('SCLP',50,110)])
+            self.assertTrue(nodes[1]['opaque'])
+            self.assertEqual([n['sourceStart'] for n in nodes if 'sourceStart' in n],[1000,2000])
+
     def stereo_fixture(self,directory,variation=None):
         target=Path(directory)/'stereo.avb'
         with avb.open() as file:
