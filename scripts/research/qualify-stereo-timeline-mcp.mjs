@@ -22,7 +22,12 @@ try{
  assert.deepEqual(nodes.map(n=>[n.channelCombiner.channelIndex,n.sourceTrackId,n.overlapStart,n.overlapEnd,n.overlapSourceStart,n.overlapSourceEnd]),[[1,1,45,60,2895,2910],[2,2,45,60,2895,2910],[1,1,60,75,3300,3315],[2,2,60,75,3300,3315]]);
  const usage=await call('avid_saved_source_usage',{revision:snapshot.revision,sourceMobId:nodes[0].sourceMobId});
  const audioUsages=usage.usages.filter(use=>use.mobId===sequence.mobId&&use.mediaKind==='sound');assert.equal(audioUsages.length,4);assert.deepEqual(audioUsages.map(use=>use.channelCombiner.channelIndex),[1,2,1,2]);
+ const trace=await call('avid_trace_saved_sources',{revision:snapshot.revision,mobId:sequence.mobId,start:45,end:75,bin:snapshot.bins[0].file});
+ const tracedAudio=trace.steps.filter(step=>step.depth===0&&step.mediaKind==='sound');
+ assert.deepEqual(tracedAudio.map(step=>[step.channelCombiner.channelIndex,step.sourceTrackId,step.start,step.end,step.sourceStart,step.sourceEnd]),[[1,1,45,60,2895,2910],[2,2,45,60,2895,2910],[1,1,60,75,3300,3315],[2,2,60,75,3300,3315]]);
+ assert.ok(!trace.steps.some(step=>['overlapping_nodes','unsupported_channel_group'].includes(step.status)));
+ assert.ok(trace.steps.some(step=>step.depth>0&&step.mediaKind==='sound'));
  assert.ok(!first.warnings.some(w=>w.mobId===sequence.mobId&&w.track===1));assert.equal(await sha256File(bin),before);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({snapshot,first,second,usage,binSha256:before,binUnchanged:true,stereoSourceRangesVerified:true,records},null,2),{flag:'wx'});
- console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),stereoSourceRangesVerified:true,binUnchanged:true}));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({snapshot,first,second,usage,trace,stereoSourceTraceVerified:true,binSha256:before,binUnchanged:true,stereoSourceRangesVerified:true,records},null,2),{flag:'wx'});
+ console.log(JSON.stringify({evidence:path.join(root,'evidence.json'),stereoSourceRangesVerified:true,stereoSourceTraceVerified:true,traceSteps:trace.steps.length,traceIncomplete:trace.incomplete,binUnchanged:true}));
 }finally{await client.close();}

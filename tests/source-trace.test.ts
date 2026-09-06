@@ -37,3 +37,25 @@ it("rejects excessive output instead of silently truncating a trace",()=>{
  a.tracks[0]!.nodes=Array.from({length:501},(_,i)=>({...a.tracks[0]!.nodes[0]!,timelineStart:i,timelineEnd:i+1}));
  expect(()=>traceSavedSources([bin],{bin,mob:a},0,501)).toThrow("500 steps");
 });
+it("traces both qualified stereo channels independently across clipped cuts",()=>{
+ const a=mob("a","b"),b=mob("b","terminal");a.tracks[0]!.mediaKind="sound";b.tracks[0]!.mediaKind="sound";
+ b.tracks.push({...b.tracks[0]!,index:2,nodes:[{...b.tracks[0]!.nodes[0]!,sourceStart:3}]});
+ const nodes=[0,20].flatMap(start=>([1,2] as const).map(channel=>({...a.tracks[0]!.nodes[0]!,timelineStart:start,timelineEnd:start+20,sourceStart:40+start,sourceTrackId:channel,channelCombiner:{channelIndex:channel,channelCount:2 as const}})));
+ a.tracks[0]!.nodes=nodes;const bin={file:"fixture",mobs:[a,b]},result=traceSavedSources([bin],{bin,mob:a},10,30);
+ const direct=result.steps.filter(s=>s.depth===0);
+ expect(direct).toMatchObject([{sourceStart:50,sourceEnd:60,channelCombiner:{channelIndex:1}},{sourceStart:50,sourceEnd:60,channelCombiner:{channelIndex:2}},{sourceStart:60,sourceEnd:70,channelCombiner:{channelIndex:1}},{sourceStart:60,sourceEnd:70,channelCombiner:{channelIndex:2}}]);
+ expect(result.steps.filter(s=>s.depth===1).map(s=>s.sourceStart)).toEqual([50,53,60,63]);
+ expect(result.steps.some(s=>s.status==="overlapping_nodes")).toBe(false);
+ nodes[1]!.channelCombiner.channelIndex=1;
+ expect(traceSavedSources([bin],{bin,mob:a},10,30).steps.at(-1)).toMatchObject({status:"unsupported_channel_group"});
+});
+it.each(["missing", "bounds", "opaque", "kind", "picture"])("rejects a %s channel pair without treating it as stereo",variant=>{
+ const source=mob("a","external"),node=source.tracks[0]!.nodes[0]!;
+ const nodes=([1,2] as const).map(channel=>({...node,opaque:false,channelCombiner:{channelIndex:channel,channelCount:2 as const}}));
+ if(variant==="missing")nodes.pop();
+ if(variant==="bounds")nodes[1]!.timelineEnd=100;
+ if(variant==="opaque")nodes[1]!.opaque=true;
+ if(variant==="kind")nodes[1]!.kind="FILL";
+ const a={...source,tracks:[{index:1,mediaKind:variant==="picture"?"picture":"sound",nodes}]},bin={file:"fixture",mobs:[a]};
+ expect(traceSavedSources([bin],{bin,mob:a},0,10).steps).toMatchObject([{status:"unsupported_channel_group"}]);
+});

@@ -1,4 +1,4 @@
-type Node={kind:string;timelineStart:number;timelineEnd:number;sourceMobId?:string|undefined;sourceTrackId?:number|undefined;sourceStart?:number|undefined;opaque?:boolean|undefined};
+type Node={kind:string;timelineStart:number;timelineEnd:number;sourceMobId?:string|undefined;sourceTrackId?:number|undefined;sourceStart?:number|undefined;opaque?:boolean|undefined;channelCombiner?:{channelIndex:1|2;channelCount:2}|undefined};
 type Track={index:number;mediaKind:string;nodes:Node[]};
 type Mob={mobId:string;rate:number;duration:number;sourceBounds:{start:number;end:number};tracks:Track[]};
 type Bin={file:string;mobs:Mob[]};
@@ -14,10 +14,19 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
   if(seen.has(key)){stop("cycle");return;}if(depth>=maxDepth){stop("depth_limit");return;}
   const nextSeen=new Set(seen);nextSeen.add(key);let covered=left;
   const nodes=track.nodes.filter(n=>n.timelineStart<right&&n.timelineEnd>left).sort((a,b)=>a.timelineStart-b.timelineStart);
-  for(const node of nodes){
+  for(let index=0;index<nodes.length;index++){
+   const node=nodes[index]!;
    const a=Math.max(left,node.timelineStart),b=Math.min(right,node.timelineEnd);
    if(a>covered){stop("uncovered_range");}if(a<covered){stop("overlapping_nodes");return;}covered=b;
-   const step={...base,start:a,end:b,kind:node.kind};
+   const group=[node];
+   if(node.channelCombiner){
+    const peer=nodes[index+1];
+    if(track.mediaKind!=="sound"||!peer?.channelCombiner||node.channelCombiner.channelCount!==2||peer.channelCombiner.channelCount!==2||node.channelCombiner.channelIndex===peer.channelCombiner.channelIndex||node.timelineStart!==peer.timelineStart||node.timelineEnd!==peer.timelineEnd||node.kind!=="SCLP"||peer.kind!=="SCLP"||node.opaque||peer.opaque){stop("unsupported_channel_group");return;}
+    // Only paired, identically bounded channel references emitted by the qualified parser can overlap.
+    group.push(peer);index++;
+   }
+   for(const node of group){
+   const step={...base,start:a,end:b,kind:node.kind,...(node.channelCombiner?{channelCombiner:node.channelCombiner}:{})};
    if(node.kind!=="SCLP"||node.opaque||node.sourceMobId===undefined||node.sourceTrackId===undefined||node.sourceStart===undefined){incomplete=true;emit({...step,status:"unsupported_component"});continue;}
    const sourceStart=node.sourceStart+a-node.timelineStart,sourceEnd=sourceStart+b-a;
    let candidates=bin.mobs.filter(m=>m.mobId===node.sourceMobId).map(mob=>({bin,mob}));
@@ -31,6 +40,7 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
    const tracks=target.mob.tracks.filter(t=>t.mediaKind===track.mediaKind&&t.index===node.sourceTrackId);
    if(tracks.length!==1){stop(tracks.length?"ambiguous_track":"missing_track");continue;}
    walk(target.bin,target.mob,tracks[0]!,sourceStart,sourceEnd,depth+1,nextSeen);
+   }
   }
   if(covered<right)stop("uncovered_range");
  }
