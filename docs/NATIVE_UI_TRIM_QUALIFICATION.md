@@ -1,5 +1,11 @@
 # One-frame native UI trim and undo qualification
 
+## Coordinate-origin restrictions
+
+Saved trim verification now validates explicitly declared source bounds against each mob's duration and refuses nonzero origins on the edited composition or its immediate referenced sources. The saved-bin parser normalizes subclip track coordinates relative to `_START`; treating every source offset as though that normalized graph starts at absolute source zero is not qualified. The previous duration-only checks could accept an otherwise exact synthetic edit despite this unresolved origin convention. Regression tests cover both target and referenced-source origins, inconsistent bounds and explicit zero origins. Existing decoded graphs without a sourceBounds field remain supported by the standalone verifier; MCP-captured snapshots always carry declared bounds.
+
+Actual MCP verification still passed the retained forward, inverse and backward Avid captures, whose origins are zero: `.avid-mcp-analysis/saved-trim-mcp-ea81f1aa-61a0-4490-bcdc-b398d0abd118/evidence.json`. Captured bins remained unchanged. This closes a false-acceptance path; it does not implement nonzero-origin trimming or physical-media handle verification.
+
 ## Descriptor versus physical MP4 timing
 
 The read-only `qualify-sonoma-descriptor-media.mjs` compares a separately named authorized Sonoma preview MP4 against the retained descriptor evidence. It requires the two saved WINF strings to equal the known fixture declaration (`D//Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4`); it never constructs a filesystem path from those strings. This is a fixture-specific correspondence check, not a general locator resolver or historical essence-identity proof.

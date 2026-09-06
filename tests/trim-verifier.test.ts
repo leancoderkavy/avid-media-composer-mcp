@@ -26,6 +26,18 @@ it("rejects wrong incoming source offsets and empty results",()=>{
  before.mobs[0]!.tracks[0]!.nodes[1]!.timelineEnd=61;expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("empty a clip");
 });
 it("refuses mixed-rate source offsets",()=>{const {before,after,plan}=fixture();before.mobs[1]!.rate=24;expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("mixed-rate");});
+it.each([0,1])("refuses unqualified nonzero origin for mob %s even for an otherwise exact edit",index=>{
+ const {before,after,plan}=fixture();
+ for(const graph of [before,after]){const m=graph.mobs[index]!;Object.assign(m,{sourceBounds:{start:90,end:90+m.duration}});}
+ expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow(/Nonzero .* origin/);
+});
+it("validates declared source bounds and accepts explicit zero origins",()=>{
+ const {before,after,plan}=fixture();
+ for(const graph of [before,after])for(const m of graph.mobs)Object.assign(m,{sourceBounds:{start:0,end:m.duration}});
+ expect(verifySavedDualRollerTrim(before,after,plan).verified).toBe(true);
+ Object.assign(before.mobs[1]!,{sourceBounds:{start:0,end:9999}});
+ expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("bounds disagree");
+});
 it("reports exact declared source intervals in both directions",()=>{
  const {before,after,plan}=fixture();const result=verifySavedDualRollerTrim(before,after,plan);
  expect(result.declaredSourceBounds.slice(0,2)).toEqual([

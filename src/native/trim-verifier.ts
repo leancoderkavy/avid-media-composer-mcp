@@ -4,7 +4,9 @@ import * as z from "zod/v4";
 const frame=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const node=z.object({kind:z.string(),timelineStart:frame,timelineEnd:frame,sourceStart:frame.optional(),sourceMobId:z.string().optional(),sourceTrackId:frame.optional(),opaque:z.boolean().optional(),channelCombiner:z.unknown().optional()}).passthrough();
 const track=z.object({ordinal:frame,index:frame.optional(),mediaKind:z.string(),nodes:z.array(node).max(10000)}).passthrough();
-const mob=z.object({mobId:z.string().min(1),mobType:z.string(),rate:z.number().positive(),duration:frame,tracks:z.array(track).max(128)}).passthrough();
+const mob=z.object({mobId:z.string().min(1),mobType:z.string(),rate:z.number().positive(),duration:frame,sourceBounds:z.object({start:frame,end:frame}).passthrough().optional(),tracks:z.array(track).max(128)}).passthrough().superRefine((value,ctx)=>{
+ if(value.sourceBounds&&value.sourceBounds.end-value.sourceBounds.start!==value.duration)ctx.addIssue({code:"custom",message:"Declared source bounds disagree with mob duration"});
+});
 const graph=z.object({schema:z.literal(1),complete:z.literal(true),warnings:z.array(z.unknown()).length(0),mobs:z.array(mob).max(1000)}).passthrough();
 const request=z.object({mobId:z.string().min(1),cut:frame,delta:z.union([z.literal(-1),z.literal(1)]),trackOrdinals:z.array(frame).min(1).max(128)}).strict();
 function requireSourceTrackCoverage(source:z.infer<typeof mob>,index:number,kind:string,start:number,end:number){
@@ -32,6 +34,7 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
  };
  const expected=structuredClone(ordered(before));ordered(after);
  const target=expected.find(m=>m.mobId===plan.mobId);if(!target||target.mobType!=="CompositionMob")throw new Error("Expected one composition");
+ if(target.sourceBounds&&target.sourceBounds.start!==0)throw new Error("Nonzero composition origin is not qualified for saved trim verification");
  const declaredSourceBounds:{trackOrdinal:number;side:"outgoing"|"incoming";sourceMobId:string;sourceTrackId:number;sourceTrackOrdinal:number;mediaKind:string;sourceDuration:number;before:{start:number;end:number};after:{start:number;end:number}}[]=[];
  if(new Set(plan.trackOrdinals).size!==plan.trackOrdinals.length||new Set(target.tracks.map(t=>t.ordinal)).size!==target.tracks.length)throw new Error("Ambiguous trim track selection");
  for(const ordinal of plan.trackOrdinals){
@@ -42,7 +45,7 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
   if(left.length!==1||right.length!==1)throw new Error("Expected adjacent clips at trim cut");
   const a=left[0]!,b=right[0]!;
   for(const n of [a,b])if(n.kind!=="SCLP"||n.opaque||n.channelCombiner!==undefined||n.sourceStart===undefined||!n.sourceMobId||n.sourceTrackId===undefined)throw new Error("Unsupported trim component");
-  const sources=[a,b].map(n=>{const source=before.mobs.find(m=>m.mobId===n.sourceMobId);if(!source||source.rate!==target.rate)throw new Error("Unresolved or mixed-rate trim source");return source;});
+  const sources=[a,b].map(n=>{const source=before.mobs.find(m=>m.mobId===n.sourceMobId);if(!source||source.rate!==target.rate)throw new Error("Unresolved or mixed-rate trim source");if(source.sourceBounds&&source.sourceBounds.start!==0)throw new Error("Nonzero source origin is not qualified for saved trim verification");return source;});
   const cut=plan.cut+plan.delta,source=b.sourceStart!+plan.delta;
   if(!Number.isSafeInteger(cut)||!Number.isSafeInteger(source)||source<0||cut<=a.timelineStart||cut>=b.timelineEnd)throw new Error("Trim would empty a clip or exceed numeric bounds");
   for(const [index,n] of [a,b].entries()){
