@@ -1,5 +1,5 @@
 """Bounded saved-marker records and declared component locations."""
-from avid_timeline import color_adapter_input
+from avid_timeline import color_adapter_input, stereo_combiner_inputs
 import uuid
 
 
@@ -116,10 +116,15 @@ def marker_location(mob, path, marker):
                 position += sum(child.length for child in children[:child_index])
                 component = children[child_index]
                 cursor += 2
-            elif component.class_id == b'TKFX' and path[cursor:cursor + 3] == ['tracks', '0', 'component']:
-                if color_adapter_input(component) is None:
-                    return unresolved('opaque_effect')
-                component = component.tracks[0].component
+            elif component.class_id == b'TKFX' and path[cursor:cursor + 1] == ['tracks'] and path[cursor + 2:cursor + 3] == ['component']:
+                child_index = int(path[cursor + 1])
+                if child_index == 0 and color_adapter_input(component) is not None:
+                    component = component.tracks[0].component
+                else:
+                    children = stereo_combiner_inputs(component)
+                    if children is None or not 0 <= child_index < len(children):
+                        return unresolved('opaque_effect')
+                    component = children[child_index].component
                 effect_inputs += 1
                 cursor += 3
             else:

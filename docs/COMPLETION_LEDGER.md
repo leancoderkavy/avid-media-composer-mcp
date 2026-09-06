@@ -1,5 +1,17 @@
 # Completion ledger
 
+### Stereo saved-marker input mapping and 100-marker capture
+
+Created owned `MCP_Batch_fe73fd13.avb` and applied 100 native markers alternating V1/stereo A1. Native save/reopen verified every requested field; source bin/MP4 hashes remained unchanged. Before/persisted snapshots and events are retained in `native-batch-markers-91656937-1c10-4d04-b644-0c455d3363b5`. The fixture retains its 100 markers for follow-up.
+
+The first saved-marker comparison failed because audio notes lived on channel 2 inside a stereo channel combiner; the decoder correctly returned unresolved positions (`saved-markers-15f18725-e93d-4964-83e0-0aebaee74241`). Factored the existing strict equal-length stereo source recognizer out of the timeline decoder and reused it for marker paths. Both channel paths preserve declared-input uncertainty; unknown modes, reversal, parameters, keyframes, rates, lengths or layouts remain unresolved. New tests cover both channels and refusal variants.
+
+Corrected actual MCP capture/read/reconnect passed across six pages: exactly 100 occurrences/UUIDs, 50 picture and 50 sound, with all text/color/track/frame fields matching native post-save readback (`saved-markers-4de52d08-241a-4f09-87d2-f1fd976806ca`). Independent raw-record/path and decoded-graph comparison matched all declared positions and other timeline fields against the pre-marker snapshot. The generalized harness still passes the two-marker cleanup fixture. No cleanup of this retained scale fixture, complete graph equivalence, arbitrary audio effects or full-plan completion is claimed.
+
+Full `npm run check` passed: 653 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-stereo-saved-markers.log`. The prior unsupported-audio comparison was not a native write failure: all markers persisted successfully and the saved resolver refused an unrecognized component path until support was added.
+
+Fresh managed-package qualification passed the same 100-marker AVBs across reconnect: `installed-saved-markers-22434ebc-a44d-49c7-b6f1-1a2c1da8fa8e` / `saved-markers-797309a4-59ee-46c5-b815-2626e3b1d077`. It preserved all protected snapshots, evidence, archive and entry hashes. This validates the installed package on the existing host, not clean-machine dependencies or named-client GUI onboarding.
+
 ### MCP saved marker capture and discovery
 
 Promoted the bounded marker collector/location resolver into packaged Python and added `avid_saved_markers` for scoped, bin-disambiguated, paginated snapshot reads. New captures retain IDs, text, color declarations, raw offsets, paths and explicit direct/effect-input/unresolved locations. Legacy snapshots return `not_recorded`, distinct from zero markers. Validation checks owner, mapped bounds, track, rate and uncertainty; global traversal/marker limits supplement existing capture size/hash safeguards. The inventory is now 140 tools and five skills. Saved diffs include marker records while preserving legacy coverage differences.

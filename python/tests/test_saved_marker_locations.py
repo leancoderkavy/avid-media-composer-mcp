@@ -97,6 +97,35 @@ class SavedMarkerLocationTests(unittest.TestCase):
             self.assertEqual(result['reason'], 'opaque_effect')
             self.assertIsNone(result['sequenceFrame'])
 
+    def test_stereo_input_paths_and_unsupported_combiner_variants(self):
+        mob, path, marker, sequence, first, leaf = self.fixture()
+        leaf.media_kind = 'sound'
+        other = Obj(class_id=b'SCLP', length=60, edit_rate=30, media_kind='sound', attributes={'_TMP_CRM': [marker]})
+        tracks = [Obj(index=1, component=leaf), Obj(index=2, component=other)]
+        effect = Obj(class_id=b'TKFX', effect_id='EFF2_AUDIO_CHANNEL_COMBINER', length=60,
+                     edit_rate=30, media_kind='sound', tracks=tracks, info_is_reversed=0,
+                     mc_mode=0, num_scalars=0, param_list=None, keyframes=None)
+        sequence.components[1] = effect
+        mob.tracks[0].media_kind = 'sound'
+        for index in [0, 1]:
+            candidate = path[:6] + ['tracks', str(index), 'component'] + path[6:]
+            result = research.marker_location(mob, candidate, marker)
+            self.assertEqual(result['sequenceFrame'], 75)
+            self.assertEqual(result['status'], 'declared_effect_input')
+            self.assertEqual(result['trackIndex'], 1)
+            self.assertEqual(result['mediaKind'], 'sound')
+        candidate = path[:6] + ['tracks', '1', 'component'] + path[6:]
+        for obj, key, value in [(effect, 'info_is_reversed', 1), (effect, 'mc_mode', 1),
+                                (effect, 'num_scalars', 1), (effect, 'param_list', []),
+                                (effect, 'keyframes', []), (other, 'length', 59),
+                                (other, 'edit_rate', 24), (other, 'media_kind', 'picture'),
+                                (tracks[1], 'index', 1), (effect, 'effect_id', 'unknown')]:
+            with self.subTest(field=key):
+                previous = getattr(obj, key); setattr(obj, key, value)
+                result = research.marker_location(mob, candidate, marker)
+                self.assertIsNone(result['sequenceFrame'])
+                setattr(obj, key, previous)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -189,6 +189,27 @@ def color_adapter_input(component):
             'length':clip.length,'rate':float(clip.edit_rate),'basis':'declared-equal-length-input'}
 
 
+def stereo_combiner_inputs(component):
+    """Recognized equal-length stereo source inputs, without general effect mapping."""
+    if component.class_id != b'TKFX' or getattr(component, 'effect_id', None) != 'EFF2_AUDIO_CHANNEL_COMBINER':
+        return None
+    children = list(component.tracks)
+    qualified = (component.media_kind == 'sound' and len(children) == 2
+                 and [getattr(child, 'index', None) for child in children] == [1, 2]
+                 and all(getattr(component, key, None) == 0 for key in ('info_is_reversed', 'mc_mode', 'num_scalars'))
+                 and getattr(component, 'param_list', None) is None
+                 and getattr(component, 'keyframes', None) is None)
+    if not qualified:
+        return None
+    if not all(getattr(child, 'component', None) is not None
+               and child.component.class_id == b'SCLP'
+               and child.component.media_kind == 'sound'
+               and float(child.component.edit_rate) == float(component.edit_rate)
+               and child.component.length == component.length for child in children):
+        return None
+    return children
+
+
 def index_bin(filename, max_nodes=10000):
     import avb
     from avid_markers import saved_markers
@@ -239,21 +260,8 @@ def index_bin(filename, max_nodes=10000):
                         return
                     node={'kind':kind,'timelineStart':left-start,'timelineEnd':right-start}
                     if kind=='TKFX' and component.effect_id=='EFF2_AUDIO_CHANNEL_COMBINER':
-                        children=list(component.tracks)
-                        qualified=(component.media_kind=='sound' and len(children)==2
-                                   and [getattr(child,'index',None) for child in children]==[1,2]
-                                   and getattr(component,'info_is_reversed',None)==0
-                                   and getattr(component,'mc_mode',None)==0
-                                   and getattr(component,'num_scalars',None)==0
-                                   and getattr(component,'param_list',None) is None
-                                   and getattr(component,'keyframes',None) is None)
-                        qualified=qualified and all(
-                            getattr(child,'component',None) is not None
-                            and child.component.class_id==b'SCLP'
-                            and child.component.media_kind=='sound'
-                            and float(child.component.edit_rate)==rate
-                            and child.component.length==length for child in children)
-                        if qualified:
+                        children=stereo_combiner_inputs(component)
+                        if children is not None:
                             for child in children:
                                 visit(child.component,position,depth+1,
                                       {'channelIndex':int(child.index),'channelCount':2})
