@@ -650,3 +650,7 @@ Fresh-tarball verification now imports the installed library and exercises repor
 ### Full verification after cancellation and inventory changes
 
 Full `npm run check` passed on source commit `64e1bde`: 486 TypeScript tests across 83 files, 32 Python tests, 135-tool stdio/HTTP checks, dry packing and fresh-tarball installation. Installed acceptance included six notice mappings, inventory rendering/source refusal, exact tool definitions, source tracing, five client formats and Python available/missing/restored isolation. Log: `.avid-mcp-analysis/check-inventory-cancellation.log`. Current-head CI was still running when checked; CodeQL for `2d7829a` was successful. This closes the combined local regression checkpoint, not the broader native/client/quality requirements.
+
+### Source-trace diagnostic ranges
+
+Gap, overlap and affected-component stopping diagnostics now identify their clipped interval instead of reporting the whole query. Mixed-rate stops include both rates and source identity/bin with sourceRangeConverted:false; traversal remains stopped and no conversion claim is made. Build and 13 source-trace tests passed, including separate leading/trailing gaps around a mixed-rate node. The real saved Sonoma MCP harness passed with three source-resolution pages and 24 reference/unresolved steps (`source-resolution-mcp-26271672-13c5-4271-808d-e63204570dbb`). Mixed-rate conversion still requires independent semantics and host qualification.

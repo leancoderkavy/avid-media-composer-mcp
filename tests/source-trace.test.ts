@@ -37,6 +37,13 @@ it("rejects excessive output instead of silently truncating a trace",()=>{
  a.tracks[0]!.nodes=Array.from({length:501},(_,i)=>({...a.tracks[0]!.nodes[0]!,timelineStart:i,timelineEnd:i+1}));
  expect(()=>traceSavedSources([bin],{bin,mob:a},0,501)).toThrow("500 steps");
 });
+it("locates gaps and mixed-rate stops within the affected clipped range",()=>{
+ const a=mob("a","b"),b=mob("b","external"),node=a.tracks[0]!.nodes[0]!;b.rate=25;node.timelineStart=10;node.timelineEnd=20;
+ const bin={file:"fixture",mobs:[a,b]},result=traceSavedSources([bin],{bin,mob:a},5,30);
+ expect(result.steps.filter(s=>s.status==="uncovered_range")).toMatchObject([{start:5,end:10},{start:20,end:30}]);
+ expect(result.steps.find(s=>s.status==="mixed_rate")).toMatchObject({start:10,end:20,originRate:30,targetRate:25,sourceRangeConverted:false,sourceMobId:"b",sourceBin:"fixture"});
+ expect(result.steps.some(s=>s.depth===1)).toBe(false);
+});
 it("traces both qualified stereo channels independently across clipped cuts",()=>{
  const a=mob("a","b"),b=mob("b","terminal");a.tracks[0]!.mediaKind="sound";b.tracks[0]!.mediaKind="sound";
  b.tracks.push({...b.tracks[0]!,index:2,nodes:[{...b.tracks[0]!.nodes[0]!,sourceStart:3}]});

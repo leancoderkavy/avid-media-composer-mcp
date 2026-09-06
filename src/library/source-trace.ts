@@ -9,7 +9,7 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
  const emit=(value:Record<string,unknown>)=>{if(steps.length>=500)throw new Error("Source trace exceeds 500 steps; narrow the range");steps.push(value);};
  function walk(bin:Bin,mob:Mob,track:Track,left:number,right:number,depth:number,seen:Set<string>){
   const base={bin:bin.file,mobId:mob.mobId,trackIndex:track.index,mediaKind:track.mediaKind,start:left,end:right,depth};
-  const stop=(status:string)=>{incomplete=true;emit({...base,status});};
+  const stop=(status:string,details:Record<string,unknown>={})=>{incomplete=true;emit({...base,...details,status});};
   const key=JSON.stringify([bin.file,mob.mobId,track.index,track.mediaKind]);
   if(seen.has(key)){stop("cycle");return;}if(depth>=maxDepth){stop("depth_limit");return;}
   const nextSeen=new Set(seen);nextSeen.add(key);let covered=left;
@@ -17,11 +17,11 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
   for(let index=0;index<nodes.length;index++){
    const node=nodes[index]!;
    const a=Math.max(left,node.timelineStart),b=Math.min(right,node.timelineEnd);
-   if(a>covered){stop("uncovered_range");}if(a<covered){stop("overlapping_nodes");return;}covered=b;
+   if(a>covered){stop("uncovered_range",{start:covered,end:a});}if(a<covered){stop("overlapping_nodes",{start:a,end:Math.min(covered,b)});return;}covered=b;
    const group=[node];
    if(node.channelCombiner){
     const peer=nodes[index+1];
-    if(track.mediaKind!=="sound"||!peer?.channelCombiner||node.channelCombiner.channelCount!==2||peer.channelCombiner.channelCount!==2||node.channelCombiner.channelIndex===peer.channelCombiner.channelIndex||node.timelineStart!==peer.timelineStart||node.timelineEnd!==peer.timelineEnd||node.kind!=="SCLP"||peer.kind!=="SCLP"||node.opaque||peer.opaque){stop("unsupported_channel_group");return;}
+    if(track.mediaKind!=="sound"||!peer?.channelCombiner||node.channelCombiner.channelCount!==2||peer.channelCombiner.channelCount!==2||node.channelCombiner.channelIndex===peer.channelCombiner.channelIndex||node.timelineStart!==peer.timelineStart||node.timelineEnd!==peer.timelineEnd||node.kind!=="SCLP"||peer.kind!=="SCLP"||node.opaque||peer.opaque){stop("unsupported_channel_group",{start:a,end:b});return;}
     // Only paired, identically bounded channel references emitted by the qualified parser can overlap.
     group.push(peer);index++;
    }
@@ -34,15 +34,15 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
    emit({...step,sourceMobId:node.sourceMobId,sourceTrackId:node.sourceTrackId,sourceStart,sourceEnd,status:candidates.length===1?"reference":candidates.length?"ambiguous":"unresolved"});
    if(candidates.length!==1){incomplete=true;continue;}
    const target=candidates[0]!;
-   if(target.mob.rate!==mob.rate){stop("mixed_rate");continue;}
-   if(target.mob.sourceBounds.start!==0){stop("source_bounds_unsupported");continue;}
-   if(sourceStart<0||sourceEnd>target.mob.duration){stop("source_range_outside_mob");continue;}
+   if(target.mob.rate!==mob.rate){stop("mixed_rate",{...step,sourceMobId:target.mob.mobId,sourceBin:target.bin.file,originRate:mob.rate,targetRate:target.mob.rate,sourceRangeConverted:false});continue;}
+   if(target.mob.sourceBounds.start!==0){stop("source_bounds_unsupported",step);continue;}
+   if(sourceStart<0||sourceEnd>target.mob.duration){stop("source_range_outside_mob",step);continue;}
    const tracks=target.mob.tracks.filter(t=>t.mediaKind===track.mediaKind&&t.index===node.sourceTrackId);
-   if(tracks.length!==1){stop(tracks.length?"ambiguous_track":"missing_track");continue;}
+   if(tracks.length!==1){stop(tracks.length?"ambiguous_track":"missing_track",step);continue;}
    walk(target.bin,target.mob,tracks[0]!,sourceStart,sourceEnd,depth+1,nextSeen);
    }
   }
-  if(covered<right)stop("uncovered_range");
+  if(covered<right)stop("uncovered_range",{start:covered,end:right});
  }
  const tracks=origin.mob.tracks.filter(t=>t.mediaKind==="picture"||t.mediaKind==="sound");
  if(!tracks.length)incomplete=true;
