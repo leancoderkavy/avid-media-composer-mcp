@@ -91,17 +91,19 @@ export class ProjectSnapshots {
   }
   async range(revision:string,mobId:string,start:number,end:number,ordinal?:number,after=-1,limit=100){
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start)throw new Error("Invalid edit-unit range");
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200||(ordinal!==undefined&&(!Number.isSafeInteger(ordinal)||ordinal<0)))throw new Error("Invalid timeline range page");
     const snapshot=await this.read(revision);
     const matches=snapshot.bins.flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
     if(matches.length!==1)throw new Error("Expected one matching mob; snapshot only the target bin when IDs occur in multiple bins");
     const target=matches[0]!,results=[];let cursor=0;
-    for(const track of target.mob.tracks){
+    tracks:for(const track of target.mob.tracks){
       for(const node of track.nodes){
         const index=cursor++;
         if(index<=after||(ordinal!==undefined&&track.ordinal!==ordinal)||node.timelineStart>=end||node.timelineEnd<=start)continue;
         const overlapStart=Math.max(start,node.timelineStart),overlapEnd=Math.min(end,node.timelineEnd);
         results.push({index,track:track.ordinal,trackIndex:track.index,mediaKind:track.mediaKind,...node,overlapStart,overlapEnd,
           ...(node.sourceStart===undefined?{}:{overlapSourceStart:node.sourceStart+overlapStart-node.timelineStart,overlapSourceEnd:node.sourceStart+overlapEnd-node.timelineStart})});
+        if(results.length>limit)break tracks;
       }
     }
     const page=results.slice(0,limit);

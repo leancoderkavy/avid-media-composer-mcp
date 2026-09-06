@@ -16,6 +16,18 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("continues filtered timeline pages using global node indices across tracks",async()=>{
+    const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!,first=mob.tracks[0]!;
+    first.nodes=Array.from({length:205},()=>({...first.nodes[0]!}));
+    mob.tracks.push({...first,ordinal:1,nodes:Array.from({length:203},()=>({...first.nodes[0]!}))});
+    const revision=await save(),page=await snapshots.range(revision,'sequence',10,20,1,-1,200);
+    expect(page.results).toHaveLength(200);expect(page.results[0]!.index).toBe(205);expect(page.nextAfter).toBe(404);
+    const last=await snapshots.range(revision,'sequence',10,20,1,page.nextAfter!,200);
+    expect(last.results.map(node=>node.index)).toEqual([405,406,407]);expect(last.nextAfter).toBeNull();
+    expect(last.results[0]).toMatchObject({overlapSourceStart:100,overlapSourceEnd:110});
+    await expect(snapshots.range(revision,'sequence',0,10,undefined,-1,201)).rejects.toThrow('page');
+    await expect(snapshots.range(revision,'sequence',0,10,-1)).rejects.toThrow('page');
+  });
   it("refuses duplicate comparison identities instead of silently overwriting mobs",async()=>{
     const {record,save,snapshots}=await fixture(),baseline=await save();
     record.revision=randomUUID();record.bins[0]!.mobs.push({...record.bins[0]!.mobs[0]!,name:'Conflicting'});

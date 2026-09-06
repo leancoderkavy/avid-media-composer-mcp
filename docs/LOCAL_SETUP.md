@@ -449,3 +449,5 @@ The snapshot fixture harness also covers a generated ten-frame transition betwee
 `avid_diff_saved_snapshots` accepts `after` and `limit` (1–200). Follow `nextAfter` with the same baseline/candidate pair to retrieve every change. `totalChanges` is the comparison-wide count; `truncated` indicates more pages. Change indices are scoped to that pair of saved revisions, not stable identifiers across different comparisons.
 
 Snapshot comparisons reject duplicate bin identities and duplicate mob IDs within a bin rather than silently collapsing them. The same mob ID in distinct bins remains a separate comparison entry. Single-mob structure/range queries still require an unambiguous target.
+
+Timeline-range queries build at most one page plus one matching lookahead node, while retaining global node indices across track filters. The underlying snapshot is still parsed in full under its existing size limit. Follow cursors with unchanged revision, mob, range and track filter.
