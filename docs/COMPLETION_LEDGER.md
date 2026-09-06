@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Native 100-marker mixed-track qualification
+
+Extended the owned-fixture harness with `--scale`: 100 markers across V1 and stereo A1, including offset zero, are saved/reopened and retained for follow-up. The initial V1/A1/A2 request was refused during preview; direct track readback confirmed one stereo sound track and no A2. No batch was dispatched in that attempt (`native-batch-markers-fa4a3eb5-f0bb-41b1-b55e-19afe1374398`). A unit case separately reproduced omitted frame-zero offset handling; the verifier now uses the native protobuf zero default.
+
+The corrected real MCP run passed application (`markersVerified: true`), all 100 marker fields, save/reopen and original source-bin/media hash preservation: `.avid-mcp-analysis/native-batch-markers-9b534448-7a38-4dd6-b345-5c08f6455e92/evidence.json`. Markers remain in `MCP_Batch_29084e01.avb`; baseline restoration and whole-bin graph equality are not claimed. The packaged review skill now describes batching, UUID normalization, stereo-track discovery and default-field readback. Full check passed with 647 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-batch-frame-zero.log`). This qualifies the supported count on this track layout/build, not every rate, track layout, Unicode or atomic/restart behavior. Full-plan scope remains open.
+
 ### Batch UUID identity and post-read project guards
 
 Negative tests reproduced case-only duplicate UUID acceptance and success after an authorized project change during batch readback. Marker UUIDs now normalize to lowercase during preview; collision/readback matching ignores letter case, while prior marker records remain subject to exact preservation checks. A final project check prevents verified success after a switch. Separate coverage confirms that changing an existing marker fails verification and consumes the token. These tests inject host state changes; no live editor project switch or extra marker write was performed for this patch.

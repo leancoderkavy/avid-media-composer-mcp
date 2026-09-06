@@ -4,7 +4,7 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
-[Native batch markers](NATIVE_BATCH_MARKERS.md) now support guarded single-request application with exact field/readback and existing-marker preservation checks. A real two-marker 30 fps sequence run passed application, save/reopen and marker-list restoration after explicit deletion. Larger batches, other rates/tracks, Unicode and atomic undo remain unqualified.
+[Native batch markers](NATIVE_BATCH_MARKERS.md) now support guarded single-request application with exact field/readback and existing-marker preservation checks. A real two-marker 30 fps sequence run passed application, save/reopen and marker-list restoration after explicit deletion. A subsequent 100-marker V1/stereo A1 run also passed save/reopen; its owned markers remain for follow-up. Other rates/track layouts, Unicode and atomic undo remain unqualified.
 
 [Native clip-bin lookup](NATIVE_MOB_BIN.md) resolves an observed MOB ID to Avid's reported bin within the current authorized project. Two known Sonoma sequence IDs resolved correctly across reconnect with source/bin hashes unchanged. Saved membership, uniqueness across copies and viewer alias mapping remain separate.
 
@@ -78,7 +78,7 @@ The optional licensed Jumper provider has a [bounded loopback health, text/image
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 647 TypeScript tests, 41 Python tests, 139 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-batch-marker-identity.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 139 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 647 TypeScript tests, 41 Python tests, 139 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-batch-frame-zero.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 139 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
 

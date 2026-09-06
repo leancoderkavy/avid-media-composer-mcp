@@ -51,10 +51,10 @@ it.each([false,true])('verifies batch marker readback and refuses replay (partia
  const f=await hostFixture(),original=f.client.call.bind(f.client),markers:any[]=[structuredClone(f.marker)];let dispatched=0;
  vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
   if(method==='GetMarkers')return [{info:markers}];
-  if(method==='AddMarkers'){dispatched++;const items=structuredClone((body as any).info);for(const item of items)delete item.track_label.type;markers.push(...(partial?items.slice(0,1):items));return [];}
+  if(method==='AddMarkers'){dispatched++;const items=structuredClone((body as any).info);for(const item of items){delete item.track_label.type;if(item.offset===0)delete item.offset;}markers.push(...(partial?items.slice(0,1):items));return [];}
   return original(method,body);
  });
- const operation={action:'add_markers' as const,bin:'fixture.avb',mobId:'clip',markers:[1,2].map(n=>({guid:`00000000-0000-4000-8000-00000000000${n}`,offset:n,track:{type:'TRACKTYPE_PICTURE' as const,number:1},name:`Marker ${n}`,comment:'Reviewed',color:'Green' as const}))};
+ const operation={action:'add_markers' as const,bin:'fixture.avb',mobId:'clip',markers:[1,2].map(n=>({guid:`00000000-0000-4000-8000-00000000000${n}`,offset:n-1,track:{type:'TRACKTYPE_PICTURE' as const,number:1},name:`Marker ${n}`,comment:'Reviewed',color:'Green' as const}))};
  const plan=await f.adapter.preview(operation),result=await f.adapter.apply(plan.token);
  expect(result).toMatchObject({markersVerified:!partial,persistenceVerified:false,applicationCompleted:true});expect(dispatched).toBe(1);
  await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(dispatched).toBe(1);
