@@ -534,3 +534,9 @@ Build and 33 focused snapshot/trace tests passed, including different downstream
 ### Installed source-trace contract
 
 Fresh-tarball acceptance now invokes `avid_trace_saved_sources` against a captured synthetic stereo fixture, verifying both channel labels, clipped first-level ranges, different downstream offsets, explicit unresolved endpoints and rejection beyond the MOB duration. This passed with all 135 tool definitions matching the checkout, five client configuration formats, foreign-working-directory startup and Python availability/missing/restored isolation. Log: `.avid-mcp-analysis/package-stereo-trace.log`. The installed fixture verifies packaging and API behavior; the separate Sonoma saved-bin evidence establishes the observed Avid structure. It does not qualify named-client model invocation or mixed-rate/terminal-media mapping.
+
+### Pinned face-model notices
+
+Verified the YuNet MIT and SFace Apache-2.0 notices at the configured OpenCV Zoo revision. Exact upstream bytes now ship under `docs/licenses/`; the face downloader verifies notice length/hash before writing, and runtime reads require matching notices alongside model hashes. Separate license constants preserve existing model manifest compatibility. Missing/changed notices are rejected without silently overwriting them. See `docs/FACE_MODEL_PROVENANCE.md` for source links and repair behavior.
+
+Build and 15 focused tests passed. The existing local model cache passed with installation disabled (`.avid-mcp-analysis/face-license-verification.json`). Fresh-tarball installation passed including both packaged notice checks, exact 135-tool definitions, installed stereo tracing, five client formats and Python isolation/recovery (`package-face-notices.log`). Other models, runtime dependencies, training-data provenance and installer redistribution still need their own audit; this does not close the entire license requirement.

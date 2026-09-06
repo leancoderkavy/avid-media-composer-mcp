@@ -78,6 +78,8 @@ try {
   );
 
   const installedRoot = path.join(temporary, "node_modules", "avid-media-composer-mcp");
+  const {verifyFaceLicenses}=await import(pathToFileURL(path.join(installedRoot,"dist","library","face-runtime.js")).href);
+  await verifyFaceLicenses(path.join(installedRoot,"docs","licenses"));
   await runNpm(["audit", "--omit=dev", "--audit-level=high"], temporary, true);
   const installedPackage = JSON.parse(
     await readFile(path.join(installedRoot, "package.json"), "utf8"),
@@ -255,6 +257,7 @@ try {
       clientSetup: "five installed CLI formats agree; generated command connected from foreign working directory",
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
+      faceNotices: "both packaged model licenses match pinned upstream bytes",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",

@@ -19,6 +19,18 @@ export const FACE_MODELS=[
   {folder:"face_detection_yunet",name:"face_detection_yunet_2023mar.onnx",sha256:"8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",bytes:232589,license:"MIT"},
   {folder:"face_recognition_sface",name:"face_recognition_sface_2021dec.onnx",sha256:"0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",bytes:38696353,license:"Apache-2.0"},
 ] as const;
+export const FACE_LICENSES={
+  face_detection_yunet:{bytes:1085,sha256:"c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e9227e415326aa1b1aba958"},
+  face_recognition_sface:{bytes:11358,sha256:"cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"},
+} as const;
+export async function verifyFaceLicenses(root:string){
+  for(const model of FACE_MODELS){
+    const expected=FACE_LICENSES[model.folder];
+    const file=await resolveReadablePath(path.join(root,`${model.folder}.LICENSE`),[root],"file");
+    const bytes=await readBoundedFile(file,expected.bytes);
+    if(bytes.length!==expected.bytes||createHash("sha256").update(bytes).digest("hex")!==expected.sha256)throw new Error(`Face model license checksum mismatch: ${model.folder}; restore the notice from the pinned upstream revision`);
+  }
+}
 export async function faceRuntime(cache:string,python:string,install=false){
   const root=path.resolve(cache,"faces"),runtime=path.join(root,"runtime");
   const executable=path.join(runtime,process.platform==="win32"?"Scripts/python.exe":"bin/python");
@@ -50,11 +62,14 @@ export async function faceRuntime(cache:string,python:string,install=false){
         if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;
         const response=await fetch(`https://raw.githubusercontent.com/opencv/opencv_zoo/${FACE_REVISION}/models/${model.folder}/LICENSE`,{signal:AbortSignal.timeout(30000)});
         if(!response.ok)throw new Error("Could not download model license");
-        await writeFile(license,await downloadBytes(response,65536),{flag:"wx"});
+        const expected=FACE_LICENSES[model.folder],bytes=await downloadBytes(response,expected.bytes);
+        if(bytes.length!==expected.bytes||createHash("sha256").update(bytes).digest("hex")!==expected.sha256)throw new Error("Face model license download checksum mismatch");
+        await writeFile(license,bytes,{flag:"wx"});
       }
     }
   }
   await resolveReadablePath(executable,[root],"file");
+  await verifyFaceLicenses(root);
   for(const model of FACE_MODELS){
     const target=await resolveReadablePath(path.join(root,model.name),[root],"file"),bytes=await readBoundedFile(target,model.bytes);
     if(bytes.length!==model.bytes||createHash("sha256").update(bytes).digest("hex")!==model.sha256)throw new Error("Installed face model failed checksum verification");
