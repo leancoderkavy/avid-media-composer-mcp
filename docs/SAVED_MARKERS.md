@@ -36,6 +36,10 @@ Both qualification harnesses now accept completed two-marker cleanup evidence or
 
 The corrected 100-marker comparison also passed from a fresh managed package: `installed-saved-markers-22434ebc-a44d-49c7-b6f1-1a2c1da8fa8e` / `saved-markers-797309a4-59ee-46c5-b815-2626e3b1d077`. All 50 picture and 50 sound declarations matched after reconnect, with protected files unchanged.
 
+## Identity changes during UI editing
+
+An observed marker-bearing trim/save/undo/save restored timing and text but changed all three saved marker IDs twice. Native UUIDs remained unchanged within that session. The decoder preserves non-UUID saved identifiers as `id` and reports `guid: null`; do not coerce them into native UUIDs or match them automatically by name/position. Cross-session correspondence is unverified. Read current native markers before planning further native writes. `avid_verify_saved_trim` reports `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` instead of accepting exact restoration. See [the trim evidence and limits](NATIVE_UI_TRIM_QUALIFICATION.md#marker-bearing-trim-and-incomplete-undo-restoration).
+
 ## Saved cleanup and baseline comparison
 
 The scale fixture above has now been cleaned. `qualify-native-batch-removal.mjs` captured saved snapshots with the original 100 markers, with an additional unrelated marker, after removing the 100, and after explicitly removing the remaining marker. Native save/reopen checks passed at each stage. Evidence: `.avid-mcp-analysis/native-batch-removal-830c95f9-e387-4f0e-8b24-14db79244b61/`.

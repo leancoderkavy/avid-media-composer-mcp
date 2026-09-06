@@ -1,10 +1,12 @@
 import {isDeepStrictEqual} from "node:util";
 import * as z from "zod/v4";
+import {AvidMcpError} from "../errors.js";
 
 const frame=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const node=z.object({kind:z.string(),timelineStart:frame,timelineEnd:frame,sourceStart:frame.optional(),sourceMobId:z.string().optional(),sourceTrackId:frame.optional(),opaque:z.boolean().optional(),channelCombiner:z.unknown().optional()}).passthrough();
 const track=z.object({ordinal:frame,index:frame.optional(),mediaKind:z.string(),nodes:z.array(node).max(10000)}).passthrough();
-const mob=z.object({mobId:z.string().min(1),mobType:z.string(),rate:z.number().positive(),duration:frame,sourceBounds:z.object({start:frame,end:frame}).passthrough().optional(),tracks:z.array(track).max(128)}).passthrough().superRefine((value,ctx)=>{
+const markerIdentity=z.object({id:z.string().max(128).nullable(),guid:z.string().max(128).nullable()}).passthrough();
+const mob=z.object({mobId:z.string().min(1),mobType:z.string(),rate:z.number().positive(),duration:frame,sourceBounds:z.object({start:frame,end:frame}).passthrough().optional(),tracks:z.array(track).max(128),markers:z.array(markerIdentity).max(10000).optional()}).passthrough().superRefine((value,ctx)=>{
  if(value.sourceBounds&&value.sourceBounds.end-value.sourceBounds.start!==value.duration)ctx.addIssue({code:"custom",message:"Declared source bounds disagree with mob duration"});
 });
 const graph=z.object({schema:z.literal(1),complete:z.literal(true),warnings:z.array(z.unknown()).length(0),mobs:z.array(mob).max(1000)}).passthrough();
@@ -34,6 +36,11 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
  };
  const expected=structuredClone(ordered(before));ordered(after);
  const target=expected.find(m=>m.mobId===plan.mobId);if(!target||target.mobType!=="CompositionMob")throw new Error("Expected one composition");
+ const candidate=after.mobs.find(m=>m.mobId===plan.mobId);
+ if(target.markers!==undefined&&candidate?.markers!==undefined){
+  const identities=(markers:z.infer<typeof markerIdentity>[])=>markers.map(marker=>JSON.stringify([marker.id,marker.guid])).sort();
+  if(!isDeepStrictEqual(identities(target.markers),identities(candidate.markers)))throw new AvidMcpError('SAVED_TRIM_MARKER_IDENTITIES_CHANGED','Saved marker identifiers changed across the compared trim. Exact saved-state verification failed; inspect saved and native markers before further marker writes.',{beforeMarkerCount:target.markers.length,afterMarkerCount:candidate.markers.length,exactStateVerified:false,nativeIdentityContinuityVerified:false,nextStep:'inspect_saved_and_native_markers'});
+ }
  if(target.sourceBounds&&target.sourceBounds.start!==0)throw new Error("Nonzero composition origin is not qualified for saved trim verification");
  const declaredSourceBounds:{trackOrdinal:number;side:"outgoing"|"incoming";sourceMobId:string;sourceTrackId:number;sourceTrackOrdinal:number;mediaKind:string;sourceDuration:number;before:{start:number;end:number};after:{start:number;end:number}}[]=[];
  if(new Set(plan.trackOrdinals).size!==plan.trackOrdinals.length||new Set(target.tracks.map(t=>t.ordinal)).size!==target.tracks.length)throw new Error("Ambiguous trim track selection");

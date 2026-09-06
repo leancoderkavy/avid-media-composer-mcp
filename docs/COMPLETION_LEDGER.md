@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Marker-bearing trim exposes saved identity changes
+
+A new owned sequence completed observed UI trim/save/undo/save with three picture/audio markers. Clip timing, marker positions and text restored, but every saved marker ID changed on trim and again on undo. Native UUIDs remained unchanged in-session. Original sources were unchanged; the fixture is saved and out of trim mode with three retained markers. Exact undo and cross-session identity continuity are not established. Evidence: `marker-trim-a6781039-2bfd-477f-993a-50a2867b1a1f/verification.json` under `.avid-mcp-analysis`.
+
+The production saved-trim verifier now emits `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` with bounded counts and explicit false verification flags, without private marker text/IDs. It retains exact graph comparison and never remaps identities. Regression tests cover forward/inverse identity changes, unchanged markers and unrelated text changes. Full check passed: 655 TypeScript tests, 46 Python tests, 140 tools, five skills, transports and fresh-package/Python/AAF checks (`check-marker-trim-identities.log`).
+
+A fresh managed installation captured the actual retained AVBs, reconnected through MCP, rejected both directions with the typed diagnostic, and read all three raw non-UUID saved IDs. Archive, entry and input hashes stayed unchanged: `installed-marker-trim-d3046125-fcda-4fb2-a635-23b0445b36ae` / `marker-trim-refusal-2a90fe11-0715-4cd6-8e79-6f582adc45e6`. This uses the existing Windows/Python host and does not qualify unattended UI execution, exact undo, clean-machine onboarding or full-plan completion.
+
 ### Independent batch cleanup and decoded baseline restoration
 
 Extended the native removal harness with exclusive hash-checked snapshots at initial 100 markers, after adding/saving one unrelated marker, after deleting/saving the 100, and after separate final cleanup/save. Actual run passed on owned `MCP_Batch_fe73fd13.avb`: `native-batch-removal-830c95f9-e387-4f0e-8b24-14db79244b61`. The fixture is now marker-empty. Original source-bin/media and prior scale evidence hashes were unchanged.

@@ -82,6 +82,16 @@ The read-only capture utility scripts/research/capture-native-ui-redo.mjs preser
 
 This qualifies the single same-session cycle, including intervening saves. It does not reverse the observed loss of redo availability across bin closure, establish arbitrary edit history, or provide a shipping UI adapter.
 
+## Marker-bearing trim and incomplete undo restoration
+
+A separate owned Copy.05.Copy.01 sequence with three markers completed an observed UI trim/save/undo/save on V1/A1/A2. The cut moved 60 to 61 and back to 60. Incoming marker component offsets moved 15 to 14 and back to 15; sequence positions and text remained unchanged. All three saved `_ATN_CRM_ID` values changed on trim and changed again on undo. They became non-UUID identifiers, retained as `id` with `guid: null`. Native GetMarkers continued returning the original UUIDs in that session. No bin reopen or application restart was performed after this cycle, so cross-session native identity continuity is unverified.
+
+Evidence: `.avid-mcp-analysis/marker-trim-a6781039-2bfd-477f-993a-50a2867b1a1f/verification.json`. The fixture bin is `MCP_TrimMarkers_9b4780a2.avb`, saved and out of trim mode with its three markers retained. Original source-bin/media hashes remained unchanged. Timing restoration passed; exact saved-state restoration failed. A separate diagnostic compares graphs with markers removed to isolate clip ranges; that diagnostic is not full trim acceptance.
+
+`avid_verify_saved_trim` now returns `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` when both captures record markers and their identity inventories differ. Details report counts, `exactStateVerified: false`, `nativeIdentityContinuityVerified: false`, and `nextStep: inspect_saved_and_native_markers`. They omit marker IDs and private text. Other marker changes remain subject to exact graph comparison. Do not infer correspondence by position/name, automatically rekey markers, or treat undo as an exact rollback. Production MCP forward and inverse refusal after reconnect passed in `marker-trim-refusal-edcd5d1b-6e0a-4410-b8ca-3785c2af668f`.
+
+The research utilities prepare a disposable fixture, capture manually saved stages, verify retained evidence, and qualify the MCP refusal. They do not provide unattended UI editing. Reliable trim-mode, selection and history observation remains an executor requirement.
+
 ## MCP verification tool
 
 avid_verify_saved_trim compares two saved snapshot revisions with explicit baselineBin/candidateBin, mobId, cut, delta (-1 or 1), and selected trackOrdinals. Capture each state using avid_snapshot_saved_bins. The result verifies all normalized captured mob fields within the selected bins; it does not inspect other bins or execute a trim. Warning/incomplete graphs, unresolved or mixed-rate direct sources, unsupported cut components and unrelated edits are refused. Real MCP evidence: .avid-mcp-analysis/saved-trim-mcp-0d7379ba-0c81-474e-bf2e-bd61d85d4dd0/evidence.json. The captured Avid V1/A1/A2 trim passed, while a V1-only expectation failed.

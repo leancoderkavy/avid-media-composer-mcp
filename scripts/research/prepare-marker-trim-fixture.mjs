@@ -1,0 +1,30 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,writeFile,copyFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {runProcess} from '../../dist/process.js';
+const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',sourceBin='MCP_CopyMCP_93108dc0c7b8.avb',sourceMob='060a2b340101010501010f1013-000000-184e5ee212898806-7c27d8bbc16d-18d9';
+const protectedFiles=[path.join(project,sourceBin),'D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4'],hashes=await Promise.all(protectedFiles.map(sha256File));
+assert.equal(hashes[0],'8b8ccefa6225a38acc6aae30be05d05b469c14b8758afc12bdd80494df785822');assert.equal(hashes[1],'3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca');
+const root=path.resolve('.avid-mcp-analysis',`marker-trim-${randomUUID()}`);await mkdir(root);const name=`MCP_TrimMarkers_${randomUUID().replaceAll('-','').slice(0,8)}`,bin=name+'.avb';
+const client=new Client({name:'marker-trim-fixture',version:'1.0'}),events=[];
+await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
+const call=async(tool,args)=>{const response=await client.callTool({name:tool,arguments:args},undefined,{timeout:120000});events.push({tool,args,response});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+const apply=async operation=>call('avid_native_apply',{token:(await call('avid_native_preview',{operation})).token});
+const reopen=async()=>{for(const action of ['close_bin','open_bin'])assert.equal((await apply({action,bin})).binStateVerified,true);};
+try{
+ await apply({action:'create_bin',name});assert.equal((await apply({action:'copy_clip',bin:sourceBin,mobId:sourceMob,destinationBin:bin})).copyIdentityVerified,true);await reopen();
+ const clips=await call('avid_native_read',{query:'clips',bin});assert.equal(clips.length,1);const mobId=clips[0].mob_id;
+ assert.deepEqual(await call('avid_native_read',{query:'markers',bin,mobId}),[]);
+ const markers=[{offset:30,type:'TRACKTYPE_PICTURE',name:'Outgoing picture'},{offset:75,type:'TRACKTYPE_PICTURE',name:'Incoming picture'},{offset:75,type:'TRACKTYPE_SOUND',name:'Incoming audio'}].map(item=>({guid:randomUUID(),offset:item.offset,track:{type:item.type,number:1},name:item.name,comment:'Preserve source attachment through a reviewed trim',color:'Green'}));
+ assert.equal((await apply({action:'add_markers',bin,mobId,markers})).markersVerified,true);await reopen();
+ const persisted=await call('avid_native_read',{query:'markers',bin,mobId});assert.equal(persisted.length,3);
+ const file=path.join(project,bin),baseline=path.join(root,'baseline.avb'),sha256=await sha256File(file);await copyFile(file,baseline,1);assert.equal(await sha256File(baseline),sha256);
+ const parsed=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',baseline],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(parsed.exitCode,0,parsed.stderr);const graph=JSON.parse(parsed.stdout);assert.equal(graph.complete,true);assert.equal(graph.sha256,sha256);await writeFile(path.join(root,'baseline.json'),JSON.stringify(graph,null,2),{flag:'wx'});
+ assert.deepEqual(await Promise.all(protectedFiles.map(sha256File)),hashes);
+ await writeFile(path.join(root,'fixture.json'),JSON.stringify({root,project,bin,file,mobId,clips,markers,persisted,baselineSha256:sha256,protectedFiles,hashes,scope:'Owned marker-bearing copy prepared and saved; no UI trim performed.'},null,2),{flag:'wx'});
+ console.log(JSON.stringify({root,bin,mobId,clips,baselineSha256:sha256}));
+}finally{await client.close();}

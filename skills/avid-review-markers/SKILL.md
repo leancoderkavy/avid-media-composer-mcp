@@ -24,4 +24,6 @@ Preview `set_clip_comment` with the exact observed `expectedComment` and request
 
 For saved review evidence, use `avid_snapshot_saved_bins`, `avid_saved_snapshot_mobs` and `avid_diff_saved_snapshots`. `commentStatus: not_recorded` means historical capture lacked this field; `absent` means the attribute was absent; `recorded` includes an explicit empty string. Snapshot differences can reflect newly recorded fields rather than an edit. Native comment readback and saved comment evidence are separate; a successful write alone does not establish persistence. Never save or close unrelated bins merely to obtain evidence.
 
+After timeline edits, refresh native marker identities before another native write. An observed trim and undo changed saved IDs while native UUIDs remained stable within the session. `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` means exact saved-state verification failed; inspect saved and current native markers without automatic rekeying or position/name matching. Do not assume undo restores saved identities or that session UUIDs survive reopen/restart.
+
 Return verified changes and any unresolved notes. Saved-bin persistence needs a separate save/reopen check; an in-memory read proves only the current host state.

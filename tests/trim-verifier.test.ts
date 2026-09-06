@@ -1,5 +1,6 @@
 import {it,expect} from "vitest";
 import {verifySavedDualRollerTrim} from "../src/native/trim-verifier.js";
+import {errorDetails} from "../src/errors.js";
 function fixture(){
  const clip=(start:number,end:number,sourceStart:number)=>({kind:"SCLP",timelineStart:start,timelineEnd:end,sourceStart,sourceMobId:"source",sourceTrackId:1});
  const before={schema:1,complete:true,warnings:[],mobs:[{mobId:"seq",mobType:"CompositionMob",rate:30,duration:120,name:"Keep name",tracks:[{ordinal:0,mediaKind:"picture",nodes:[clip(0,60,2850),clip(60,120,3300)]},{ordinal:1,mediaKind:"sound",nodes:[clip(0,60,2850),clip(60,120,3300)]}]}]};
@@ -10,6 +11,24 @@ function fixture(){
 it("verifies exact forward and reverse saved dual-roller changes",()=>{
  const {before,after,plan}=fixture();expect(verifySavedDualRollerTrim(before,after,plan).cutAfter).toBe(61);
  expect(verifySavedDualRollerTrim(after,before,{...plan,cut:61,delta:-1}).cutAfter).toBe(60);
+});
+it('reports changed saved marker identities without leaking marker text or claiming native continuity',()=>{
+ const {before,after,plan}=fixture();
+ Object.assign(before.mobs[0]!,{markers:[{id:'old',guid:null,name:'private marker text'}]});
+ Object.assign(after.mobs[0]!,{markers:[{id:'new',guid:null,name:'private marker text'}]});
+ for(const [a,b,p] of [[before,after,plan],[after,before,{...plan,cut:61,delta:-1 as const}]] as const){
+  try{verifySavedDualRollerTrim(a,b,p);throw new Error('Unexpected acceptance');}catch(error){
+   const result=errorDetails(error);expect(result).toMatchObject({code:'SAVED_TRIM_MARKER_IDENTITIES_CHANGED',details:{beforeMarkerCount:1,afterMarkerCount:1,exactStateVerified:false,nativeIdentityContinuityVerified:false}});
+   expect(JSON.stringify(result)).not.toContain('private marker text');
+  }
+ }
+});
+it('still requires exact marker fields when saved identities are unchanged',()=>{
+ const {before,after,plan}=fixture(),marker={id:'same',guid:null,name:'Keep note'};
+ Object.assign(before.mobs[0]!,{markers:[marker]});Object.assign(after.mobs[0]!,{markers:[{...marker}]});
+ expect(verifySavedDualRollerTrim(before,after,plan).verified).toBe(true);
+ Object.assign(after.mobs[0]!,{markers:[{...marker,name:'Changed note'}]});
+ expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow('exact requested trim');
 });
 it("rejects incomplete, ambiguous and unsupported baseline graphs",()=>{
  const {before,after,plan}=fixture();expect(()=>verifySavedDualRollerTrim({...before,complete:false},after,plan)).toThrow();
