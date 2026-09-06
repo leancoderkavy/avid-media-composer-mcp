@@ -44,7 +44,7 @@ const ownedMove=async(from,to)=>{
  for(const candidate of [canonicalFrom,canonicalParent,path.resolve(to)]){const relative=path.relative(canonicalRoot,candidate);assert.ok(!path.isAbsolute(relative)&&relative!=='..'&&!relative.startsWith('..'+path.sep),'Move escaped owned experiment');}
  await rename(from,to);
 };
-const heldFile=path.join(mediaRoot,'owned-copy-held.mp4'),heldRoot=path.join(root,'media-held');let fileMoved=false,rootMoved=false;
+const heldFile=path.join(mediaRoot,'owned-copy-held.mp4'),heldRoot=path.join(root,'media-held'),heldBin=path.join(bins,'owned-locators-held.avb');let fileMoved=false,rootMoved=false,binMoved=false;
 try{
  let client=await connect();const snapshot=await call(client,'avid_snapshot_saved_bins',{bins:[bin]});
  const check=async(label,expected)=>{
@@ -61,12 +61,19 @@ try{
  const unavailable=await check('unavailable-root','unavailable');
  await ownedMove(heldRoot,mediaRoot);rootMoved=false;
  const rootRestored=await check('root-restored','file_present');
+ await ownedMove(bin,heldBin);binMoved=true;await client.close();client=await connect();
+ const binAbsent=await check('bin-absent','file_present');
+ assert.deepEqual(binAbsent.missingBins,[bin]);assert.equal(binAbsent.binHashesRevalidated,false);assert.ok(binAbsent.results.every(row=>row.binPresent===false));
+ const empty=await call(client,'avid_saved_locator_availability',{revision:snapshot.revision,after:999,limit:1});assert.deepEqual(empty.missingBins,[bin]);assert.deepEqual(empty.results,[]);
+ await ownedMove(heldBin,bin);binMoved=false;
+ const binRestored=await check('bin-restored','file_present');assert.deepEqual(binRestored.missingBins,[]);assert.ok(binRestored.results.every(row=>row.binPresent===true));
  assert.deepEqual(await Promise.all([originalBin,originalMedia].map(sha256File)),originalHashes);
  assert.deepEqual(await Promise.all([bin,media].map(sha256File)),copiedHashes);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed:true,snapshotRevision:snapshot.revision,originalHashes,copiedHashes,originalsUnchanged:true,copiesRestored:true,
-  present,missing,restored,unavailable,rootRestored,scope:'A copied AVB with exactly two locator fields deliberately changed to an owned MP4 copy, captured through the real Python/MCP parser. File and configured-root absence/restoration observed across fresh MCP connections. Originals are never moved. This tests locator metadata recovery, not Avid online/relink or native bin import.'},null,2),{flag:'wx'});
+  present,missing,restored,unavailable,rootRestored,binAbsent,binRestored,empty,scope:'A copied AVB with exactly two locator fields deliberately changed to an owned MP4 copy, captured through the real Python/MCP parser. File, configured-root and saved-bin absence/restoration observed across fresh MCP connections, including missing-bin evidence on an empty page. Originals are never moved. This tests locator metadata recovery, not Avid online/relink or native bin import.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,passed:true,states:['file_present','not_found','file_present','unavailable','file_present']}));
 }finally{
+ if(binMoved)await ownedMove(heldBin,bin);
  if(rootMoved)await ownedMove(heldRoot,mediaRoot);
  if(fileMoved)await ownedMove(heldFile,media);
  for(const client of clients)await client.close().catch(()=>{});

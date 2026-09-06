@@ -16,6 +16,19 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it('retains missing-bin evidence on every locator page without claiming current bin hash verification',async()=>{
+    const {record,save,snapshots}=await fixture(),file=record.bins[0]!.file,revision=await save();
+    const before=await snapshots.locatorAvailability(revision);
+    expect(before.results[0]).toMatchObject({bin:file,binPresent:true,binSha256:'a'.repeat(64)});
+    await unlink(file);
+    const missing=await snapshots.locatorAvailability(revision),empty=await snapshots.locatorAvailability(revision,99);
+    expect(missing.results[0]).toMatchObject({binPresent:false,status:'descriptor_not_recorded'});
+    for(const page of [missing,empty])expect(page).toMatchObject({missingBins:[file],snapshotCreatedAt:'baseline',binHashesRevalidated:false});
+    await writeFile(file,'different replacement bytes');
+    const restored=await snapshots.locatorAvailability(revision);
+    expect(restored.missingBins).toEqual([]);expect(restored.binHashesRevalidated).toBe(false);
+    expect(restored.results[0]).toMatchObject({binPresent:true,binSha256:'a'.repeat(64)});
+  });
   it('pages locator declarations with current file metadata and snapshot omissions intact',async()=>{
     const {record,save,snapshots,config}=await fixture(),mob=record.bins[0]!.mobs[0]!;
     const file=path.join(path.dirname(record.bins[0]!.file),'media.mp4');await writeFile(file,'metadata-only fixture');

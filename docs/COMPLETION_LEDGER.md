@@ -1,5 +1,19 @@
 # Completion ledger
 
+### Missing source-bin evidence in locator reports
+
+Locator availability now returns row-level bin presence and captured bin hashes, plus snapshot creation time, missing-bin paths and explicit non-revalidation of current bin hashes on every page. Previously the snapshot reader knew a bin was missing but this endpoint omitted that fact. Historical locator access remains available while the source bin is absent; file presence does not silently imply current saved-bin contents.
+
+Regression coverage includes missing-bin evidence on empty pages and a replacement bin whose changed bytes must not be presented as matching the captured hash. The extended real copied-AVB experiment passed bin disappearance/reconnect/restoration alongside file/root recovery, with originals and restored fixtures unchanged: `.avid-mcp-analysis/locator-recovery-a58ec915-2da5-4619-ae99-c831d21346fa/evidence.json`. Native online/relink, network storage and current-bin content equivalence remain separate checks.
+
+Full local pipeline passed 771 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation with 143 tools/five skills (`.avid-mcp-analysis/check-locator-bin-presence.log`).
+
+### Bridge response fixture timing in Windows CI
+
+Windows Node 20 job `101563851071` in run `34061926260` failed the simulated bridge error-response assertion: it received `BRIDGE_TIMEOUT` instead of `BIN_LOCKED` within the fixture's one-second response budget. Log retained at `.avid-mcp-analysis/ci-locator-windows20-failure.log`. The failure does not establish a live Extension defect or its exact scheduling cause.
+
+The response-semantic tests now share a bounded five-second producer/consumer budget and atomically publish complete response JSON. Nonce, signed-envelope, error-code and complete-edit evidence assertions remain unchanged; production bridge deadlines are untouched. The focused bridge/snapshot run passed 41 tests after this test-only adjustment, which followed the full pipeline's TypeScript phase.
+
 ### Locator absence and recovery through MCP
 
 A real parsed copied-AVB fixture now exercises one unchanged snapshot across file presence, owned-file absence, file restoration, configured-root absence and root restoration. Fresh MCP connections observe `file_present → not_found → file_present → unavailable → file_present`, proving results are current filesystem observations rather than cached availability. Only the owned fixture paths are moved, all moves are checked inside their experiment directory, and original/fixture hashes are verified afterward.
