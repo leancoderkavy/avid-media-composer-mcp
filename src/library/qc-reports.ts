@@ -14,6 +14,12 @@ const coverageSchema=z.object({samplesPerChannel:z.number().int().positive().max
 const reportSchema=z.object({schema:z.literal(1),id:digest,range:z.object({start:z.number().nonnegative(),end:z.number().positive()}).refine(r=>r.end>r.start),options:qcOptions,streams:z.object({video:z.number().int().nonnegative().nullable(),audio:z.number().int().nonnegative().nullable()}),findings:z.record(z.string(),z.unknown()),streamDetails:z.unknown().optional(),timing:z.unknown().optional(),audioCoverage:coverageSchema.nullable().optional(),reviewRequired:z.literal(true),limitations:z.array(z.string().max(10000)).max(100),sourceModified:z.literal(false)})
   .refine(value=>value.range.start===value.options.start&&value.range.end===value.options.end,"QC range and options disagree")
   .superRefine((value,ctx)=>{
+    const {video,audio}=value.streams;
+    if((video===null&&audio===null)||(video!==null&&video===audio)||
+      (value.options.videoStream!==undefined&&value.options.videoStream!==video)||
+      (value.options.audioStream!==undefined&&value.options.audioStream!==audio)){
+      ctx.addIssue({code:"custom",message:"QC stream selection is inconsistent"});
+    }
     const coverage=value.audioCoverage;
     if(coverage===undefined)return; // Legacy reports predate measured sample counts.
     const invalid=()=>ctx.addIssue({code:"custom",message:"QC audio coverage is inconsistent"});

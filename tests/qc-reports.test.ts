@@ -36,6 +36,21 @@ it("validates stored sample amount arithmetic and stream selection without inven
  }
  await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:0,audio:null},audioCoverage:null}));expect((await f.service.read(f.id,first)).audioCoverageStatus).toBe("audio_not_selected");
 });
+it("rejects contradictory selected streams in direct reads and discovery",async()=>{
+ const f=await fixture();
+ for(const change of [
+  {streams:{video:null,audio:null}},
+  {streams:{video:1,audio:1}},
+  {options:{end:4,videoStream:null}},
+  {options:{end:4,audioStream:2}},
+ ]){
+  await writeFile(f.reportPath,JSON.stringify({...f.report,...change}));
+  await expect(f.service.read(f.id,first)).rejects.toThrow("stream selection is inconsistent");
+  const page=await f.service.list(f.id);expect(page.reports).toEqual([]);expect(page.unreadable).toBe(1);
+ }
+ await writeFile(f.reportPath,JSON.stringify({...f.report,options:{end:4,videoStream:0,audioStream:1}}));
+ expect((await f.service.read(f.id,first)).report.streams).toEqual({video:0,audio:1});
+});
 it("keeps media identities isolated and paginates unreadable reports without hiding later pages",async()=>{
  const f=await fixture();await writeFile(f.reportPath,JSON.stringify({...f.report,id:"0".repeat(64)}));
  await writeFile(path.join(f.directory,`qc-${"-".repeat(36)}.json`),JSON.stringify(f.report));
