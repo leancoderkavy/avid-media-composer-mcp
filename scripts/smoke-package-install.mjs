@@ -128,7 +128,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 130 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 131 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
   // Tool count alone cannot detect schema changes from newly resolved dependencies.
@@ -156,6 +156,9 @@ try {
   record.revision=candidate;for(const mob of record.bins[0].mobs)mob.name="After";
   await writeFile(path.join(snapshotDirectory,`snapshot-${candidate}.json`),JSON.stringify(record));
   const invoke=async(name,args)=>{const response=await client.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed pagination call failed: ${name}`);return response.structuredContent.data;};
+  const discovered=await invoke("avid_saved_snapshots",{limit:1});
+  const discoveredLast=await invoke("avid_saved_snapshots",{limit:1,after:discovered.nextAfter});
+  if(discovered.snapshots[0]?.revision!==baseline||discoveredLast.snapshots[0]?.revision!==candidate||discoveredLast.nextAfter!==null)throw new Error("Installed snapshot discovery failed");
   const diff=await invoke("avid_diff_saved_snapshots",{baseline,candidate,limit:1});
   const diffLast=await invoke("avid_diff_saved_snapshots",{baseline,candidate,limit:1,after:diff.nextAfter});
   const usage=await invoke("avid_saved_source_usage",{revision:baseline,sourceMobId:"source",limit:3});

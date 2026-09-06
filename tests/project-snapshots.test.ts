@@ -16,6 +16,16 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("discovers revisions after reconnect and hides snapshots outside current roots",async()=>{
+    const {config,record,save,snapshots}=await fixture();const revision=await save();
+    const discovered=await new ProjectSnapshots(config).list();
+    expect(discovered.snapshots[0]).toMatchObject({revision,bins:1,mobs:1});expect(discovered.nextAfter).toBeNull();
+    const restricted=await new ProjectSnapshots({...config,allowedRoots:[]}).list();
+    expect(restricted.snapshots).toEqual([]);expect(restricted.unavailable).toBe(1);
+    Object.assign(record,{bins:'damaged'});await save();
+    expect((await snapshots.list()).unavailable).toBe(1);
+    await expect(snapshots.list(undefined,51)).rejects.toThrow('page');
+  });
   it("retains baseline and candidate omissions even when visible fields have no differences",async()=>{
     const {record,save,snapshots}=await fixture(),baseline=await save();
     record.revision=randomUUID();Object.assign(record.bins[0]!,{complete:false,warnings:[{code:'UNRESOLVED_SEQUENCE_OFFSETS'}]});

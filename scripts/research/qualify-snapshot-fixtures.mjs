@@ -23,6 +23,8 @@ try{
   const before=await sha256File(fixture.file);
   const captured=await call('avid_snapshot_saved_bins',{bins:[fixture.file]});
   const mob=captured.bins[0].mobs[0];
+  const discovery=await call('avid_saved_snapshots',{});
+  assert.ok(discovery.snapshots.some(snapshot=>snapshot.revision===captured.revision));
   const report=await call('avid_saved_sequence_complexity',{revision:captured.revision,mobId:mob.mobId});
   const range=await call('avid_saved_timeline_range',{revision:captured.revision,mobId:mob.mobId,start:0,end:mob.duration});
   assert.equal(report.duration,fixture.name==='transition'?110:['subclip','mixed'].includes(fixture.name)?60:30);

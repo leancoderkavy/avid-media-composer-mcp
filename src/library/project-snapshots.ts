@@ -1,4 +1,4 @@
-import {readFile,writeFile,stat,access} from "node:fs/promises";
+import {readFile,writeFile,stat,access,opendir} from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {randomUUID,createHash} from "node:crypto";
@@ -31,6 +31,23 @@ const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value))
 export class ProjectSnapshots {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  async list(after?:string,limit=20){
+    if(after!==undefined)z.string().uuid().parse(after);
+    if(!Number.isInteger(limit)||limit<1||limit>50)throw new Error("Invalid snapshot discovery page");
+    const directory=await this.library.directory(),names:string[]=[];let scanned=0;
+    for await(const entry of await opendir(directory)){
+      if(++scanned>10000)throw new Error("Snapshot directory exceeds discovery limit");
+      if(entry.isFile()&&/^snapshot-[a-f0-9-]{36}\.json$/.test(entry.name)){
+        const revision=entry.name.slice(9,-5);if(z.string().uuid().safeParse(revision).success)names.push(revision);
+      }
+    }
+    const candidates=names.sort().filter(id=>!after||id>after),page=candidates.slice(0,limit),snapshots=[];let unavailable=0;
+    for(const revision of page){
+      try{const record=await this.read(revision);snapshots.push({revision,createdAt:record.createdAt,bins:record.bins.length,mobs:record.bins.reduce((sum,bin)=>sum+bin.mobs.length,0),complete:record.bins.every(bin=>bin.complete)});}
+      catch{unavailable++;}
+    }
+    return {snapshots,nextAfter:candidates.length>page.length?page.at(-1)!:null,scanned:page.length,unavailable,meaning:"Historical saved snapshots. Follow nextAfter even for empty pages; damaged or inaccessible entries are counted without exposing their contents."};
+  }
   async create(files:string[]){
     if(!files.length||files.length>Math.min(this.config.maxBins,100))throw new Error("Snapshot bin count exceeds limit");
     await this.library.directory();
