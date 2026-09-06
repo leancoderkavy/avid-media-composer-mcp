@@ -21,7 +21,9 @@ const results=[];
 try{
  for(const fixture of fixtures){
   const before=await sha256File(fixture.file);
-  const captured=await call('avid_snapshot_saved_bins',{bins:[fixture.file]});
+  const alias=path.dirname(fixture.file)+path.sep+'.'+path.sep+path.basename(fixture.file);
+  const captured=await call('avid_snapshot_saved_bins',{bins:[fixture.file,alias]});
+  assert.equal(captured.bins.length,1);
   const mob=captured.bins[0].mobs[0];
   const discovery=await call('avid_saved_snapshots',{});
   assert.ok(discovery.snapshots.some(snapshot=>snapshot.revision===captured.revision));

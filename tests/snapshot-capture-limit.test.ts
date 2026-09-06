@@ -7,6 +7,16 @@ import {loadConfig} from '../src/config.js';
 const mocked=vi.hoisted(()=>({run:vi.fn()}));
 vi.mock('../src/process.js',()=>({runProcess:mocked.run}));
 
+it('captures one canonical bin when distinct authorized paths resolve to it',async()=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'avid-capture-alias-')),file=path.join(root,'source.avb');await writeFile(file,'fixture');
+ mocked.run.mockImplementation(async(_executable,args)=>({exitCode:0,stderr:'',stdout:JSON.stringify({schema:1,file:args[1],sha256:'a'.repeat(64),complete:true,nodeCount:0,stateOrigin:'synthetic',warnings:[],mobs:[]})}));
+ const snapshots=new ProjectSnapshots(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root}));
+ const captured=await snapshots.create([file,`${root}${path.sep}.${path.sep}source.avb`]);
+ expect(mocked.run).toHaveBeenCalledTimes(1);expect(captured.bins).toHaveLength(1);
+ expect((await snapshots.diff(captured.revision,captured.revision)).changes).toEqual([]);
+ mocked.run.mockReset();
+});
+
 it('stops collecting oversized bin results before inspecting later bins or publishing',async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),'avid-capture-limit-')),files=[];
  for(let i=0;i<6;i++){const file=path.join(root,`${i}.avb`);await writeFile(file,'synthetic');files.push(file);}
