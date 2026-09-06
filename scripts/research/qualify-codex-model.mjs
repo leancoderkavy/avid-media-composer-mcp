@@ -3,12 +3,15 @@ import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
-const binary=process.argv[2];assert.ok(binary&&path.isAbsolute(binary),'Provide absolute Codex CLI executable');
+import {resolveSetupEntry} from '../../dist/setup.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const binary=process.argv[2];assert.ok(binary&&path.isAbsolute(binary)&&[3,5].includes(process.argv.length),'Provide absolute Codex CLI executable, optionally followed by absolute server entry and SHA-256');
 const root=path.resolve('.avid-mcp-analysis',`codex-model-${randomUUID()}`),project=path.join(root,'fixture');await mkdir(project,{recursive:true});
 const name=`review-${randomUUID()}.txt`,bytes=Buffer.from('Original synthetic editorial fixture.\n');
 await writeFile(path.join(project,name),bytes,{flag:'wx'});
 const sha256=createHash('sha256').update(bytes).digest('hex');
-const entry=path.resolve('dist/index.js');
+const entry=process.argv.length===5?await resolveSetupEntry(process.argv[3],process.argv[4]):path.resolve('dist/index.js');
+const entrySha256=await sha256File(entry),binarySha256=await sha256File(binary);
 const overrides={
  'mcp_servers.avid.command':process.execPath,
  'mcp_servers.avid.args':[entry],
@@ -27,10 +30,10 @@ await writeFile(path.join(root,'events.jsonl'),stdout,{flag:'wx'});await writeFi
 const events=stdout.split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line));
 const calls=events.filter(e=>e.type==='item.completed'&&e.item?.type==='mcp_tool_call').map(e=>e.item);
 const otherTools=events.filter(e=>e.type==='item.completed'&&!['mcp_tool_call','agent_message','reasoning'].includes(e.item?.type));
-const evidence={root,...result,calls,otherTools,fixtureUnchanged:sha256===createHash('sha256').update(await readFile(path.join(project,name))).digest('hex'),scope:'Existing authenticated Codex CLI, checkout server, synthetic read-only fixture; not fresh installation, GUI, native Avid or clean-machine qualification.'};
+const evidence={root,...result,serverEntry:entry,serverEntrySha256:entrySha256,binarySha256,executablesUnchanged:entrySha256===await sha256File(entry)&&binarySha256===await sha256File(binary),calls,otherTools,fixtureUnchanged:sha256===createHash('sha256').update(await readFile(path.join(project,name))).digest('hex'),scope:'Existing authenticated Codex CLI, explicitly selected server, synthetic read-only fixture; package provenance requires enclosing installer evidence. Not GUI, native Avid or clean-machine qualification.'};
 await writeFile(path.join(root,'evidence.json'),JSON.stringify(evidence,null,2),{flag:'wx'});
 console.log(JSON.stringify({root,...result,tools:calls.map(c=>c.tool),otherTools:otherTools.length}));
-assert.equal(result.code,0);assert.equal(otherTools.length,0);assert.ok(evidence.fixtureUnchanged);
+assert.equal(result.code,0);assert.equal(otherTools.length,0);assert.ok(evidence.fixtureUnchanged);assert.ok(evidence.executablesUnchanged);
 assert.ok(calls.every(c=>c.server==='avid'&&overrides['mcp_servers.avid.enabled_tools'].includes(c.tool)&&c.error===null));
 assert.ok(calls.some(c=>c.tool==='avid_ping'&&c.status==='completed'&&c.result?.structured_content?.ok===true));
 assert.ok(calls.some(c=>c.tool==='avid_inventory_project_files'&&c.status==='completed'&&c.arguments.project_path===project&&c.arguments.include_hashes===true&&c.result?.structured_content?.ok===true&&c.result.structured_content.data.files.some(f=>f.relativePath===name&&f.sha256===sha256)));
