@@ -28,7 +28,16 @@ it("retains partial setup on failure without publishing a successful receipt",as
  const {directory}=await fixture();mock.run.mockResolvedValueOnce({exitCode:1,stderr:"fixture failure",stdout:""});
  await expect(installPythonRuntime(directory,process.execPath)).rejects.toThrow("incomplete runtime retained");
  await expect(readFile(path.join(directory,"installation.json"))).rejects.toMatchObject({code:"ENOENT"});
+ expect(await pythonRuntimeStatus(directory)).toMatchObject({state:"incomplete",executable:null,unchanged:null,workerState:"unknown"});
  await expect(installPythonRuntime(directory,process.execPath)).rejects.toMatchObject({code:"EEXIST"});expect(mock.run).toHaveBeenCalledTimes(1);
+});
+it("rejects corrupt or relocated attempt records without executing or guessing completion",async()=>{
+ const {directory}=await fixture();mock.run.mockResolvedValueOnce({exitCode:1,stderr:"failed",stdout:""});
+ await expect(installPythonRuntime(directory,process.execPath)).rejects.toThrow();
+ const file=path.join(directory,"attempt.json"),attempt=JSON.parse(await readFile(file,"utf8"));
+ await writeFile(file,JSON.stringify({...attempt,directory:path.join(directory,"elsewhere")}));
+ await expect(pythonRuntimeStatus(directory)).rejects.toThrow("attempt location mismatch");
+ await writeFile(file,'{"incomplete":');await expect(pythonRuntimeStatus(directory)).rejects.toThrow();expect(mock.run).toHaveBeenCalledTimes(1);
 });
 it("rejects relative paths before running setup",async()=>{
  await expect(installPythonRuntime("relative",process.execPath)).rejects.toThrow("absolute");

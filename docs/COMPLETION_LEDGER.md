@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Inspect incomplete Python installation attempts
+
+Core Python setup now records its identity before subprocesses/downloads. Status without a success receipt validates that attempt and reports incomplete with no executable and unknown worker state. It does not treat file presence as termination evidence, repair records or retry setup. Completed receipts retain their consistency checks and historical compatibility. Tests cover retained failed setup, corrupt/relocated attempts and no execution on status.
+
+The actual CLI barrier test passed while the installer was live and after confirmed closure, with overwrite refusal and unchanged attempt bytes. A fresh normal install passed doctor and Sonoma AVB/AAF MCP inspection across reconnect without changing the runtime tree. Evidence: `python-install-interruption-cce8e4b0-95b3-4463-8153-81dae4ad17e3` and `python-runtime-cli-500e0a0e-a24b-4d27-9954-610139ff9018` under `.avid-mcp-analysis`. Typecheck/build and five focused runtime tests passed. Mid-worker interruption, removal/upgrade and power-loss acceptance remain open.
+
+All 808 TypeScript tests passed (`.avid-mcp-analysis/test-python-install-attempt.log`). Hosted CI and CodeQL for preceding commit `bcc05c1` also passed, including Windows/macOS Node 20/24. That hosted result is distinct from the updated attempt-status code's current checks.
+
 ### Ship explicit core Python installation and status
 
 Added `--install-python-runtime NEW_ABSOLUTE_DIRECTORY --python ABSOLUTE_BASE_PYTHON` and read-only `--python-runtime-status`. Installation exclusively claims a new directory, creates an isolated copied venv, bootstraps checksum-verified pip, installs exact binary-only core packages, checks dependencies/imports and records the environment tree. Existing/partial destinations are not overwritten; status checks files without executing Python. Tests cover path refusal, failed-attempt retention, changed trees, receipt relocation and no execution during status.
