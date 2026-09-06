@@ -101,6 +101,11 @@ try {
     if(!(await installModelNotice(cache,model,"a".repeat(40))).created||(await installModelNotice(cache,model,"a".repeat(40))).created)throw new Error("Installed model notice creation/reuse failed");
   }
   const originalNotices=JSON.parse(await readFile(path.join(root,"docs","original-model-notices.json"),"utf8"));
+  const {installRuntimeNotices,runtimeNoticePackages}=await import(pathToFileURL(path.join(installedRoot,"dist","library","runtime-notices.js")).href);
+  const runtimeNoticeCache=path.join(temporary,"runtime-notice-cache"),runtimeNoticeFixture=path.join(runtimeNoticeCache,"runtime");
+  for(const item of runtimeNoticePackages){const directory=path.join(runtimeNoticeFixture,"node_modules",item.name);await mkdir(directory,{recursive:true});await writeFile(path.join(directory,"package.json"),JSON.stringify({name:item.name,version:item.version}));}
+  const createdNotices=await installRuntimeNotices(runtimeNoticeCache,runtimeNoticeFixture),reusedNotices=await installRuntimeNotices(runtimeNoticeCache,runtimeNoticeFixture);
+  if(createdNotices.packages.flatMap(p=>p.files).length!==4||!createdNotices.packages.every(p=>p.files.every(f=>f.created))||!reusedNotices.packages.every(p=>p.files.every(f=>!f.created)))throw new Error("Installed runtime notice publication/reuse failed");
   for(const notice of originalNotices){
     if(!/^docs\/licenses\/[a-z0-9-]+\.LICENSE$/.test(notice.file))throw new Error("Unexpected original notice path");
     const bytes=await readFile(path.join(installedRoot,notice.file));
@@ -323,6 +328,7 @@ try {
       faceNotices: "both packaged model licenses match pinned upstream bytes",
       originalNotices: "packaged original-project notices match recorded upstream bytes",
       cachedNotices: "six model notice mappings create and reuse from installed package",
+      runtimeNotices: "two exact ONNX version mappings retain four verified notice files from installed package",
       inventoryReport: "installed stream/tag rendering and changed-source refusal preserve prior output",
       collectionDiscovery: "installed damaged-record continuation, saved-range readback and out-of-scope omission passed",
       trimVerification: "installed forward/inverse decoded trim and unrelated-edit refusal passed",

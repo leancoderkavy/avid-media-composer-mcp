@@ -37,4 +37,14 @@ Live npm audits reported zero known advisories for both the core checkout and th
 - Registry/source notices: `.avid-mcp-analysis/model-runtime-upstream-cdd81c6c-14f7-4027-800f-bd1bd11b5cdb/evidence.json`.
 - The original installation tree matched its receipt before and after the inventory. Both research scripts passed syntax checks and actual execution.
 
-Remaining work includes binary-to-component mapping, runtime notice delivery during installation, Sharp/libvips component/source reconciliation, the unavailable Guid notice source, other platforms, and final distribution review. Model weights, diarization/face Python runtimes and FFmpeg retain separate audit scopes. No runtime was reinstalled, imported, updated or relicensed by this work.
+Remaining work includes binary-to-component mapping, notice delivery for remaining runtime dependencies, Sharp/libvips component/source reconciliation, the unavailable Guid notice source, other platforms, and final distribution review. Model weights, diarization/face Python runtimes and FFmpeg retain separate audit scopes. No runtime was reinstalled, imported, updated or relicensed by the inventory work.
+
+## ONNX notice delivery during explicit setup
+
+`avid-mcp --install-model-runtime --model-dir PATH` now retains the verified ONNX license and aggregate third-party notices under `PATH/notices/runtime/PACKAGE/VERSION/`. The notice directory is outside the runtime's receipt-bound dependency tree. Explicit model download setup, which invokes runtime setup, also reaches this step. Ordinary offline inference does not call the notice installer or create missing notices.
+
+The two supported package/version mappings and source commits are in `src/library/runtime-notices.ts`; they correspond to the installed Transformers 4.2.0 dependencies inspected above. Both source files are bundled under `docs/licenses/`, preserved byte-for-byte by Git attributes, and checked against recorded SHA-256 values before publication. Both installed package versions are checked before writing. A different version fails setup for provenance review instead of receiving an unrelated old notice.
+
+Publication uses complete temporary files and exclusive hard links. Concurrent setup can reuse identical files; changed files and redirected paths are refused without overwriting them. A partial setup failure may retain completed notices, which a later explicit setup can validate and reuse. The return value lists each file/checksum and whether it was created. These supplemental notices do not close the remaining binary-component or dependency-license review.
+
+Actual CLI creation and reuse passed on the existing model cache (`.avid-mcp-analysis/install-runtime-notices.log` and `reuse-runtime-notices.log`), with the runtime still matching its installation receipt. Cached CLIP text/image, English/multilingual Whisper, DistilBART and Florence inference then passed with every global fetch attempt prohibited and counted: `.avid-mcp-analysis/offline-models-2fcf1af9-954d-4723-9ff6-0b58a74ae970/evidence.json`. This is loader/inference and notice-delivery evidence, not model accuracy or complete distribution clearance.

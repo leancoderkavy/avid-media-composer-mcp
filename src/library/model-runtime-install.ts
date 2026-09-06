@@ -7,6 +7,7 @@ import {runProcess} from "../process.js";
 import {packageTreeHash} from "../package-lifecycle.js";
 import {readBoundedJson,readBoundedFile} from "../security/bounded-read.js";
 import {resolveReadablePath} from "../security/path-policy.js";
+import {installRuntimeNotices} from "./runtime-notices.js";
 export const runtimeManifest={name:"avid-mcp-local-model-runtime",version:"1.0.0",private:true,type:"module",dependencies:{"@huggingface/transformers":"4.2.0"},overrides:{sharp:"0.35.4","adm-zip":"0.6.0"}};
 const receiptSchema=z.object({schema:z.literal(1),kind:z.literal("avid-model-runtime"),transformers:z.literal("4.2.0"),treeSha256:z.string().regex(/^[a-f0-9]{64}$/),checkedAt:z.string(),nodeVersion:z.string(),checks:z.object({scriptsDisabled:z.boolean(),auditHighPassed:z.literal(true),importPassed:z.literal(true)}).strict(),adoptedLegacy:z.boolean()}).strict();
 async function exists(file:string){try{await lstat(file);return true;}catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return false;throw error;}}
@@ -47,16 +48,17 @@ export async function installModelRuntime(cache:string){
   };
   if(await exists(runtime)){
    const status=await modelRuntimeStatus(root);
-   if(status.managed){if(!status.unchanged)throw new Error("Model runtime tree changed; use a fresh model directory");return {...status,reused:true};}
-   await qualify(runtime,true);return {...await modelRuntimeStatus(root),reused:true};
+   if(status.managed){if(!status.unchanged)throw new Error("Model runtime tree changed; use a fresh model directory");return {...status,reused:true,notices:await installRuntimeNotices(root,runtime)};}
+   await qualify(runtime,true);return {...await modelRuntimeStatus(root),reused:true,notices:await installRuntimeNotices(root,runtime)};
   }
   staging=path.join(root,`.runtime-install-${randomUUID()}`);await mkdir(staging);
   await writeFile(path.join(staging,"package.json"),JSON.stringify(runtimeManifest),{flag:"wx",mode:0o600});
   await npm(staging,["install","--ignore-scripts","--no-audit","--no-fund"]);
+  const notices=await installRuntimeNotices(root,staging);
   await qualify(staging,false);
   if(await exists(runtime))throw new Error("Runtime destination appeared during installation; staged files retained");
   await rename(staging,runtime);staging=undefined;
-  return {...await modelRuntimeStatus(root),reused:false};
+  return {...await modelRuntimeStatus(root),reused:false,notices};
  }catch(error){throw new Error(`${(error as Error).message}${staging?"; staging retained at "+staging:""}`);}
  finally{if((await readBoundedFile(lock,16384)).toString("utf8")!==lockRecord)throw new Error("Model runtime setup lock changed; replacement retained");await unlink(lock);}
 }
