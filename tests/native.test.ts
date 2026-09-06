@@ -43,6 +43,14 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it("checks target bin info after open and close",async()=>{
+    for(const action of ["open_bin","close_bin"] as const)for(const present of [true,false]){
+      const f=await hostFixture(),original=f.client.call.bind(f.client),target=path.join(path.dirname(f.source),"fixture.avb");
+      vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetBinInfo"?Promise.resolve([{is_open:present}]):original(method,body));
+      const plan=await f.adapter.preview({action,bin:"fixture.avb"}),result=await f.adapter.apply(plan.token);
+      expect(result).toMatchObject({applicationCompleted:true,postStateRead:true,binStateVerified:present===(action==="open_bin"),persistenceVerified:false});
+    }
+  });
   it("accepts editorial clip names without relaxing filesystem bin-name rules",()=>{
     const action={action:"rename_clip",bin:"fixture.avb",mobId:"clip",expectedName:"Original"};
     for(const name of ["Scene 01 / A.B", "Arrival (take 2)"]){expect(nativeActionSchema.parse({...action,name})).toMatchObject({name});}

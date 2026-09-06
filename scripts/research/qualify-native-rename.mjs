@@ -20,7 +20,7 @@ try{
   const plan=await call('avid_native_preview',{operation:{action:'rename_clip',bin,mobId,expectedName,name}}),result=await call('avid_native_apply',{token:plan.token});steps.push(result);await writeFile(path.join(root,'steps.json'),JSON.stringify(steps,null,2));assert.equal(result.renameVerified,true,'Stop and inspect before another rename');
   if(persist){
    for(const action of ['close_bin','open_bin']){
-    const plan=await call('avid_native_preview',{operation:{action,bin}}),result=await call('avid_native_apply',{token:plan.token});steps.push(result);await writeFile(path.join(root,'steps.json'),JSON.stringify(steps,null,2));assert.equal(result.postStateRead,true);
+    const plan=await call('avid_native_preview',{operation:{action,bin}}),result=await call('avid_native_apply',{token:plan.token});steps.push(result);await writeFile(path.join(root,'steps.json'),JSON.stringify(steps,null,2));assert.equal(result.postStateRead,true);assert.equal(result.binStateVerified,true);
     if(action==='close_bin'){
      const inspected=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',path.join(project,bin)],{timeoutMs:30000,maxOutputBytes:2*1024*1024});assert.equal(inspected.exitCode,0,inspected.stderr);
      const timeline=JSON.parse(inspected.stdout),sequence=timeline.mobs.find(item=>item.name===name);assert.ok(sequence);assert.equal(sequence.duration,120);assert.equal(sequence.rate,30);

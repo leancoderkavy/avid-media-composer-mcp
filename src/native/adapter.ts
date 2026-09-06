@@ -293,11 +293,15 @@ export class NativeAdapter {
           }else if(action.action==="show_clip"){
             const viewers=await this.read("viewers",action.bin) as {viewers:{mob_id:string;view_type:string}[]};postState=viewers;
             if(!viewers.viewers.some(viewer=>viewer.mob_id===action.mobId&&viewer.view_type==="Source"))throw new Error("Requested clip was not observed in the Source viewer; inspect state before another attempt");
-          }else postState=action.action==="close_bin" ? await this.client.call("GetBins",{project_path:project.path,request_flag:["OnlyOpen"]}) :
+          }else if(action.action==="open_bin"||action.action==="close_bin"){
+            postState=await this.client.call("GetBinInfo",{relative_bin_path:path.relative(project.path,path.resolve(project.path,action.bin))});
+            const bins=z.array(z.object({is_open:z.boolean()})).length(1).parse(postState),present=bins[0]!.is_open;
+            if(present!==(action.action==="open_bin"))throw new Error("Requested bin open state was not observed; inspect before another attempt");
+          }else postState=
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false, postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}) };
+          persistenceVerified: false, postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;
