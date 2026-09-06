@@ -5,15 +5,26 @@ import {it,expect,vi,beforeEach} from "vitest";
 import {installModelRuntime,modelRuntimeStatus,runtimeManifest,publishRuntimeReceipt} from "../src/library/model-runtime-install.js";
 import {runtimeNoticePackages} from "../src/library/runtime-notices.js";
 const runner=vi.hoisted(()=>vi.fn());
-const receiptFault=vi.hoisted(()=>({fail:false}));
+const receiptFault=vi.hoisted(()=>({fail:false,collision:false,collisionPath:''}));
 vi.mock("node:fs/promises",async importOriginal=>{
  const actual=await importOriginal<typeof import("node:fs/promises")>();
- return {...actual,writeFile:async(...args:Parameters<typeof actual.writeFile>)=>{if(receiptFault.fail&&String(args[0]).includes('.runtime-receipt-')){await actual.writeFile(args[0],'{partial',args[2]);throw new Error('Injected interrupted receipt write');}return actual.writeFile(...args);},access:async(file:Parameters<typeof actual.access>[0],mode?:number)=>String(file).endsWith("npm-cli.js")?undefined:actual.access(file,mode)};
+ return {...actual,open:async(...args:Parameters<typeof actual.open>)=>{
+  const receipt=String(args[0]).includes('.runtime-receipt-');
+  if(receipt&&receiptFault.collision){receiptFault.collisionPath=String(args[0]);await actual.writeFile(args[0],'existing temporary owner',{flag:'wx'});}
+  const handle=await actual.open(...args);
+  if(receipt&&receiptFault.fail){const write=handle.writeFile.bind(handle);handle.writeFile=async()=>{await write('{partial');throw new Error('Injected interrupted receipt write');};}
+  return handle;
+ },access:async(file:Parameters<typeof actual.access>[0],mode?:number)=>String(file).endsWith("npm-cli.js")?undefined:actual.access(file,mode)};
 });
 vi.mock("../src/process.js",()=>({runProcess:(...args:unknown[])=>runner(...args)}));
 async function populate(directory:string){const module=path.join(directory,"node_modules","@huggingface","transformers");await mkdir(path.join(module,"dist"),{recursive:true});await writeFile(path.join(module,"package.json"),JSON.stringify({version:"4.2.0"}));await writeFile(path.join(module,"dist","transformers.node.mjs"),"export class Tensor {}");await writeFile(path.join(directory,"package-lock.json"),"fixture lock");for(const item of runtimeNoticePackages){const target=path.join(directory,"node_modules",item.name);await mkdir(target,{recursive:true});await writeFile(path.join(target,"package.json"),JSON.stringify({name:item.name,version:item.version}));}}
 async function fixture(){return realpath(await mkdtemp(path.join(os.tmpdir(),"avid-runtime-install-")));}
-beforeEach(()=>{receiptFault.fail=false;runner.mockReset();runner.mockImplementation(async(_command,args,options)=>{if(args[1]==="install")await populate(options.cwd);return {exitCode:0,stdout:"",stderr:""};});});
+beforeEach(()=>{receiptFault.fail=false;receiptFault.collision=false;receiptFault.collisionPath='';runner.mockReset();runner.mockImplementation(async(_command,args,options)=>{if(args[1]==="install")await populate(options.cwd);return {exitCode:0,stdout:"",stderr:""};});});
+it("preserves a temporary file when exclusive creation fails",async()=>{
+ const root=await fixture();receiptFault.collision=true;
+ await expect(installModelRuntime(root)).rejects.toThrow();
+ expect(await readFile(receiptFault.collisionPath,'utf8')).toBe('existing temporary owner');
+});
 it("never publishes a partial receipt when writing fails",async()=>{
  const root=await fixture();receiptFault.fail=true;
  await expect(installModelRuntime(root)).rejects.toThrow('interrupted receipt');

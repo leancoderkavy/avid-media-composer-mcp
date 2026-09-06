@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Receipt temporary-file ownership
+
+Full local check passed: 563 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-runtime-temp-ownership.log`). Previous production commit 02b4a0c passed CI and CodeQL.
+
+Fixed receipt cleanup after failed exclusive creation: the publisher now opens the temporary file with wx before entering its cleanup region, preserving pre-existing content if creation fails. A deliberate collision test verifies this alongside partial-write and concurrent-publisher cases. Actual child-process interruption at partial-write and post-link barriers passed again with the handle-based publisher: `.avid-mcp-analysis/runtime-receipt-crash-85d46614-d5a6-4d82-a4e8-9172a37d848c/evidence.json`. The fixture dependency tree and abandoned temporaries stayed unchanged. This does not qualify arbitrary external directory replacement or full installer/power-loss recovery.
+
 ### Receipt publisher process interruption
 
 Executed actual child-process termination at instrumented partial-write and post-link boundaries in the production receipt publisher. The parent observed each barrier before killing the exact child and awaited its close event. Partial-write interruption left no final receipt and allowed a later successful publication; post-link interruption retained a complete receipt and refused replacement. Abandoned temporary files and the synthetic dependency tree were preserved. Evidence: `.avid-mcp-analysis/runtime-receipt-crash-aeb4f70c-53e5-44b8-9ed3-ea416dad18e8/evidence.json`; reproducible script: `qualify-runtime-receipt-crash.mjs`. Syntax and real execution passed. Full installer crashes, stale-lock recovery and power-loss durability remain open; no production code changed.

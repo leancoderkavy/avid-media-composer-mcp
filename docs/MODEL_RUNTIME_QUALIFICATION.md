@@ -42,6 +42,8 @@ Tree receipts detect changes during setup/status and every ordinary `modelRuntim
 
 ## Atomic receipt publication
 
+Temporary creation now uses an exclusive file handle before entering cleanup. If the temporary path already exists, creation fails and its contents are preserved; cleanup runs only after this attempt successfully opened its file. A regression deliberately creates a collision and verifies preservation. Partial-write and concurrent-publication tests still pass. The updated real child-process interruption experiment also passed at both boundaries: `.avid-mcp-analysis/runtime-receipt-crash-85d46614-d5a6-4d82-a4e8-9172a37d848c/evidence.json`.
+
 Setup now writes a complete validated receipt to a unique temporary file in the cache root, then links it exclusively to the runtime's installation.json. A partial write cannot become the final receipt, and concurrent publishers cannot replace a winner. The attempt's temporary file is removed on ordinary success/failure. A process crash may leave a temporary file in the cache root; it is outside the inventoried runtime, remains available for inspection and does not change the dependency-tree hash. This does not remove a surviving setup lock, establish worker termination or prove power-loss durability.
 
 Regression tests inject a partial write failure and exercise two simultaneous publishers, verifying that the final receipt is absent or complete and existing content is preserved. The full runtime installation/adoption tests still cover failed staging, changed trees and replacement setup locks.

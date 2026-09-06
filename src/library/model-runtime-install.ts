@@ -1,4 +1,4 @@
-import {mkdir,writeFile,lstat,realpath,rename,unlink,access,link} from "node:fs/promises";
+import {mkdir,writeFile,lstat,realpath,rename,unlink,access,link,open} from "node:fs/promises";
 import path from "node:path";
 import {pathToFileURL} from "node:url";
 import {randomUUID} from "node:crypto";
@@ -15,7 +15,8 @@ const receiptSchema=z.object({schema:z.literal(1),kind:z.literal("avid-model-run
 export async function publishRuntimeReceipt(directory:string,input:unknown){
  const bytes=JSON.stringify(receiptSchema.parse(input));
  const temporary=path.join(path.dirname(directory),`.runtime-receipt-${randomUUID()}.tmp`);
- try{await writeFile(temporary,bytes,{flag:"wx",mode:0o600});await link(temporary,path.join(directory,"installation.json"));}
+ const handle=await open(temporary,"wx",0o600);
+ try{try{await handle.writeFile(bytes);}finally{await handle.close();}await link(temporary,path.join(directory,"installation.json"));}
  finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
 }
 async function exists(file:string){try{await lstat(file);return true;}catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return false;throw error;}}

@@ -9,11 +9,12 @@ import assert from 'node:assert/strict';
 
 const receipt={schema:1,kind:'avid-model-runtime',transformers:'4.2.0',treeSha256:'a'.repeat(64),checkedAt:'publication-fixture',nodeVersion:process.versions.node,checks:{scriptsDisabled:true,auditHighPassed:true,importPassed:true},adoptedLegacy:false};
 if(process.argv[2]==='child'){
- const directory=process.argv[3],phase=process.argv[4],originalWrite=fs.promises.writeFile,originalLink=fs.promises.link;
+ const directory=process.argv[3],phase=process.argv[4],originalOpen=fs.promises.open,originalLink=fs.promises.link;
  const barrier=async temporary=>{process.send({phase,temporary});await new Promise(()=>{});};
- if(phase==='partial')fs.promises.writeFile=async(file,bytes,options)=>{
-  if(path.basename(String(file)).startsWith('.runtime-receipt-')){await originalWrite(file,'{"schema":',options);await barrier(file);}
-  else await originalWrite(file,bytes,options);
+ if(phase==='partial')fs.promises.open=async(file,...args)=>{
+  const handle=await originalOpen(file,...args);
+  if(path.basename(String(file)).startsWith('.runtime-receipt-')){const write=handle.writeFile.bind(handle);handle.writeFile=async()=>{await write('{"schema":');await barrier(file);};}
+  return handle;
  };
  else if(phase==='linked')fs.promises.link=async(from,to)=>{await originalLink(from,to);await barrier(from);};
  else throw new Error('Unknown crash phase');
