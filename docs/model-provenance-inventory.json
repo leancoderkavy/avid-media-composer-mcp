@@ -13,6 +13,20 @@
           "sha256": "19c2ef35fa89966c7fa7aa30666b4e3aeef4b075461626be55e6037133cc6aa4"
         }
       ],
+      "upstream": {
+        "model": "openai/clip-vit-base-patch32",
+        "observedRevision": "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+        "declaredLicense": null,
+        "notices": [
+          {
+            "file": "README.md",
+            "source": "https://huggingface.co/openai/clip-vit-base-patch32/raw/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/README.md",
+            "bytes": 7942,
+            "sha256": "8f0e8c678e0afe5f384f3bf8a6694c1cb53c41e52f86277967b6c5354cb0f9f4"
+          }
+        ],
+        "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
+      },
       "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
     },
     {
@@ -28,6 +42,20 @@
           "sha256": "fe5a943b9e7c82f50ee96f8946f662b062c863a38d20384b7bdfa2154e8082a8"
         }
       ],
+      "upstream": {
+        "model": "sshleifer/distilbart-cnn-6-6",
+        "observedRevision": "d2fde4ca965ba893255479612e4b801aa6500029",
+        "declaredLicense": "apache-2.0",
+        "notices": [
+          {
+            "file": "README.md",
+            "source": "https://huggingface.co/sshleifer/distilbart-cnn-6-6/raw/d2fde4ca965ba893255479612e4b801aa6500029/README.md",
+            "bytes": 1705,
+            "sha256": "e6114f9ddddd7aec5e9858b9849d1b53dc42b596420888b82fbf3f8defb64bf7"
+          }
+        ],
+        "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
+      },
       "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
     },
     {
@@ -43,6 +71,26 @@
           "sha256": "dbf8928d1bf7201ceab13775837bc1364cec189da370f8561b56303cf4c22932"
         }
       ],
+      "upstream": {
+        "model": "microsoft/Florence-2-base-ft",
+        "observedRevision": "f6c1a25888ffc1d945ee8a1a77ac833c7303d46e",
+        "declaredLicense": "mit",
+        "notices": [
+          {
+            "file": "LICENSE",
+            "source": "https://huggingface.co/microsoft/Florence-2-base-ft/raw/f6c1a25888ffc1d945ee8a1a77ac833c7303d46e/LICENSE",
+            "bytes": 1141,
+            "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+          },
+          {
+            "file": "README.md",
+            "source": "https://huggingface.co/microsoft/Florence-2-base-ft/raw/f6c1a25888ffc1d945ee8a1a77ac833c7303d46e/README.md",
+            "bytes": 14820,
+            "sha256": "092b90e814cd6c15f734b15a81e294b4d12c92d12bff3c674a9474ca935ecd1c"
+          }
+        ],
+        "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
+      },
       "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
     },
     {
@@ -58,6 +106,20 @@
           "sha256": "5f1d9253fc9a536c3cd05bcb20128963e6c545c32294bf3cc4e3b5c0bf570c96"
         }
       ],
+      "upstream": {
+        "model": "openai/whisper-tiny.en",
+        "observedRevision": "87c7102498dcde7456f24cfd30239ca606ed9063",
+        "declaredLicense": "apache-2.0",
+        "notices": [
+          {
+            "file": "README.md",
+            "source": "https://huggingface.co/openai/whisper-tiny.en/raw/87c7102498dcde7456f24cfd30239ca606ed9063/README.md",
+            "bytes": 14861,
+            "sha256": "13627ce3d7dce389223eab7b6ed06738f0f1c786e5245e650b029e4e314c8ff1"
+          }
+        ],
+        "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
+      },
       "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
     },
     {
@@ -73,6 +135,20 @@
           "sha256": "dc9a0879b11fb43db2c220466352b235f7cdb7af791c57c0ed47f0a4028d9267"
         }
       ],
+      "upstream": {
+        "model": "openai/whisper-tiny",
+        "observedRevision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+        "declaredLicense": "apache-2.0",
+        "notices": [
+          {
+            "file": "README.md",
+            "source": "https://huggingface.co/openai/whisper-tiny/raw/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/README.md",
+            "bytes": 19787,
+            "sha256": "57a3bbbbf1e79369e4d1ced790812a1723b43a256c1b43fc70cc2f3339ae9881"
+          }
+        ],
+        "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
+      },
       "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
     }
   ]

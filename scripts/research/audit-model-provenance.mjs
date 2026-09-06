@@ -14,6 +14,15 @@ const rows=await Promise.all(models.map(async({model,revision})=>{
  const files=(metadata.siblings??[]).map(s=>s.rfilename).filter(name=>/(^|\/)(license[^/]*|notice[^/]*|readme\.md)$/i.test(name));
  const notices=[];
  for(const file of files){const source=`https://huggingface.co/${model}/raw/${revision}/${file.split('/').map(encodeURIComponent).join('/')}`,content=await bounded(source);notices.push({file,source,bytes:content.length,sha256:createHash('sha256').update(content).digest('hex')});}
- return {model,revision,metadataUrl:url,declaredLicense:metadata.cardData?.license??null,notices,scope:'Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit'};
+ const baseModel=metadata.cardData?.base_model;
+ if(typeof baseModel!== 'string'||! /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(baseModel)||baseModel.split('/').some(part=>part==='.'||part==='..'))throw new Error(`Expected one explicit upstream repository: ${model}`);
+ const upstreamMetadata=JSON.parse((await bounded(`https://huggingface.co/api/models/${baseModel}`)).toString('utf8'));
+ const upstreamRevision=upstreamMetadata.sha;if(!/^[a-f0-9]{40}$/.test(upstreamRevision))throw new Error('Invalid upstream revision');
+ const upstreamNotices=[];
+ for(const file of (upstreamMetadata.siblings??[]).map(s=>s.rfilename).filter(name=>/(^|\/)(license[^/]*|notice[^/]*|readme\.md)$/i.test(name))){
+  const source=`https://huggingface.co/${baseModel}/raw/${upstreamRevision}/${file.split('/').map(encodeURIComponent).join('/')}`,content=await bounded(source);
+  upstreamNotices.push({file,source,bytes:content.length,sha256:createHash('sha256').update(content).digest('hex')});
+ }
+ return {model,revision,metadataUrl:url,declaredLicense:metadata.cardData?.license??null,notices,upstream:{model:baseModel,observedRevision:upstreamRevision,declaredLicense:upstreamMetadata.cardData?.license??null,notices:upstreamNotices,scope:'Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision'},scope:'Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit'};
 }));
 await writeFile(path.join(root,'evidence.json'),JSON.stringify({models:rows},null,2),{flag:'wx'});console.log(JSON.stringify({root,models:rows}));
