@@ -109,3 +109,15 @@ it("combines image and text similarities equally before exclusion penalties",asy
   await expect(visual.search(index.indexId,{image,text:'too long'},2)).rejects.toMatchObject({code:'VISUAL_QUERY_TOO_LONG'});
   expect(model.vision).not.toHaveBeenCalled();expect(model.text).not.toHaveBeenCalled();
 });
+
+it("rejects invalid frame-search text and scope before creating reference artifacts",async()=>{
+  const {visual,id}=await fixture(),index=await visual.index([id],1);
+  const artifact=vi.mocked(MediaLibrary.prototype.artifact);artifact.mockClear();
+  model.tokenizer.mockResolvedValue({input_ids:{dims:[1,78]}});model.vision.mockClear();
+  await expect(visual.searchFrame(index.indexId,id,1,2,{}, {},'overlong fixture')).rejects.toMatchObject({code:'VISUAL_QUERY_TOO_LONG'});
+  await expect(visual.searchFrame(index.indexId,id,1,2,{}, {exclude:['overlong fixture']})).rejects.toMatchObject({code:'VISUAL_QUERY_TOO_LONG'});
+  await expect(visual.searchFrame(index.indexId,id,1,0)).rejects.toThrow();
+  await expect(visual.searchFrame(index.indexId,id,1,2,{range:{start:2,end:1}})).rejects.toThrow();
+  await expect(visual.searchFrame(index.indexId,id,-1,2)).rejects.toThrow();
+  expect(artifact).not.toHaveBeenCalled();expect(model.text).not.toHaveBeenCalled();expect(model.vision).not.toHaveBeenCalled();
+});

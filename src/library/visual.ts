@@ -117,28 +117,33 @@ export class VisualSearch {
     return {indexId,samples:page,totalSamples:record.samples.length,nextAfter:matches.length>limit?page.at(-1)?.index:null,coverage:"Sample points only; ranges are half-open"};
   }
   async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={},text?:string){
-    if(text!==undefined)text=z.string().trim().min(1).max(500).parse(text);
-    refinement=visualRefinement.parse(refinement);
     requireCapability(this.config.capabilities,"export");
+    z.number().finite().nonnegative().parse(time);z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
+    if(text!==undefined)text=z.string().trim().min(1).max(500).parse(text);
+    const controls=visualRefinement.parse(refinement);
     await this.record(indexId); // Validate index authority before creating an artifact.
+    // A rejected query must not create a thumbnail as a side effect.
+    for(const concept of new Set(controls.exclude))await this.tokenize(concept);
+    if(text!==undefined)await this.tokenize(text);
     const frame=await this.library.artifact(id,"thumbnail",time);
-    return {...await this.search(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,refinement),reference:{id,time,image:frame.output}};
+    return {...await this.search(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,controls),reference:{id,time,image:frame.output}};
+  }
+  private async tokenize(value:string){
+    const text=z.string().trim().min(1).max(500).parse(value),models=await this.load();
+    const tokens=await models.tokenizer(text,{padding:true,truncation:false});
+    const tokenCount=tokens.input_ids.dims.at(-1);
+    if(!Number.isInteger(tokenCount)||tokenCount!<1)throw new Error("Visual tokenizer returned an invalid token shape");
+    if(tokenCount!>VISUAL_TEXT_TOKEN_LIMIT)throw new AvidMcpError("VISUAL_QUERY_TOO_LONG","Visual query exceeds the pinned model context; shorten it or search distinct concepts separately. No query text was silently discarded.",{tokenCount,maxTokens:VISUAL_TEXT_TOKEN_LIMIT});
+    return tokens;
   }
   async search(indexId:string,query:{text:string}|{image:string;text?:string|undefined},limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
     z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
     const controls=visualRefinement.parse(refinement);
     const {record,directory}=await this.record(indexId);
     const models=await this.load();
-    const tokenize=async(value:string)=>{
-      const text=z.string().trim().min(1).max(500).parse(value),tokens=await models.tokenizer(text,{padding:true,truncation:false});
-      const tokenCount=tokens.input_ids.dims.at(-1);
-      if(!Number.isInteger(tokenCount)||tokenCount!<1)throw new Error("Visual tokenizer returned an invalid token shape");
-      if(tokenCount!>VISUAL_TEXT_TOKEN_LIMIT)throw new AvidMcpError("VISUAL_QUERY_TOO_LONG","Visual query exceeds the pinned model context; shorten it or search distinct concepts separately. No query text was silently discarded.",{tokenCount,maxTokens:VISUAL_TEXT_TOKEN_LIMIT});
-      return tokens;
-    };
     // Validate all text before any embedding inference; duplicates have no extra effect.
-    const negativeTokens=[];for(const text of new Set(controls.exclude))negativeTokens.push(await tokenize(text));
-    const positiveTokens="text" in query&&query.text!==undefined?await tokenize(query.text):undefined;
+    const negativeTokens=[];for(const text of new Set(controls.exclude))negativeTokens.push(await this.tokenize(text));
+    const positiveTokens="text" in query&&query.text!==undefined?await this.tokenize(query.text):undefined;
     let embedding:number[];
     if(!("image" in query)){
       if(!positiveTokens)throw new Error("Visual query requires text or an image");

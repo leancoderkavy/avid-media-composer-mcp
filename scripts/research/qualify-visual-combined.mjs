@@ -1,6 +1,6 @@
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -27,7 +27,14 @@ try{
  const scoped=await call('avid_search_visual',{indexId:prior.index.indexId,query:{image,text},limit:100,scope:{range:{start:60,end:90}},refinement:{exclude:['people'],weight:0.5}});
  assert.ok(scoped.results.length>0&&scoped.results.every(s=>s.time>=60&&s.time<90));
  for(const row of scoped.results)assert.ok(Math.abs(row.score-(row.imageSimilarity+row.textSimilarity)/2+0.5*row.exclusionSimilarity)<1e-10);
+ const inventory=async()=> (await readdir(library,{recursive:true})).sort();
+ const beforeRefusal=await inventory();
+ for(const fields of [{text:'a '.repeat(90)+'violin'},{refinement:{exclude:['a '.repeat(90)+'violin']}}]){
+  const rejected=await client.callTool({name:'avid_search_visual_frame',arguments:{indexId:prior.index.indexId,id:sourceSha256,time:0.12345,limit:2,...fields}},undefined,{timeout:120000});
+  assert.equal(rejected.isError,true);assert.equal(rejected.structuredContent.error.code,'VISUAL_QUERY_TOO_LONG');
+ }
+ assert.deepEqual(await inventory(),beforeRefusal);
  assert.equal(await sha256File(source),sourceSha256);assert.equal(await sha256File(image),imageSha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,sourceSha256,imageSha256,imageOnly,textOnly,combined,frame,frameImageOnly,scoped,sourceAndReferenceUnchanged:true,scope:'Real local-model score composition and source-frame extraction; not independent retrieval-quality or identity acceptance'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,sourceSha256,imageSha256,imageOnly,textOnly,combined,frame,frameImageOnly,scoped,overlongFrameQueriesCreatedNoFiles:true,sourceAndReferenceUnchanged:true,scope:'Real local-model score composition and source-frame extraction; not independent retrieval-quality or identity acceptance'},null,2),{flag:'wx'});
  console.log(JSON.stringify({ok:true,root,samples:combined.results.length,scopedSamples:scoped.results.length}));
 }finally{await client.close();}
