@@ -30,7 +30,7 @@ export class ShotDetection {
   constructor(private readonly config:ServerConfig){}
   async detect(id:string,input:z.input<typeof shotOptions>){
     requireCapability(this.config.capabilities,"export");const options=shotOptions.parse(input),library=new MediaLibrary(this.config);
-    const [entry]=await library.metadata([id]);if(!entry)throw new Error("Unknown media");
+    const entry=await library.validatedMetadata(id);
     const duration=Number(entry.metadata.format?.duration);
     if(!Number.isFinite(duration)||options.end>duration)throw new Error("Shot range exceeds source duration");
     if(!entry.metadata.streams?.some((stream:{codec_type?:string})=>stream.codec_type==="video"))throw new Error("Shot detection requires video");
