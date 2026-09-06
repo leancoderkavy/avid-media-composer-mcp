@@ -26,6 +26,8 @@ Search output contains validated metadata only. Provider JPEG previews and unkno
 
 Both search result data objects are limited to 256 KiB of serialized UTF-8 JSON, separately from the provider's HTTP response limit. Oversized output is refused with `JUMPER_OUTPUT_SIZE`; reduce `limit` or media selection. Text is not silently truncated and no provider continuation cursor is invented. MCP's text/structured wrappers add overhead beyond this data-object limit.
 
+Successful health and search results report `ownershipPreflight: "passed"` when the configured Windows check succeeded before dispatch, or `"not_configured"` for directly constructed unpaired fixture clients. MCP configuration always requires pairing. This field remains separate from `runtimeVersionVerified: false`: process/hash matching does not prove vendor compatibility or authenticate the subsequent HTTP connection.
+
 Real loopback fixture tests exercise headers, scope rejection, image/key omission, oversized replies, redirects and HTTP failures. They are simulated-provider evidence, not a licensed Jumper runtime test. Remaining work includes connection-race mitigation, version/contract qualification, licensed live search, additional public operations and explicit image opt-in. Core local search and native Avid operations remain independent.
 
 The client copies and freezes validated configuration, including allowed roots, so later changes to the caller's options cannot broaden its scope or alter response/time limits. Additional loopback tests cover stalled response bodies, misleading content types, invalid JSON, incompatible health responses and a healthy request after these failures. Error messages omit response contents.

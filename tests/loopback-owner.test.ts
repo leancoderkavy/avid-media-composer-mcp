@@ -38,7 +38,7 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
     await Promise.all([mcp.connect(right),mcpClient.connect(left)]);
     try{
       const result=await mcpClient.callTool({name:"avid_jumper_read",arguments:{operation:"search",...search}});
-      expect(result.isError).not.toBe(true);expect(result.structuredContent).toMatchObject({ok:true,data:{matches:[],imagesOmitted:true}});
+      expect(result.isError).not.toBe(true);expect(result.structuredContent).toMatchObject({ok:true,data:{matches:[],imagesOmitted:true,ownershipPreflight:"passed"}});
       const transcript=await mcpClient.callTool({name:"avid_jumper_read",arguments:{operation:"transcript",...search,speaker:"Anna"}});
       expect(transcript.isError).not.toBe(true);expect(transcript.structuredContent).toMatchObject({ok:true,data:{matches:[],speakerBasis:"transcript-local labels, not face identities"}});
     }finally{await mcpClient.close();await mcp.close();}

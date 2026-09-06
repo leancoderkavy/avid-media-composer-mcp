@@ -67,7 +67,7 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
   const client=new JumperReadClient({baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"test-license-secret",allowedRoots:[root],maxResponseBytes:1024});
   const search=()=>client.searchText({query:"scene",cacheDirectory:root,mediaPaths:[file],limit:1});
   try{
-    expect(await client.health()).toMatchObject({status:"ok",runtimeVersionVerified:false});expect(healthKey).toBeUndefined();
+    expect(await client.health()).toMatchObject({status:"ok",runtimeVersionVerified:false,ownershipPreflight:"not_configured"});expect(healthKey).toBeUndefined();
     const result=await search();expect(result.matches).toHaveLength(1);expect(JSON.stringify(result)).not.toMatch(/private-image|test-license-secret/);
     expect(posted).toMatchObject({search_all:false,max_results:1,media_paths:[await realpath(file)]});
     const transcript=()=>client.searchTranscript({query:"hello",cacheDirectory:root,mediaPaths:[file],limit:1,speaker:"Anna"});

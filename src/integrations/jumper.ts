@@ -70,7 +70,7 @@ export class JumperReadClient {
   async health(){
     const result=z.object({status:z.literal("ok")}).safeParse(await this.request("/health"));
     if(!result.success)throw fail("SCHEMA","Provider health response does not match the public contract");
-    return {status:result.data.status,provider:"jumper",runtimeVersionVerified:false};
+    return {status:result.data.status,provider:"jumper",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"};
   }
   async searchTranscript(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number;speaker?:string}){
     const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50),speaker:z.string().trim().min(1).max(256).optional()}).parse(input);
@@ -84,7 +84,7 @@ export class JumperReadClient {
       if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
       matches.push({...match,media_path:file});
     }
-    return boundedResult({provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false});
+    return boundedResult({provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"});
   }
   async searchText(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
     const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).parse(input);
@@ -98,6 +98,6 @@ export class JumperReadClient {
       if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
       matches.push({...match,video_path:file});
     }
-    return boundedResult({provider:"jumper",matches,imagesOmitted:true,scoreAvailable:false,indexBasis:"one frame per second; not source edit frames",runtimeVersionVerified:false});
+    return boundedResult({provider:"jumper",matches,imagesOmitted:true,scoreAvailable:false,indexBasis:"one frame per second; not source edit frames",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"});
   }
 }
