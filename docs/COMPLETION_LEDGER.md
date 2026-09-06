@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Source-viewer transport and restoration observation
+
+Computer use clicked Play on the disposable loaded Sonoma source. Screenshots showed playhead/counter movement and audio meter activity; independent MCP reads verified frame 0 before and frame 119 after. Home with Play-button focus did not restore the position and its failed expectation was retained. Clicking the freshly observed ruler start restored frame 0, verified through MCP. Fixture, protected source bin and original MP4 hashes remained unchanged; no edit/save was requested.
+
+The captured video area remained blank, so picture rendering versus capture limitations and audio/perceptual fidelity remain unresolved. This is transport observation, not a shipped playback adapter. [Source playback evidence](NATIVE_SOURCE_PLAYBACK.md) records all four retained observations, including the failure. Production code is unchanged in this checkpoint; CI for the preceding audio implementation is tracked separately.
+
 ### Audio offset support for fractional samples per 10 ms window
 
 The decoder and RMS estimator previously refused integer sample rates not divisible by 100, including 22,050 and 11,025 Hz. Absolute window boundaries now round up to the next source sample rather than accumulating a rounded width. Sample-count provenance records the convention and integer discarded tail. Existing evenly divisible rates retain their boundaries. Regression tests cover boundary impulses, incomplete windows, invalid tail values, full-minute counts and decoder provenance.
