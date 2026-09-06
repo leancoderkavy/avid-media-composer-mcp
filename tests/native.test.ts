@@ -16,7 +16,7 @@ vi.mock("../src/native/aaf-verifier.js",()=>({verifyNativeAafMaster:vi.fn()}));
 beforeEach(async()=>{vi.spyOn(os,"homedir").mockReturnValue(await mkdtemp(path.join(os.tmpdir(),"avid-native-lock-test-")));vi.mocked(verifyNativeRender).mockReset();});
 afterEach(()=>vi.restoreAllMocks());
 
-async function hostFixture(){
+async function hostFixture(capabilities="inspect,edit,project-write,export"){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));
   await writeFile(path.join(root,"fixture.avb"),"saved bin");
   const source=path.join(root,"source.mov");await writeFile(source,"media");
@@ -38,11 +38,17 @@ async function hostFixture(){
     if(method==="LoadMobsIntoViewer")failPost=true;
     return [];
   }};
-  const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,edit,project-write,export"}),client as unknown as NativeClient);
+  const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:capabilities}),client as unknown as NativeClient);
   return {adapter,client,calls,marker,source};
 }
 
 describe("native boundaries", () => {
+  it("refuses rename application without edit authority before further native calls",async()=>{
+    const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetMobInfo"?Promise.resolve([{column_name:"Name",column_value:"Original"}]):original(method,body));
+    const plan=await f.adapter.preview({action:"rename_clip",bin:"fixture.avb",mobId:"clip",expectedName:"Original",name:"Reviewed"});
+    f.calls.length=0;await expect(f.adapter.apply(plan.token)).rejects.toThrow();expect(f.calls).toEqual([]);await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");
+  });
   it("does not verify rejected or unapplied renames and never replays their tokens",async()=>{
     for(const failure of ["reported","unchanged"]){
       const f=await hostFixture(),original=f.client.call.bind(f.client);let current="Original",writes=0;
