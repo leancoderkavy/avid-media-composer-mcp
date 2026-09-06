@@ -1,5 +1,11 @@
 # Unknown freeze and silence endpoints
 
+## Original-media regression
+
+After interval validation changes, the original Sonoma preview passed full-range QC and saved readback over its declared 190.866666 seconds. An independent ffprobe decode matched all 5,725 processed video frames; original bytes remained unchanged. No black/freeze/silence interval was reported for this run. Evidence: `.avid-mcp-analysis/sonoma-full-qc-910afe88-e723-4fc5-82e9-299f024fd155/evidence.json`. These detector results do not establish image fidelity, perceptual sync or delivery compliance.
+
+The separate original/prepared [60,90) regression verified 900 video frames per source, original 1,443,456 versus prepared 1,440,000 audio samples per channel, independently clipped audio timestamps, and unchanged complete saved findings. Evidence: `.avid-mcp-analysis/sonoma-qc-amount-a3c20ec0-d220-451e-a9ac-d7fd19819c49/evidence.json`. Full-range audio timing in the first test is an observed QC result; the independent audio comparison here applies to the 30-second range only.
+
 ## Saved event validation
 
 Stored black/freeze/silence collections must be arrays with at most 10,000 events. Closed events require finite numeric, nonnegative starts and positive ends strictly after their starts, inside the report's source range, with the corresponding stream selected. Open freeze/silence events retain their separate null-end schema. Historical openAtRangeEnd events remain readable for freeze/silence without upgrading their evidence. Invalid reports are refused rather than silently repairing intervals. Missing historical event collections remain distinct from malformed collections.

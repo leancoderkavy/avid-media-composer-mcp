@@ -40,8 +40,9 @@ try{
   const independentTiming={frames:intervals.length,sampleRate:48000,samples:intervals.reduce((sum,f)=>sum+f.end-f.start,0),firstPts:intervals[0].start-60*48000,endPts:intervals.at(-1).end-60*48000,gapSamples:gaps,overlapSamples:overlaps,discontinuities};
   assert.deepEqual(report.audioTiming,independentTiming);
   const saved=await call('avid_read_qc_report',{id:source.sha256,revision:report.revision});assert.deepEqual(saved.report.audioTiming,independentTiming);
+  assert.deepEqual(saved.report.findings,report.findings);assert.deepEqual(saved.report.streamDetails,report.streamDetails);assert.deepEqual(saved.report.videoCoverage,report.videoCoverage);
   assert.equal(await sha256File(source.file),source.sha256);
-  results.push({source,report,pcm,pcmSha256:await sha256File(pcm),samplesPerChannel,videoFrames,independentTiming,savedTimingMatches:true,sourceUnchanged:true});
+  results.push({source,report,pcm,pcmSha256:await sha256File(pcm),samplesPerChannel,videoFrames,independentTiming,savedTimingMatches:true,savedFindingsMatch:true,sourceUnchanged:true});
  }
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,range:[60,90],results,limitations:['One fixed Sonoma range','Sample amount does not identify timestamp overlaps/gaps or establish perceptual sync','Existing prepared source-clock artifact used']},null,2));
  console.log(JSON.stringify({ok:true,root,counts:results.map(r=>({name:r.source.name,samples:r.samplesPerChannel}))}));

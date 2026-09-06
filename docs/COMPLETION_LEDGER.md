@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Full Sonoma preview QC after endpoint validation
+
+Actual QC covered the original preview's entire declared [0,190.866666) range. Its 5,725 processed video frames matched an independent full ffprobe decode; saved findings and audio timing matched readback through current validation, and the original SHA-256 stayed unchanged. Black/freeze/silence interval arrays were empty; this is not a delivery or perceptual verdict. Evidence: `.avid-mcp-analysis/sonoma-full-qc-910afe88-e723-4fc5-82e9-299f024fd155/evidence.json`; script: `qualify-sonoma-full-qc.mjs`. The original/prepared [60,90) regression also passed independent frame/PCM/timestamp checks and full findings readback: `sonoma-qc-amount-a3c20ec0-d220-451e-a9ac-d7fd19819c49`. Syntax and actual execution passed; production code did not change. At this check e92bdae had passed CodeQL, macOS CI and landing; Windows jobs remained running.
+
 ### Validate saved QC event collections
 
 Fresh-package checks passed with 137 tools, five skills and Python/AAF isolation (`.avid-mcp-analysis/check-qc-interval-validation-package.log`). Validation for this increment used the affected report suite, build, real report workflows and package gate; the full unit suite was not rerun.
