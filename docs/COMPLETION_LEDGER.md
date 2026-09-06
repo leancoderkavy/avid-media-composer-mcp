@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Actual AI interpretation of saved effect counts
+
+Added and executed `qualify-codex-effect-report.mjs` against the preceding Sonoma saved-color qualification. Codex made exactly one `avid_saved_sequence_complexity` call; its payload matched an independent ProjectSnapshots read. The structured answer correctly reported two EFF2_LUTSFX nodes, incomplete coverage, unknown render cost and unknown enabled state. The explanation distinguished saved declarations from verified behavior. Source bin, server/client executable and input evidence hashes were unchanged. Evidence: `.avid-mcp-analysis/codex-effect-report-95a54bd7-37df-4e05-b46b-91a41666953d/evidence.json`.
+
+Script syntax and actual execution passed. No production code changed and the full unit suite was not rerun. Prior ff11c88 CI/CodeQL passed; 065a770 CodeQL passed with CI still running at this check. This verifies one actual model read, not broad report interpretation, installation from scratch or native editing. Full goal remains open.
+
 ### Saved direct effect declaration counts
 
 Full local `npm run check` passed: 604 TypeScript tests, Python checks, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-effect-declaration-counts.log`). Current-change remote verification remains pending; prior ff11c88 CodeQL passed while platform CI was still running at the check.
