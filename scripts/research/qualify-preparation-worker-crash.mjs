@@ -1,6 +1,6 @@
 import childProcess from 'node:child_process';
 import {syncBuiltinESMExports} from 'node:module';
-import {mkdir,stat,access,writeFile} from 'node:fs/promises';
+import {mkdir,stat,access,writeFile,readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -46,7 +46,25 @@ if(process.argv[2]==='owner'){
   assert.notEqual(partialProbe.exitCode,0,'Expected interrupted MOV to be unreadable in this fixture');
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect'}),status=await new SourceClockMedia(config).status(path.basename(directory).slice(13));
   assert.equal(status.state,'unresolved');assert.equal(status.workerState,'unknown');assert.equal(await sha256File(file),expectedSha256);
-  const evidence={file,expectedSha256,worker,termination,bytesBeforeOwnerExit:size,observations,partialProbe,status,sourceUnchanged:true,workerExitObserved:true,scope:'Actual production preparation with injected FFmpeg -re input pacing on a five-second owned fixture. Exact owner killed after active worker/output observation beyond 64 KiB. Worker exit is observed, not proof of parent-death containment; bounded input or pipe closure may explain it. No arbitrary long-media orphan containment or automatic cleanup.'};
+  const inventory=async()=>Object.fromEntries(await Promise.all((await readdir(directory)).sort().map(async name=>[name,await sha256File(path.join(directory,name))])));
+  const retainedHashes=await inventory();
+  const {Client}=await import('@modelcontextprotocol/sdk/client/index.js');
+  const {StdioClientTransport,getDefaultEnvironment}=await import('@modelcontextprotocol/sdk/client/stdio.js');
+  const client=new Client({name:'preparation-active-crash-recovery',version:'1.0'});let recovery;
+  try{
+   await client.connect(new StdioClientTransport({command:process.execPath,args:['dist/index.js'],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));
+   const call=async(name,args)=>{const response=await client.callTool({name,arguments:args},undefined,{timeout:120000});assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+   const discovered=await call('avid_list_source_clock_attempts',{file,expectedSha256});assert.deepEqual(discovered.attempts.map(a=>a.runId),[status.runId]);
+   assert.deepEqual(await call('avid_source_clock_status',{runId:discovered.attempts[0].runId}),status);
+   const receipt=await call('avid_prepare_source_clock_media',{options:{file,expectedSha256,videoStream:status.videoStream,audioStream:status.audioStream}});
+   assert.equal(receipt.verified,true);assert.notEqual(path.dirname(receipt.output),directory);assert.equal(await sha256File(receipt.output),receipt.outputSha256);
+   const completed=await call('avid_source_clock_status',{runId:path.basename(path.dirname(receipt.output)).slice(13)});assert.equal(completed.state,'receipt_matches_files');assert.equal(completed.outputSha256,receipt.outputSha256);
+   const decode=await runProcess('ffmpeg',['-nostdin','-v','error','-i',receipt.output,'-map','0:v:0','-map','0:a:0','-f','null','-'],{timeoutMs:10000});assert.equal(decode.exitCode,0,decode.stderr);
+   const counted=await runProcess('ffprobe',['-v','error','-select_streams','v:0','-count_frames','-show_entries','stream=nb_read_frames','-of','json',receipt.output],{timeoutMs:10000});assert.equal(counted.exitCode,0,counted.stderr);const decodedFrames=Number(JSON.parse(counted.stdout).streams[0].nb_read_frames);assert.equal(decodedFrames,150);
+   assert.deepEqual(await inventory(),retainedHashes);assert.equal(await sha256File(file),expectedSha256);
+   recovery={discovered,receipt,completed,decodedFrames,completeAudioVideoDecode:true,retainedHashes,interruptedArtifactsUnchanged:true};
+  }finally{await client.close();}
+  const evidence={file,expectedSha256,worker,termination,bytesBeforeOwnerExit:size,observations,partialProbe,status,recovery,sourceUnchanged:true,workerExitObserved:true,scope:'Actual production preparation with injected FFmpeg -re input pacing on a five-second owned fixture. Exact owner killed after active worker/output observation beyond 64 KiB. Fresh MCP discovery/status and explicit retry create a separately verified and decoded output, retaining interrupted files. Worker exit is observed, not proof of parent-death containment; bounded input or pipe closure may explain it. No arbitrary long-media orphan containment or automatic cleanup.'};
   await writeFile(path.join(root,'evidence.json'),JSON.stringify(evidence,null,2),{flag:'wx'});console.log(JSON.stringify({root,...evidence}));
  }finally{clearTimeout(timer);if(owner.exitCode===null&&owner.signalCode===null)owner.kill('SIGKILL');await closed;}
 }

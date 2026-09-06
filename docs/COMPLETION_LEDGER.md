@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Explicit MCP recovery after active preparation crash
+
+Extended the active-FFmpeg owner-crash harness through a new MCP connection. Discovery returned the interrupted attempt, status remained unresolved, and an explicit retry created a separate verified output. Normal production video/PCM/timestamp checks passed; independent complete audio/video decode succeeded and FFprobe counted 150 expected frames. New status matched receipt/output checksums. Original source and all interrupted-directory files stayed unchanged. Evidence: `.avid-mcp-analysis/preparation-worker-crash-ba72c0dd-573c-489d-9291-0b68b6ec7a12/evidence.json`. Syntax and actual execution passed; no production code changed and the full suite was not rerun. This qualifies explicit retry after observed worker exit on the bounded fixture; automatic retry, general orphan containment and cleanup remain open.
+
 ### Active FFmpeg preparation owner-crash evidence
 
 Added and executed `qualify-preparation-worker-crash.mjs`: actual production preparation with injected FFmpeg input pacing on an owned five-second fixture. Observed the spawned worker alive and more than 64 KiB written, killed its exact owner, and confirmed owner closure. The worker was absent at the first subsequent observation; the 262,180-byte retained MOV failed independent FFprobe with missing moov metadata. Success/failure receipts were absent, status reported unresolved/unknown worker state, and source bytes were preserved. Evidence: `.avid-mcp-analysis/preparation-worker-crash-b0e21a1f-20bf-4618-9c7b-b9bf89d44e75/evidence.json`. Syntax/actual execution passed; no production code changed and the full suite was not rerun. Cause of worker exit, arbitrary descendant containment, long-media behavior and automatic cleanup remain open; this is not a general parent-crash recovery guarantee.
