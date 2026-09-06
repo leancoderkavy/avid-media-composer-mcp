@@ -781,3 +781,8 @@ src/native/trim-verifier.ts now checks exact one-frame dual-roller transformatio
 
 Full npm run check passed after adding installed-package trim-verifier execution: 503 TypeScript tests, 32 Python tests, 136 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. The installed verifier accepted synthetic forward/inverse transforms and refused an unrelated name change; exact tool definitions, collection discovery, five client formats and Python isolation/recovery also passed. Log: .avid-mcp-analysis/check-trim-verifier.log. Actual Avid trim/undo evidence remains separate; this package check does not execute editor commands or close the UI adapter requirement.
 
+
+### Redo history after reopen: negative result
+
+After reloading Copy.05 and focusing the timeline, the Edit menu showed Undo, Redo and Undo-Redo List disabled. No history action was invoked, and the saved bin checksum still matched reopened.avb. The earlier redo action is unavailable in this tested close/reopen context. Adapter recovery must invalidate assumed UI history on close/reload/restart and inspect saved state; same-session redo remains untested. See NATIVE_UI_TRIM_QUALIFICATION.md.
+
