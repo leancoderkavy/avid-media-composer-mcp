@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Same-name effect keyframe change detection
+
+Added versioned bounded fingerprints of supported saved parameter/keyframe declarations to opaque TKFX nodes and snapshot validation/diffs. This catches changes beyond readable LUT labels without flattening effects or asserting rendered equivalence. See SAVED_EFFECT_FINGERPRINTS.md for supported classes, resource bounds and the inclusion of saved parameter UI fields. Unit tests cover deterministic hashes, byte changes, unsupported/cyclic/oversized values and saved same-name effect diffs with incomplete coverage retained.
+
+Actual refreshed-bin MCP capture/reconnect preserved both fingerprints and source bytes (`saved-color-effects-99434052-78f3-4424-89e2-66ab8d720440`). A disposable offline copy with a persisted and independently reread one-unit keyframe-level change produced exactly one changed sequence; only its first effect keyframe fingerprint changed (`effect-keyframe-diff-640efdb0-8fdc-4e1e-bb73-0b34962991cd`). Both evidence folders are under `.avid-mcp-analysis`. Earlier harness attempts did not persist the nested mutation; retaining and marking its parent before saving corrected the fixture. Original retained source stayed unchanged.
+
+Full local `npm run check` passed: 595 TypeScript tests, 39 Python tests, 139 tools, five skills, transports and fresh-package/Python checks (`.avid-mcp-analysis/check-effect-fingerprints.log`). Previous bd502ec CI and CodeQL passed. Current-change remote verification and all broader native editing/color/render/source-mapping requirements remain open.
+
 ### Saved linear-LUT declarations
 
 The refreshed fixture's CFUserParam payload declares the same full-to-video-level scaling label observed in Avid UI: 10-bit black 64, white 940 and an Inverted element. Added bounded recognition of this single-LinearLut XML shape under the observed parameter/value UUIDs. Snapshot range reads preserve the optional declaration; effects remain opaque and the flag is not interpreted as applied transform direction. Unknown/disabled/duplicate/controlled parameters and malformed/oversized/DTD XML are not interpreted. Unit tests cover recorded declarations, invalid values, disabled/duplicate parameters, XML rejection and saved-schema bounds.

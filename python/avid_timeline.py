@@ -3,8 +3,54 @@ import argparse
 import hashlib
 import json
 import math
+import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+
+def parameter_fingerprint(value):
+    """Hash bounded known saved parameter structures, without interpreting them."""
+    count=0
+    byte_count=0
+    def encode(item,depth=0):
+        nonlocal count,byte_count
+        count+=1
+        if count>2048 or depth>16:
+            raise ValueError('Parameter fingerprint traversal limit')
+        if item is None:return ['null']
+        if isinstance(item,bool):return ['bool',item]
+        if isinstance(item,int):
+            if abs(item)>2**63:raise ValueError('Parameter integer limit')
+            return ['int',item]
+        if isinstance(item,float):
+            if not math.isfinite(item):raise ValueError('Nonfinite parameter')
+            return ['float',item.hex()]
+        if isinstance(item,str):
+            if len(item)>4096:raise ValueError('Parameter string limit')
+            byte_count+=len(item.encode('utf-8'))
+            if byte_count>1048576:raise ValueError('Parameter byte limit')
+            return ['str',item]
+        if isinstance(item,uuid.UUID):return ['uuid',str(item)]
+        if isinstance(item,(bytes,bytearray)):
+            byte_count+=len(item)
+            if byte_count>1048576:raise ValueError('Parameter byte limit')
+            return ['bytes',len(item),hashlib.sha256(item).hexdigest()]
+        if isinstance(item,(list,tuple)):
+            if len(item)>1024:raise ValueError('Parameter collection limit')
+            return ['list',[encode(child,depth+1) for child in item]]
+        if (type(item).__module__=='avb.misc' and type(item).__name__ in
+            ('ParameterItem','CFUserParam','EffectParamList','EffectParam')):
+            properties=item.property_data
+            if len(properties)>128 or any(not isinstance(key,str) or len(key)>256 for key in properties):
+                raise ValueError('Parameter property limit')
+            return [type(item).__name__,{key:encode(properties[key],depth+1) for key in sorted(properties)}]
+        raise ValueError('Unsupported parameter class')
+    if value is None:return None
+    try:
+        encoded=json.dumps(encode(value),sort_keys=True,separators=(',',':'),ensure_ascii=True).encode('utf-8')
+        return {'schema':1,'sha256':hashlib.sha256(encoded).hexdigest()}
+    except (ValueError,TypeError,UnicodeError):
+        return None
 
 
 def linear_lut_declaration(data):
@@ -179,6 +225,9 @@ def index_bin(filename, max_nodes=10000):
                                 declaration=color_declaration(component)
                                 if declaration is not None:
                                     node['effect']['linearLutDeclaration']=declaration
+                                for source_field,target_field in [('param_list','parametersFingerprint'),('keyframes','keyframesFingerprint')]:
+                                    fingerprint=parameter_fingerprint(getattr(component,source_field,None))
+                                    if fingerprint is not None:node['effect'][target_field]=fingerprint
                         warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'OPAQUE_COMPONENT','kind':kind})
                     nodes.append(node)
 

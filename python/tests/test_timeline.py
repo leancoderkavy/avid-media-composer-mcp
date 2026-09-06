@@ -4,11 +4,29 @@ import unittest
 from pathlib import Path
 import avb
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration
+from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint
 from types import SimpleNamespace
 
 
 class TimelineTests(unittest.TestCase):
+    def test_parameter_fingerprints_detect_payload_changes_and_fail_closed(self):
+        with avb.open() as file:
+            value=file.create.CFUserParam()
+            value.byte_order=18761;value.data=bytearray(b'original')
+            first=parameter_fingerprint(value)
+            self.assertEqual(first['schema'],1)
+            self.assertEqual(parameter_fingerprint(value),first)
+            value.data=bytearray(b'changed')
+            self.assertNotEqual(parameter_fingerprint(value),first)
+            value.data=bytearray(b'original');self.assertEqual(parameter_fingerprint(value),first)
+            # A fresh object with reversed assignment order has identical declared data.
+            copy=file.create.CFUserParam();copy.data=value.data;copy.byte_order=value.byte_order
+            self.assertEqual(parameter_fingerprint(copy),first)
+        cycle=[];cycle.append(cycle)
+        for unsupported in [None,object(),cycle,[0]*1025,b'x'*1048577,'x'*4097,float('inf'),2**64]:
+            self.assertIsNone(parameter_fingerprint(unsupported))
+        self.assertNotEqual(parameter_fingerprint([1]),parameter_fingerprint([True]))
+
     def test_linear_lut_declarations_are_bounded_and_not_xml_execution(self):
         xml=b'<ColorTransformationList><ColorTransformation><LinearLut><Name>Levels scaling (full range to video levels)</Name><BitDepth>10</BitDepth><Black>64</Black><White>940</White><Inverted/></LinearLut></ColorTransformation></ColorTransformationList>\x00'
         expected={'name':'Levels scaling (full range to video levels)','bitDepth':10,'black':64,'white':940,'invertedFlagPresent':True}
