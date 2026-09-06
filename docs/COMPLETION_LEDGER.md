@@ -638,3 +638,7 @@ Real Chromium inspection found 524px document width at a 390px viewport from a l
 ### Inventory report through MCP and scoped reconnect
 
 The report qualification harness now uses real stdio MCP calls for Sonoma indexing and report generation. After reconnecting with only inspect enabled, it requires the exact CAPABILITY_DENIED code and export requirement, unchanged directory contents and unchanged report bytes. Source SHA-256 is checked before and after. The final harness passed: `.avid-mcp-analysis/inventory-report-a52b3952-8e5d-4b27-832a-56b911706795/evidence.json`. This advances direct-library evidence to transport/tool/capability integration; named-client model invocation and independent metadata accuracy remain open.
+
+### Inventory source validation before publication
+
+Inventory generation now verifies each resolved source checksum against its indexed identity before writing HTML. Previously it checked path availability while using cached metadata, allowing a modified source to be presented under its old checksum. A regression test creates a report, changes only its disposable source fixture, and verifies refusal without a new report or changes to the previous report/source. Build and nine library/renderer tests passed. Actual Sonoma MCP generation plus inspection-only export refusal passed again with source unchanged (`inventory-report-6be3a13d-fbad-4e24-b241-3ee45332d844/evidence.json`). This is a pre-publication content check, not continuous filesystem locking or protection against edits after validation.

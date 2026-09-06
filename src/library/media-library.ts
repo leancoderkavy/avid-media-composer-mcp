@@ -169,7 +169,8 @@ export class MediaLibrary {
   }
   async report(ids: string[]) {
     requireCapability(this.config.capabilities, "export");
-    const entries = await this.metadata(ids);
+    const entries = await Promise.all(ids.map(id=>this.entry(id)));
+    for(const entry of entries)await this.source(entry);
     const output = path.join(await this.directory(), `report-${randomUUID()}.html`);
     const rows = entries.map(entry => `<tr><td data-label="File">${escape(path.basename(entry.file))}</td><td data-label="SHA-256">${escape(entry.id)}</td><td data-label="Seconds">${escape(entry.metadata.format?.duration)}</td><td data-label="Bytes">${escape(entry.bytes)}</td></tr>`).join("");
     const {inventoryStreamDetails}=await import("./inventory-report.js");

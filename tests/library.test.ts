@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile,mkdir} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,mkdir,readdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
@@ -19,6 +19,12 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it("refuses stale inventory metadata before publishing another report",async()=>{
+  const {library,id,file,root}=await fixture();const first=await library.report([id]);const bytes=await readFile(first.output);
+  const directory=path.join(root,"avid-mcp-library"),before=(await readdir(directory)).sort();
+  await writeFile(file,"changed");await expect(library.report([id])).rejects.toThrow("Source changed since indexing");
+  expect((await readdir(directory)).sort()).toEqual(before);expect(await readFile(first.output)).toEqual(bytes);expect(await readFile(file,"utf8")).toBe("changed");
+ });
  it("maps collection overlaps to source ranges and validates OTIO identity",async()=>{
   const {config,id,file}=await fixture();const collections=new Collections(config);
   const saved=await collections.save({name:"Selects",selects:[{id,start:2,end:5,label:"first",tags:["outdoors"],note:""},{id,start:6,end:8,label:"second",tags:[],note:""}]});
