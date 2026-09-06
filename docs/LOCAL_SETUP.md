@@ -132,6 +132,8 @@ The measurements use FFmpeg's [blackdetect](https://ffmpeg.org/ffmpeg-filters.ht
 
 Audio QC also measures samples per channel with [astats](https://ffmpeg.org/ffmpeg-filters.html#astats), at the declared sample rate before loudness normalization. `audioCoverage` reports the measured sample amount, equivalent duration and whether it matches the requested duration within one sample. A short stream can produce a partial amount; that mismatch remains visible for review. An empty range or missing sample measurement fails without writing a success report. Matching sample amounts do not establish continuous timestamps or perceptual synchronization.
 
+The Sonoma preview's [60,90) range yielded 1,443,456 samples per channel at 48 kHz (30.072 seconds); its previously verified source-clock copy yielded 1,440,000 (30 seconds). Separate raw PCM exports matched both QC measurements, and both source checksums remained unchanged. Evidence: `.avid-mcp-analysis/sonoma-qc-amount-cda30236-6e66-48b5-95b8-016efd885e9f/evidence.json`. This is a measured amount comparison for one range, not a general synchronization verdict or an instruction to retime source media.
+
 Events use source-second ranges. An unfinished freeze is marked as open at the analyzed range end. Black endings have decoded-frame precision. Timestamp variation may reflect time-base rounding and is not a diagnosis of dropped frames. Container stream-start offsets do not establish perceptual synchronization. Intentional black/static/silent scenes require editorial review. The report does not certify any broadcast/delivery specification. Multistream, HDR, nonzero stream-offset and perceptual sync qualification remain open.
 
 
