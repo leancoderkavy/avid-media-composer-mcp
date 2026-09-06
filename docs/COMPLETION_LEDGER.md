@@ -1,5 +1,11 @@
 # Completion ledger
 
+### HTTP listener shutdown across two active sessions
+
+The HTTP cleanup harness now includes `shutdown`: close the listener and all connections, then start a replacement listener using the same scoped storage. A first one-session run passed (`http-session-shutdown-b68a6ff9-c0e5-4124-bad5-bdbdcd58cb62`). The stronger run started independent sessions, each with real Sonoma FFmpeg QC and a queued job. Both active workers had observed FFmpeg descendants before closure; all four jobs were cancelled for shutdown, neither queued job dispatched, successful tree/exit details survived fresh-session journal reads, old session IDs were refused, and every observed process identity was absent. Source media was unchanged.
+
+Evidence: `.avid-mcp-analysis/http-session-shutdown-6c402a06-8d7f-4988-9502-a488a3fde20e/evidence.json`. The updated shared harness also passed deletion (`http-session-delete-520bddce-f261-4860-9a51-69285f1a81f1`) and expiry (`http-session-expire-379fe541-3d84-476e-93c5-adb6010328ad`). No runtime source changed this turn. Runtime commit afe90bb completed all CI jobs successfully (run 34056649686); the existing 724 TypeScript/46 Python package checks remain distinct from the Windows media/process proof. Standalone OS-signal delivery, optional-model disposal and abrupt parent loss remain open; the full objective is incomplete.
+
 ### Active HTTP session deletion and expiry
 
 Real Sonoma QC qualification now covers explicit HTTP session DELETE and idle expiry with client streams closed. Both runs first observed an active FFmpeg process under the owned analysis worker, then verified the old session returned 404, both active and queued jobs were cancelled with reason `shutdown`, the queued job had no worker exit/result (not dispatched), the active job retained successful tree-termination/exit details, and fresh-session journal reads preserved those outcomes. All observed worker/descendant process identities were absent afterward, and the source hash was unchanged.
