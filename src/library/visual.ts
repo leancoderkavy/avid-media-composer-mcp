@@ -45,7 +45,8 @@ export function sampleTimes(duration:number,count:number,range?:z.infer<typeof v
   return Array.from({length:count},(_,n)=>start+(end-start)*(n+0.5)/count);
 }
 const sampleSchema=z.object({id:z.string().regex(/^[a-f0-9]{64}$/),time:z.number().nonnegative(),image:z.string(),vector,shot:visualRange.optional()}).refine(sample=>!sample.shot||(sample.time>=sample.shot.start&&sample.time<sample.shot.end),"Sample must lie within its shot");
-const recordSchema=z.object({model:z.literal(VISUAL_MODEL),revision:z.literal(VISUAL_REVISION),samples:z.array(sampleSchema).max(1200)});
+const legacyRecord=z.object({schemaVersion:z.undefined().optional(),model:z.literal(VISUAL_MODEL),revision:z.literal(VISUAL_REVISION),samples:z.array(sampleSchema).max(1200)});
+const recordSchema=z.union([legacyRecord,legacyRecord.extend({schemaVersion:z.literal(2),samples:z.array(sampleSchema.extend({imageSha256:z.string().regex(/^[a-f0-9]{64}$/)})).max(1200)})]);
 export class VisualSearch {
   readonly checkpoints:VisualCheckpoints;
   private models: ReturnType<typeof loadVisualModels>|undefined;
@@ -93,7 +94,7 @@ export class VisualSearch {
         await this.checkpoints.append(runId,samples.length,saved);samples.push(saved);
     }
     for(const id of new Set(plan.map(item=>item.id)))await this.library.validatedMetadata(id);
-    const record=recordSchema.parse({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples});
+    const record=recordSchema.parse({schemaVersion:2,model:VISUAL_MODEL,revision:VISUAL_REVISION,samples});
     const indexId=randomUUID();
     await writeFile(path.join(await this.library.directory(),`visual-${indexId}.json`),JSON.stringify(record),{flag:"wx"});
     await this.checkpoints.finish(runId,indexId);
@@ -114,7 +115,7 @@ export class VisualSearch {
     scope=visualScope.parse(scope);z.number().int().min(-1).parse(after);z.number().int().min(1).max(100).parse(limit);
     const {record,directory}=await this.record(indexId);
     const matches=record.samples.map((sample,index)=>({...sample,index})).filter(sample=>sample.index>after&&(!scope.ids||scope.ids.includes(sample.id))&&(!scope.range||sample.time>=scope.range.start&&sample.time<scope.range.end));
-    const page=[];for(const {vector,image,...sample} of matches.slice(0,limit))page.push({...sample,image:await resolveReadablePath(image,[directory],"file")});
+    const page=[];for(const {vector,...sample} of matches.slice(0,limit))page.push({...sample,...await this.thumbnail(sample,directory)});
     return {indexId,samples:page,totalSamples:record.samples.length,nextAfter:matches.length>limit?page.at(-1)?.index:null,coverage:"Sample points only; ranges are half-open"};
   }
   async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={},text?:string){
@@ -128,6 +129,11 @@ export class VisualSearch {
     if(text!==undefined)await this.tokenize(text);
     const frame=await this.library.artifact(id,"thumbnail",time);
     return {...await this.search(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,controls),reference:{id,time,image:frame.output}};
+  }
+  private async thumbnail(sample:{image:string;imageSha256?:string},directory:string){
+    const image=await resolveReadablePath(sample.image,[directory],"file");
+    if(sample.imageSha256!==undefined&&await sha256File(image)!==sample.imageSha256)throw new Error("Visual thumbnail changed since embedding; rebuild the index");
+    return {image,thumbnailIntegrity:sample.imageSha256===undefined?"unverified_legacy":"sha256_verified"};
   }
   private async tokenize(value:string){
     const text=z.string().trim().min(1).max(500).parse(value),models=await this.load();
@@ -168,7 +174,7 @@ export class VisualSearch {
       const exclusionSimilarity=Math.max(0,...negatives.map(negative=>cosine(negative,vector)));
       return {...sample,...components,score:similarity-controls.weight*exclusionSimilarity,similarity,exclusionSimilarity};
     }).sort((a,b)=>b.score-a.score);
-    const results=[];for(const sample of ranked.slice(0,limit))results.push({...sample,image:await resolveReadablePath(sample.image,[directory],"file")});
+    const results=[];for(const sample of ranked.slice(0,limit))results.push({...sample,...await this.thumbnail(sample,directory)});
     const baseMeaning=textEmbedding?"Equal-weight mean of image and text CLIP cosine similarities":"CLIP cosine similarity";
     return {model:VISUAL_MODEL,scoreMeaning:negatives.length?`${baseMeaning} minus weight times maximum nonnegative excluded-concept cosine; soft ranking only, not guaranteed absence`:`${baseMeaning}, not probability or verified identity`,...(negatives.length?{refinement:{exclude:[...new Set(controls.exclude)],weight:controls.weight}}:{}),matchingSamples:ranked.length,truncated:ranked.length>limit,results};
   }

@@ -70,3 +70,11 @@ Frame-query text and exclusion token limits are now checked before reference ext
 Saved visual sample reads and searches now require an authorized source whose SHA-256 matches the indexed content ID. Replacing bytes at the original path no longer silently reuses old visual results. A registered matching alias can satisfy the check, but it must remain inside the current allowed roots. Hashes are checked sequentially once per distinct source before reading results or inference; this adds source I/O to cached queries, especially for large multi-file indexes.
 
 Generated-file MCP tests verified changed-source refusal for sample, text-search and source-frame operations; matching-alias indexing restored identical search output without re-embedding. A narrower allowed root and changes to both copies were refused. Evidence: `.avid-mcp-analysis/visual-scope-e44daeaa-fe01-49d9-b0f4-407f2b3f4d57/evidence.json`. Only generated fixture files were altered. This validates source identity at the read check, not arbitrary concurrent-writer exclusion or thumbnail/index tamper resistance.
+
+## Thumbnail-to-embedding integrity
+
+New visual indexes use schema version 2 and retain each checkpoint's image SHA-256 beside its embedding. Sample reads and search results hash the thumbnails they return and reject changed bytes with a rebuild instruction. Each returned item reports `thumbnailIntegrity: "sha256_verified"`. Version 2 records missing a required hash are refused.
+
+Older indexes without a schema version remain readable and report `thumbnailIntegrity: "unverified_legacy"`; no new checksum is fabricated for their old embeddings. Rebuilding produces hash-bearing records. Completed-checkpoint comparison supports both formats, and new resumed indexes retain the checkpoint hashes.
+
+Real generated-media MCP testing changed one cached thumbnail, observed refusal from search and sample reads, restored the original bytes and reproduced identical search output. Source alias/reconnect checks also passed: `.avid-mcp-analysis/visual-scope-a6b85ff6-2363-4c21-84ca-6923221a010c/evidence.json`. Only returned thumbnails are checked. This detects mismatches against stored records; it does not authenticate against coordinated index/image rewriting or prevent changes after a file has been checked.

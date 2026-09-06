@@ -14,7 +14,8 @@ export type VisualPlanItem=z.infer<typeof planItem>;
 const sample=planItem.extend({image:z.string(),imageSha256:id,vector:z.array(z.number().finite()).length(512)});
 export type VisualCheckpoint=z.infer<typeof sample>;
 const manifest=z.object({version:z.literal(1),runId:uuid,model:z.string(),revision:z.string(),createdAt:z.string(),parentRunId:uuid.optional(),plan:z.array(planItem).min(1).max(1200)}).refine(value=>value.plan.every(item=>!item.shot||(item.shot.end>item.shot.start&&item.time>=item.shot.start&&item.time<item.shot.end)),"Visual plan sample must lie within its shot");
-const finalIndex=z.object({model:z.string(),revision:z.string(),samples:z.array(sample.omit({imageSha256:true})).max(1200)});
+const legacyIndex=z.object({schemaVersion:z.undefined().optional(),model:z.string(),revision:z.string(),samples:z.array(sample.omit({imageSha256:true})).max(1200)});
+const finalIndex=z.union([legacyIndex,legacyIndex.extend({schemaVersion:z.literal(2),samples:z.array(sample).max(1200)})]);
 async function publish(file:string,value:unknown){
   const temporary=`${file}.${randomUUID()}.tmp`;
   try{
@@ -64,7 +65,7 @@ export class VisualCheckpoints{
     if(indexId){
       const file=await resolveReadablePath(path.join(root,`visual-${indexId}.json`),[root],"file");
       const saved=finalIndex.parse(await readBoundedJson(file,32*1024*1024));
-      const expected=finalIndex.parse({model:this.model,revision:this.revision,samples});
+      const expected=finalIndex.parse({schemaVersion:saved.schemaVersion,model:this.model,revision:this.revision,samples});
       if(JSON.stringify(saved)!==JSON.stringify(expected))throw new Error("Completed visual index differs from committed checkpoints");
     }
     return {record,samples,indexId};

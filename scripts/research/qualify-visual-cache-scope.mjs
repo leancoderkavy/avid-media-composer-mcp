@@ -27,6 +27,15 @@ try{
   assert.deepEqual((await call('avid_visual_index_runs',{})).runs.map(run=>run.runId),[first.runId]);assert.equal(await sha256File(moved),ids[0]);
   const query={indexId:first.indexId,query:{text:'red scene'},limit:1};
   const baseline=await call('avid_search_visual',query);
+  assert.equal(baseline.results[0].thumbnailIntegrity,'sha256_verified');
+  const thumbnail=baseline.results[0].image,thumbnailBytes=await readFile(thumbnail);
+  try{
+    await writeFile(thumbnail,'changed generated thumbnail');
+    for(const [name,args] of [['avid_search_visual',query],['avid_visual_samples',{indexId:first.indexId}]]){
+      const changedImage=await client.callTool({name,arguments:args});assert.equal(changedImage.isError,true);assert.match(JSON.stringify(changedImage),/thumbnail changed/);
+    }
+  }finally{await writeFile(thumbnail,thumbnailBytes);}
+  assert.deepEqual(await call('avid_search_visual',query),baseline);
   const alias=path.join(allowed,'matching.mp4');await writeFile(alias,await readFile(moved),{flag:'wx'});
   // Change only this run's generated fixtures; original user media is never used.
   await writeFile(moved,'changed generated source');
@@ -40,6 +49,6 @@ try{
   const narrow=await client.callTool({name:'avid_search_visual',arguments:query});assert.equal(narrow.isError,true);
   await client.close();client=await connect(allowed);await writeFile(alias,'changed matching copy');
   const changedBoth=await client.callTool({name:'avid_search_visual',arguments:query});assert.equal(changedBoth.isError,true);assert.match(JSON.stringify(changedBoth),/Source changed/);
-  await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,second,scoped,denied,restored,baseline,recovered,narrow,changedBoth,staleReadsRefused:true,matchingAliasRecoveredIdenticalSearch:true,scope:'Generated local MP4s only; one moved source and matching alias deliberately changed to test refusal. No user media edited or embedding recomputation during recovery.'},null,2));
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,second,scoped,denied,restored,baseline,recovered,narrow,changedBoth,staleReadsRefused:true,thumbnailChangeRefusedAndRestored:true,matchingAliasRecoveredIdenticalSearch:true,scope:'Generated local MP4s only; generated thumbnail changed then restored, moved source and matching alias deliberately changed to test refusal. No user media edited or embedding recomputation during recovery.'},null,2));
   console.log(JSON.stringify({passed:true,scopedDiscovery:true,movedSourceRestored:true,evidence:path.join(root,'evidence.json')}));
 }finally{await client.close();}

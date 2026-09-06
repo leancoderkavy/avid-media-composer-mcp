@@ -138,3 +138,20 @@ it("refuses stale visual reads and recovers only through an authorized matching 
   await expect(new VisualSearch({...config,allowedRoots:[source]}).samples(index.indexId)).rejects.toThrow('Source changed');
   await writeFile(alias,'also changed');await expect(visual.samples(index.indexId)).rejects.toThrow('Source changed');
 });
+
+it("binds new thumbnails to embeddings and labels legacy indexes without blessing missing hashes",async()=>{
+  const {visual,id,directory}=await fixture(),index=await visual.index([id],1);
+  const file=path.join(directory,`visual-${index.indexId}.json`),record=JSON.parse(await readFile(file,'utf8'));
+  expect(record.schemaVersion).toBe(2);expect(record.samples[0].imageSha256).toMatch(/^[a-f0-9]{64}$/);
+  expect((await visual.samples(index.indexId)).samples[0]).toMatchObject({thumbnailIntegrity:'sha256_verified'});
+  model.tokenizer.mockResolvedValue({input_ids:{dims:[1,3]}});model.text.mockResolvedValue({text_embeds:{data:Array(512).fill(0.5)}});
+  const image=record.samples[0].image,bytes=await readFile(image);await writeFile(image,'modified thumbnail');
+  await expect(visual.samples(index.indexId)).rejects.toThrow('thumbnail changed');
+  await expect(visual.search(index.indexId,{text:'scene'},2)).rejects.toThrow('thumbnail changed');
+  await writeFile(image,bytes);
+  delete record.samples[0].imageSha256;await writeFile(file,JSON.stringify(record));
+  await expect(visual.samples(index.indexId)).rejects.toThrow();
+  delete record.schemaVersion;await writeFile(file,JSON.stringify(record));
+  expect((await visual.samples(index.indexId)).samples[0]).toMatchObject({thumbnailIntegrity:'unverified_legacy'});
+  expect((await visual.checkpoints.status(index.runId)).state).toBe('completed');
+});
