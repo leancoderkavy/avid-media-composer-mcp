@@ -102,13 +102,14 @@ export class AnalysisJobs {
     this.checkpoint(job);
     const child=spawn(process.execPath,[fileURLToPath(new URL("./worker.js",import.meta.url))],{stdio:["pipe","pipe","pipe"],windowsHide:true,shell:false,env:{...process.env,POSTHOG_API_KEY:""}});
     job.child=child;
-    let output="",error="",settled=false;
+    const output:Buffer[]=[];
+    let error="",settled=false;
     const timer=setTimeout(()=>this.cancel(job.id,"timeout"),15*60_000);timer.unref();
     const finish=(failure?:string)=>{
       if(settled)return;settled=true;clearTimeout(timer);
       if(job.status==="cancelling")job.status="cancelled";
       else if(job.status!=="cancelled"){
-        try{if(failure)throw new Error(failure);job.result=JSON.parse(output);job.status="completed";}
+        try{if(failure)throw new Error(failure);job.result=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(Buffer.concat(output)));job.status="completed";}
         catch(e){job.error=(e as Error).message;job.status="failed";}
       }
       delete job.child;this.checkpoint(job);this.active--;this.pump();
@@ -118,7 +119,7 @@ export class AnalysisJobs {
       if(job.status==="cancelling"||job.status==="cancelled")return;
       outputBytes+=Buffer.byteLength(chunk);
       if(outputBytes>2*1024*1024){job.error="Worker output exceeded 2 MiB; cancellation requested";this.cancel(job.id,"output_limit");return;}
-      output+=chunk.toString();
+      output.push(Buffer.from(chunk));
     });
     child.stderr.on("data",chunk=>{error=(error+chunk.toString()).slice(-4096);});
     child.on("error",e=>{

@@ -11,10 +11,10 @@ import {SpeechAnalysis} from "./speech.js";
 import {People} from "./people.js";
 import {jobSchema} from "./jobs.js";
 import type {ServerConfig} from "../config.js";
-let input="";
-for await(const chunk of process.stdin){input+=chunk.toString();if(input.length>1024*1024)throw new Error("Worker input exceeds limit");}
+const input:Buffer[]=[];let inputBytes=0;
+for await(const chunk of process.stdin){inputBytes+=chunk.length;if(inputBytes>1024*1024)throw new Error("Worker input exceeds limit");input.push(Buffer.from(chunk));}
 try{
-  const payload=JSON.parse(input);
+  const payload=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(Buffer.concat(input)));
   const config:ServerConfig={...payload.config,capabilities:new Set(payload.config.capabilities)};
   const spec=jobSchema.parse(payload.spec);
   const library=new MediaLibrary(config);

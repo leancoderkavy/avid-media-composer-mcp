@@ -14,6 +14,16 @@ vi.mock("node:child_process",()=>({spawn:vi.fn((command:string)=>{
 })}));
 beforeEach(()=>{state.workers=[];state.terminate.mockReset().mockResolvedValue({method:"windows-taskkill",succeeded:true});});
 async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-worker-"));return new AnalysisJobs(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"}));}
+it('preserves Unicode result text split across every UTF-8 byte',async()=>{
+ const jobs=await fixture(),job=await jobs.start({kind:'index',files:['fixture.mp4']}),result={name:'Café 東京 🎬',text:'naïve résumé'};
+ for(const byte of Buffer.from(JSON.stringify(result)))state.workers[0].stdout.emit('data',Buffer.from([byte]));state.workers[0].emit('close',0,null);
+ expect(await jobs.readStatus(job.id)).toMatchObject({status:'completed',result});expect(await jobs.journal.read(job.id)).toMatchObject({result});jobs.close();
+});
+it('rejects malformed UTF-8 instead of publishing replacement characters',async()=>{
+ const jobs=await fixture(),job=await jobs.start({kind:'index',files:['fixture.mp4']});
+ state.workers[0].stdout.emit('data',Buffer.concat([Buffer.from('{"name":"'),Buffer.from([0xc3]),Buffer.from('"}')]));state.workers[0].emit('close',0,null);
+ const record=await jobs.readStatus(job.id);expect(record.status).toBe('failed');expect(record.result).toBeUndefined();jobs.close();
+});
 it.each([[9,null],[null,'SIGKILL']] as const)('persists unexpected worker exit %s/%s and advances the queue',async(code,signal)=>{
  const jobs=await fixture(),first=await jobs.start({kind:'index',files:['first.mp4']}),next=await jobs.start({kind:'index',files:['next.mp4']});
  state.workers[0].stdout.emit('data',Buffer.from('{"partial":true}'));state.workers[0].emit('close',code,signal);

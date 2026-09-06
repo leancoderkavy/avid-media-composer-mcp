@@ -1,5 +1,9 @@
 # Analysis job recovery
 
+Worker requests and results are decoded from complete bounded UTF-8 byte buffers. A character split across pipe chunks stays intact; malformed UTF-8 fails instead of silently inserting replacement characters into a successful result. Worker input is limited to 1 MiB of bytes and output to 2 MiB. Cancellation and nonzero-exit handling still take precedence over buffered output. This does not make arbitrary encodings acceptable.
+
+The pre-fix tests reproduced both split-character corruption and acceptance of malformed output (`.avid-mcp-analysis/job-utf8-before.log`). A real Unicode-named copy of the Sonoma MP4 then passed byte-fragmented worker stdin, normal job execution and journal reconnect. Malformed and oversized direct input were refused; original/copy hashes stayed unchanged. Evidence: `.avid-mcp-analysis/worker-unicode-6b16484d-9a47-4603-8e7b-9a0ed7a1d545/evidence.json`. Unit tests force every output byte boundary; live pipe output chunking is OS-controlled. No transcript/model accuracy claim follows from this encoding test.
+
 Use `avid_analysis_job_status` and `avid_analysis_job_history` to inspect persisted job records after reconnect. Unfinished records from another server session report `status: unresolved`, their original `recordedStatus`, and `automaticReplay: false`. This means completion is unknown; it does not prove an old worker has stopped. No failed or unresolved computation is automatically replayed.
 
 When a worker closes while its server remains alive, the job records `workerExit: {code, signal}`. A nonzero exit or signal is a failure, even if stdout contained parseable partial JSON. Signal failures include a readable signal reason when no stderr is available. A zero exit still requires a parseable result; it is not sufficient by itself. Cancellation retains its cancellation state. Old records and failures before a process starts can lack `workerExit`; absence is not an exit code of zero.

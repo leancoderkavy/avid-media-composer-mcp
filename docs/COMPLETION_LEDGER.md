@@ -1,5 +1,13 @@
 # Completion ledger
 
+### UTF-8 worker request/result integrity
+
+Pre-fix tests demonstrated corrupted multi-byte result strings split across chunks and malformed UTF-8 accepted as completed JSON. Workers and their parent now decode complete byte-bounded buffers with fatal UTF-8 validation. Input is capped at 1 MiB of bytes and output remains capped at 2 MiB. Cancellation and exit failure continue to prevent result publication. Regression evidence: `job-utf8-before.log`; focused tests passed after the fix.
+
+Actual indexing of a Unicode-named Sonoma MP4 copy passed one-byte fragmented worker stdin, invalid/oversized input refusal, normal job execution and persisted result equality after reconnect. Original and copied media hashes were unchanged. Evidence: `.avid-mcp-analysis/worker-unicode-6b16484d-9a47-4603-8e7b-9a0ed7a1d545/evidence.json`. The first harness run used the wrong result property (`path` rather than `file`); correcting that harness assertion produced this successful run. This is encoding/transport evidence, not model accuracy or arbitrary encoding support.
+
+Full check passed: 685 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-worker-utf8.log`). Full-plan host/client, quality, recovery and release requirements remain open.
+
 ### Persisted cancellation reasons
 
 Analysis jobs now distinguish explicit user cancellation, the 15-minute timeout, output-limit cancellation and server shutdown through `cancellationReason`. The first reason persists through closure and journal reconnect. Regression tests confirm a late successful exit cannot turn a cancelled job into completion or expose its buffered result; timeout, shutdown and output-limit paths retain their distinct reasons. Historical records remain readable without inferring a reason.
