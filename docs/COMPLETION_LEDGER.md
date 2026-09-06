@@ -415,3 +415,7 @@ Full validation checkpoint: `npm run check` passed with 420 TypeScript tests, 32
 ### Windows EDL prior-file alias correction
 
 CI run 34011349873 exposed a preexisting-output comparison failure on Windows Node 20/24: lexical prior paths can differ from `realpath` output through a parent alias. Output verification now resolves every prior entry within the authorized export directory before comparison and refuses missing or out-of-scope prior entries. A junction/symlink parent regression covers this independently of runner-specific short paths. Targeted native/EDL tests: 35 passed; typecheck passed. This does not establish atomic filesystem identity or prevent native writes before post-verification.
+
+### Native bin selection discovery
+
+Read-only research `scripts/research/qualify-native-selection.mjs` queried the qualified Sonoma bin with `GetListOfBinItems` and `only_selected_flag:true`, bracketed by project checks. The full bin returned two members; selected filtering returned only `MCP_Sonoma_AAF_Selects`, with `mob_selected:true` and a matching bin MOB ID. Evidence: `.avid-mcp-analysis/native-selection-4b2ad5b8-e677-4a94-86e2-25b9b1357433/evidence.json`. This is actual native response evidence, not a visible-selection comparison or production selected-clips tool. Empty/multiple selection, membership changes, and UI comparison remain to qualify.
