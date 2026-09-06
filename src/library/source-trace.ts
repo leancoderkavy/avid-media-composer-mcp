@@ -31,7 +31,8 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
    const sourceStart=node.sourceStart+a-node.timelineStart,sourceEnd=sourceStart+b-a;
    let candidates=bin.mobs.filter(m=>m.mobId===node.sourceMobId).map(mob=>({bin,mob}));
    if(!candidates.length)candidates=bins.flatMap(bin=>bin.mobs.filter(m=>m.mobId===node.sourceMobId).map(mob=>({bin,mob})));
-   emit({...step,sourceMobId:node.sourceMobId,sourceTrackId:node.sourceTrackId,sourceStart,sourceEnd,status:candidates.length===1?"reference":candidates.length?"ambiguous":"unresolved"});
+   const targetRate=candidates.length===1?candidates[0]!.mob.rate:null;
+   emit({...step,sourceMobId:node.sourceMobId,sourceTrackId:node.sourceTrackId,sourceStart,sourceEnd,originRate:mob.rate,targetRate,sourceRangeBasis:targetRate===mob.rate?"equal-rate-offsets":"unconverted-offsets",status:candidates.length===1?"reference":candidates.length?"ambiguous":"unresolved"});
    if(candidates.length!==1){incomplete=true;continue;}
    const target=candidates[0]!;
    if(target.mob.rate!==mob.rate){stop("mixed_rate",{...step,sourceMobId:target.mob.mobId,sourceBin:target.bin.file,originRate:mob.rate,targetRate:target.mob.rate,sourceRangeConverted:false});continue;}

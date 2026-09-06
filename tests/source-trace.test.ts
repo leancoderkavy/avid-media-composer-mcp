@@ -3,7 +3,7 @@ import {traceSavedSources} from "../src/library/source-trace.js";
 const mob=(mobId:string,sourceMobId:string,offset=0)=>({mobId,rate:30,duration:200,sourceBounds:{start:0,end:200},tracks:[{index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:200,sourceMobId,sourceTrackId:1,sourceStart:offset}]}]});
 it("maps clipped ranges through equal-rate sources and reports unresolved endpoints",()=>{
  const a=mob("a","b",20),b=mob("b","external",30),bin={file:"fixture",mobs:[a,b]};const result=traceSavedSources([bin],{bin,mob:a},10,20);
- expect(result.steps).toMatchObject([{sourceStart:30,sourceEnd:40,status:"reference"},{sourceStart:60,sourceEnd:70,status:"unresolved"}]);expect(result.incomplete).toBe(true);
+ expect(result.steps).toMatchObject([{sourceStart:30,sourceEnd:40,status:"reference",originRate:30,targetRate:30,sourceRangeBasis:"equal-rate-offsets"},{sourceStart:60,sourceEnd:70,status:"unresolved",originRate:30,targetRate:null,sourceRangeBasis:"unconverted-offsets"}]);expect(result.incomplete).toBe(true);
 });
 it("stops at cycles, mixed rates, depth limits and invalid ranges",()=>{
  const a=mob("a","b"),b=mob("b","a"),bin={file:"fixture",mobs:[a,b]};
@@ -42,6 +42,7 @@ it("locates gaps and mixed-rate stops within the affected clipped range",()=>{
  const bin={file:"fixture",mobs:[a,b]},result=traceSavedSources([bin],{bin,mob:a},5,30);
  expect(result.steps.filter(s=>s.status==="uncovered_range")).toMatchObject([{start:5,end:10},{start:20,end:30}]);
  expect(result.steps.find(s=>s.status==="mixed_rate")).toMatchObject({start:10,end:20,originRate:30,targetRate:25,sourceRangeConverted:false,sourceMobId:"b",sourceBin:"fixture"});
+ expect(result.steps.find(s=>s.status==="reference")).toMatchObject({sourceRangeBasis:"unconverted-offsets",originRate:30,targetRate:25});
  expect(result.steps.some(s=>s.depth===1)).toBe(false);
 });
 it("traces both qualified stereo channels independently across clipped cuts",()=>{

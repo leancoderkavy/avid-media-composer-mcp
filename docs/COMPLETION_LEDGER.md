@@ -654,3 +654,7 @@ Full `npm run check` passed on source commit `64e1bde`: 486 TypeScript tests acr
 ### Source-trace diagnostic ranges
 
 Gap, overlap and affected-component stopping diagnostics now identify their clipped interval instead of reporting the whole query. Mixed-rate stops include both rates and source identity/bin with sourceRangeConverted:false; traversal remains stopped and no conversion claim is made. Build and 13 source-trace tests passed, including separate leading/trailing gaps around a mixed-rate node. The real saved Sonoma MCP harness passed with three source-resolution pages and 24 reference/unresolved steps (`source-resolution-mcp-26271672-13c5-4271-808d-e63204570dbb`). Mixed-rate conversion still requires independent semantics and host qualification.
+
+### Source coordinate interpretation on reference steps
+
+Reference records now include origin/target rates and sourceRangeBasis directly alongside numeric offsets. Mixed-rate and unknown-target offsets are labeled unconverted-offsets; a unique equal-rate target uses equal-rate-offsets. This prevents requiring callers to infer coordinate interpretation from a later stopping diagnostic. Existing fields remain available; no mixed-rate conversion or terminal-media qualification is claimed. Build, 13 focused tests and the real 24-step Sonoma MCP trace passed (`source-resolution-mcp-5574b140-8579-4968-a70e-0704b2d33318`).
