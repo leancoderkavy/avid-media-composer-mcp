@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Gapped video and H.264 B-picture timing qualification
+
+Expanded `qualify-video-timing.mjs` from four to eight actual MCP/save-read cases, covering regular/duplicate/gapped FFV1 and independently confirmed H.264 B pictures at zero/nonzero range starts. Expected statistics derive from FFprobe decoded frame PTS and each stream's recorded rational time base. All cases passed and source hashes stayed unchanged. The gapped fixture had a 266-tick maximum step at 1/1000; B-picture media had constant 512-tick steps at 1/15360 without backward presentation steps. Evidence: `.avid-mcp-analysis/video-timing-d67650a4-0839-40ed-b338-829dc884896c/evidence.json`. Initial gap generation failed because a filter-expression comma needed quoting; corrected generation and all assertions passed. Build and syntax checks passed; production code was unchanged and the full suite was not rerun. This extends discontinuity/codec coverage without claiming missing-frame counts, perceptual sync, general malformed-stream acceptance or full completion.
+
 ### Explicit decoded video timestamp accounting
 
 Full local check passed: 588 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-video-timing.log`). Entire Sonoma PTS accounting also matched independent FFprobe and saved readback: 5,725 frames, 1/15360 time base, constant 512-tick steps, zero duplicate/backward steps; evidence `sonoma-full-qc-2838dbfb-5a3c-4fc6-8ef7-278f4d77ec3c` under `.avid-mcp-analysis`, original hash unchanged.
