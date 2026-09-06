@@ -54,6 +54,9 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
     if(mode==="large"){res.end(JSON.stringify({data:"x".repeat(2000)}));return;}
     if(req.url==="/api/v1/health"){healthKey=req.headers["x-license-key"];res.end('{"status":"ok"}');return;}
     posted=JSON.parse(body);expect(req.headers["x-license-key"]).toBe("test-license-secret");
+    if(req.url==="/api/v1/search/transcript"){
+      res.end(JSON.stringify({matches:[{...(mode==="unresolved"?{}:{media_path:mode==="scope"?other:file}),hash_str:"crc",start_seconds:2,end_seconds:mode==="reversed"?1:3,text:"hello world",start_timestamp:"00:00:02",end_timestamp:"00:00:03",speaker:"SPEAKER_00",speaker_name:"Anna",license_key:"test-license-secret"}]}));return;
+    }
     res.end(JSON.stringify({matches:[{frame_idx:"2",timestamp:"00:00:02",scene_start_timestamp:"00:00:01",scene_end_timestamp:"00:00:03",original_index:0,hash_str:"crc",video_path:mode==="scope"?other:file,image:"private-image",license_key:"test-license-secret"}]}));
   });
   await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -64,6 +67,12 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
     expect(await client.health()).toMatchObject({status:"ok",runtimeVersionVerified:false});expect(healthKey).toBeUndefined();
     const result=await search();expect(result.matches).toHaveLength(1);expect(JSON.stringify(result)).not.toMatch(/private-image|test-license-secret/);
     expect(posted).toMatchObject({search_all:false,max_results:1,media_paths:[await realpath(file)]});
+    const transcript=()=>client.searchTranscript({query:"hello",cacheDirectory:root,mediaPaths:[file],limit:1,speaker:"Anna"});
+    const spoken=await transcript();expect(spoken.matches[0]).toMatchObject({text:"hello world",start_seconds:2,end_seconds:3});
+    expect(JSON.stringify(spoken)).not.toContain("test-license-secret");expect(posted).toMatchObject({search_all:false,speaker:"Anna"});
+    mode="unresolved";await expect(transcript()).rejects.toMatchObject({code:"JUMPER_SCHEMA"});
+    mode="reversed";await expect(transcript()).rejects.toMatchObject({code:"JUMPER_SCHEMA"});
+    mode="scope";await expect(transcript()).rejects.toMatchObject({code:"JUMPER_SCOPE"});mode="normal";
     const before=requests;await expect(client.searchText({query:"scene",cacheDirectory:root,mediaPaths:[],limit:1})).rejects.toThrow();expect(requests).toBe(before);
     mode="scope";await expect(search()).rejects.toMatchObject({code:"JUMPER_SCOPE"});
     mode="large";await expect(search()).rejects.toMatchObject({code:"JUMPER_SIZE"});

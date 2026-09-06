@@ -10,6 +10,7 @@ const matchSchema=z.object({
   original_index:z.number().int().nonnegative(),hash_str:z.string().max(256),video_path:z.string().max(32768),
 });
 const responseSchema=z.object({matches:z.array(matchSchema).max(100)});
+const transcriptSchema=z.object({matches:z.array(z.object({media_path:z.string().min(1).max(32768),hash_str:z.string().max(256),start_seconds:z.number().nonnegative(),end_seconds:z.number().nonnegative(),text:z.string().max(65536),start_timestamp:z.string().max(32),end_timestamp:z.string().max(32),speaker:z.string().max(256).optional(),speaker_name:z.string().max(256).optional(),speakers:z.array(z.string().max(256)).max(100).optional()}).refine(match=>match.end_seconds>match.start_seconds)).max(100)});
 const fail=(code:string,message:string)=>new AvidMcpError(`JUMPER_${code}`,message);
 interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number;owner?:{binary:string;sha256:string;identity:string}}
 const pairingSchema=z.object({binary:z.string().refine(path.isAbsolute),sha256:z.string().regex(/^[a-f0-9]{64}$/),identity:z.string().regex(/^[1-9]\d*:.+$/).max(128)}).strict();
@@ -38,7 +39,7 @@ export class JumperReadClient {
     this.base=base.href;
     this.options=Object.freeze({...options,allowedRoots:Object.freeze([...options.allowedRoots]),...(options.owner?{owner:Object.freeze({...options.owner})}:{})});
   }
-  private async request(endpoint:"/health"|"/search/text",body?:unknown):Promise<unknown>{
+  private async request(endpoint:"/health"|"/search/text"|"/search/transcript",body?:unknown):Promise<unknown>{
     if(this.options.owner){
       const url=new URL(this.base);
       await verifyWindowsLoopbackOwner({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",binary:this.options.owner.binary,sha256:this.options.owner.sha256,expectedIdentity:this.options.owner.identity});
@@ -66,6 +67,20 @@ export class JumperReadClient {
     const result=z.object({status:z.literal("ok")}).safeParse(await this.request("/health"));
     if(!result.success)throw fail("SCHEMA","Provider health response does not match the public contract");
     return {status:result.data.status,provider:"jumper",runtimeVersionVerified:false};
+  }
+  async searchTranscript(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number;speaker?:string}){
+    const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50),speaker:z.string().trim().min(1).max(256).optional()}).parse(input);
+    const cache=await resolveReadablePath(args.cacheDirectory,this.options.allowedRoots,"directory");
+    const media=[...new Set(await Promise.all(args.mediaPaths.map(file=>resolveReadablePath(file,this.options.allowedRoots,"file"))))];
+    const parsed=transcriptSchema.safeParse(await this.request("/search/transcript",{query:args.query,cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false,...(args.speaker?{speaker:args.speaker}:{})}));
+    if(!parsed.success||parsed.data.matches.length>args.limit)throw fail("SCHEMA","Provider transcript response has unresolved paths or invalid bounded segments");
+    const matches=[];
+    for(const match of parsed.data.matches){
+      const file=await resolveReadablePath(match.media_path,this.options.allowedRoots,"file");
+      if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
+      matches.push({...match,media_path:file});
+    }
+    return {provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false};
   }
   async searchText(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
     const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).parse(input);
