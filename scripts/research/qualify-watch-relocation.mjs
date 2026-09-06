@@ -1,0 +1,30 @@
+import {mkdir,copyFile,rename,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {MediaLibrary} from '../../dist/library/media-library.js';
+import {loadConfig} from '../../dist/config.js';
+const root=path.resolve('.avid-mcp-analysis',`watch-relocation-${randomUUID()}`),original=path.join(root,'incoming'),moved=path.join(root,'relocated'),offline=path.join(root,'offline-copy');await mkdir(original,{recursive:true});
+for(const target of [original,moved,offline])assert.ok(path.isAbsolute(target)&&path.dirname(target)===root);
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id='3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca';assert.equal(await sha256File(source),id);await copyFile(source,path.join(original,'clip.mp4'),1);
+const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,project-write'});
+const connect=async()=>{const client=new Client({name:'watch-relocation',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,project-write'}}));return client;};
+let client=await connect();const events=[];
+const call=async(name,args)=>{const response=await client.callTool({name,arguments:args});events.push({name,args,response});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+try{
+ const watch=await call('avid_configure_watch_folder',{options:{folder:original}});assert.ok(watch.scope);
+ assert.equal((await call('avid_scan_watch_folder',{watchId:watch.id})).pending,1);assert.equal((await call('avid_scan_watch_folder',{watchId:watch.id})).indexed[0].id,id);
+ await rename(original,moved);await client.close();client=await connect();
+ const unavailable=await call('avid_list_watch_folders',{});assert.equal(unavailable.find(row=>row.id===watch.id).unavailable,true);
+ const replaced=await call('avid_configure_watch_folder',{watchId:watch.id,options:{folder:moved}});assert.equal(replaced.id,watch.id);assert.deepEqual(replaced.observations,{});
+ const pending=await call('avid_scan_watch_folder',{watchId:watch.id});assert.equal(pending.pending,1);assert.deepEqual(pending.indexed,[]);
+ const indexed=await call('avid_scan_watch_folder',{watchId:watch.id});assert.equal(indexed.indexed.length,1);assert.equal(indexed.indexed[0].id,id);
+ const metadata=await new MediaLibrary(config).validatedMetadata(id);assert.equal(metadata.file,path.join(moved,'clip.mp4'));
+ await rename(moved,offline);await client.close();client=await connect();
+ const removed=await call('avid_remove_watch_folder',{watchId:watch.id});assert.equal(removed.removed,true);assert.equal(removed.mediaDeleted,false);assert.deepEqual(await call('avid_list_watch_folders',{}),[]);
+ assert.equal(await sha256File(source),id);assert.equal(await sha256File(path.join(offline,'clip.mp4')),id);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({watchId:watch.id,unavailable,replaced,pending,indexed,removed,sourceAndCopyUnchanged:true,scope:'Real copied Sonoma MP4: moved folder, explicit same-scope watch replacement after reconnect, two stable scans, checksum alias resolution and offline watch removal. Original media never moved. No automatic relink, changed-scope or stale-lock recovery.'},null,2),{flag:'wx'});console.log(JSON.stringify({root,passed:true}));
+}finally{await client.close();}

@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+Unavailable watch folders can now be explicitly replaced or removed under their original configured path scope. Replacement resets stability observations; actual MCP relocation of a Sonoma copy passed reconnect, two scans, checksum alias resolution and offline configuration removal without media deletion. Legacy/changed-scope records and stale locks remain guarded. See [watch recovery](WATCH_FOLDER_RECOVERY.md).
+
 Worker JSON now preserves UTF-8 across pipe chunks and rejects malformed encoding. Pre-fix tests reproduced corrupted result text; an actual Unicode-named Sonoma copy passed fragmented input, job execution and journal reconnect with original/copy hashes unchanged. Byte limits remain enforced. See [worker encoding and recovery](ANALYSIS_JOB_RECOVERY.md).
 
 Job journals now retain distinct cancellation reasons for user requests, timeout, output limits and shutdown. Actual Sonoma worker cancellation retained its reason, exit details and no result after reconnect, with source hashes unchanged. Late successful exits cannot override cancellation. See [job recovery](ANALYSIS_JOB_RECOVERY.md).
@@ -104,7 +106,7 @@ The optional licensed Jumper provider has a [bounded loopback health, text/image
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 685 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-worker-utf8.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 140 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 688 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-watch-relocation.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 140 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
 

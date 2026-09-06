@@ -15,6 +15,24 @@ async function fixture(){
 }
 afterEach(()=>vi.restoreAllMocks());
 describe("watch checkpointing",()=>{
+  it('repoints an unavailable watch within its original scope and resets stability',async()=>{
+    const {root,folder,config}=await fixture(),scoped={...config,allowedRoots:[root]},service=new WatchFolders(scoped),watch=await service.configure({folder});
+    await service.scan(watch.id);const moved=path.join(root,'relocated');await rename(folder,moved);
+    await expect(service.scan(watch.id)).rejects.toThrow();expect(await service.list()).toEqual([expect.objectContaining({id:watch.id,unavailable:true})]);
+    const updated=await new WatchFolders(scoped).configure({folder:moved},watch.id);expect(updated.id).toBe(watch.id);expect(updated.observations).toEqual({});
+    expect(await service.scan(watch.id)).toMatchObject({pending:1,indexed:[]});expect(await readFile(path.join(moved,'test.mp4'),'utf8')).toBe('fixture');
+  });
+  it('removes an unavailable scoped watch without removing media',async()=>{
+    const {root,folder,config}=await fixture(),service=new WatchFolders(config),watch=await service.configure({folder}),moved=path.join(root,'relocated');await rename(folder,moved);
+    expect(await new WatchFolders(config).remove(watch.id)).toMatchObject({removed:true,mediaDeleted:false});expect(await readFile(path.join(moved,'test.mp4'),'utf8')).toBe('fixture');
+  });
+  it('does not bypass changed scopes or legacy unavailable-watch checks',async()=>{
+    const {root,folder,config}=await fixture(),service=new WatchFolders(config),watch=await service.configure({folder}),moved=path.join(root,'relocated');await rename(folder,moved);
+    await expect(new WatchFolders({...config,allowedRoots:[root]}).configure({folder:moved},watch.id)).rejects.toThrow();
+    await expect(new WatchFolders({...config,allowedRoots:[root]}).remove(watch.id)).rejects.toThrow();
+    const file=path.join(root,'avid-mcp-library','watches',watch.id+'.json'),record=JSON.parse(await readFile(file,'utf8'));delete record.scope;await writeFile(file,JSON.stringify(record));
+    await expect(service.remove(watch.id)).rejects.toThrow();
+  });
   it("waits for stability, avoids duplicate indexing after restart, and rediscovers changes",async()=>{
     const {config,folder,file}=await fixture();
     const index=vi.spyOn(MediaLibrary.prototype,"index").mockImplementation(async files=>({entries:[{id:"a".repeat(64),file:files[0]!,duration:"10",streams:[]}],sourceModified:false}));

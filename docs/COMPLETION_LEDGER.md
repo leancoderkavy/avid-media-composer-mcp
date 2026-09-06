@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Explicit recovery of unavailable watch folders
+
+New watch manifests retain a normalized allowed-root fingerprint. Reconfiguration/removal can tolerate an unavailable old folder only when that fingerprint matches the current scope; new targets still require normal current-root validation. Scanning still refuses unavailable folders, and replacement resets observations. Changed scopes, legacy unavailable records and stale locks are not bypassed.
+
+Actual MCP qualification moved only an owned Sonoma MP4 copy's folder, reconnected, observed unavailability, explicitly replaced the watch and required two stable scans before indexing. The checksum alias resolved to the relocated copy. A second move tested removing the unavailable watch without media deletion. Both original and copied source hashes remained unchanged: `.avid-mcp-analysis/watch-relocation-a9b9b8d2-4be2-45ed-8a80-3d7b86b71d5a/evidence.json`. See [watch recovery](WATCH_FOLDER_RECOVERY.md). No automatic media move/relink or general shared-storage recovery is claimed.
+
+Full check passed: 688 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-relocation.log`). Full-plan acceptance remains open.
+
 ### UTF-8 worker request/result integrity
 
 Pre-fix tests demonstrated corrupted multi-byte result strings split across chunks and malformed UTF-8 accepted as completed JSON. Workers and their parent now decode complete byte-bounded buffers with fatal UTF-8 validation. Input is capped at 1 MiB of bytes and output remains capped at 2 MiB. Cancellation and exit failure continue to prevent result publication. Regression evidence: `job-utf8-before.log`; focused tests passed after the fix.

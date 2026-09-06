@@ -1,6 +1,7 @@
 import {mkdir, open, readFile, readdir, rename, stat, unlink, writeFile} from "node:fs/promises";
 import path from "node:path";
-import {randomUUID} from "node:crypto";
+import {createHash,randomUUID} from "node:crypto";
+import {AvidMcpError} from "../errors.js";
 import * as z from "zod/v4";
 import type {ServerConfig} from "../config.js";
 import {requireCapability} from "../security/capabilities.js";
@@ -10,7 +11,7 @@ import {readBoundedJson} from "../security/bounded-read.js";
 
 export const watchOptions=z.object({folder:z.string().min(1),depth:z.number().int().min(0).max(8).default(2),maxFiles:z.number().int().min(1).max(1000).default(100),enabled:z.boolean().default(true)}).strict();
 const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.string().optional(),error:z.string().optional()});
-const watchRecord=z.object({id:z.string().uuid(),options:watchOptions,observations:z.record(z.string(),observation),scannedAt:z.string().optional()});
+const watchRecord=z.object({id:z.string().uuid(),options:watchOptions,observations:z.record(z.string(),observation),scannedAt:z.string().optional(),scope:z.string().regex(/^[a-f0-9]{64}$/).optional()});
 type Watch=z.infer<typeof watchRecord>;
 const extensions=new Set([".mp4",".mov",".mxf",".wav",".mp3",".mkv",".avi",".aiff",".flac"]);
 
@@ -20,14 +21,16 @@ export class WatchFolders {
   private pending:Promise<unknown>|undefined;
   private lastError:string|undefined;
   private library:MediaLibrary;
-  constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  private readonly scope:string;
+  constructor(private config:ServerConfig){this.library=new MediaLibrary(config);this.scope=createHash("sha256").update(JSON.stringify([...new Set(config.allowedRoots.map(root=>{const resolved=path.resolve(root);return process.platform==="win32"?resolved.toLowerCase():resolved;}))].sort())).digest("hex");}
   private async directory(){const library=await this.library.directory();const directory=path.join(library,"watches");await mkdir(directory,{recursive:true});return resolveReadablePath(directory,[library],"directory");}
-  private async read(id:string){
+  private async read(id:string,allowUnavailable=false){
     z.string().uuid().parse(id);const directory=await this.directory();
     const file=await resolveReadablePath(path.join(directory,`${id}.json`),[directory],"file");
     const record=watchRecord.parse(await readBoundedJson(file,4*1024*1024));
     if(record.id!==id)throw new Error("Watch identity mismatch");
-    await resolveReadablePath(record.options.folder,this.config.allowedRoots,"directory");
+    try{await resolveReadablePath(record.options.folder,this.config.allowedRoots,"directory");}
+    catch(error){if(!allowUnavailable||record.scope!==this.scope||!(error instanceof AvidMcpError)||error.code!=="PATH_NOT_FOUND")throw error;}
     return record;
   }
   private async locked<T>(id:string,fn:()=>Promise<T>){
@@ -48,8 +51,8 @@ export class WatchFolders {
     parsed.folder=await resolveReadablePath(parsed.folder,this.config.allowedRoots,"directory");
     const watchId=id??randomUUID();
     return this.locked(watchId,async()=>{
-      if(id)await this.read(id);
-      const record={id:watchId,options:parsed,observations:{}};
+      if(id)await this.read(id,true);
+      const record={id:watchId,options:parsed,observations:{},scope:this.scope};
       await this.save(record);return record;
     });
   }
@@ -66,7 +69,7 @@ export class WatchFolders {
   }
   async remove(id:string){
     requireCapability(this.config.capabilities,"project-write");
-    return this.locked(id,async()=>{await this.read(id);await unlink(path.join(await this.directory(),`${id}.json`));return {id,removed:true,mediaDeleted:false};});
+    return this.locked(id,async()=>{await this.read(id,true);await unlink(path.join(await this.directory(),`${id}.json`));return {id,removed:true,mediaDeleted:false};});
   }
   async scan(id:string){
     requireCapability(this.config.capabilities,"project-write");
