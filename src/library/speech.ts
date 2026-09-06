@@ -18,7 +18,7 @@ import {readBoundedFile} from "../security/bounded-read.js";
 
 export const SPEECH_MODEL=speechModels["tiny.en"].model;
 export const SPEECH_REVISION=speechModels["tiny.en"].revision;
-export async function loadSpeechModel(cache:string,download=false,selection: "tiny.en"|"tiny"="tiny.en"){
+export async function loadSpeechModel(cache:string,download=false,selection:keyof typeof speechModels="tiny.en"){
   const selected=speechModels[speechModel.parse(selection)];
   if(download)await installModelNotice(cache,selected.model,selected.revision);
   const {pipeline}=await modelRuntime(cache,download);
@@ -31,12 +31,12 @@ export class SpeechAnalysis {
   constructor(private readonly config:ServerConfig){this.checkpoints=new SpeechCheckpoints(config);}
   async dispose(){await this.tail;await Promise.all([...this.models.values()].map(async pending=>(await pending).dispose()));this.models.clear();}
   detectLanguage(id:string,start:number,end:number){const operation=this.tail.then(()=>this.detect(id,start,end));this.tail=operation.catch(()=>{});return operation;}
-  private async candidates(samples:Float32Array){
+  private async candidates(samples:Float32Array,selection:"tiny"|"base"="tiny"){
     if(samples.some(value=>!Number.isFinite(value)))throw new Error("Nonfinite audio sample");
     if(samples.every(value=>value===0))return [];
     if(!this.config.modelDirectory)throw new Error("Speech model directory missing");
-    if(!this.models.has("tiny"))this.models.set("tiny",loadSpeechModel(this.config.modelDirectory,false,"tiny").catch(error=>{this.models.delete("tiny");throw error;}));
-    const model=await this.models.get("tiny")!,{Tensor}=await modelRuntime(this.config.modelDirectory),features=await model.processor(samples);
+    if(!this.models.has(selection))this.models.set(selection,loadSpeechModel(this.config.modelDirectory,false,selection).catch(error=>{this.models.delete(selection);throw error;}));
+    const model=await this.models.get(selection)!,{Tensor}=await modelRuntime(this.config.modelDirectory),features=await model.processor(samples);
     const generation=model.model.generation_config as {decoder_start_token_id?:number;lang_to_id?:unknown};
     if(!Number.isSafeInteger(generation.decoder_start_token_id)||generation.decoder_start_token_id!<0)throw new Error("Missing language decoder start token");
     const output=await model.model({input_features:features.input_features,decoder_input_ids:new Tensor("int64",BigInt64Array.from([BigInt(generation.decoder_start_token_id!)]),[1,1])});
@@ -90,7 +90,7 @@ export class SpeechAnalysis {
     let decision=previous?.record.languageDecision;
     if(!decision){
       if(selected.multilingual&&options.language==="auto"&&!previous){
-        const window=samples.slice(0,480000),candidates=await this.candidates(window);
+        const window=samples.slice(0,480000),candidates=await this.candidates(window,options.model==="base"?"base":"tiny");
         if(!candidates.length)throw new AvidMcpError("SPEECH_LANGUAGE_UNDETERMINED","The first language-detection window is digital silence; choose a speech range or an explicit language");
         decision=speechLanguageDecision.parse({language:candidates[0]!.language,selection:"model_candidate",candidates,analyzedSeconds:window.length/16000});
       }else decision=speechLanguageDecision.parse({language:options.language==="auto"?"en":options.language,selection:!selected.multilingual?"english_only_model":options.language==="auto"?"english_fallback":"explicit"});

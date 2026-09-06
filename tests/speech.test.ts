@@ -45,6 +45,15 @@ it("rejects unsupported model/language combinations before work and preserves ol
   expect(()=>jobSchema.parse({kind:"speech",id:"a".repeat(64),start:0,end:1,options:{model:"tiny.en",language:"es"}})).toThrow();
   const {config,id}=await fixture();await expect(new SpeechAnalysis(config).transcribe(id,0,1,{model:"tiny.en",language:"fr"})).rejects.toThrow();expect(mocks.pipeline).not.toHaveBeenCalled();
 });
+it("persists the base model and explicit language in completed speech checkpoints",async()=>{
+ const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
+ try{
+  const result=await speech.transcribe(id,10,11,{model:"base",language:"fr"});
+  expect(result).toMatchObject({model:speechModels.base.model,modelRevision:speechModels.base.revision,language:"fr"});
+  expect(await speech.checkpoints.status(result.runId)).toMatchObject({state:"completed",options:{model:"base",language:"fr"},completedWindows:1});
+  expect(mocks.pipeline).toHaveBeenCalledWith("automatic-speech-recognition",speechModels.base.model,expect.objectContaining({revision:speechModels.base.revision,local_files_only:true}));
+ }finally{await speech.dispose();}
+});
 it("rejects changed sources before inference",async()=>{
   const {config,id,source}=await fixture();await writeFile(source,"changed");await expect(new SpeechAnalysis(config).transcribe(id,0,1,{model:"tiny",language:"es"})).rejects.toThrow("changed");expect(mocks.pipeline).not.toHaveBeenCalled();
 });

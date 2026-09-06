@@ -7,6 +7,7 @@ import {resolveReadablePath} from "../security/path-policy.js";
 
 const notices:Record<string,{file:string;sha256:string}>={
  "Xenova/clip-vit-base-patch32":{file:"clip.LICENSE",sha256:"987e63b32f6c89ff5160e429458a872ff048e6860b590a3912e938f9da8f14db"},
+ "onnx-community/whisper-base":{file:"whisper.LICENSE",sha256:"b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d"},
  "onnx-community/whisper-tiny":{file:"whisper.LICENSE",sha256:"b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d"},
  "onnx-community/whisper-tiny.en":{file:"whisper.LICENSE",sha256:"b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d"},
  "onnx-community/Florence-2-base-ft":{file:"florence-2-base-ft.LICENSE",sha256:"c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"},

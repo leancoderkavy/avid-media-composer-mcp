@@ -150,6 +150,35 @@
         "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
       },
       "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
+    },
+    {
+      "model": "onnx-community/whisper-base",
+      "revision": "1846881b6b3a3024392c1eea3ad983695bc23925",
+      "metadataUrl": "https://huggingface.co/api/models/onnx-community/whisper-base/revision/1846881b6b3a3024392c1eea3ad983695bc23925",
+      "declaredLicense": null,
+      "notices": [
+        {
+          "file": "README.md",
+          "source": "https://huggingface.co/onnx-community/whisper-base/raw/1846881b6b3a3024392c1eea3ad983695bc23925/README.md",
+          "bytes": 531,
+          "sha256": "60a378018182c57cf382866ddfbf0fb2b4031b3895ae932aa34ecb8ff7065a13"
+        }
+      ],
+      "upstream": {
+        "model": "openai/whisper-base",
+        "observedRevision": "e37978b90ca9030d5170a5c07aadb050351a65bb",
+        "declaredLicense": "apache-2.0",
+        "notices": [
+          {
+            "file": "README.md",
+            "source": "https://huggingface.co/openai/whisper-base/raw/e37978b90ca9030d5170a5c07aadb050351a65bb/README.md",
+            "bytes": 19811,
+            "sha256": "72895b74a093b6a84ded3eecb5d9c8ebaa2d271d16d37ee0fb0115b6fe62c36c"
+          }
+        ],
+        "scope": "Current upstream revision observed during audit; conversion metadata does not identify its exact originating upstream revision"
+      },
+      "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
     }
   ]
 }

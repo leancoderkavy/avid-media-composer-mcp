@@ -1,6 +1,6 @@
 # Whisper base candidate qualification
 
-The original research harness `scripts/research/qualify-speech-base.mjs` compares the production tiny multilingual model with `onnx-community/whisper-base` at fixed revision `1846881b6b3a3024392c1eea3ad983695bc23925`, both q8. The candidate's [model card](https://huggingface.co/onnx-community/whisper-base) identifies `openai/whisper-base` as its source and provides ONNX weights for Transformers.js. The candidate remains research-only; production model selection is unchanged.
+The original research harness `scripts/research/qualify-speech-base.mjs` compares the production tiny multilingual model with `onnx-community/whisper-base` at fixed revision `1846881b6b3a3024392c1eea3ad983695bc23925`, both q8. The candidate's [model card](https://huggingface.co/onnx-community/whisper-base) identifies `openai/whisper-base` as its source and provides ONNX weights for Transformers.js. This began as a research-only candidate; subsequent optional production integration is recorded below.
 
 The harness explicitly permits setup/downloads for the candidate, reuses the retained original Mandarin voice fixture, decodes both inputs identically with the production audio argument builder, and records complete model output plus loading and inference duration. It checks the source checksum before and after. It requires the existing retained fixture and configured local runtime/cache, so it is not a portable clean-machine benchmark.
 
@@ -22,6 +22,12 @@ Evidence: `.avid-mcp-analysis/speech-base-comparison-0e31cb02-5726-409e-8a20-b4a
 | Clean | 0/58 | 1/58 | 1364 ms | 1926 ms |
 | Pink-noise mix | 0/58 | 1/58 | 1354 ms | 1822 ms |
 
-Base substituted `closed shot` for the reference `close shot` in both conditions; tiny matched the normalized reference. The outputs and source hashes were retained, and both input hashes remained unchanged through comparison. These two conditions use one synthetic voice and one noise level. They do not establish real-speaker robustness, model-wide ranking, calibrated timing or repeated hardware performance. The candidate remains research-only and the production default is unchanged.
+Base substituted `closed shot` for the reference `close shot` in both conditions; tiny matched the normalized reference. The outputs and source hashes were retained, and both input hashes remained unchanged through comparison. These two conditions use one synthetic voice and one noise level. They do not establish real-speaker robustness, model-wide ranking, calibrated timing or repeated hardware performance. These results did not justify changing the production default.
 
 Fixture evidence: `.avid-mcp-analysis/speech-english-fixtures-d6ae59e4-b323-4927-8907-27fe6c6ab59a/evidence.json`. Clean comparison: `speech-base-comparison-b0e604f0-98f7-4e31-92ce-476fc1b65dbf`; noisy comparison: `speech-base-comparison-e64e042b-5c11-4bd1-9a4d-0af21fc6c6ee`, both under `.avid-mcp-analysis`. The original Mandarin default remains available when no fixture argument is passed.
+
+## Optional MCP integration
+
+Production transcription and speech jobs now accept `model: "base"`, retaining the tiny.en default. Explicit setup uses the pinned q8 weights and retained Whisper notice. Automatic transcription language selection uses the selected base model rather than requiring a separately installed tiny model. The independent language-detection tool remains tiny-based. Checkpoint validation binds the base model/revision and selected language through the existing recipe.
+
+Build and 28 selected tests passed. Actual CLI setup and MCP explicit-en/auto transcription passed on the retained clean-English fixture, and saved run reads reported completed base runs with the expected language decisions. Source unchanged. Evidence: `.avid-mcp-analysis/speech-base-mcp-555476e4-0e0f-42fd-8e19-a7b04c0bcc10`; harness: `qualify-speech-base-mcp.mjs`. This does not yet qualify base process-kill resume, long-media resource behavior, broad speech accuracy or independently grounded timing.

@@ -13,7 +13,7 @@ beforeEach(()=>{
 const cases=[
  {name:"visual",load:loadVisualModels,model:VISUAL_MODEL,revision:VISUAL_REVISION},
  {name:"captions",load:loadCaptionModel,model:CAPTION_MODEL,revision:CAPTION_REVISION},
- ...(["tiny","tiny.en"] as const).map(selection=>({name:selection,load:(cache:string,download:boolean)=>loadSpeechModel(cache,download,selection),...speechModels[selection]})),
+ ...(["tiny","tiny.en","base"] as const).map(selection=>({name:selection,load:(cache:string,download:boolean)=>loadSpeechModel(cache,download,selection),...speechModels[selection]})),
 ];
 it.each(cases)("retains notices before explicit $name setup and skips them offline",async item=>{
  await item.load("fixture-cache",true);expect(mocks.notice).toHaveBeenCalledWith("fixture-cache",item.model,item.revision);

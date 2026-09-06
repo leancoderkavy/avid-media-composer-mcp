@@ -17,6 +17,6 @@ it("refuses a redirected notice directory without writing through it",async()=>{
  await symlink(outside,path.join(root,"notices"),process.platform==="win32"?"junction":"dir");
  await expect(installModelNotice(root,"onnx-community/whisper-tiny","b".repeat(40))).rejects.toThrow(/cannot be a link/);expect(await readdir(outside)).toEqual([]);
 });
-it.each(["onnx-community/whisper-tiny","onnx-community/whisper-tiny.en","onnx-community/Florence-2-base-ft"])("retains the packaged notice for %s",async model=>{
+it.each(["onnx-community/whisper-base","onnx-community/whisper-tiny","onnx-community/whisper-tiny.en","onnx-community/Florence-2-base-ft"])("retains the packaged notice for %s",async model=>{
  const root=await mkdtemp(path.join(os.tmpdir(),"avid-notice-family-"));expect((await installModelNotice(root,model,"c".repeat(40))).created).toBe(true);
 });
