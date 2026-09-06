@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Saved decoded fields after marker cleanup
+
+Added a read-only verifier that snapshots the cleaned 100-marker fixture and unchanged copy source, decodes both, matches the target via the recorded native MOB ID, and compares all decoded composition fields except the expected new composition ID/name. All four other MOB records matched exactly; warnings matched after remapping the composition ID. Source, target, original MP4 and prior removal-evidence hashes remained unchanged. Evidence: `.avid-mcp-analysis/batch-cleanup-graph-6e4630fc-ab64-47b6-aa56-e78c1e422a5a/evidence.json` with retained AVB/JSON snapshots.
+
+The initial strict complete-graph assertion failed because both contain opaque color-adapter components. The final report retains `coverageComplete: false` and reports complete graph equivalence as unverified, rather than clearing warnings or accepting full equivalence. There is no pre-marker graph snapshot, so this compares post-cleanup decoded state to the source rather than proving exact pre/post restoration. Production code is unchanged; actual decoder comparison, syntax and diff checks passed. Full-plan saved-edit fidelity remains open.
+
 ### Verified native batch marker removal
 
 Added `delete_markers` preview/apply for 1–100 explicit UUIDs. It normalizes caller IDs, requires exactly one current match per ID, binds the full marker list and dispatches the observed native spellings once under the existing owner/host lock. Post-read verifies exact remaining-record preservation and a stable project before reporting markersRemovedVerified. Missing/duplicate/stale requests are refused; partial deletion and unrelated changes fail verification without replay. Existing native DeleteMarkers allowlisting is reused; inventory remains 15 reads/16 writes and 139 MCP tools.

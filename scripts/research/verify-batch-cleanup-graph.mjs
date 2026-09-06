@@ -1,0 +1,25 @@
+import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const input=process.argv[2];assert.ok(input&&path.isAbsolute(input)&&process.argv.length===3,'Pass absolute successful batch-removal evidence.json');
+const prior=JSON.parse(await readFile(input,'utf8'));assert.equal(prior.finalMarkerCount,0);assert.equal(prior.removedCount,100);assert.equal(prior.unrequestedMarkerPreserved,true);assert.match(prior.bin,/^MCP_Batch_[a-f0-9]{8}\.avb$/);
+const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',source=path.resolve(project,'MCP_Color_ac0a950e18ee.avb'),target=path.resolve(project,prior.bin),media='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
+const protectedFiles=[input,source,target,media],before=await Promise.all(protectedFiles.map(sha256File));assert.equal(before[1],'8dabb465c84239d5d13ae0715500f0173f9946c171295da2a51cb09c584fd329');assert.equal(before[3],'3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca');
+const root=path.resolve('.avid-mcp-analysis',`batch-cleanup-graph-${randomUUID()}`);await mkdir(root);
+const parse=async(file,label)=>{const snapshot=path.join(root,label+'.avb');await copyFile(file,snapshot,1);const result=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',snapshot],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(result.exitCode,0,result.stderr);const graph=JSON.parse(result.stdout);await writeFile(path.join(root,label+'.json'),JSON.stringify(graph,null,2),{flag:'wx'});assert.equal(graph.sha256,await sha256File(snapshot));assert.equal(typeof graph.complete,"boolean");assert.ok(Array.isArray(graph.warnings));return graph;};
+const original=await parse(source,'source'),cleaned=await parse(target,'cleaned');
+const canonical=id=>id.replace(/^urn:smpte:umid:/,'').replaceAll('.','').replaceAll('-','').toLowerCase();
+const sourceId='060a2b340101010501010f1013-000000-4db8fc4012898806-9c3dd8bbc16d-18d9';
+const roots=original.mobs.filter(m=>canonical(m.mobId)===canonical(sourceId)),copies=cleaned.mobs.filter(m=>canonical(m.mobId)===canonical(prior.mobId));assert.equal(roots.length,1);assert.equal(copies.length,1);
+const a=roots[0],b=copies[0];assert.notEqual(a.mobId,b.mobId);assert.match(b.name,new RegExp('^'+a.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\.Copy\\.\\d+$'));
+const {mobId:originalId,name:originalName,...originalGraph}=a,{mobId:copiedId,name:copiedName,...copiedGraph}=b;
+assert.deepEqual(copiedGraph,originalGraph);
+assert.equal(cleaned.complete,original.complete);assert.deepEqual(cleaned.warnings,original.warnings.map(warning=>({...warning,mobId:warning.mobId===originalId?copiedId:warning.mobId})));
+const remainingOriginal=original.mobs.filter(m=>m!==a),remainingCopies=cleaned.mobs.filter(m=>m!==b);assert.equal(remainingOriginal.length,remainingCopies.length);
+for(const mob of remainingOriginal){const matches=remainingCopies.filter(item=>item.mobId===mob.mobId);assert.equal(matches.length,1);assert.deepEqual(matches[0],mob);}
+assert.deepEqual(await Promise.all(protectedFiles.map(sha256File)),before);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({input,source,target,sourceSha256:before[1],targetSha256:before[2],originalId,originalName,copiedId,copiedName,coverageComplete:original.complete&&cleaned.complete,sourceWarnings:original.warnings,targetWarnings:cleaned.warnings,otherMobsMatched:remainingOriginal.length,compositionFieldsMatchedExcept:['mobId','name'],protectedFilesUnchanged:true,scope:'Post-cleanup saved copy compared with its unchanged source graph. Not a pre-marker baseline comparison or complete AVB metadata/byte equivalence; fields outside the bounded decoder are unverified.'},null,2),{flag:'wx'});
+console.log(JSON.stringify({root,otherMobsMatched:remainingOriginal.length,decodedCompositionFieldsMatched:true,completeGraphEquivalenceVerified:false,protectedFilesUnchanged:true}));
