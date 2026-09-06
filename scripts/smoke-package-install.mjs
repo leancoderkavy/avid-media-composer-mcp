@@ -264,6 +264,17 @@ try {
   if(!trace.incomplete||!isDeepStrictEqual(mapped,[[0,1,20,30,"reference",1],[1,1,27,37,"unresolved",null],[0,2,20,30,"reference",2],[1,2,29,39,"unresolved",null]]))throw new Error("Installed stereo source trace lost channel identity or clipped offsets");
   const invalidTrace=await client.callTool({name:"avid_trace_saved_sources",arguments:{revision:traceRevision,mobId:"stereo",start:0,end:61}});
   if(!invalidTrace.isError)throw new Error("Installed source trace accepted a range beyond the mob duration");
+  const trimBaselineRevision="00000000-0000-4000-8000-000000000100",trimCandidateRevision="00000000-0000-4000-8000-000000000101";
+  trimAfter.mobs[0].name=trimBefore.mobs[0].name;
+  for(const [revision,value] of [[trimBaselineRevision,trimBefore],[trimCandidateRevision,trimAfter]]){
+    const captured={revision,createdAt:"synthetic-installed-trim",bins:[{...record.bins[0],mobs:value.mobs}]};
+    await writeFile(path.join(snapshotDirectory,`snapshot-${revision}.json`),JSON.stringify(captured));
+  }
+  const savedTrimArgs={baseline:trimBaselineRevision,candidate:trimCandidateRevision,baselineBin:record.bins[0].file,candidateBin:record.bins[0].file,mobId:"sequence",cut:30,delta:1,trackOrdinals:[0]};
+  const savedTrim=await invoke("avid_verify_saved_trim",savedTrimArgs);
+  if(savedTrim.verified!==true||savedTrim.cutAfter!==31||savedTrim.baseline!==trimBaselineRevision||savedTrim.candidate!==trimCandidateRevision)throw new Error("Installed MCP trim verification lost snapshot identity or result");
+  const wrongTrim=await client.callTool({name:"avid_verify_saved_trim",arguments:{...savedTrimArgs,delta:-1}});
+  if(!wrongTrim.isError||!JSON.stringify(wrongTrim).includes("exact requested trim"))throw new Error("Installed MCP accepted the wrong trim direction");
   if (withPython) {
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
@@ -313,6 +324,7 @@ try {
       inventoryReport: "installed stream/tag rendering and changed-source refusal preserve prior output",
       collectionDiscovery: "installed damaged-record continuation, saved-range readback and out-of-scope omission passed",
       trimVerification: "installed forward/inverse decoded trim and unrelated-edit refusal passed",
+      savedTrimMcp: "installed snapshot-pair verification and wrong-direction refusal passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",

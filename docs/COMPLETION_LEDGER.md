@@ -796,3 +796,8 @@ A fresh controlled UI trim/save/undo/save/redo/save/undo/save cycle on the dispo
 
 avid_verify_saved_trim exposes normalized selected-bin snapshot comparison through MCP with explicit revisions, bin paths, mob identity, cut, direction and track ordinals. Existing snapshot reads enforce current path scope. Actual stdio snapshot capture from the retained Avid baseline/trim bins passed verification; a deliberately incomplete V1-only expectation was refused. Evidence: .avid-mcp-analysis/saved-trim-mcp-0d7379ba-0c81-474e-bf2e-bd61d85d4dd0/evidence.json. Full check passed: 504 TypeScript tests, 32 Python tests, 137 tools and fresh-package exact definitions/Python recovery. Log: .avid-mcp-analysis/check-saved-trim-tool.log. This adds usable verification, not editor command execution; the full UI adapter remains open.
 
+
+### Installed saved-trim MCP acceptance
+
+Fresh-package smoke now invokes avid_verify_saved_trim through the installed stdio server using synthetic captured snapshot records. It verifies the expected cut and baseline/candidate revision identities, then requires a wrong-direction request to fail with an exact-trim mismatch. The 137-tool package check passed with full definition equality, client configuration checks and Python isolation/recovery. Log: .avid-mcp-analysis/package-saved-trim-mcp.log. This is installed API coverage; retained real Avid trim captures and current editor execution remain distinct evidence.
+
