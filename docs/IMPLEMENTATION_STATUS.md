@@ -1,5 +1,15 @@
 # Open-source implementation status
 
+Guarded native `duplicate_clip` now performs one same-bin duplication with token/state/owner checks and explicit identity/preservation verification. Actual MCP execution, replay refusal, saved graph comparison and bin-reopen persistence passed on the owned Sonoma fixture. A further same-session duplication left UI Undo/Redo/history disabled even with the new row focused. Previews explicitly report unqualified undo, possible selection changes and limited state coverage. General undo, restart and rendered fidelity remain open. See [duplication](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action).
+
+`avid_native_read` now supports `media_volumes`: bounded host-wide volume declarations gated by an authorized current project, with exact raw uint64 strings, omitted defaults and explicit unknown units/path/online status. Two fresh inspect-only MCP sessions passed on the qualified Windows host with protected source/bin hashes unchanged. See [media-volume diagnostic](NATIVE_MEDIA_VOLUMES.md).
+
+Actual Source Play-button use advanced the disposable Sonoma fixture from frame 0 to 119 with visible meter activity; a ruler click restored frame 0 and independent MCP reads/file hashes verified the endpoints and source preservation. Home did not restore this focus state. Captured video remained blank, leaving visual/audio fidelity and a shipping playback adapter unqualified. See [source playback evidence](NATIVE_SOURCE_PLAYBACK.md).
+
+Audio offset analysis accepts integer sample rates with fractional samples per 10 ms envelope window, including 22,050 and 11,025 Hz. Absolute sample boundaries prevent cumulative rounding drift and provenance retains integer tail counts. Both rates passed actual derived-Sonoma MCP offset, channel/refusal and reconnect checks; see [audio research](AUDIO_SYNC_RESEARCH.md).
+
+Audio offset jobs now have actual stereo-channel coverage across all seven original Sonoma exports: 14 jobs returned the known decoded-window offset with three agreeing windows, preserved source hashes and retained identical results across fresh MCP connections. See [audio research](AUDIO_SYNC_RESEARCH.md). Independent-recording accuracy and native sync editing remain separate requirements.
+
 Saved locator availability now has a separate opt-in MCP check for bounded file metadata under configured roots, with paginated source declarations and coverage. The Windows `D//...` fixture spelling requires explicit interpretation; raw paths remain intact. Real saved-bin/reconnect evidence and limits are in [saved locator availability](SAVED_LOCATOR_AVAILABILITY.md). File presence does not establish Avid online or relink success.
 
 Watch inspection now distinguishes an absent owner lock from a retained recovery guard. Guard-only IDs remain discoverable after reconnect, `blockedByRecoveryGuard` explains why scans are refused, and the guard checksum is returned without releasing it. Actual fresh installed-runtime recovery-process termination passed; see [interrupted recovery status](WATCH_FOLDER_RECOVERY.md#interrupted-recovery-status).

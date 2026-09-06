@@ -109,7 +109,7 @@ To repeat the three reads, open a disposable project in Media Composer and add
 the destination directory must exist and the script refuses to overwrite a file.
 
 The probe checks the listening process against the inspected executable, connects
-only to IPv4 loopback port 9100, has a fixed three-method allowlist, and enforces
+only to IPv4 loopback port 9100, has a fixed four-method read allowlist (the original three plus opt-in media volumes), and enforces
 response-size and time bounds. It stops on rejected calls or application errors.
 It does not expose a generic RPC command or accept credentials. Full project/bin
 paths and task IDs are excluded from its JSON report; project/bin names remain.

@@ -44,7 +44,21 @@ describe("audio content offset candidates", () => {
     expect(() => estimateAudioOffset(invalid, signal())).toThrow();
     expect(() => audioEnvelope(new Float32Array([2]), 100)).toThrow();
     expect(() => audioEnvelope(new Float32Array([NaN]), 100)).toThrow();
-    expect(() => audioEnvelope(new Float32Array([0]), 44101)).toThrow();
+    for (const rate of [99, 192001, 22050.5, NaN]) expect(() => audioEnvelope(new Float32Array([0]), rate)).toThrow();
+  });
+  it("covers fractional 10 ms sample boundaries without cumulative drift or fractional tail counts", () => {
+    const impulse = new Float32Array(441); impulse[220] = 1;
+    const bins = audioEnvelope(impulse, 22050);
+    expect(bins.length).toBe(2); expect(bins[0]).toBeCloseTo(1 / Math.sqrt(221), 12); expect(bins[1]).toBe(0);
+    expect(audioEnvelope(new Float32Array(220), 22050).length).toBe(0);
+    expect(audioEnvelope(new Float32Array(221), 22050).length).toBe(1);
+    for (const rate of [11025, 22050, 44101]) {
+      const minute = new Float32Array(rate * 60).fill(0.5);
+      const result = audioEnvelope(minute, rate);
+      expect(result.length).toBe(6000); expect(result.every(value => value === 0.5)).toBe(true);
+    }
+    const tail = new Float32Array(442); tail[441] = NaN;
+    expect(() => audioEnvelope(tail, 22050)).toThrow("finite");
   });
   it("withholds a constant-offset candidate when strong windows disagree", () => {
     const raw = signal(6000), source = Float64Array.from(raw, (_, i) => {

@@ -1,5 +1,81 @@
 # Completion ledger
 
+### Duplicate undo observation and preview disclosure
+
+The explicit research `--history` mode duplicated the owned fixture from three to four items. Original identities/names and protected file hashes were preserved; token replay was refused. UI Undo, Redo and Undo-Redo List stayed disabled before and after, including with the new row focused and Duplicate/selection commands enabled. No Undo or explicit save was issued for this fourth item. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-23cbe67e-e3aa-40a8-ac32-e12b5901477a/evidence.json` and observed UI captures.
+
+Duplicate previews now disclose `undoVerified: false`, possible selection changes and saved-bin-hash/native-inventory state coverage. The updated fields were also returned by an actual preview-only MCP call. Typecheck, build and 124 native tests passed. The preceding commit `496c9aa` passed all hosted CI and CodeQL checks, including both macOS jobs after the canonical-path test correction. General undo and full unsaved graph coverage remain unqualified.
+
+### MCP duplicate saved graph and reopen
+
+Saved the three-item owned bin through observed UI, then independently verified that the new MCP-created sequence was the only added decoded MOB. All prior mobs/warnings were unchanged; the new sequence matched its selected source except name/ID. Guarded close/reopen preserved all three native identities/names and every decoded record, with identical saved/reopened SHA-256. Protected original hashes were unchanged. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-persist-3e925c36-3b5a-4731-9a59-fc5d9757039e/evidence.json`.
+
+CI for the preceding action commit failed the new duplicate fixture on macOS because the expected temporary path was not canonicalized (`/var` versus `/private/var`). Corrected the test to compare `realpath`; production code is unchanged. The 124 focused native tests, harness syntax and diff checks passed. The full previous local pipeline is distinct from current hosted validation. See [MCP duplicate persistence](NATIVE_DUPLICATION_RESEARCH.md#mcp-created-duplicate-persistence); undo/general rendering remain unqualified.
+
+### Guarded native duplicate action
+
+Implemented `duplicate_clip` in native preview/apply with scoped bin hash/item inventory, host/project binding, native locking, single-use tokens and one dispatch. Post-read verifies exactly one new returned ID and preservation of every prior item field except selection. Identity verification remains separate from persistence and source fidelity. The bound inventory is not a complete unsaved timeline graph.
+
+Actual MCP created a third item in the owned duplicate bin, preserved both prior IDs/names, refused token replay and retained original source/bin hashes. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-a69f0f95-fc1b-452c-b3d4-8b60e55bb667/evidence.json`. The new item remains available for saved/reopen qualification. Full checks passed 790 TypeScript/46 Python tests, transports and fresh-package/Python/AAF; log `.avid-mcp-analysis/check-native-duplicate.log`. See [guarded duplicate action](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action). Native allowlist: 16 reads/17 writes; 143 MCP tools. Full-plan completion remains unproven.
+
+### Saved duplicate bin close/reopen
+
+The owned duplicate bin passed guarded MCP close/reopen after an exact saved-hash preflight. Both native identities/names, every independently decoded MOB/warning and the saved bin SHA-256 were unchanged. Protected original bin/media hashes were preserved. Evidence: `.avid-mcp-analysis/native-duplicate-reopen-d64b1c88-bf99-4929-829d-51f7eda3cf4b/evidence.json`; repeatable harness: `qualify-native-duplicate-reopen.mjs`.
+
+Actual execution and syntax/diff checks passed; production code is unchanged. This closes bin-reopen persistence for that fixture only. Undo-history survival, application restart, guarded duplication, failure/batch/master and rendering qualification remain open; see [duplication research](NATIVE_DUPLICATION_RESEARCH.md#saved-duplication-after-bin-closereopen).
+
+### Actual native duplication in an owned bin
+
+Qualified a single `DuplicateBinItems` call after creating/populating a new owned bin with the protected Sonoma sequence. The returned new identity matched the only added item; the copied original ID/name and protected original membership/bytes remained unchanged. Selection moved to the new duplicate. Computer use observed both four-second rows and saved only the owned bin.
+
+Independent saved AVB comparison passed all decoded fields except top-level name/MOB ID and matched reachable source records; one shared unresolved reference remains. An initial native-ID versus saved-URN spelling mismatch in the harness failed before comparison and was corrected without dropping identity bytes. Original MP4 hash was unchanged. See [duplication research](NATIVE_DUPLICATION_RESEARCH.md), native-copy `520aa510-9579-4ac1-a735-6946b78b0b5f` and saved evidence `f51d5686-5a3c-438d-918a-6dba81847acd`.
+
+Actual execution, saved verification, nine research transport/descriptor tests and syntax/diff checks passed. Production code is unchanged; a shipped guarded duplicate action, reopen, undo, batch/master and rendering remain unfinished.
+
+### Fresh installed media-volume diagnostic
+
+Installed a new development tarball into a unique temporary directory and matched the entrypoint/server/native-module hashes to the checkout. The three-session actual native probe passed from that installed runtime with an outside-checkout working directory: two authorized reads, one excluded-project refusal with no volume data, unchanged protected bin/media and entrypoint hashes. Evidence: `.avid-mcp-analysis/native-media-volumes-c48e50f4-42c7-4f86-a401-bfc50525f3c9/evidence.json`; runtime/archive receipt: `.avid-mcp-analysis/native-volume-installed-runtime.json`.
+
+Harness syntax, diff checks and actual installed execution passed. Production code is unchanged; this does not claim a clean OS, model/client GUI setup, publication or other host versions. See [installed diagnostic](NATIVE_MEDIA_VOLUMES.md#fresh-installed-native-runtime).
+
+### Media-volume project-scope refusal
+
+Extended real-host MCP qualification with a third fresh session whose allowed roots exclude the current project. It refused the media-volume query without volume data/names; two authorized sessions continued to return declarations and all protected hashes stayed unchanged. Evidence: `.avid-mcp-analysis/native-media-volumes-45a61e33-0046-4954-9b11-b8bae996114a/evidence.json`. A new regression confirms refusal before the volume RPC is invoked. All 117 focused native tests passed; production code is unchanged and the prior full implementation/package checks remain applicable.
+
+### Shipped native media-volume diagnostic
+
+Extended `avid_native_read` with `media_volumes`, requiring inspection authority and a scoped current project. It preserves host-wide display names and uint64 strings, bounds aggregate responses, omits unknown fields and retains absent defaults. Project and listener-owner changes refuse the result. Explicit unknown units/path/online flags prevent storage declarations from being presented as relink evidence.
+
+Actual read-only MCP qualification passed across two fresh sessions with source/bin hashes unchanged: `.avid-mcp-analysis/native-media-volumes-cf6f6f5f-b35c-441f-95f1-77ce9b6a4ab3/evidence.json`. Focused native tests passed 116 cases, including precision, malformed/overflow/count/authority and unstable-host regressions. See [media volumes](NATIVE_MEDIA_VOLUMES.md). Native discovery is now 16 reads/16 writes; MCP discovery remains 143 tools.
+
+Validation passed 782 TypeScript tests, 46 Python tests and both transports. The first package check correctly rejected a turnover-skill mismatch caused by editing that skill after packing; no implementation failure was observed. With files held fixed, fresh-package/Python/AAF validation passed with exact tool/skill agreement. Logs: `.avid-mcp-analysis/check-native-media-volumes.log` and `.avid-mcp-analysis/check-native-media-volumes-package-final.log`. Final ledger text was added afterward; no claim of a newly published registry package is made.
+
+### Native media-volume discovery
+
+The installed descriptor and an actual listener-owner-verified read established that `GetMediaVolumeList` returns three display names and raw uint64 free-space declarations on the qualified Windows host. Added an explicit opt-in to the bounded research utility; default inspection and its three ordinary reads remain unchanged. Unknown units and non-atomic comparison with Windows free-byte counts prevent a capacity or path-mapping claim. See [media-volume research](NATIVE_MEDIA_VOLUMES.md) and `.avid-mcp-analysis/native-media-volumes-20260906.json`.
+
+This broadens actual native research toward media diagnostics but does not ship a new MCP/native operation. Full timeline graphs, online/relink identity, canonical paths and shared-storage qualification remain open.
+
+### Source-viewer transport and restoration observation
+
+Computer use clicked Play on the disposable loaded Sonoma source. Screenshots showed playhead/counter movement and audio meter activity; independent MCP reads verified frame 0 before and frame 119 after. Home with Play-button focus did not restore the position and its failed expectation was retained. Clicking the freshly observed ruler start restored frame 0, verified through MCP. Fixture, protected source bin and original MP4 hashes remained unchanged; no edit/save was requested.
+
+The captured video area remained blank, so picture rendering versus capture limitations and audio/perceptual fidelity remain unresolved. This is transport observation, not a shipped playback adapter. [Source playback evidence](NATIVE_SOURCE_PLAYBACK.md) records all four retained observations, including the failure. Production code is unchanged in this checkpoint; CI for the preceding audio implementation is tracked separately.
+
+### Audio offset support for fractional samples per 10 ms window
+
+The decoder and RMS estimator previously refused integer sample rates not divisible by 100, including 22,050 and 11,025 Hz. Absolute window boundaries now round up to the next source sample rather than accumulating a rounded width. Sample-count provenance records the convention and integer discarded tail. Existing evenly divisible rates retain their boundaries. Regression tests cover boundary impulses, incomplete windows, invalid tail values, full-minute counts and decoder provenance.
+
+Full local `npm run check` passed: 773 TypeScript tests, 46 Python tests, stdio/HTTP, package contents and fresh-install/Python/AAF checks with 143 tools/five skills. Log: `.avid-mcp-analysis/check-audio-sync-fractional-rates.log`. This is local implementation/package evidence; exact-head CI remains separate.
+
+Actual stdio MCP with derived Sonoma fixtures at both newly supported rates passed ±1.24-second offsets, unrelated-channel weak-match detection, invalid-stream refusal, source/fixture preservation and result reconnect. Evidence: `audio-sync-channels-7f8930d8-07d4-46e5-898e-7558dfbeaa6d` and `audio-sync-channels-bc260e74-eb84-4cd5-9c4c-7d513f119bc5` under `.avid-mcp-analysis/`. See [audio research](AUDIO_SYNC_RESEARCH.md). Independent recordings, general rate accuracy and native sync edits remain unqualified.
+
+### Audio offset matrix across seven original Sonoma exports
+
+The new repeatable `qualify-audio-sync-matrix.mjs` exercised 14 real stdio MCP worker jobs: separate left/right channels on every original Sonoma MP4, including both 4K exports and the 2.68 GB asset. All returned the known -1.23-second decoded-window offset with three supported consistent windows. Fresh connection readback matched each saved result without replay, and every original SHA-256 was unchanged. Evidence: `.avid-mcp-analysis/audio-sync-matrix-b97ca018-5052-45fd-b6d0-b9c0370abdaf/evidence.json`.
+
+Build, harness syntax, diff checks and actual matrix execution passed. This is research/docs-only work on the merged implementation at `b63d1ea`, whose Windows/macOS CI, CodeQL and Pages checks passed; no new full-suite run is claimed. Same-source offsets do not establish independent-recording accuracy, lip sync, native edits or full-plan completion. See [audio research](AUDIO_SYNC_RESEARCH.md).
+
 ### Missing source-bin evidence in locator reports
 
 Locator availability now returns row-level bin presence and captured bin hashes, plus snapshot creation time, missing-bin paths and explicit non-revalidation of current bin hashes on every page. Previously the snapshot reader knew a bin was missing but this endpoint omitted that fact. Historical locator access remains available while the source bin is absent; file presence does not silently imply current saved-bin contents.

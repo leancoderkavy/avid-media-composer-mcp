@@ -10,13 +10,14 @@ from inspect_mcapi import extract_descriptor, verify_listener_owner, _loopback_r
 BINARY=Path(r'C:\Program Files\Avid\Avid Media Composer\AvidMediaComposer.exe')
 PROJECT=Path(r'D:\Avid Projects\MCP_Sonoma_30p_20260905')
 MOB='060a2b340101010501010f1013-000000-3737af0e12888806-0e10d8bbc16d-18d9'
-ALLOWED={'GetOpenProjectInfo','GetListOfBinItems','CreateBin','CopyBinItems'}
+ALLOWED={'GetOpenProjectInfo','GetListOfBinItems','CreateBin','CopyBinItems','DuplicateBinItems'}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument("--both",action="store_true")
     mode.add_argument("--master",action="store_true")
+    parser.add_argument("--duplicate",action="store_true",help="After copying, duplicate only returned items within the newly created owned bin")
     args=parser.parse_args()
     raw=BINARY.read_bytes()
     if hashlib.sha256(raw).hexdigest()!='3ca4d082a3afe00a120d6061d6ee94e20e6113238f0b016398700f3439ec9194':
@@ -70,6 +71,28 @@ def main():
     returned=[mob for body in result for mob in body.get('mob_id',[])]
     if len(returned)!=len(requested) or len(set(returned))!=len(returned) or sorted(v.get('mob_id') for v in copied)!=sorted(returned):raise ValueError('Expected response-matched copy identities; inspect evidence')
     if not evidence_result['sourceMembershipUnchanged'] or not evidence_result['sourceSavedBytesUnchanged']:raise ValueError('Source changed; inspect evidence')
+    if args.duplicate:
+        current=call('GetOpenProjectInfo')
+        if current[0]['path']!=project[0]['path']:raise ValueError('Project changed before duplication')
+        # Only the new bin and identities returned by this run's verified copy.
+        attempt={'bin':str(destination),'requested':returned,'before':copied}
+        (directory/'duplicate-attempt.json').write_text(json.dumps(attempt,indent=2))
+        duplicated=call('DuplicateBinItems',{'bin_path':str(destination),'mob_id':returned})
+        final=call('GetListOfBinItems',{'bin_relative_path':destination.name,'bin_flags':['AllTypes']})
+        source_after=call('GetListOfBinItems',{'bin_relative_path':source.name,'bin_flags':['AllTypes']})
+        result_ids=[mob for body in duplicated for mob in body.get('mob_id',[])]
+        duplicate_evidence={'response':duplicated,'after':final,'returned':result_ids,
+                            'sourceMembershipUnchanged':sorted(v['mob_id'] for v in source_after)==sorted(v['mob_id'] for v in before),
+                            'sourceSavedBytesUnchanged':hashlib.sha256(source.read_bytes()).hexdigest()==source_hash,
+                            'scope':'Single actual duplication in a newly created owned bin. Native identities/membership only; saved graph, persistence, undo and original media essence qualification remain separate.'}
+        (directory/'duplicate-result.json').write_text(json.dumps(duplicate_evidence,indent=2))
+        if len(result_ids)!=len(returned) or len(set(result_ids))!=len(result_ids) or set(result_ids)&set(returned):raise ValueError('Unexpected duplicate response identities')
+        if sorted(v.get('mob_id') for v in final)!=sorted(returned+result_ids):raise ValueError('Unexpected post-duplicate membership')
+        if not duplicate_evidence['sourceMembershipUnchanged'] or not duplicate_evidence['sourceSavedBytesUnchanged']:raise ValueError('Protected source changed during duplication')
+        originals={v['mob_id']:v.get('mob_name') for v in copied}
+        if any(v.get('mob_name')!=originals[v['mob_id']] for v in final if v['mob_id'] in originals):raise ValueError('Original copied item renamed during duplication')
+        evidence_result['duplication']=duplicate_evidence
+        (directory/'result.json').write_text(json.dumps(evidence_result,indent=2))
     print(json.dumps(evidence_result))
 
 if __name__=='__main__':main()

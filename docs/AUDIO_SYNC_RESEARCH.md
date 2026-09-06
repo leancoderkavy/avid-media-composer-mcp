@@ -1,5 +1,13 @@
 # Audio content offset research
 
+## Seven-export stereo qualification
+
+`node scripts/research/qualify-audio-sync-matrix.mjs` tests all seven explicitly named original Sonoma exports serially through the built stdio MCP server. Each file is indexed, then both audio channels are individually compared using 30-second decoded windows starting at 0 and 1.23 seconds. The expected comparison-relative offset is -1.23 seconds. Every file's completed results are read through a fresh MCP connection, automatic replay is checked false, and its SHA-256 is checked before and after.
+
+All 14 jobs passed on 2026-09-06, including both 4K exports and the 2.68 GB file. Every result returned `candidate`, -1.23 seconds and three supported, consistent windows; every selected channel was 48 kHz. All source hashes and reconnected results were unchanged. Full observations and tool responses are retained under `.avid-mcp-analysis/audio-sync-matrix-b97ca018-5052-45fd-b6d0-b9c0370abdaf/`, with acceptance in `evidence.json`. The script preserves observations before checking final acceptance, including failed jobs.
+
+This broadens actual export/channel coverage for same-source content offsets. It does not qualify independent microphones, arbitrary sample rates, full-duration drift, source-clock alignment, audio/video lip sync or native editing. Production code is unchanged; build, harness syntax and actual matrix execution passed against the implementation whose resulting-main CI/CodeQL passed at `b63d1ea`.
+
 `src/library/audio-sync.ts` adds a bounded content-offset estimator for the roadmap's sync-analysis work. It accepts explicitly supplied 100 Hz RMS envelopes covering 2–60 seconds and searches at most ±5 seconds. The PCM envelope helper accepts normalized mono samples, computes complete 10 ms RMS windows and discards an incomplete last window. It is available through `avid_start_analysis_job` with `kind: "audio_sync"`.
 
 For each lag, correlation is mean-centered and normalized over the overlapping portion, requiring at least one second and half of the shorter input. Positive offset means matching content occurs later in the comparison: `reference[i]` matches `comparison[i + lag]`. This explicit convention follows the positive-displacement form in [SciPy's correlation-lag definition](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.correlation_lags.html); no SciPy code or dependency is included.
@@ -33,7 +41,13 @@ Index both media files first, then call `avid_start_analysis_job`:
 }
 ```
 
-Stream indices are absolute ffprobe indices; channels are zero-based within the selected audio stream. Both are required. `startSeconds` selects a sample position from the decoded stream beginning, rounded down at its sample rate, with a maximum of 600 seconds. It does not seek to a container timestamp. Duration is 2–60 seconds. Supported sample rates are multiples of 100 from 100–192000 Hz. Out-of-range selections, incomplete sample coverage, invalid timing logs, out-of-range PCM, decoding failures, and source-hash changes refuse a result.
+Stream indices are absolute ffprobe indices; channels are zero-based within the selected audio stream. Both are required. `startSeconds` selects a sample position from the decoded stream beginning, rounded down at its sample rate, with a maximum of 600 seconds. It does not seek to a container timestamp. Duration is 2–60 seconds. Supported sample rates are integers from 100–192000 Hz. Each absolute 10 ms envelope boundary rounds up to the next source sample, placing it less than one sample after the nominal boundary without accumulating error. Only complete nominal windows are included; discarded tail samples remain an integer. Provenance reports `envelopeBoundaryRounding: "ceil-absolute-sample"`. No resampling is introduced by the analysis. Out-of-range selections, incomplete sample coverage, invalid timing logs, out-of-range PCM, decoding failures, and source-hash changes refuse a result.
+
+### Fractional samples per envelope window
+
+Earlier code refused valid 22,050/11,025 Hz inputs because it required an integer number of samples in every 10 ms window. Regression tests now cover boundary impulses, incomplete windows, invalid tail samples, full-minute window counts without drift, and actual analysis provenance with a 110-sample discarded tail. Rates that divide evenly into 100 preserve their previous window boundaries.
+
+The real channel/rate harness accepts an optional comparison rate after the absolute MCP entrypoint. Actual 48 kHz Sonoma versus derived 22,050 Hz and 11,025 Hz stereo fixtures both passed known +1.24/-1.24-second offsets, unrelated-channel weak-match detection, invalid-stream refusal, unchanged source/fixture hashes and fresh-connection result preservation. Evidence: `.avid-mcp-analysis/audio-sync-channels-7f8930d8-07d4-46e5-898e-7558dfbeaa6d/evidence.json` and `.avid-mcp-analysis/audio-sync-channels-bc260e74-eb84-4cd5-9c4c-7d513f119bc5/evidence.json`. These controlled derived fixtures do not qualify independent recordings or every accepted rate.
 
 The worker records exact selected sample offsets/counts, PCM hashes, the extraction filter, and adjacent decoded timestamp gaps/overlaps. FFmpeg's observed timestamps are retained without claiming that they map to an Avid source timecode. `sourceClockOffset` is always null, including when content has a strong candidate. Poll `avid_analysis_job_status` and retain the job ID; `avid_analysis_job_history` and a fresh session can read the saved terminal result without reanalysis. `avid_cancel_analysis_job` uses the existing worker cancellation path. PCM now travels through a bounded binary pipe in memory, with no decoder scratch files on normal or cancelled runs.
 

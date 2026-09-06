@@ -27,6 +27,7 @@ const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Blac
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("duplicate_clip"),bin:z.string().min(1),mobId:id}).strict(),
   z.object({action:z.literal("delete_markers"),bin:z.string().min(1),mobId:id,guids:z.array(markerDeletionId).min(1).max(100).refine(values=>new Set(values).size===values.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("add_markers"),bin:z.string().min(1),mobId:id,markers:z.array(z.object({guid:z.string().uuid().transform(value=>value.toLowerCase()),offset:z.number().int().nonnegative().max(2147483647),track,comment:z.string().max(1024).regex(/^[\x20-\x7e]*$/),name:z.string().max(120).regex(/^[\x20-\x7e]*$/),color}).strict()).min(1).max(100).refine(items=>new Set(items.map(item=>item.guid)).size===items.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("copy_clips"),bin:z.string().min(1),mobIds:selectionIds.refine(ids=>ids.length>0,"Copy at least one item"),destinationBin:z.string().min(1)}).strict(),
@@ -69,11 +70,24 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "mob_bin" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "media_volumes" | "bins" | "mob_bin" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
     if (query === "project") return project;
+    if (query === "media_volumes") {
+      const owner = this.client.ownerIdentity;
+      const uint64 = z.string().refine(value => /^(0|[1-9][0-9]{0,19})$/.test(value) && BigInt(value) <= 18446744073709551615n);
+      const volume = z.object({name:z.string().min(1).max(4096), is_shared:z.boolean().optional(), free_space:uint64.optional()});
+      const bodies = z.array(z.object({volumes:z.array(volume).max(256).default([])})).min(1).max(256).parse(
+        await this.client.call("GetMediaVolumeList", {}, owner));
+      const volumes = bodies.flatMap(body => body.volumes);
+      if (volumes.length > 256) throw new Error("Native media-volume inventory exceeds 256 entries");
+      if ((await this.project()).path !== project.path || this.client.ownerIdentity !== owner)
+        throw new Error("Native project or listener owner changed during media-volume inspection");
+      return {volumes, freeSpaceUnit:null, pathsResolved:false, mediaOnlineVerified:false,
+        scope:"Host-wide Avid volume declarations, gated by an authorized current project. Display names are not paths; free_space remains an exact decimal string with unverified units and freshness. Omitted protobuf defaults remain omitted. No writable capacity, shared-storage health, media online or relink verification; project/owner checks are not an atomic snapshot."};
+    }
     if(query==="mob_bin"){
       const requested=id.parse(mobId);
       const bodies=z.array(z.object({absolute_path:z.string().min(1).max(32768)})).length(1).parse(await this.client.call("GetBinFromMob",{mob_id:requested}));
@@ -182,6 +196,12 @@ export class NativeAdapter {
     if(action.action==="open_bin")return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),action};
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path:path.relative(project.path,bin),bin_flags:["AllTypes"] });
     if ("mobId" in action && !clips.some(clip => clip.mob_id === action.mobId)) throw new Error("Target clip is not in bin");
+    if(action.action==="duplicate_clip"){
+      requireCapability(this.config.capabilities,"edit");
+      const duplicateBaseline=z.array(z.object({mob_id:id,mob_name:z.string().max(1024).optional()}).passthrough()).min(1).max(4096).parse(clips);
+      if(new Set(duplicateBaseline.map(row=>row.mob_id)).size!==duplicateBaseline.length)throw new Error("Duplicate native bin identities");
+      return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),duplicateBaseline,action};
+    }
     if(action.action==="delete_markers"){
       const markers=await this.read("markers",action.bin,action.mobId) as Record<string,any>[];
       if(action.guids.some(guid=>markers.filter(marker=>typeof marker.guid==="string"&&marker.guid.toLowerCase()===guid).length!==1))throw new Error("Each requested marker must exist exactly once; inspect before deletion");
@@ -321,7 +341,10 @@ export class NativeAdapter {
     if (this.plans.size >= 100) throw new Error("Too many pending native plans");
     this.plans.set(token, { action, state, expires });
     return { token, expiresAt: new Date(expires).toISOString(), action, expectedState: state,
-      warning: "One native operation; no atomic undo guarantee. Inspect state after an uncertain response before creating another plan." };
+      ...(action.action==="duplicate_clip"?{selectionMayChange:true,undoVerified:false,stateCoverage:"saved-bin-hash-and-native-item-inventory"}:{}),
+      warning: action.action==="duplicate_clip"
+        ? "Native duplication has no qualified undo; UI history remained unavailable in the observed fixture. Selection may change. State binding does not capture a complete unsaved timeline graph. Inspect state after an uncertain response before creating another plan."
+        : "One native operation; no atomic undo guarantee. Inspect state after an uncertain response before creating another plan." };
   }
   async apply(token: string) {
     const task = queue.catch(() => {}).then(async () => {
@@ -438,6 +461,10 @@ export class NativeAdapter {
             const guids=(observedState.markers as Record<string,any>[]).filter(marker=>typeof marker.guid==="string"&&action.guids.includes(marker.guid.toLowerCase())).map(marker=>marker.guid);
             result=await this.client.call("DeleteMarkers",{mob_id:action.mobId,guid:guids},observedState.owner);break;
           }
+          case "duplicate_clip": {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Duplicate host or project changed before dispatch");
+            result=await this.client.call("DuplicateBinItems",{bin_path:observedState.bin,mob_id:[action.mobId]},observedState.owner);break;
+          }
           case "copy_clip": case "copy_clips": {
             if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner||!("destination" in observedState))throw new Error("Copy host or project changed before dispatch");
             result=await this.client.call("CopyBinItems",{source_bin_path:observedState.bin,destination_bin_path:observedState.destination,mob_id:action.action==="copy_clip"?[action.mobId]:action.mobIds},observedState.owner);break;
@@ -462,7 +489,17 @@ export class NativeAdapter {
         }
         let postState:unknown,verificationError:string|undefined;
         try {
-          if(action.action==="add_marker"){
+          if(action.action==="duplicate_clip"){
+            const reported=z.array(z.object({mob_id:z.array(id).length(1)})).length(1).parse(result)[0]!.mob_id[0]!;
+            if(!("duplicateBaseline" in observedState))throw new Error("Missing duplicate baseline");
+            const before=observedState.duplicateBaseline;
+            const after=z.array(z.object({mob_id:id,mob_name:z.string().max(1024).optional()}).passthrough()).max(4097).parse(await this.read("clips",action.bin));
+            postState={clips:after,duplicatedMobId:reported};
+            if((await this.project()).path!==project.path||this.client.ownerIdentity!==observedState.owner)throw new Error("Host or project changed during duplicate verification");
+            if(before.some(row=>row.mob_id===reported)||after.filter(row=>row.mob_id===reported).length!==1||after.length!==before.length+1||new Set(after.map(row=>row.mob_id)).size!==after.length)throw new Error("Duplicate identity or membership not verified");
+            const retained=(rows:typeof after)=>rows.map(({mob_selected,...row})=>row).map(digest).sort();
+            if(digest(retained(before))!==digest(retained(after.filter(row=>row.mob_id!==reported))))throw new Error("Original bin-item preservation not verified");
+          }else if(action.action==="add_marker"){
             postState=await this.read("markers",action.bin,action.mobId);
             if((await this.project()).path!==project.path)throw new Error("Project changed during marker creation verification");
             if(!("markers" in observedState))throw new Error("Missing marker baseline");
@@ -531,6 +568,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "clips", "bin" in action ? action.bin : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
+          ...(action.action==="duplicate_clip"?{duplicateIdentityVerified:!verificationError,sourceFidelityVerified:false,selectionMayChange:true}:{}),
           persistenceVerified: false,...(action.action==="add_marker"?{markerAddedVerified:!verificationError}:{}),...(action.action==="delete_marker"?{markerRemovedVerified:!verificationError}:{}),...(action.action==="change_marker"?{markerChangedVerified:!verificationError}:{}),...(action.action==="delete_markers"?{markersRemovedVerified:!verificationError}:{}),...(action.action==="add_markers"?{markersVerified:!verificationError}:{}),...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });

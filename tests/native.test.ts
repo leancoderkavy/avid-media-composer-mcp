@@ -7,7 +7,7 @@ import { withNativeLock } from "../src/native/lock.js";
 import {verifyNativeRender} from "../src/native/render-verifier.js";
 import {verifyNativeAafMaster} from "../src/native/aaf-verifier.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
-import {mkdtemp,writeFile,mkdir} from "node:fs/promises";
+import {mkdtemp,writeFile,mkdir,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -21,6 +21,74 @@ it.each(['add-comment','add-name','change-comment'])('refuses unsupported single
  const operation=mode==='change-comment'?{action:'change_marker',bin:'fixture.avb',mobId:'clip',guid:'marker',comment:'Tokyo 東京',color:'Blue'}:{...add,...(mode==='add-name'?{name:'Tokyo 東京'}:{comment:'Tokyo 東京'})};
  await expect(f.adapter.preview(operation)).rejects.toThrow(/printable ASCII/);expect(f.calls).toEqual([]);
  expect(nativeActionSchema.safeParse({...add,name:'',comment:'Review: take 2 - OK!'}).success).toBe(true);
+});
+
+it("retains exact media-volume declarations without inventing paths, units or omitted defaults", async () => {
+  const f = await hostFixture("inspect"), original = f.client.call.bind(f.client);
+  vi.spyOn(f.client,"call").mockImplementation((method,body)=>method === "GetMediaVolumeList"
+    ? Promise.resolve([{volumes:[{name:"Display only (Z:)",free_space:"18446744073709551615",extra:"omit"},{name:"Display only (Z:)",is_shared:false}]}]) : original(method,body));
+  const result = await f.adapter.read("media_volumes");
+  expect(result).toMatchObject({volumes:[{name:"Display only (Z:)",free_space:"18446744073709551615"},{name:"Display only (Z:)",is_shared:false}],freeSpaceUnit:null,pathsResolved:false,mediaOnlineVerified:false});
+  expect(JSON.stringify(result)).not.toContain('"extra"');
+  expect((result as any).volumes[0]).not.toHaveProperty("is_shared");
+  expect((result as any).volumes[1]).not.toHaveProperty("free_space");
+});
+it.each(["number", "overflow", "negative", "malformed", "too-many", "changed-owner", "changed-project"])("refuses invalid or unstable media-volume evidence: %s",async variant=>{
+  const f=await hostFixture("inspect"),original=f.client.call.bind(f.client); let queried=false;
+  vi.spyOn(f.client,"call").mockImplementation((method,body)=>{
+    if(method==="GetMediaVolumeList") {
+      queried=true;
+      if(variant==="changed-owner")f.client.ownerIdentity="replacement";
+      const value=variant==="number"?123:variant==="overflow"?"18446744073709551616":variant==="negative"?"-1":variant==="malformed"?"bad":"0";
+      return Promise.resolve([{volumes:Array.from({length:variant==="too-many"?257:1},()=>({name:"Volume",free_space:value}))}]);
+    }
+    if(queried&&variant==="changed-project"&&method==="GetOpenProjectInfo")return Promise.resolve([{path:os.tmpdir()}]);
+    return original(method,body);
+  });
+  await expect(f.adapter.read("media_volumes")).rejects.toThrow();
+});
+it("accepts empty media-volume declarations and refuses missing inspection authority",async()=>{
+  const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);
+  vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetMediaVolumeList"?Promise.resolve([{}]):original(method,body));
+  expect(await f.adapter.read("media_volumes")).toMatchObject({volumes:[],mediaOnlineVerified:false});
+  const denied=await hostFixture("export"); await expect(denied.adapter.read("media_volumes")).rejects.toThrow(); expect(denied.calls).toEqual([]);
+});
+it("refuses an out-of-scope project before requesting host-wide media volumes",async()=>{
+  const f=await hostFixture("inspect"), outside=await mkdtemp(path.join(os.tmpdir(),"avid-volume-scope-"));
+  const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:outside,
+    AVID_MCP_OUTPUT_ROOT:outside,AVID_MCP_CAPABILITIES:"inspect"}),f.client as unknown as NativeClient);
+  await expect(adapter.read("media_volumes")).rejects.toThrow();
+  expect(f.calls.map(call=>call.method)).toEqual(["GetOpenProjectInfo"]);
+});
+
+it.each(["pass","missing","extra","renamed","reused","uncertain"])("verifies duplicate identity and preservation without replay: %s",async mode=>{
+  const f=await hostFixture(),original=f.client.call.bind(f.client);let writes=0;
+  let rows:Record<string,unknown>[]=[{mob_id:"clip",mob_name:"Original",mob_selected:true}];
+  vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+    if(method==="GetListOfBinItems")return structuredClone(rows);
+    if(method==="DuplicateBinItems"){
+      writes++;expect(body).toEqual({bin_path:await realpath(path.join(path.dirname(f.source),"fixture.avb")),mob_id:["clip"]});
+      rows=[{mob_id:"clip",mob_name:mode==="renamed"?"Changed":"Original"},...(mode==="missing"?[]:[{mob_id:"new",mob_name:"Original.Copy.01",mob_selected:true}]),...(mode==="extra"?[{mob_id:"unrelated"}]:[])];
+      if(mode==="uncertain")throw new Error("Connection lost after dispatch");
+      return [{mob_id:[mode==="reused"?"clip":"new"]}];
+    }return original(method,body);
+  });
+  const preview=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
+  expect(preview).toMatchObject({selectionMayChange:true,undoVerified:false,stateCoverage:"saved-bin-hash-and-native-item-inventory"});
+  expect(preview.warning).toContain("no qualified undo");
+  if(mode==="uncertain")await expect(f.adapter.apply(preview.token)).rejects.toThrow("Connection lost");
+  else {
+    const result=await f.adapter.apply(preview.token);
+    expect(result).toMatchObject({duplicateIdentityVerified:mode==="pass",sourceFidelityVerified:false,persistenceVerified:false,selectionMayChange:true});
+    if(mode!=="pass")expect(result.verificationError).toBeTruthy();
+  }
+  await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
+});
+it("refuses stale duplicate previews before dispatch",async()=>{
+  const f=await hostFixture(),plan=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
+  await writeFile(path.join(path.dirname(f.source),"fixture.avb"),"changed saved bin");
+  await expect(f.adapter.apply(plan.token)).rejects.toThrow("state changed");
+  expect(f.calls.some(call=>call.method==="DuplicateBinItems")).toBe(false);
 });
 
 async function hostFixture(capabilities="inspect,edit,project-write,export"){

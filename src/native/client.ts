@@ -127,10 +127,10 @@ function exchange(method: string, payload: Buffer): Promise<Buffer[]> {
   });
 }
 
-export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetBins", "GetBinInfo", "GetBinFromMob", "GetBinColumnInfo", "GetMobTrackInfo", "GetViewerMobs",
+export const NATIVE_READS = ["GetAppInfo", "GetOpenProjectInfo", "GetMediaVolumeList", "GetBins", "GetBinInfo", "GetBinFromMob", "GetBinColumnInfo", "GetMobTrackInfo", "GetViewerMobs",
   "GetListOfBinItems", "GetListOfLinkSettings", "GetListOfExportSettings", "GetListOfExportEDLSettings", "GetListOfImportSettings", "GetMobInfo", "GetMarkers"] as const;
 export const NATIVE_WRITES = ["CreateBin", "CloseBin", "OpenBin", "LinkFile", "AddMarker", "AddMarkers", "CreateSubClip",
-  "CopyBinItems", "SelectMobsInBin", "ChangeMarker", "DeleteMarkers", "SetMobInfo", "LoadMobsIntoViewer", "ExportFile", "ExportEDL", "ImportFile"] as const;
+  "CopyBinItems", "DuplicateBinItems", "SelectMobsInBin", "ChangeMarker", "DeleteMarkers", "SetMobInfo", "LoadMobsIntoViewer", "ExportFile", "ExportEDL", "ImportFile"] as const;
 type NativeMethod = typeof NATIVE_READS[number] | typeof NATIVE_WRITES[number];
 
 /** protobuf fromObject otherwise silently drops unknown keys and coerces bad enums. */
