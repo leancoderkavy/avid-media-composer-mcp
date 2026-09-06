@@ -28,6 +28,12 @@ With `--stress`, the presence harness also generates speech reduced to 0.01 ampl
 
 These nine cases test whole-file speech presence only. Equal span counts do not prove identical boundaries or complete spoken-word coverage. The noise amplitude is a generation parameter, not a measured SNR. Actual recordings, short utterances, other noise/music types and overlapping voices remain unqualified; no production rejection threshold was changed.
 
+### Known-silence timing probe
+
+`qualify-speech-timing.mjs` adds two seconds of digital silence before and after each existing synthetic English/Mandarin positive. It independently decodes the generated WAV and checks that both padding regions contain only zero PCM samples, then measures the union of actual MCP diarization spans in each window. Evidence: `.avid-mcp-analysis/speech-timing-01b67bfd-ec90-433c-b021-c7b1b4eb59c1/evidence.json`.
+
+Both languages had zero detected speech seconds in either padding region. English returned two spans covering 6.108751 seconds (76.38%) of the original clip window; Mandarin returned three covering 10.344376 seconds (82.23%). Original and generated WAV hashes remained unchanged. These fractions include natural pauses inside the original clips and cannot establish spoken-word recall. This is boundary evidence for two synthetic positives, not a calibrated detector or acceptance of other recordings. No production threshold changed.
+
 ## Reviewing suspect transcript text
 
 The existing `avid_align_speakers` tool can compare a checksum-selected transcript revision with saved segmentation evidence. `qualify-nonspeech-review.mjs` imported the actual false tone/noise transcripts into an isolated library, generated segmentation, reconnected with inspection-only authority and aligned both revisions. Every returned segment had `no_speech_overlap`, zero speech seconds and no candidates. Transcript and source hashes stayed unchanged. Evidence: `nonspeech-review-13209188-fc62-4ed0-a5f8-53e530459f87`.
