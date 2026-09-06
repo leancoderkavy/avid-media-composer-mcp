@@ -98,6 +98,8 @@ export class MediaLibrary {
     return { entries: result, sourceModified: false };
   }
   async metadata(ids: string[]) { return Promise.all(ids.map(async id => { const entry = await this.entry(id); return { ...entry, transcript: undefined }; })); }
+  /** Resolve an authorized checksum-matching copy; cached inspection remains available separately. */
+  async validatedMetadata(id:string){const entry=await this.entry(id,true);return {...entry,transcript:undefined};}
   async search(ids: string[], query: string, limit = 50, revisions: Record<string, string> = {}) {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) throw new Error("Search query is empty");

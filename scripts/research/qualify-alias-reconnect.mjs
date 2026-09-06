@@ -18,7 +18,11 @@ try{
  const report=await call('avid_media_report',{ids:[id]}),html=await readFile(report.output,'utf8');assert.ok(html.includes('reconnected.mp4')&&!html.includes('original.mp4'));
  const copied=await call('avid_media_artifact',{id,kind:'copy'});assert.equal(await sha256File(copied.output),id);
  const thumbnail=await call('avid_media_artifact',{id,kind:'thumbnail',start:0});assert.ok((await readFile(thumbnail.output)).length>0);assert.equal(await sha256File(alias),id);
+ const qc=await call('avid_media_qc',{id,options:{start:0,end:0.5,audioStream:null}});await client.close();client=await connect();
+ const savedQc=await call('avid_read_qc_report',{id,revision:qc.revision});assert.equal(savedQc.report.id,id);
  await writeFile(alias,'changed disposable alias');const directory=path.dirname(report.output),before=(await readdir(directory)).sort();
+ const qcRefused=await client.callTool({name:'avid_read_qc_report',arguments:{id,revision:qc.revision}});assert.equal(qcRefused.isError,true);assert.ok(JSON.stringify(qcRefused).includes('Source changed since indexing'));
  const refused=await client.callTool({name:'avid_media_report',arguments:{ids:[id]}});assert.equal(refused.isError,true);assert.ok(JSON.stringify(refused).includes('Source changed since indexing'));assert.deepEqual((await readdir(directory)).sort(),before);assert.equal(await readFile(report.output,'utf8'),html);assert.equal(await sha256File(source),sourceHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,sourceHash,sourceUnchanged:true,report,copied,thumbnail,allCopiesChangedRefused:true,scope:'Actual MCP reconnect using a one-second Sonoma-derived disposable fixture; report, byte copy and decoded thumbnail via matching alias'},null,2));console.log(JSON.stringify({passed:true,root}));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,sourceHash,sourceUnchanged:true,report,copied,thumbnail,qc,savedQc,allCopiesChangedRefused:true,scope:'Actual MCP reconnect using a one-second Sonoma-derived disposable fixture; report, byte copy decoded thumbnail and video-only QC/read after another reconnect via matching alias'},null,2));console.log(JSON.stringify({passed:true,root}));
 }finally{await client.close();}
+

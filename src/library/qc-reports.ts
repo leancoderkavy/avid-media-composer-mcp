@@ -31,8 +31,7 @@ const checksum=(data:Buffer)=>createHash("sha256").update(data).digest("hex");
 export class QcReports {
   constructor(private readonly config:ServerConfig){}
   private async source(id:string){
-    digest.parse(id);const [entry]=await new MediaLibrary(this.config).metadata([id]);
-    if(!entry)throw new Error("Unknown QC media");
+    digest.parse(id);const entry=await new MediaLibrary(this.config).validatedMetadata(id);
     const file=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");
     if(await sha256File(file)!==id)throw new Error("QC source changed; reindex before reading reports");
     return file;

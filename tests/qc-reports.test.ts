@@ -64,7 +64,7 @@ it("keeps media identities isolated and paginates unreadable reports without hid
 it("rejects oversized reports and changed or unauthorized sources",async()=>{
  const f=await fixture();await writeFile(f.reportPath," ".repeat(4*1024*1024+1));
  await expect(f.service.read(f.id,first)).rejects.toThrow(/limit/);
- await writeFile(f.file,"changed");await expect(f.service.list(f.id)).rejects.toThrow("source changed");
+ await writeFile(f.file,"changed");await expect(f.service.list(f.id)).rejects.toThrow(/[Ss]ource changed/);
  const elsewhere=await realpath(await mkdtemp(path.join(os.tmpdir(),"avid-qc-scope-")));
  const denied=new QcReports({...f.config,allowedRoots:[elsewhere]});await expect(denied.read(f.id,first)).rejects.toThrow();
 });

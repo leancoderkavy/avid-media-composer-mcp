@@ -68,7 +68,7 @@ export class MediaQc {
   constructor(private config:ServerConfig){}
   async analyze(id:string,input:z.input<typeof qcOptions>){
     requireCapability(this.config.capabilities,"export");const options=qcOptions.parse(input),library=new MediaLibrary(this.config);
-    const [entry]=await library.metadata([id]);if(!entry)throw new Error("Unknown media");
+    const entry=await library.validatedMetadata(id);
     const duration=Number(entry.metadata.format?.duration);if(!Number.isFinite(duration)||options.end>duration)throw new Error("QC range exceeds media duration");
     const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Source changed; reindex");
     const streams=entry.metadata.streams??[],selected=selectQcStreams(streams,options);
