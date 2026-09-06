@@ -27,6 +27,17 @@ it("snapshots queued writes and never stores runtime configuration",async()=>{
   expect(text).toContain("fixture.mp4");expect(text).not.toContain("changed.mp4");expect(text).not.toContain("capabilities");
   await expect(journal.read("../outside")).rejects.toThrow();
 });
+it("continues past an inaccessible page without disclosing another scope's record",async()=>{
+ const {config,journal}=await fixture();
+ const first={...job(),id:"00000000-0000-4000-8000-000000000001"};await journal.save(first);
+ const restricted=new JobJournal({...config,capabilities:new Set(["inspect"])});
+ const second={...job(),id:"00000000-0000-4000-8000-000000000002"};await restricted.save(second);
+ const page=await restricted.list(undefined,1);
+ expect(page).toMatchObject({records:[],unreadable:0,nextAfter:first.id});
+ expect(JSON.stringify(page)).not.toContain("fixture.mp4");
+ const next=await restricted.list(page.nextAfter!,1);
+ expect(next.records[0]!.id).toBe(second.id);expect(next.nextAfter).toBeNull();
+});
 it("paginates past damaged records without returning their contents or losing healthy records",async()=>{
  const {root,journal}=await fixture(),first={...job(),id:"00000000-0000-4000-8000-000000000001"},second={...job(),id:"00000000-0000-4000-8000-000000000002"};
  await journal.save(first);await journal.save(second);
