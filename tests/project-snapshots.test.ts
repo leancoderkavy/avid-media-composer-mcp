@@ -16,6 +16,17 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("verifies captured trims with scoped bin selection and rejects partial-track expectations",async()=>{
+    const {record,save,snapshots,config}=await fixture(),bin=record.bins[0]!,sequence=bin.mobs[0]!;
+    const first=sequence.tracks[0]!.nodes[0]!;first.timelineEnd=30;
+    sequence.tracks[0]!.nodes.push({...first,timelineStart:30,timelineEnd:60,sourceStart:120});
+    bin.mobs.push({...structuredClone(sequence),mobId:"source",duration:1000,sourceBounds:{start:0,end:1000},tracks:[]});
+    const baseline=await save();record.revision=randomUUID();first.timelineEnd=31;sequence.tracks[0]!.nodes[1]!.timelineStart=31;sequence.tracks[0]!.nodes[1]!.sourceStart=121;
+    const candidate=await save();expect((await snapshots.verifyTrim(baseline,candidate,bin.file,bin.file,"sequence",30,1,[0])).verified).toBe(true);
+    await expect(snapshots.verifyTrim(baseline,candidate,bin.file,bin.file,"sequence",30,-1,[0])).rejects.toThrow("exact requested trim");
+    await expect(new ProjectSnapshots({...config,allowedRoots:[]}).verifyTrim(baseline,candidate,bin.file,bin.file,"sequence",30,1,[0])).rejects.toThrow("outside");
+    await expect(snapshots.verifyTrim(baseline,candidate,"missing.avb",bin.file,"sequence",30,1,[0])).rejects.toThrow();
+  });
   it("identifies deleted bins while preserving authorized historical mob discovery",async()=>{
     const {record,save,snapshots,config}=await fixture(),revision=await save();
     expect((await snapshots.mobs(revision)).mobs[0]!.binPresent).toBe(true);

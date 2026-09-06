@@ -791,3 +791,8 @@ After reloading Copy.05 and focusing the timeline, the Edit menu showed Undo, Re
 
 A fresh controlled UI trim/save/undo/save/redo/save/undo/save cycle on the disposable sequence passed saved-graph verification. Redo exactly reproduced every decoded mob of the trimmed state; both undo results matched every baseline mob. Production trim verification passed in both directions. Evidence: .avid-mcp-analysis/native-ui-redo-20260906/verification.json; capture and verification scripts are under scripts/research. The saved fixture is restored with a new binary save hash. No bin closure occurred inside this cycle; the prior negative cross-close history result remains valid. Shipping UI execution and broader edits remain open.
 
+
+### MCP saved trim verification
+
+avid_verify_saved_trim exposes normalized selected-bin snapshot comparison through MCP with explicit revisions, bin paths, mob identity, cut, direction and track ordinals. Existing snapshot reads enforce current path scope. Actual stdio snapshot capture from the retained Avid baseline/trim bins passed verification; a deliberately incomplete V1-only expectation was refused. Evidence: .avid-mcp-analysis/saved-trim-mcp-0d7379ba-0c81-474e-bf2e-bd61d85d4dd0/evidence.json. Full check passed: 504 TypeScript tests, 32 Python tests, 137 tools and fresh-package exact definitions/Python recovery. Log: .avid-mcp-analysis/check-saved-trim-tool.log. This adds usable verification, not editor command execution; the full UI adapter remains open.
+

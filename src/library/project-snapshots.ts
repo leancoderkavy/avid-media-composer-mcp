@@ -1,4 +1,5 @@
 import {traceSavedSources} from "./source-trace.js";
+import {verifySavedDualRollerTrim} from "../native/trim-verifier.js";
 import {readFile,writeFile,stat,access,opendir,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -55,6 +56,13 @@ export async function publishSnapshot(file:string,serialized:string){
 export class ProjectSnapshots {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  async verifyTrim(baseline:string,candidate:string,binFile:string,candidateBin:string,mobId:string,cut:number,delta:1|-1,trackOrdinals:number[]){
+    const before=await this.read(baseline),after=await this.read(candidate);
+    const a=selectSnapshotBins(before.bins,binFile),b=selectSnapshotBins(after.bins,candidateBin);
+    if(a.length!==1||b.length!==1)throw new Error("Expected one selected bin in each snapshot");
+    const verification=verifySavedDualRollerTrim(a[0],b[0],{mobId,cut,delta,trackOrdinals});
+    return {...verification,baseline,candidate,baselineBin:a[0]!.file,candidateBin:b[0]!.file,baselineSha256:a[0]!.sha256,candidateSha256:b[0]!.sha256,scope:"Normalized captured mob fields in the two selected bins only; other bins, current editor state, opaque parameters, binary fields, media handles and playback are not verified"};
+  }
   async traceSources(revision:string,mobId:string,start:number,end:number,binFile?:string,maxDepth=8){
     const snapshot=await this.read(revision);
     const matches=selectSnapshotBins(snapshot.bins,binFile).flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
