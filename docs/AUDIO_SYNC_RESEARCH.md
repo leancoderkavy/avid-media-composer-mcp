@@ -53,6 +53,16 @@ Passing revised observations are in `.avid-mcp-analysis/audio-sync-variants-2c30
 
 Qualify independent recordings, broader noise/compression, sparse/repeated sounds, clock drift, and multichannel behavior before broad accuracy claims. Native Avid sync edits and lip-sync verification remain separate work. No npm release is claimed.
 
+## Distinct media IDs, stereo selection and installed package
+
+`scripts/research/qualify-audio-sync-channels.mjs` builds a controlled 44.1 kHz stereo WAV in its owned experiment directory. Channel 0 contains deterministic noise; channel 1 contains the first Sonoma audio channel resampled, inverted/scaled by -0.25 and delayed by exactly 54,684 samples (1.24 seconds). It indexes both files and compares the MP4's absolute stream 1/channel 0 at 48 kHz against the WAV's stream 0/channel 1 at 44.1 kHz. The selected WAV window contains 1,377,684 samples per channel.
+
+Real MCP jobs returned +1.24 seconds and -1.24 seconds in reverse, with 30 seconds of overlap. Selecting noise channel 0 returned a weak match; selecting nonexistent WAV stream 1 produced a failed job. A new MCP session recovered the identical completed result. Original and derived file hashes remained unchanged. Checkout evidence: `.avid-mcp-analysis/audio-sync-channels-6385ac09-0024-405f-982b-fe2a3211856f/evidence.json`.
+
+The script also accepts an absolute installed `dist/index.js` entrypoint. The entire experiment passed again from a fresh development tarball installed outside the checkout, using this host's existing FFmpeg: `.avid-mcp-analysis/audio-sync-channels-8f8a845b-3641-4716-844c-eb03da9a1d01/evidence.json`. Installed `audio-sync.js`, `audio-sync-analysis.js`, `worker.js` and `process.js` hashes matched the tested checkout build. The tarball's SHA-256 is `c79762fc6fb75651dc28bf4c4fd0598cec06ebb5ad24ebcdc4ad00cd9e85fb91`; local installation details are in `.avid-mcp-analysis/audio-sync-installed-runtime.json`.
+
+This is separate-file/channel/rate and fresh-package evidence, not independent microphone recordings, clock drift qualification, arbitrary multichannel layout coverage, clean-machine prerequisite installation, a model-selected workflow, or an npm publication. The development tarball retains the existing package version 1.1.0 and is not claimed to match the public registry release.
+
 ## Windows decoder cancellation and retained scratch
 
 `scripts/research/qualify-audio-sync-cancel.mjs` starts a real 60-second Sonoma audio-sync job and a queued two-second job through HTTP MCP. Before explicit cancellation it observes the owned worker and an FFmpeg descendant through Windows process inventory. It then verifies a cancelled terminal record with user cancellation reason, worker exit and successful tree-termination attempt, followed by completion of the queued job. A fresh MCP session reads the same cancelled journal without automatic replay. A subsequent inventory confirms the observed process identities are absent (PID plus creation timestamp, not PID alone). This is observation before/after cancellation, not an atomic process-tree containment guarantee.

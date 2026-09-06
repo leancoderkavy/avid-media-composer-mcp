@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Audio-sync stereo/rate selection from a fresh package
+
+A real MCP experiment now compares distinct media IDs at 48 kHz and 44.1 kHz, selecting explicit absolute stream indices and a delayed/inverted target channel in a stereo derived fixture. Forward/reverse jobs recovered ±1.24 seconds; selecting the noise channel returned weak match, and a nonexistent stream failed. Saved results were identical after reconnect, and both original/derived hashes stayed unchanged.
+
+The same experiment passed from a fresh development tarball installed outside the checkout; installed core runtime hashes matched the tested build. Evidence: `.avid-mcp-analysis/audio-sync-channels-6385ac09-0024-405f-982b-fe2a3211856f/evidence.json` (checkout) and `audio-sync-channels-8f8a845b-3641-4716-844c-eb03da9a1d01/evidence.json` (installed). Package receipt: `.avid-mcp-analysis/audio-sync-installed-runtime.json`. The existing host FFmpeg was used. This research/docs-only change does not claim independent recordings, clean-machine setup, model-selected execution, broad multichannel accuracy or a new registry release.
+
 ### Audio decoding no longer leaves PCM scratch
 
 Replaced audio-sync temporary PCM files with bounded binary stdout capture. `runBinaryProcess` preserves arbitrary bytes while sharing the existing text process runner's timeout, combined-output and tree-termination logic. The decoder verifies exact byte/sample counts, retains hashes/timing provenance, and returns `pcmStorage: bounded-memory`. It no longer creates scratch directories; this removes the new-file cleanup problem instead of guessing ownership of old files.
