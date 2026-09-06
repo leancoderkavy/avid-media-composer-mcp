@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Watch checkpoint write/read symmetry
+
+Full local check passed: 700 TypeScript tests, 46 Python tests, 140 tools/five skills and transport/fresh-package/Python/AAF checks (`check-watch-manifest-limit.log`). Full-plan acceptance remains open.
+
+Reads were limited to 4 MiB while writes could publish larger manifests, making a watch unavailable on its next read. Publication now validates the read schema and UTF-8 byte budget before creating a temporary file. Oversize returns `WATCH_MANIFEST_LIMIT_EXCEEDED` and preserves the previous published manifest. Tests exercise multibyte byte counting, unchanged readable state, no refusal debris and explicit reconfiguration.
+
+Actual MCP near-limit synthetic-manifest qualification preserved the original checkpoint hash after refusal, listed the watch after reconnect, then reset observations explicitly and indexed the unchanged Sonoma copy with two scans. Evidence: `.avid-mcp-analysis/watch-manifest-limit-d657f676-39c9-46b3-bb6b-9525789f56e2/evidence.json`. This prevents unreadable self-publication; it does not expand manifest capacity, roll back existing media cache writes or complete the full-plan storage/recovery acceptance.
+
 ### Cooperative watch shutdown
 
 Local full check passed: 699 TypeScript/46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-stop.log`). All 18 focused watch/directory tests passed after canonicalizing temporary fixture roots. Earlier CI run 34050383712 failed because two mock predicates compared aliased temporary paths with canonical paths; the fixture now resolves its root before creating media. Cross-platform CI must verify the correction.

@@ -1,4 +1,4 @@
-import {mkdtemp,mkdir,writeFile,readFile,rename,realpath,unlink} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,readFile,rename,realpath,unlink,readdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
@@ -15,6 +15,18 @@ async function fixture(){
 }
 afterEach(()=>vi.restoreAllMocks());
 describe("watch checkpointing",()=>{
+  it('preserves the readable checkpoint when a scan would exceed the UTF-8 manifest limit',async()=>{
+    const {root,folder,config}=await fixture();await writeFile(path.join(folder,'a.mp4'),'second');
+    const service=new WatchFolders(config),watch=await service.configure({folder,maxFiles:1}),directory=path.join(root,'avid-mcp-library','watches'),manifest=path.join(directory,watch.id+'.json');
+    const record=JSON.parse(await readFile(manifest,'utf8')),padding=path.join(folder,'padding.mp4');record.observations[padding]={signature:'fixture',stable:false,error:''};
+    const remaining=4*1024*1024-64-Buffer.byteLength(JSON.stringify(record));record.observations[padding].error='界'.repeat(Math.floor(remaining/3));
+    const before=JSON.stringify(record);await writeFile(manifest,before);
+    await expect(service.scan(watch.id)).rejects.toMatchObject({code:'WATCH_MANIFEST_LIMIT_EXCEEDED',details:{maxBytes:4*1024*1024}});
+    expect(await readFile(manifest,'utf8')).toBe(before);expect((await readdir(directory)).sort()).toEqual([watch.id+'.json']);
+    expect(await new WatchFolders(config).list()).toEqual([expect.objectContaining({id:watch.id,files:1})]);
+    expect((await new WatchFolders(config).configure({folder,maxFiles:1},watch.id)).observations).toEqual({});
+    expect(await readFile(path.join(folder,'test.mp4'),'utf8')).toBe('fixture');
+  });
   it('stops after the current file checkpoint and resumes without duplicating it or starting another watch',async()=>{
     const {root,folder,config}=await fixture();await writeFile(path.join(folder,'a.mp4'),'second');
     const service=new WatchFolders(config);await service.configure({folder});await service.configure({folder});
