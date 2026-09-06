@@ -104,6 +104,20 @@ it("rejects stale, out-of-range, missing and malformed speaker corrections",asyn
   await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).correct(original.analysisId,original.sha256,[{action:"remove",spanId:"span-1"}])).rejects.toThrow();
   const child=await f.speakers.correct(original.analysisId,original.sha256,[{action:"merge",from:"speaker-2",into:"speaker-1"}]),file=path.join(f.base,`speakers-${child.analysisId}`,"analysis.json"),record=JSON.parse(await readFile(file,"utf8"));record.review.spans.push(record.review.spans[0]);await writeFile(file,JSON.stringify(record));await expect(f.speakers.read(child.analysisId)).rejects.toThrow("reviewed speaker intervals");
 });
+
+it("keeps empty reviewed coverage distinct from preserved machine coverage",async()=>{
+  const f=await fixture(),original=await f.speakers.generate(f.id,10,12);
+  const review=new SpeakerAnalysis({...f.config,modelDirectory:undefined});
+  const removed=await review.correct(original.analysisId,original.sha256,[{action:"remove",spanId:"span-1"},{action:"remove",spanId:"span-2"}]);
+  const effective=await review.read(removed.analysisId,0,1,"effective"),machine=await review.read(removed.analysisId,0,1,"machine");
+  expect(effective.speechPresence).toMatchObject({view:"effective",status:"no_spans_in_analyzed_audio",coveredSeconds:0,uncoveredSeconds:2,fraction:0,verified:false});
+  expect(effective.totalSpans).toBe(0);expect(effective.nextOffset).toBeNull();
+  expect(machine.speechPresence).toMatchObject({view:"machine",status:"spans_present",verified:false});
+  expect(machine.speechPresence.coveredSeconds).toBeCloseTo(1.3);
+  expect(machine.totalSpans).toBe(2);expect(machine.nextOffset).toBe(1);
+  expect((await review.read(original.analysisId)).sha256).toBe(original.sha256);
+  expect(await sha256File(f.source)).toBe(f.id);
+});
 it("resumes verified extracted audio after inference failure without re-extracting and retains parent provenance",async()=>{
   const f=await fixture(),normal=mocks.run.getMockImplementation()!;
   mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,10,12,{speakers:2})).rejects.toThrow("incomplete files retained");
