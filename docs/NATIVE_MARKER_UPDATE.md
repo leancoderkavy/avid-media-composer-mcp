@@ -1,5 +1,7 @@
 # Native marker updates
 
+The same create/clear/color/restore/cleanup workflow now has [fresh managed-package qualification](INSTALLED_NATIVE_MARKERS.md), including save/reopen, independent saved checks and unchanged protected sources. AI-client approval and general undo/restart remain separate.
+
 Preview `change_marker` with an observed `bin`, `mobId`, exact current `guid`, replacement `comment` and `color`. Apply its single-use token within the authorized project. Preflight requires exactly one target and captures the complete marker list. The dispatch uses the captured target's name, user and track declaration and binds the editor owner. Do not reuse a marker ID from before a bin reload.
 
 `markerChangedVerified: true` requires native readback to equal the captured list with only the target comment and color replaced. Position, identity, name, user, track, length, creation metadata and all unrelated records must remain equal. A project change during verification, ignored update, unexpected field change, missing/duplicate record or unavailable readback leaves verification false with an explanation. `applicationCompleted` means the native call returned; it does not establish this postcondition or persistence.

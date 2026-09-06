@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Implementation and depende
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+A freshly installed managed package passed actual native marker creation, comment clearing/color update, restoration and cleanup with save/reopen. Independent saved AVB checks verified decoded restoration and the empty baseline; protected sources and archive/server-entry hashes were unchanged. See [installed native marker qualification](INSTALLED_NATIVE_MARKERS.md). This used a direct stdio MCP client on the existing Windows host; model approval, GUI and clean-machine acceptance remain open.
+
 Watch manifest publication now validates the read schema and 4 MiB UTF-8 byte limit before creating a replacement. Actual MCP refusal preserved a near-limit checkpoint across reconnect; explicit reset restored Sonoma indexing with source hashes unchanged. Larger observation storage remains unfinished. See [manifest recovery](WATCH_FOLDER_RECOVERY.md).
 
 Watch polling stop now finishes the current file checkpoint and prevents further file/watch work. Streamed directory selection cooperatively aborts without publishing partial traversal. Real Sonoma indexing with a harness-controlled completion pause passed checkpoint preservation and restart without duplication; source hashes were unchanged. See [cooperative stop](WATCH_FOLDER_RECOVERY.md). This is not forced termination or uncontrolled MCP timing proof.
