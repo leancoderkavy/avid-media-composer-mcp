@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Diagnose explicitly configured dependency executables
+
+`--doctor` now accepts absolute `--ffmpeg`, `--ffprobe` and `--python` paths, matching client configuration options. Explicit values override ambient settings without changing the environment or falling back when a selected executable is missing. Relative paths and doctor capability overrides are rejected. CLI help and local setup instructions document the options.
+
+Actual built-CLI tests with broken ambient executable settings passed for the system Python (correctly unready: no pyavb/pyaaf2) and prepared project Python (ready), with working FFmpeg/ffprobe. Evidence directories: `doctor-runtime-paths-8cd39a11-6481-44a0-a2b5-bc5f2997ac47` and `doctor-runtime-paths-7b90e51d-4e7a-4408-a34f-7819df700df5` under `.avid-mcp-analysis`. Full check passed 803 TypeScript and 46 Python tests plus transport/package checks. A new permanent installed-CLI missing-executable gate passed a separate fresh-package/Python run (`package-doctor-paths.log`). Clean-machine dependency installation remains open.
+
 ### Direct job-to-preparation recovery identity
 
 Source-clock jobs now allocate and journal `preparationRunId` before dispatch, pass it to the worker and retain it through terminal status/reconnect. The preparation verifier validates the UUID and refuses directory collisions without changing existing outputs. Historical records do not gain guessed IDs. Tests cover worker payload binding, failed-job history, invalid IDs and collision preservation.

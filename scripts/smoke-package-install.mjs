@@ -144,6 +144,14 @@ try {
 
   // Exercise the installed setup CLI from a foreign working directory, then
   // launch exactly the command it tells users to put into their MCP client.
+  const missingDoctorPaths=Object.fromEntries(["ffmpeg","ffprobe","python"].map(name=>[name,path.join(temporary,`missing-doctor-${name}`)]));
+  const doctorArgs=["--doctor","--root",temporary,"--output",temporary,...Object.entries(missingDoctorPaths).flatMap(([name,file])=>[`--${name}`,file])];
+  const installedDoctor=spawnSync(process.execPath,[path.join(installedRoot,"dist","cli.js"),...doctorArgs],{cwd:temporary,env:getDefaultEnvironment(),encoding:"utf8",timeout:10000,windowsHide:true});
+  if(installedDoctor.error||installedDoctor.status!==0)throw new Error(`Installed doctor path overrides failed: ${installedDoctor.stderr}`);
+  const doctorResult=JSON.parse(installedDoctor.stdout);
+  for(const [name,file] of Object.entries(missingDoctorPaths)){
+    if(doctorResult[name]?.ok!==false||doctorResult[name]?.data?.executable!==file)throw new Error(`Installed doctor did not retain explicit missing ${name}`);
+  }
   let generatedEntry;
   for(const format of ["generic","claude","cursor","vscode","lmstudio","codex"]){
     const generated=spawnSync(process.execPath,[path.join(installedRoot,"dist","cli.js"),
@@ -434,6 +442,7 @@ try {
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
       clientSetup: "five JSON formats and Codex argv agree; server from installed Codex argv connected from foreign working directory; JSON mutations preserve Codex TOML",
+      doctorPaths: "installed explicit missing ffmpeg, ffprobe and Python paths reported unavailable without fallback",
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
       colorSnapshots: "synthetic installed/reconnected LUT declarations, opt-in effect usage pagination, input uncertainty, keyframe diff and malformed-record refusal passed",
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",

@@ -20,6 +20,18 @@ it('applies explicit doctor paths while preserving unspecified environment setti
   expect(()=>doctorConfiguration({roots:['relative']},env)).toThrow('absolute');
   expect(()=>doctorConfiguration({nativeBinary:'relative'},env)).toThrow('absolute');
 });
+it('probes explicitly selected runtime paths without mutating the environment',async()=>{
+ const root=path.resolve('runtime paths'),ffmpeg=path.join(root,'ffmpeg'),ffprobe=path.join(root,'ffprobe'),python=path.join(root,'python');
+ const env={AVID_MCP_FFMPEG:'ambient-ffmpeg',AVID_MCP_FFPROBE:'ambient-ffprobe',AVID_MCP_PYTHON:'ambient-python'};
+ const config=doctorConfiguration({ffmpeg,ffprobe,python},env);
+ expect(config).toMatchObject({ffmpegExecutable:ffmpeg,ffprobeExecutable:ffprobe,pythonExecutable:python});
+ await doctor(config);
+ expect(probeFfmpeg).toHaveBeenLastCalledWith(ffmpeg,config.commandTimeoutMs);
+ expect(probeFfprobe).toHaveBeenLastCalledWith(ffprobe,config.commandTimeoutMs);
+ expect(probePythonInspector).toHaveBeenLastCalledWith({pythonExecutable:python,timeoutMs:config.commandTimeoutMs});
+ expect(env).toEqual({AVID_MCP_FFMPEG:'ambient-ffmpeg',AVID_MCP_FFPROBE:'ambient-ffprobe',AVID_MCP_PYTHON:'ambient-python'});
+ for(const key of ['ffmpeg','ffprobe','python'])expect(()=>doctorConfiguration({[key]:'relative'},env)).toThrow('absolute');
+});
 
 it.each([false,true])("reports dependency readiness, not just successful probe execution (%s)",async available=>{
   vi.mocked(probeFfmpeg).mockResolvedValue({available,executable:"ffmpeg",...(!available?{error:"Executable missing"}:{})});
