@@ -255,3 +255,17 @@ describe("native boundaries", () => {
     await expect(withNativeLock(async () => 2)).resolves.toBe(2);
   });
 });
+
+it("reads bounded native selections including empty and multiple members",async()=>{
+ const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);let selected:any[]=[];
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>method==="GetListOfBinItems"?(body?.only_selected_flag?selected:[{mob_id:"clip"},{mob_id:"second"}]):original(method,body));
+ expect(await f.adapter.read("selected_clips","fixture.avb")).toMatchObject({clips:[]});
+ selected=[{mob_id:"clip",mob_selected:true,private:"SECRET"},{mob_id:"second",mob_selected:true}];
+ const result=await f.adapter.read("selected_clips","fixture.avb");expect(result.clips).toHaveLength(2);expect(JSON.stringify(result)).not.toContain("SECRET");
+ for(selected of [[{mob_id:"other",mob_selected:true}],[{mob_id:"clip",mob_selected:false}],[{mob_id:"clip"}],[{mob_id:"clip",mob_selected:true},{mob_id:"clip",mob_selected:true}],Array(4097).fill({mob_id:"clip",mob_selected:true})])await expect(f.adapter.read("selected_clips","fixture.avb")).rejects.toThrow();
+});
+it("refuses selection when bin membership changes across reads",async()=>{
+ const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);let reads=0;
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>method==="GetListOfBinItems"?(body?.only_selected_flag?[{mob_id:"clip",mob_selected:true}]:(++reads===1?[{mob_id:"clip"}]:[])):original(method,body));
+ await expect(f.adapter.read("selected_clips","fixture.avb")).rejects.toThrow("changed");
+});

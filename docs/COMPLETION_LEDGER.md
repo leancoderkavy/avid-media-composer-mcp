@@ -419,3 +419,7 @@ CI run 34011349873 exposed a preexisting-output comparison failure on Windows No
 ### Native bin selection discovery
 
 Read-only research `scripts/research/qualify-native-selection.mjs` queried the qualified Sonoma bin with `GetListOfBinItems` and `only_selected_flag:true`, bracketed by project checks. The full bin returned two members; selected filtering returned only `MCP_Sonoma_AAF_Selects`, with `mob_selected:true` and a matching bin MOB ID. Evidence: `.avid-mcp-analysis/native-selection-4b2ad5b8-e677-4a94-86e2-25b9b1357433/evidence.json`. This is actual native response evidence, not a visible-selection comparison or production selected-clips tool. Empty/multiple selection, membership changes, and UI comparison remain to qualify.
+
+### Selected clips through MCP
+
+`avid_native_read` now accepts `selected_clips` with a scoped bin. It returns bounded, schema-filtered selected MOBs, requires explicit native selected flags, rejects duplicate/out-of-bin identities, and checks full membership and project again before returning. It does not freeze selection or claim an atomic editor snapshot. Native tests: 33 passed; build passed. Real inspect-only Sonoma MCP evidence: `.avid-mcp-analysis/native-selected-clips-ce70cffa-d084-4a4f-abe1-84642579f624/evidence.json`; selected sequence identity matched the earlier native probe. Reproduction: `scripts/research/qualify-native-selection-mcp.mjs`. Empty/multiple selections are unit-tested; corresponding visible-host qualification remains outstanding.

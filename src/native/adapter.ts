@@ -58,7 +58,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "clips" | "selected_clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -95,6 +95,18 @@ export class NativeAdapter {
     if (query === "bin") return this.client.call("GetBinInfo", { relative_bin_path: relative });
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path: relative, bin_flags: ["AllTypes"] });
     if (query === "clips") return clips;
+    if(query==="selected_clips"){
+      const membersSchema=z.array(z.object({mob_id:id})).max(4096);
+      const membership=(value:unknown)=>{const ids=membersSchema.parse(value).map(item=>item.mob_id);if(new Set(ids).size!==ids.length)throw new Error("Duplicate native bin membership");return ids.sort();};
+      const before=membership(clips);
+      const selected=z.array(z.object({mob_id:id,mob_name:z.string().max(1024).optional(),mob_selected:z.literal(true)})).max(4096).parse(
+        await this.client.call("GetListOfBinItems",{bin_relative_path:relative,bin_flags:["AllTypes"],only_selected_flag:true}));
+      if(new Set(selected.map(item=>item.mob_id)).size!==selected.length||selected.some(item=>!before.includes(item.mob_id)))throw new Error("Native selection contains duplicate or out-of-bin identities");
+      const after=membership(await this.client.call("GetListOfBinItems",{bin_relative_path:relative,bin_flags:["AllTypes"]}));
+      if(JSON.stringify(before)!==JSON.stringify(after)||(await this.project()).path!==project.path)throw new Error("Native project or bin membership changed during selection inspection");
+      return {clips:selected,scope:"Selected MOBs reported by Avid within the requested bin, bracketed by membership/project checks. Not an atomic snapshot or a guarantee that selection remains unchanged."};
+    }
+
     if(query==="viewers"){
       const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:z.string().min(1).max(256),view_type:z.string().min(1),current_frame:z.number().int(),current_timecode:z.string().max(64)})).max(16)})).max(16).parse(await this.client.call("GetViewerMobs"));
       const all=bodies.flatMap(body=>body.mobs);if(all.length>16)throw new Error("Native viewer inventory exceeds 16 entries");
