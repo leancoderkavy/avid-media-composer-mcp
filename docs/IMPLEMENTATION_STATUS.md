@@ -24,7 +24,7 @@ Native receipts do not establish atomic undo, preset-content identity, complete 
 
 | Area | Implemented and exercised | Remaining acceptance |
 | --- | --- | --- |
-| Media library and watches | Content hashes, metadata/facets, moved-source aliases, persistent watches, stable-file polling, job journals, bounded workers and cancellation | Broader concurrency/resource/failure coverage; offline/relinked paths |
+| Media library and watches | Content hashes, metadata/facets, moved-source aliases, persistent watches, stable-file polling, job journals, bounded workers and cancellation; running/queued QC records recovered as unresolved after forced Windows process-tree exit without replay | Broader concurrency/resource/failure coverage; orphaned workers, power loss and offline/relinked paths |
 | Visual search | Pinned local CLIP text/image/frame similarity, temporal scopes, pagination, shot detection and shot-midpoint indexing | Broader independent ranking and shot-accuracy benchmarks; memory/long-media coverage |
 | Transcripts | Local English/multilingual Whisper, automatic language candidate selection, source-clock extraction, checkpoint/resume, immutable review revisions, search/ranges and five export formats | Broad speech/language accuracy, mixed-language and non-speech behavior, larger model choices |
 | Speakers | Local diarization, anonymous clusters, interval corrections, transcript overlap/assignment provenance, cancellation/resume and guarded cleanup/recovery | Accurate speaker references, word alignment, broad audio coverage and native dependency/license acceptance |
