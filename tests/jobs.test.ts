@@ -14,6 +14,20 @@ vi.mock("node:child_process",()=>({spawn:vi.fn((command:string)=>{
 })}));
 beforeEach(()=>{state.workers=[];state.terminate.mockReset().mockResolvedValue({method:"windows-taskkill",succeeded:true});});
 async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-worker-"));return new AnalysisJobs(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"}));}
+it('requires export authority before queuing source-clock preparation',async()=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'avid-preparation-authority-'));
+ const jobs=new AnalysisJobs(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect'}));
+ await expect(jobs.start({kind:'source_clock',options:{file:'fixture.mp4',expectedSha256:'a'.repeat(64),videoStream:0,audioStream:1}})).rejects.toThrow();
+ expect(state.workers).toHaveLength(0);expect((await jobs.journal.list()).records).toHaveLength(0);jobs.close();
+});
+it('cancels queued preparation without dispatching it and retains the request in history',async()=>{
+ const jobs=await fixture(),first=await jobs.start({kind:'index',files:['fixture.mp4']});
+ const spec={kind:'source_clock' as const,options:{file:'fixture.mp4',expectedSha256:'a'.repeat(64),videoStream:0,audioStream:1}};
+ const queued=await jobs.start(spec);expect(queued.status).toBe('queued');
+ expect(await jobs.cancelAndReadStatus(queued.id)).toMatchObject({status:'cancelled',spec});
+ state.workers[0].stdout.emit('data',Buffer.from('{}'));state.workers[0].emit('close',0,null);await jobs.readStatus(first.id);
+ expect(state.workers).toHaveLength(1);expect(await jobs.journal.read(queued.id)).toMatchObject({status:'cancelled',spec,automaticReplay:false});jobs.close();
+});
 it('preserves Unicode result text split across every UTF-8 byte',async()=>{
  const jobs=await fixture(),job=await jobs.start({kind:'index',files:['fixture.mp4']}),result={name:'Café 東京 🎬',text:'naïve résumé'};
  for(const byte of Buffer.from(JSON.stringify(result)))state.workers[0].stdout.emit('data',Buffer.from([byte]));state.workers[0].emit('close',0,null);

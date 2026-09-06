@@ -1,5 +1,13 @@
 # Source-clock editing copies
 
+## Queued preparation
+
+`avid_start_analysis_job` accepts `{job: {kind: "source_clock", options: {file, expectedSha256, videoStream, audioStream}}}`. It requires inspection and export authority and uses the same preparation verifier as the direct tool. The existing session queue runs one worker at a time; persistent job status survives reconnect without automatically replaying unfinished work. A completed result contains the prepared output and verification receipt. `avid_source_clock_status` independently checks the saved receipt against current files.
+
+Actual Sonoma MCP qualification passed queued preparation, cancellation of a second queued request without dispatch, bad-checksum failure, output hashing and status recovery through a fresh connection. Evidence: `.avid-mcp-analysis/source-clock-jobs-6b5e9a8f-0535-40e4-a907-2568291545db/evidence.json`. Run `node scripts/research/qualify-source-clock-jobs.mjs` after building to repeat these checks in new output directories.
+
+The separate active-cancellation experiment failed its tree-termination acceptance: the worker closed with code 1, but `treeTermination.succeeded` was false. Evidence: `.avid-mcp-analysis/source-clock-jobs-58b729db-04ba-4c3a-be79-87e354b7326e/events.json`. A subsequent Windows process query found no matching worker or preparation subprocess; this does not establish reliable descendant termination. The optional `--cancel` harness retains this stronger requirement. Inspect `workerExit` and `treeTermination`; a cancelled job does not imply rollback, complete descendant termination or deleted partial files. Abrupt parent-exit containment remains open.
+
 `avid_prepare_source_clock_media` creates a separate MOV containing copied H.264 video and stereo 48 kHz, 24-bit PCM audio normalized to the source presentation clock. It uses `aresample=48000:async=1:first_pts=0`; normalization may insert or remove samples to follow timestamps. This is an explicit preparation operation, not an automatic repair or relink.
 
 The [FFmpeg resampler documentation](https://ffmpeg.org/ffmpeg-resampler.html) specifies that `async=1` enables timestamp-based filling/trimming and `first_pts=0` permits padding/trimming at the stream start. A matching normalized-PCM hash proves this recipe was reproduced; it does not establish that the source timestamps themselves are editorially correct.

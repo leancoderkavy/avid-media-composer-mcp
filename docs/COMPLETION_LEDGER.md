@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Source-clock preparation in durable jobs
+
+Added `source_clock` to the existing bounded job queue and worker, sharing the direct preparation schema and verifier. Export authority is checked before journal/worker creation; queued cancellation avoids dispatch. Sonoma execution verified output and receipt checks, checksum refusal and completed/cancelled/failed history across reconnect. Focused jobs, journal and preparation tests passed (36 tests), with typecheck/build.
+
+Final complete local check passed: 792 TypeScript tests, 46 Python tests, transports, and fresh-package/Python/AAF checks with 143 exact matching tool definitions. Log: `.avid-mcp-analysis/check-source-clock-jobs.log`. Final harness rerun passed at `.avid-mcp-analysis/source-clock-jobs-81c0d3c1-f704-405a-a1b8-b8c529c9b6ed/evidence.json`. This rerun exercises queued cancellation; it does not supersede the separate active-cancellation failure.
+
+Active cancellation is not qualified: worker closure was observed but Windows tree termination reported failure. The failed acceptance is retained rather than treating cancelled status as full process-tree proof. See [queued preparation](SOURCE_CLOCK_PREPARATION.md#queued-preparation) for evidence and limits. This does not complete the broader resource/recovery or host-editing requirements.
+
 ### Duplicate undo observation and preview disclosure
 
 The explicit research `--history` mode duplicated the owned fixture from three to four items. Original identities/names and protected file hashes were preserved; token replay was refused. UI Undo, Redo and Undo-Redo List stayed disabled before and after, including with the new row focused and Duplicate/selection commands enabled. No Undo or explicit save was issued for this fourth item. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-23cbe67e-e3aa-40a8-ac32-e12b5901477a/evidence.json` and observed UI captures.
