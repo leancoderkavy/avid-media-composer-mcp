@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Audio content offset MCP job integration
+
+`avid_start_analysis_job` now accepts `audio_sync` with two indexed media IDs, explicit absolute stream/zero-based channel selectors, bounded decoded-sample windows and an offset-search limit. The worker verifies source hashes, exact PCM/sample counts, and timing observations, records extraction/PCM provenance, removes temporary PCM on normal completion, and retains the result through the existing job journal. Content offsets never become a source-clock edit offset; gaps/overlaps remain explicit.
+
+Real stdio qualification compared Sonoma first-channel windows starting at 0 and 1.23 decoded seconds, returned a -1.23-second candidate, rejected unavailable channel 2, and recovered an identical completed result in a fresh MCP session. Original media hashes stayed unchanged. The windows had 10/11 decoded timestamp discontinuities and 8192/8384 overlapping samples, demonstrating the significance of the sample-domain boundary. Evidence: `.avid-mcp-analysis/audio-sync-mcp-7cea567c-b2b6-4a9d-ac3c-6addecfeedfd/evidence.json`. Independent recordings, native sync editing and this decoder's active-process cancellation still require separate qualification.
+
+Full `npm run check` passed 761 TypeScript tests, 46 Python tests, both transports, and fresh-package/Python/AAF validation (`.avid-mcp-analysis/check-audio-sync-mcp.log`). The ingest/QC skill now describes the job recipe and interpretation limits. This extends an existing tool schema; count remains 142 tools and five skills.
+
 ### Audio content offset foundation and Sonoma experiment
 
 Added bounded 10 ms RMS envelope comparison with explicit comparison-minus-reference offset convention, overlap normalization, competing peaks and insufficient/weak/ambiguous/boundary outcomes. The protected Sonoma preview's decoded first-channel audio, deliberately delayed 1.23 seconds with polarity inversion and reduced gain, recovered +1.23 seconds and -1.23 seconds in reverse; silence and repeated-content controls refused an unambiguous candidate. The source SHA remained unchanged. Evidence: `.avid-mcp-analysis/audio-sync-468cd53f-bc2e-4696-8f44-83a9d263acef/evidence.json`.
