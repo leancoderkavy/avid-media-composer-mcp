@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Validate saved QC event collections
+
+Fresh-package checks passed with 137 tools, five skills and Python/AAF isolation (`.avid-mcp-analysis/check-qc-interval-validation-package.log`). Validation for this increment used the affected report suite, build, real report workflows and package gate; the full unit suite was not rerun.
+
+Saved black/freeze/silence events now reject malformed/oversized collections, invalid numeric intervals, out-of-range endpoints and findings without the corresponding selected stream. Valid open events and historical freeze/silence range-closed records remain readable. Build and all 12 affected report tests passed; actual short-stream and trailing-black report readback also passed with source hashes preserved. See QC_OPEN_INTERVALS.md. This validates stored structure and bounds, not authenticity, perceptual correctness or delivery acceptance.
+
 ### Actual AI interpretation of unknown QC endpoints
 
 Codex read the saved short-video QC report through avid_read_qc_report and correctly returned unknown freeze end/duration, 30 processed video frames and four requested seconds. Its explanation rejected a four-second-freeze inference. The harness checked the exact MCP payload against a direct source-verified report read, final structured values, absence of other tool types and unchanged server/report evidence. Actual execution and syntax passed; evidence: `.avid-mcp-analysis/codex-qc-read-c7502fe6-6bd2-4df5-b93f-b6bc8867b764/evidence.json`. See QC_OPEN_INTERVALS.md. No production code changed; broad model/report acceptance remains open.

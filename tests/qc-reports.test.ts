@@ -49,6 +49,17 @@ it('validates new unknown freeze endpoints while preserving historical reports',
  for(const interval of [open,{start:0,end:4,openAtRangeEnd:true}]){await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{freeze:[interval]}}));expect((await f.service.read(f.id,first)).report.findings.freeze).toEqual([interval]);}
  for(const interval of [{...open,end:4},{...open,start:4},{...open,openAtProcessingEnd:false}]){await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{freeze:[interval]}}));await expect(f.service.read(f.id,first)).rejects.toThrow('open interval');}
 });
+it.each(['black','freeze','silence'])('rejects malformed or out-of-scope stored %s intervals',async kind=>{
+ const f=await fixture();
+ for(const interval of [{start:-1,end:1},{start:2,end:1},{start:1,end:1},{start:0,end:5},{start:'0',end:1},null]){
+  await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{[kind]:[interval]}}));await expect(f.service.read(f.id,first)).rejects.toThrow('closed interval');
+ }
+ for(const collection of [{start:0,end:1},Array.from({length:10001},()=>({start:0,end:1}))]){
+  await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{[kind]:collection}}));await expect(f.service.read(f.id,first)).rejects.toThrow('event collection');
+ }
+ await writeFile(f.reportPath,JSON.stringify({...f.report,streams:kind==='silence'?{video:0,audio:null}:{video:null,audio:1},findings:{[kind]:[{start:0,end:1}]}}));await expect(f.service.read(f.id,first)).rejects.toThrow('closed interval');
+ await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{[kind]:[{start:0,end:4}]}}));expect((await f.service.read(f.id,first)).report.findings[kind]).toEqual([{start:0,end:4}]);
+});
 it("validates stored sample amount arithmetic and stream selection without inventing legacy coverage",async()=>{
  const f=await fixture(),coverage={samplesPerChannel:48000,sampleRate:48000,decodedSeconds:1,requestedSeconds:4,amountMatchesRequestedDuration:false,meaning:"fixture"};
  const current={...f.report,findings:{...f.report.findings,audioSamplesPerChannel:48000},audioCoverage:coverage};

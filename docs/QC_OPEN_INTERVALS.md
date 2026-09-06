@@ -1,5 +1,11 @@
 # Unknown freeze and silence endpoints
 
+## Saved event validation
+
+Stored black/freeze/silence collections must be arrays with at most 10,000 events. Closed events require finite numeric, nonnegative starts and positive ends strictly after their starts, inside the report's source range, with the corresponding stream selected. Open freeze/silence events retain their separate null-end schema. Historical openAtRangeEnd events remain readable for freeze/silence without upgrading their evidence. Invalid reports are refused rather than silently repairing intervals. Missing historical event collections remain distinct from malformed collections.
+
+The affected 12 report tests cover malformed shapes, excessive event counts, reversed/zero/negative/out-of-range intervals, wrong types and missing streams. Actual short-stream and black-tail saved retrieval passed: `.avid-mcp-analysis/qc-open-streams-4cd2c4c0-181c-41e7-a6f6-1af2c6cf6ded/evidence.json` and `.avid-mcp-analysis/qc-black-tail-09381dfc-11a3-4244-8309-a66cb8cf7765/evidence.json`.
+
 ## Model interpretation check
 
 An actual authenticated Codex session read the saved short-video report using only avid_read_qc_report. A structured-answer check verified start 0, end null, duration unknown, 30 decoded video frames and four requested seconds. The model's explanation explicitly stated that neither the request nor the frame count establishes continuous coverage or a four-second freeze. The MCP payload matched a direct report read, and subsequent source/report validation stayed unchanged.
