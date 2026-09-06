@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import {createHash} from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile,readdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import os from "node:os";
@@ -79,6 +79,19 @@ try {
   );
 
   const installedRoot = path.join(temporary, "node_modules", "avid-media-composer-mcp");
+  const {MediaLibrary}=await import(pathToFileURL(path.join(installedRoot,"dist","library","media-library.js")).href);
+  const {loadConfig}=await import(pathToFileURL(path.join(installedRoot,"dist","config.js")).href);
+  const reportRoot=path.join(temporary,"report-fixture");await mkdir(reportRoot);
+  const reportSource=path.join(reportRoot,"fixture.wav"),reportBytes=Buffer.from("installed inventory fixture"),reportId=createHash("sha256").update(reportBytes).digest("hex");
+  await writeFile(reportSource,reportBytes);
+  const reportLibrary=new MediaLibrary(loadConfig({AVID_MCP_ALLOWED_ROOTS:reportRoot,AVID_MCP_OUTPUT_ROOT:reportRoot,AVID_MCP_CAPABILITIES:"inspect,export"}));
+  const reportDirectory=await reportLibrary.directory();
+  await writeFile(path.join(reportDirectory,`${reportId}.json`),JSON.stringify({id:reportId,file:reportSource,bytes:reportBytes.length,transcript:[],metadata:{format:{duration:"1",tags:{make:"<camera>"}},streams:[{index:3,codec_type:"audio",codec_name:"pcm_s16le",channels:2}]}}));
+  const inventory=await reportLibrary.report([reportId]),inventoryHtml=await readFile(inventory.output,"utf8");
+  if(!inventoryHtml.includes("Stream 3")||!inventoryHtml.includes("pcm_s16le")||!inventoryHtml.includes("&lt;camera&gt;")||!inventoryHtml.includes('data-label="SHA-256"'))throw new Error("Installed inventory report lost stream, escaped tag or responsive field output");
+  const reportFiles=(await readdir(reportDirectory)).sort();await writeFile(reportSource,"changed fixture");
+  let staleRejected=false;try{await reportLibrary.report([reportId]);}catch(error){staleRejected=error.message.includes("Source changed since indexing");}
+  if(!staleRejected||!isDeepStrictEqual(reportFiles,(await readdir(reportDirectory)).sort())||await readFile(inventory.output,"utf8")!==inventoryHtml)throw new Error("Installed inventory report did not preserve prior output on changed-source refusal");
   const {verifyFaceLicenses}=await import(pathToFileURL(path.join(installedRoot,"dist","library","face-runtime.js")).href);
   await verifyFaceLicenses(path.join(installedRoot,"docs","licenses"));
   const {installModelNotice}=await import(pathToFileURL(path.join(installedRoot,"dist","library","model-notices.js")).href);
@@ -272,6 +285,7 @@ try {
       faceNotices: "both packaged model licenses match pinned upstream bytes",
       originalNotices: "packaged original-project notices match recorded upstream bytes",
       cachedNotices: "six model notice mappings create and reuse from installed package",
+      inventoryReport: "installed stream/tag rendering and changed-source refusal preserve prior output",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
