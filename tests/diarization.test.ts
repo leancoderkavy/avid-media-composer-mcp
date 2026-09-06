@@ -130,6 +130,23 @@ it("reports full revision scope on every alignment page including excluded and p
   expect(last.segments[0]).toMatchObject({index:2,outsideAnalysisSeconds:1});
   expect(await sha256File(transcript.path)).toBe(hash);
 });
+
+it("uses decoded PCM coverage for alignment and partial assignment authority",async()=>{
+  const originalRun=mocks.run.getMockImplementation()!;
+  mocks.run.mockImplementation(async(executable:string,args:string[])=>{
+    if(args.includes("-f")){await writeFile(args.at(-1)!,Buffer.alloc(1.5*64000));return {exitCode:0};}
+    return originalRun(executable,args);
+  });
+  const f=await fixture(),analysis=await f.speakers.generate(f.id,10,12);
+  const transcript=await new MediaLibrary(f.config).importTranscript(f.id,[{start:11.2,end:11.8,text:"partially decoded"},{start:11.6,end:11.9,text:"not decoded"}]),hash=await sha256File(transcript.path);
+  const aligned=await f.speakers.align(analysis.analysisId,analysis.sha256,transcript.revision,hash);
+  expect(aligned).toMatchObject({start:10,end:12,analyzedStart:10,analyzedEnd:11.5,intersectingSegments:1,outsideAnalysisSegments:1});
+  expect(aligned.segments[0]!.outsideAnalysisSeconds).toBeCloseTo(0.3);
+  await expect(f.speakers.assign(analysis.analysisId,analysis.sha256,transcript.revision,hash,[{index:0,speaker:"speaker-2"}])).rejects.toThrow("allowPartialRange");
+  const assigned=await f.speakers.assign(analysis.analysisId,analysis.sha256,transcript.revision,hash,[{index:0,speaker:"speaker-2",allowPartialRange:true}]);
+  expect(assigned.decisions[0]!.overlap.outsideAnalysisSeconds).toBeCloseTo(0.3);
+  expect(await sha256File(transcript.path)).toBe(hash);
+});
 it("resumes verified extracted audio after inference failure without re-extracting and retains parent provenance",async()=>{
   const f=await fixture(),normal=mocks.run.getMockImplementation()!;
   mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,10,12,{speakers:2})).rejects.toThrow("incomplete files retained");
