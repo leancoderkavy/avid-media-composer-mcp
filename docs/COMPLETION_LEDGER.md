@@ -1,5 +1,15 @@
 # Completion ledger
 
+### Visual-model shutdown drains admitted work
+
+VisualSearch previously disposed its CLIP text/vision models without waiting for active indexing or searches. Model-using public operations now register before asynchronous work begins; shutdown rejects new operations, waits for admitted operations (including failures), then disposes the models once. Internal combined frame search remains inside its admitted operation. A failed vision-model load now cleans up the already-loaded text model and retains both errors if that cleanup also fails. Both model disposals are attempted even if one throws synchronously.
+
+Deterministic tests cover delayed successful/failed vision inference, delayed text search, refusal after shutdown begins, repeated disposal, partial loading failure and cleanup errors. Real cached CLIP qualification admitted two-frame Sonoma indexing and immediately requested shutdown: indexing and its completed checkpoint finished before disposal resolved, later inference was refused, repeated disposal settled, and source hashes were unchanged. Evidence: `.avid-mcp-analysis/visual-shutdown-1458c4d3-7ec6-4d45-bb15-c2c57c9667a2/evidence.json` from `scripts/research/qualify-visual-shutdown.mjs`. No model downloads were performed.
+
+This is graceful in-process visual-service disposal, not an allocator-leak measurement or proof of OS shutdown/abrupt parent-loss containment. Other optional AI service lifetimes and the full feature/host plan remain incomplete.
+
+Full local check passed 730 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 matching tool definitions and five skills (`check-visual-shutdown.log`). Preceding 5d2dac3 passed all CI/CodeQL checks; this runtime change has separate remote validation.
+
 ### HTTP listener shutdown across two active sessions
 
 The HTTP cleanup harness now includes `shutdown`: close the listener and all connections, then start a replacement listener using the same scoped storage. A first one-session run passed (`http-session-shutdown-b68a6ff9-c0e5-4124-bad5-bdbdcd58cb62`). The stronger run started independent sessions, each with real Sonoma FFmpeg QC and a queued job. Both active workers had observed FFmpeg descendants before closure; all four jobs were cancelled for shutdown, neither queued job dispatched, successful tree/exit details survived fresh-session journal reads, old session IDs were refused, and every observed process identity was absent. Source media was unchanged.

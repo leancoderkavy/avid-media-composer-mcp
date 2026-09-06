@@ -25,8 +25,14 @@ export async function loadVisualModels(cache: string, download = false) {
   const tokenizer = await AutoTokenizer.from_pretrained(location,options);
   const processor = await AutoProcessor.from_pretrained(location,options);
   const text = await CLIPTextModelWithProjection.from_pretrained(location,options);
-  const vision = await CLIPVisionModelWithProjection.from_pretrained(location,options);
-  return {tokenizer,processor,text,vision,RawImage};
+  try {
+    const vision = await CLIPVisionModelWithProjection.from_pretrained(location,options);
+    return {tokenizer,processor,text,vision,RawImage};
+  } catch(error) {
+    try { await text.dispose(); }
+    catch(cleanupError){throw new AggregateError([error,cleanupError],"Visual model loading and partial cleanup failed");}
+    throw error;
+  }
 }
 export function cosine(a: number[], b: number[]) {
   if(a.length!==b.length || !a.length || [...a,...b].some(x=>!Number.isFinite(x))) throw new Error("Invalid embedding vectors");
@@ -50,6 +56,9 @@ const recordSchema=z.union([legacyRecord,legacyRecord.extend({schemaVersion:z.li
 export class VisualSearch {
   readonly checkpoints:VisualCheckpoints;
   private models: ReturnType<typeof loadVisualModels>|undefined;
+  private closing=false;
+  private disposing:Promise<void>|undefined;
+  private operations=new Set<Promise<unknown>>();
   private readonly library: MediaLibrary;
   constructor(private readonly config: ServerConfig){this.library=new MediaLibrary(config);this.checkpoints=new VisualCheckpoints(config,VISUAL_MODEL,VISUAL_REVISION);}
   private load(){
@@ -58,8 +67,23 @@ export class VisualSearch {
     this.models ??= loadVisualModels(this.config.modelDirectory).catch(error=>{this.models=undefined;throw error;});
     return this.models;
   }
-  async dispose(){const pending=this.models;this.models=undefined;if(pending){const models=await pending;await Promise.all([models.text.dispose(),models.vision.dispose()]);}}
+  private operation<T>(fn:()=>Promise<T>):Promise<T>{
+    if(this.closing)return Promise.reject(new Error("Visual service is closing"));
+    const pending=Promise.resolve().then(fn);this.operations.add(pending);
+    return pending.finally(()=>{this.operations.delete(pending);});
+  }
+  dispose(){
+    this.closing=true;
+    return this.disposing??=(async()=>{
+      await Promise.allSettled([...this.operations]);
+      const pending=this.models;this.models=undefined;
+      if(pending){const models=await pending;await Promise.all([models.text,models.vision].map(async model=>model.dispose()));}
+    })();
+  }
   async index(ids:string[],samplesPerFile:number,range?:z.infer<typeof visualRange>){
+    return this.operation(()=>this.indexImpl(ids,samplesPerFile,range));
+  }
+  private async indexImpl(ids:string[],samplesPerFile:number,range?:z.infer<typeof visualRange>){
     requireCapability(this.config.capabilities,"export");
     if(ids.length>100||!ids.length||!Number.isInteger(samplesPerFile)||samplesPerFile<1||samplesPerFile>120||ids.length*samplesPerFile>1200)throw new Error("Visual sample limit exceeded (120 per file, 1200 total)");
     const entries=await Promise.all([...new Set(ids)].map(id=>this.library.validatedMetadata(id)));
@@ -67,6 +91,9 @@ export class VisualSearch {
     return this.indexPlan(plans.flatMap(({entry,times})=>times.map(time=>({id:entry.id,time}))));
   }
   async indexShots(id:string,options:z.input<typeof shotOptions>){
+    return this.operation(()=>this.indexShotsImpl(id,options));
+  }
+  private async indexShotsImpl(id:string,options:z.input<typeof shotOptions>){
     requireCapability(this.config.capabilities,"export");
     const report=await new ShotDetection(this.config).detect(id,options);
     if(report.shots.length>1200)throw new Error("Shot index exceeds 1200 samples; use a shorter range. No shots were silently skipped.");
@@ -74,6 +101,9 @@ export class VisualSearch {
     return {...index,shotReport:report.output,detectedShots:report.shots.length,coverage:"One midpoint per detected shot; detection can miss cuts and each shot can contain unsampled visual changes"};
   }
   async resume(runId:string){
+    return this.operation(()=>this.resumeImpl(runId));
+  }
+  private async resumeImpl(runId:string){
     requireCapability(this.config.capabilities,"export");
     const previous=await this.checkpoints.read(runId,true);
     if(previous.indexId)throw new Error(`Visual run is already completed; use index ${previous.indexId}`);
@@ -119,6 +149,9 @@ export class VisualSearch {
     return {indexId,samples:page,totalSamples:record.samples.length,nextAfter:matches.length>limit?page.at(-1)?.index:null,coverage:"Sample points only; ranges are half-open"};
   }
   async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={},text?:string){
+    return this.operation(()=>this.searchFrameImpl(indexId,id,time,limit,scope,refinement,text));
+  }
+  private async searchFrameImpl(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>,refinement:z.input<typeof visualRefinement>,text?:string){
     requireCapability(this.config.capabilities,"export");
     z.number().finite().nonnegative().parse(time);z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
     if(text!==undefined)text=z.string().trim().min(1).max(500).parse(text);
@@ -128,7 +161,7 @@ export class VisualSearch {
     for(const concept of new Set(controls.exclude))await this.tokenize(concept);
     if(text!==undefined)await this.tokenize(text);
     const frame=await this.library.artifact(id,"thumbnail",time);
-    return {...await this.search(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,controls),reference:{id,time,image:frame.output}};
+    return {...await this.searchImpl(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,controls),reference:{id,time,image:frame.output}};
   }
   private async thumbnail(sample:{image:string;imageSha256?:string},directory:string){
     const image=await resolveReadablePath(sample.image,[directory],"file");
@@ -144,6 +177,9 @@ export class VisualSearch {
     return tokens;
   }
   async search(indexId:string,query:{text:string}|{image:string;text?:string|undefined},limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
+    return this.operation(()=>this.searchImpl(indexId,query,limit,scope,refinement));
+  }
+  private async searchImpl(indexId:string,query:{text:string}|{image:string;text?:string|undefined},limit:number,scope:z.infer<typeof visualScope>,refinement:z.input<typeof visualRefinement>){
     z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
     const controls=visualRefinement.parse(refinement);
     const {record,directory}=await this.record(indexId);
