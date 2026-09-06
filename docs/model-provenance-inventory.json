@@ -1,0 +1,79 @@
+{
+  "models": [
+    {
+      "model": "Xenova/clip-vit-base-patch32",
+      "revision": "d15189d7028b43f1d3e65039190477f6af591c2a",
+      "metadataUrl": "https://huggingface.co/api/models/Xenova/clip-vit-base-patch32/revision/d15189d7028b43f1d3e65039190477f6af591c2a",
+      "declaredLicense": null,
+      "notices": [
+        {
+          "file": "README.md",
+          "source": "https://huggingface.co/Xenova/clip-vit-base-patch32/raw/d15189d7028b43f1d3e65039190477f6af591c2a/README.md",
+          "bytes": 1404,
+          "sha256": "19c2ef35fa89966c7fa7aa30666b4e3aeef4b075461626be55e6037133cc6aa4"
+        }
+      ],
+      "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
+    },
+    {
+      "model": "Xenova/distilbart-cnn-6-6",
+      "revision": "6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9",
+      "metadataUrl": "https://huggingface.co/api/models/Xenova/distilbart-cnn-6-6/revision/6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9",
+      "declaredLicense": "apache-2.0",
+      "notices": [
+        {
+          "file": "README.md",
+          "source": "https://huggingface.co/Xenova/distilbart-cnn-6-6/raw/6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9/README.md",
+          "bytes": 1921,
+          "sha256": "fe5a943b9e7c82f50ee96f8946f662b062c863a38d20384b7bdfa2154e8082a8"
+        }
+      ],
+      "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
+    },
+    {
+      "model": "onnx-community/Florence-2-base-ft",
+      "revision": "e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f",
+      "metadataUrl": "https://huggingface.co/api/models/onnx-community/Florence-2-base-ft/revision/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f",
+      "declaredLicense": "mit",
+      "notices": [
+        {
+          "file": "README.md",
+          "source": "https://huggingface.co/onnx-community/Florence-2-base-ft/raw/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f/README.md",
+          "bytes": 2665,
+          "sha256": "dbf8928d1bf7201ceab13775837bc1364cec189da370f8561b56303cf4c22932"
+        }
+      ],
+      "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
+    },
+    {
+      "model": "onnx-community/whisper-tiny.en",
+      "revision": "2575352d61be1bf7225cf8f8b268a4678025fc58",
+      "metadataUrl": "https://huggingface.co/api/models/onnx-community/whisper-tiny.en/revision/2575352d61be1bf7225cf8f8b268a4678025fc58",
+      "declaredLicense": null,
+      "notices": [
+        {
+          "file": "README.md",
+          "source": "https://huggingface.co/onnx-community/whisper-tiny.en/raw/2575352d61be1bf7225cf8f8b268a4678025fc58/README.md",
+          "bytes": 537,
+          "sha256": "5f1d9253fc9a536c3cd05bcb20128963e6c545c32294bf3cc4e3b5c0bf570c96"
+        }
+      ],
+      "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
+    },
+    {
+      "model": "onnx-community/whisper-tiny",
+      "revision": "ff4177021cc41f7db950912b73ea4fdf7d01d8e7",
+      "metadataUrl": "https://huggingface.co/api/models/onnx-community/whisper-tiny/revision/ff4177021cc41f7db950912b73ea4fdf7d01d8e7",
+      "declaredLicense": null,
+      "notices": [
+        {
+          "file": "README.md",
+          "source": "https://huggingface.co/onnx-community/whisper-tiny/raw/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/README.md",
+          "bytes": 531,
+          "sha256": "dc9a0879b11fb43db2c220466352b235f7cdb7af791c57c0ed47f0a4028d9267"
+        }
+      ],
+      "scope": "Pinned repository metadata and notice inventory; model-card declarations are not a complete upstream license or training-data audit"
+    }
+  ]
+}

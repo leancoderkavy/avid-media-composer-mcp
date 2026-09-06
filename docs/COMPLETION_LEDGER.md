@@ -544,3 +544,7 @@ Build and 15 focused tests passed. The existing local model cache passed with in
 ### Full verification after stereo tracing and face provenance
 
 `npm run check` passed on source commit `74f6818`: 455 TypeScript tests, 32 Python tests, 135-tool stdio/HTTP checks, dry packing and fresh-tarball installation. Installed verification exercised snapshot pagination/discovery, stereo source ranges and refusal behavior, exact face-license bytes, five client formats and Python availability/missing/restored isolation. Evidence: `.avid-mcp-analysis/check-face-provenance.log`. GitHub CI run `34014445463` was still running when this local result was recorded; no CI-success or overall-completion claim follows from the local pass.
+
+### Optional conversion-model notice inventory
+
+Added and ran a bounded pinned-revision metadata/notice audit for the five configured Hugging Face models. Exact commit identities matched. README hashes and source URLs are retained in `docs/model-provenance-inventory.json`; no separate LICENSE/NOTICE appeared in those repository listings. DistilBART and Florence metadata declare apache-2.0 and mit respectively; CLIP and both Whisper conversion metadata omit a license identifier. No licensing conclusion is inferred from omission. See `docs/OPTIONAL_MODEL_PROVENANCE.md` for remaining original-model, conversion and runtime provenance work. Local evidence: `.avid-mcp-analysis/model-provenance-69074306-48e5-4aff-a0ec-fafb25106d46/evidence.json`. Only metadata/notices were read; no model cache changed.
