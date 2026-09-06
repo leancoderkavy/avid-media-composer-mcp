@@ -1,5 +1,15 @@
 # Native duplicate-items research
 
+## Guarded MCP action
+
+`avid_native_preview` now accepts `{action: "duplicate_clip", bin, mobId}`. Apply its returned token with `avid_native_apply`. Preview requires inspection/edit authority and binds the scoped bin path/hash, current native item inventory, project and listener owner. Apply rechecks this state under the native lock, consumes the token before dispatch and invokes `DuplicateBinItems` once. This binding does not capture a complete unsaved sequence graph.
+
+Post-read must find exactly one new returned ID and preserve all prior item fields except `mob_selected`, which Avid may change. Missing/extra/reused IDs and unrelated item changes withhold `duplicateIdentityVerified`. A lost write response is not retried. `sourceFidelityVerified` and `persistenceVerified` remain false; `selectionMayChange` is true. Identity verification does not establish copied timeline semantics, undo or persistence for an arbitrary target.
+
+Actual MCP execution added a third item to the owned bin, with new ID `060a2b340101010501010f1013-000000-ba9f49dd12898806-c9bad8bbc16d-18d9`. Both prior IDs/names remained, token reuse was refused, and protected original bin/media hashes were unchanged. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-a69f0f95-fc1b-452c-b3d4-8b60e55bb667/evidence.json`. This new MCP-created item has not yet been independently saved/reopened or graph-qualified; the earlier evidence below applies to the preceding research duplicate.
+
+Full local validation passed 790 TypeScript tests, 46 Python tests, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-duplicate.log`). Regression cases include ignored writes, extra items, renamed originals, reused IDs, stale saved bins, uncertain responses and consumed tokens. The native allowlist is now 16 reads/17 writes; MCP count remains 143 tools. Batch/master accuracy, unsaved graph equivalence, failure recovery, undo and rendered fidelity remain open.
+
 On the qualified Windows Media Composer 2024.12.58720 host, `DuplicateBinItems` declares a `bin_path` and repeated `mob_id` request, returning repeated new MOB IDs. The extended research harness `qualify-native-copy.py --duplicate` first creates a unique owned bin and uses the existing copy operation to populate it. Only that new bin and its verified returned identities are eligible for duplication; protected original items are not duplicated in place or moved.
 
 Actual execution on 2026-09-06 created `MCP_Copy_322e7c6bfa2f.avb`, copied the Sonoma selects sequence and duplicated the copied item once. Avid returned a distinct ID for the duplicate. The bin contained exactly the original copied ID plus that returned ID, with the original name unchanged. Selection moved from the copied original to the duplicate; duplication must not be presented as selection-preserving.

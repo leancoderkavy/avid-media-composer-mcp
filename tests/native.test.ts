@@ -61,6 +61,34 @@ it("refuses an out-of-scope project before requesting host-wide media volumes",a
   expect(f.calls.map(call=>call.method)).toEqual(["GetOpenProjectInfo"]);
 });
 
+it.each(["pass","missing","extra","renamed","reused","uncertain"])("verifies duplicate identity and preservation without replay: %s",async mode=>{
+  const f=await hostFixture(),original=f.client.call.bind(f.client);let writes=0;
+  let rows:Record<string,unknown>[]=[{mob_id:"clip",mob_name:"Original",mob_selected:true}];
+  vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+    if(method==="GetListOfBinItems")return structuredClone(rows);
+    if(method==="DuplicateBinItems"){
+      writes++;expect(body).toEqual({bin_path:path.join(path.dirname(f.source),"fixture.avb"),mob_id:["clip"]});
+      rows=[{mob_id:"clip",mob_name:mode==="renamed"?"Changed":"Original"},...(mode==="missing"?[]:[{mob_id:"new",mob_name:"Original.Copy.01",mob_selected:true}]),...(mode==="extra"?[{mob_id:"unrelated"}]:[])];
+      if(mode==="uncertain")throw new Error("Connection lost after dispatch");
+      return [{mob_id:[mode==="reused"?"clip":"new"]}];
+    }return original(method,body);
+  });
+  const preview=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
+  if(mode==="uncertain")await expect(f.adapter.apply(preview.token)).rejects.toThrow("Connection lost");
+  else {
+    const result=await f.adapter.apply(preview.token);
+    expect(result).toMatchObject({duplicateIdentityVerified:mode==="pass",sourceFidelityVerified:false,persistenceVerified:false,selectionMayChange:true});
+    if(mode!=="pass")expect(result.verificationError).toBeTruthy();
+  }
+  await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
+});
+it("refuses stale duplicate previews before dispatch",async()=>{
+  const f=await hostFixture(),plan=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
+  await writeFile(path.join(path.dirname(f.source),"fixture.avb"),"changed saved bin");
+  await expect(f.adapter.apply(plan.token)).rejects.toThrow("state changed");
+  expect(f.calls.some(call=>call.method==="DuplicateBinItems")).toBe(false);
+});
+
 async function hostFixture(capabilities="inspect,edit,project-write,export"){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));
   await writeFile(path.join(root,"fixture.avb"),"saved bin");

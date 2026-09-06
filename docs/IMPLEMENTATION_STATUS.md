@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Guarded native `duplicate_clip` now performs one same-bin duplication with token/state/owner checks and explicit identity/preservation verification. Actual MCP execution and replay refusal passed on the owned Sonoma fixture; save/reopen, graph and undo qualification for that new item remain separate. See [duplication](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action).
+
 `avid_native_read` now supports `media_volumes`: bounded host-wide volume declarations gated by an authorized current project, with exact raw uint64 strings, omitted defaults and explicit unknown units/path/online status. Two fresh inspect-only MCP sessions passed on the qualified Windows host with protected source/bin hashes unchanged. See [media-volume diagnostic](NATIVE_MEDIA_VOLUMES.md).
 
 Actual Source Play-button use advanced the disposable Sonoma fixture from frame 0 to 119 with visible meter activity; a ruler click restored frame 0 and independent MCP reads/file hashes verified the endpoints and source preservation. Home did not restore this focus state. Captured video remained blank, leaving visual/audio fidelity and a shipping playback adapter unqualified. See [source playback evidence](NATIVE_SOURCE_PLAYBACK.md).

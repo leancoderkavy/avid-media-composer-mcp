@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Guarded native duplicate action
+
+Implemented `duplicate_clip` in native preview/apply with scoped bin hash/item inventory, host/project binding, native locking, single-use tokens and one dispatch. Post-read verifies exactly one new returned ID and preservation of every prior item field except selection. Identity verification remains separate from persistence and source fidelity. The bound inventory is not a complete unsaved timeline graph.
+
+Actual MCP created a third item in the owned duplicate bin, preserved both prior IDs/names, refused token replay and retained original source/bin hashes. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-a69f0f95-fc1b-452c-b3d4-8b60e55bb667/evidence.json`. The new item remains available for saved/reopen qualification. Full checks passed 790 TypeScript/46 Python tests, transports and fresh-package/Python/AAF; log `.avid-mcp-analysis/check-native-duplicate.log`. See [guarded duplicate action](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action). Native allowlist: 16 reads/17 writes; 143 MCP tools. Full-plan completion remains unproven.
+
 ### Saved duplicate bin close/reopen
 
 The owned duplicate bin passed guarded MCP close/reopen after an exact saved-hash preflight. Both native identities/names, every independently decoded MOB/warning and the saved bin SHA-256 were unchanged. Protected original bin/media hashes were preserved. Evidence: `.avid-mcp-analysis/native-duplicate-reopen-d64b1c88-bf99-4929-829d-51f7eda3cf4b/evidence.json`; repeatable harness: `qualify-native-duplicate-reopen.mjs`.
