@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile,mkdir,readdir} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,mkdir,readdir,symlink} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
@@ -19,6 +19,15 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it.each([false,true])("refuses matching out-of-scope aliases (directory link: %s) and can select a later allowed copy",async linked=>{
+  const {library,id,file,root}=await fixture(),outside=await mkdtemp(path.join(os.tmpdir(),"avid-outside-")),external=path.join(outside,"private.wav");await writeFile(external,"fixture");await writeFile(file,"changed");
+  let alias=external;
+  if(linked){const link=path.join(root,"redirect");await symlink(outside,link,process.platform==="win32"?"junction":"dir");alias=path.join(link,"private.wav");}
+  const aliases=path.join(root,"avid-mcp-library",`${id}.sources`);await mkdir(aliases);await writeFile(path.join(aliases,`${"a".repeat(64)}.json`),JSON.stringify({id,file:alias}));
+  await expect(library.validatedMetadata(id)).rejects.toThrow("Source changed since indexing");
+  const allowed=path.join(root,"allowed.wav");await writeFile(allowed,"fixture");await writeFile(path.join(aliases,`${"b".repeat(64)}.json`),JSON.stringify({id,file:allowed}));
+  expect((await library.validatedMetadata(id)).file).toBe(allowed);const report=await library.report([id]);const html=await readFile(report.output,"utf8");expect(html).toContain("allowed.wav");expect(html).not.toContain("private.wav");expect(await readFile(external,"utf8")).toBe("fixture");
+ });
  it("uses a matching indexed alias when the original path contains changed media",async()=>{
   const {library,id,file,root}=await fixture(),alias=path.join(root,"reconnected.wav");await writeFile(alias,"fixture");
   const aliases=path.join(root,"avid-mcp-library",`${id}.sources`);await mkdir(aliases);
