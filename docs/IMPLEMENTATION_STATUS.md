@@ -14,7 +14,7 @@ Visual-summary discovery follows the same bounded-file pagination and unavailabl
 
 ## Native Avid workflows
 
-Guarded Comments set/clear has successful native and saved-bin evidence, but a later populated-value UI qualification attempt was rejected by Avid as `Column is not modifiable.` despite a writable declaration and successful preview. Readback and saved hashes confirmed no change in that attempt. Repeatability after UI interaction and visible populated Comments remain unresolved; see [native Comments evidence and limits](NATIVE_CLIP_COMMENTS.md). The adapter does not retry uncertain writes.
+Guarded Comments set/clear has successful native and saved-bin evidence. A later write was rejected as `Column is not modifiable.` despite a writable declaration and successful preview; readback and saved hashes confirmed no change. A deliberate fixture close/reopen followed by a fresh write succeeded, and computer use observed the full populated Comments value. The rejection's cause and general repeatability remain unresolved; see [native Comments evidence and limits](NATIVE_CLIP_COMMENTS.md). The adapter does not automatically retry writes or close arbitrary bins to recover.
 
 `avid_native_read` also supports `bin_columns`, preserving scoped Avid column declarations and flags. Actual fresh managed-package reads across two MCP processes returned 179 declarations matching direct native reads with unchanged bin/entry hashes. This does not authorize arbitrary metadata writes or custom-column creation. See [column discovery](NATIVE_BIN_COLUMNS.md).
 

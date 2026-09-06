@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Comments visible after reload; post-UI graph restoration failed
+
+Read-only saved inspection found a visible Comments column already present, and native GetBinInfo reported the fixture open/unlocked. A deliberate guarded close/reopen preserved the decoded baseline; a fresh comment set then succeeded and survived another reopen. The staged verifier exposed its own incorrect hardcoded copied-name suffix after writing. Replaced name matching with canonical MOB identity, checked target uniqueness before mutation, and added read-only verify-set recovery rather than replay. Actual recovery verified only the expected saved comment change. Fixture experiment: `.avid-mcp-analysis/native-comment-ui-611ac5bb-08a8-4255-9068-e56eb9236cef/`.
+
+Computer use resolved the exact bin through its full tab menu and observed the complete test text under Comments after rearranging/scrolling columns. Double-clicking the row loaded the fixture in the timeline. Subsequent explicit native clear/readback/reopen succeeded, but full saved-graph restoration failed on one added 120-frame DescriptiveMetadata filler track. Independent inspection confirmed this was the only remaining decoded difference and original media/source-bin hashes were unchanged. The saved candidate and failure are retained; the verifier was not weakened. Fixture baseline restoration and the cause of the additional track remain unresolved. Harness syntax/diff checks passed; no production code changed. Earlier ff174a2 CI was still running at this turn's inspection.
+
 ### Populated Comments attempt exposed a host rejection
 
 Added a staged exact-fixture UI qualification harness with exclusive write-phase claims, expected saved hashes/current values, independent saved-graph comparison and read-only inspection. Actual set was rejected with native error 55, `Column is not modifiable.`, although preview and the writable String declaration passed. No replay or restoration was attempted. Read-only inspection returned an empty comment, unchanged saved bytes/decoded baseline and unchanged original source-bin/media hashes. Evidence: `.avid-mcp-analysis/native-comment-ui-9a036cdf-1e6e-41f1-a04e-4b2c34a55bbb/`. The populated UI path and successful new-harness restore path remain unqualified; the error's cause remains unresolved.
