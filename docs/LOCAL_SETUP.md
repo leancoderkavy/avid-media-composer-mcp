@@ -479,3 +479,5 @@ Multi-bin capture checks cumulative serialized bin bytes while collecting result
 Snapshot discovery summaries include `missingBins`; mob inventory entries include `binPresent`. These reflect path resolution at read time, not matching captured hashes or media-online status. A missing bin remains queryable historically only if its parent directory is still authorized. Structural `complete` describes the capture, independently of current path presence.
 
 For reading current bin selection, highlighting search-result MOBs, clearing selection, and explicit restoration, see [native selection](NATIVE_SELECTION.md). This development workflow uses `avid_native_read`, `avid_native_preview`, and `avid_native_apply` on the qualified Windows build.
+
+For copying a source bin item into an empty results bin, see [native copying](NATIVE_COPY.md), including identity changes, verification fields, and persistence limits.

@@ -2,7 +2,8 @@ import {runProcess} from '../../dist/process.js';import {sha256File} from '../..
 import {mkdir,writeFile} from 'node:fs/promises';import path from 'node:path';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
 const root=path.resolve('.avid-mcp-analysis',`native-copy-graph-${randomUUID()}`);await mkdir(root);
 const project='D:/Avid Projects/MCP_Sonoma_30p_20260905';
-const inputs=[{bin:'MCP_AAF_Selects_20260905.avb',name:'MCP_Sonoma_AAF_Selects'},{bin:'MCP_Copy_969f92a0264a.avb',name:'MCP_Sonoma_AAF_Selects.Copy.01'}];
+const mcpCopy=process.argv.includes('--mcp-copy');
+const inputs=[{bin:'MCP_AAF_Selects_20260905.avb',name:'MCP_Sonoma_AAF_Selects'},{bin:mcpCopy?'MCP_CopyMCP_3381a43a4edf.avb':'MCP_Copy_969f92a0264a.avb',name:mcpCopy?'MCP_Sonoma_AAF_Selects.Copy.02':'MCP_Sonoma_AAF_Selects.Copy.01'}];
 const graphs=[];
 for(const input of inputs){const file=path.join(project,input.bin),parsed=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',file],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(parsed.exitCode,0,parsed.stderr);const graph=JSON.parse(parsed.stdout);await writeFile(path.join(root,input.bin+'.json'),JSON.stringify(graph,null,2));assert.equal(await sha256File(file),graph.sha256);graphs.push(graph);}
 const sequence=graphs.map((g,i)=>{const found=g.mobs.filter(m=>m.name===inputs[i].name);assert.equal(found.length,1);return found[0];});

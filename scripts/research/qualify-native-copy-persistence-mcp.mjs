@@ -1,0 +1,11 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';import {mkdir,readFile,writeFile} from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const root=path.resolve('.avid-mcp-analysis',`native-copy-persistence-mcp-${randomUUID()}`);await mkdir(root);
+const client=new Client({name:'native-copy-persistence-mcp-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:'D:/Avid Projects/MCP_Sonoma_30p_20260905',AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
+try{
+ const bin='MCP_CopyMCP_3381a43a4edf.avb';
+ for(const action of ['close_bin','open_bin']){
+  const plan=await client.callTool({name:'avid_native_preview',arguments:{operation:{action,bin}}},undefined,{timeout:120000});await writeFile(path.join(root,action+'-preview.json'),JSON.stringify(plan,null,2));assert.ok(!plan.isError,JSON.stringify(plan));
+  const result=await client.callTool({name:'avid_native_apply',arguments:{token:plan.structuredContent.data.token}},undefined,{timeout:120000});await writeFile(path.join(root,action+'-result.json'),JSON.stringify(result,null,2));assert.ok(!result.isError,JSON.stringify(result));assert.equal(result.structuredContent.data.binStateVerified,true);
+ }
+ const result=await client.callTool({name:'avid_native_read',arguments:{query:'clips',bin}},undefined,{timeout:120000});await writeFile(path.join(root,'members.json'),JSON.stringify(result,null,2));assert.ok(!result.isError,JSON.stringify(result));assert.equal(result.structuredContent.data.length,1);assert.equal(result.structuredContent.data[0].mob_id,'060a2b340101010501010f1013-000000-fdc0a1fe12898806-27f6d8bbc16d-18d9');console.log(JSON.stringify({root,bin,persistedCopy:true}));
+}finally{await client.close();}

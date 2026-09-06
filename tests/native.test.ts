@@ -339,3 +339,15 @@ it.each([false,true])("copies into an empty bin and verifies new identity (misma
  const plan=await f.adapter.preview(action);expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,copyIdentityVerified:!mismatch,persistenceVerified:false,sourceFidelityVerified:false});
  await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
 });
+
+it("does not replay a copy when its response is lost after destination population",async()=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);await writeFile(path.join(path.dirname(f.source),"target.avb"),"empty");let target:any[]=[],writes=0;
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems"&&body?.bin_relative_path==="target.avb")return target;
+  if(method==="CopyBinItems"){writes++;target=[{mob_id:"created-before-timeout"}];throw new Error("Copy response lost");}
+  return original(method,body);
+ });
+ const action={action:"copy_clip" as const,bin:"fixture.avb",mobId:"clip",destinationBin:"target.avb"},plan=await f.adapter.preview(action);
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow("response lost");await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");
+ expect(await f.adapter.read("clips","target.avb")).toEqual(target);await expect(f.adapter.preview(action)).rejects.toThrow("empty");expect(writes).toBe(1);
+});
