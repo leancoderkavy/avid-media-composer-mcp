@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Populated Comments attempt exposed a host rejection
+
+Added a staged exact-fixture UI qualification harness with exclusive write-phase claims, expected saved hashes/current values, independent saved-graph comparison and read-only inspection. Actual set was rejected with native error 55, `Column is not modifiable.`, although preview and the writable String declaration passed. No replay or restoration was attempted. Read-only inspection returned an empty comment, unchanged saved bytes/decoded baseline and unchanged original source-bin/media hashes. Evidence: `.avid-mcp-analysis/native-comment-ui-9a036cdf-1e6e-41f1-a04e-4b2c34a55bbb/`. The populated UI path and successful new-harness restore path remain unqualified; the error's cause remains unresolved.
+
+Two regression cases cover native rejection and simulated transport loss after mutation. Both require the apply token to remain consumed, exactly one dispatch, and explicit readback of the actual value. All 66 native tests passed; harness syntax and diff checks passed. No production code changed and the full suite was not rerun for this research/test checkpoint.
+
 ### UI comment-column inspection and current status reconciliation
 
 Computer use reopened the disposable comment fixture and inspected Choose Columns. The observed alphabetical Color-to-Creation Date section did not include Comments. Cancel closed the dialog without applying changes; no comment edit or save was invoked. Populated-value UI acceptance remains open, as detailed in NATIVE_CLIP_COMMENTS.md. The timeline remained Copy.05 at 01:00:02:00. This observation does not replace native or saved-bin verification.

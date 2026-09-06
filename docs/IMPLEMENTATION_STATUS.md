@@ -14,6 +14,8 @@ Visual-summary discovery follows the same bounded-file pagination and unavailabl
 
 ## Native Avid workflows
 
+Guarded Comments set/clear has successful native and saved-bin evidence, but a later populated-value UI qualification attempt was rejected by Avid as `Column is not modifiable.` despite a writable declaration and successful preview. Readback and saved hashes confirmed no change in that attempt. Repeatability after UI interaction and visible populated Comments remain unresolved; see [native Comments evidence and limits](NATIVE_CLIP_COMMENTS.md). The adapter does not retry uncertain writes.
+
 `avid_native_read` also supports `bin_columns`, preserving scoped Avid column declarations and flags. Actual fresh managed-package reads across two MCP processes returned 179 declarations matching direct native reads with unchanged bin/entry hashes. This does not authorize arbitrary metadata writes or custom-column creation. See [column discovery](NATIVE_BIN_COLUMNS.md).
 
 `avid_native_read` supports `open_bins`, returning bounded canonical paths within the current authorized project with project checks around enumeration. Empty viewer inventories are valid; they cannot verify `show_clip` success. A fresh managed installation passed actual Sonoma open-bin, track and viewer reads plus independent saved-timeline/source hash checks (`installed-native-1a359ca7-bf96-48c0-947a-be5274da8408`). This uses the existing qualified Windows host and checkout Python oracle, not a clean machine or named AI-client GUI.

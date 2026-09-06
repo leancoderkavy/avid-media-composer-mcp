@@ -59,6 +59,25 @@ describe("native boundaries", () => {
     }
     expect(writes).toBe(2);expect(current).toBe('');
   });
+  it.each(['column-refusal','transport-after-write'])('does not replay a Comments RPC failure: %s',async variant=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);let current='',writes=0;
+    vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+      if(method==='GetBinColumnInfo')return [{column:[{column_name:'Comments',column_value_type:'String',column_hidden:false,column_is_custom:true,column_is_readonly:false}]}];
+      if(method==='GetMobInfo')return [{column_name:'Comments',column_value:current}];
+      if(method==='SetMobInfo'){
+        writes++;
+        if(variant==='transport-after-write')current=body?.column.column_value;
+        throw new Error(variant==='column-refusal'?'Column is not modifiable.':'Connection lost after dispatch');
+      }
+      return original(method,body);
+    });
+    const plan=await f.adapter.preview({action:'set_clip_comment',bin:'fixture.avb',mobId:'clip',expectedComment:'',comment:'Review'});
+    await expect(f.adapter.apply(plan.token)).rejects.toThrow(variant==='column-refusal'?'Column is not modifiable.':'Connection lost after dispatch');
+    await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');
+    expect(writes).toBe(1);
+    expect(await f.adapter.read('clip_columns','fixture.avb','clip')).toMatchObject({columns:[{column_name:'Comments',column_value:variant==='column-refusal'?'':'Review'}]});
+    expect(writes).toBe(1);
+  });
   it.each(['readonly','missing','mismatch','reported','authority'])('refuses or reports unverified %s Comments edits',async variant=>{
     const f=await hostFixture(variant==='authority'?'inspect':'inspect,edit'),original=f.client.call.bind(f.client);let current='',writes=0;
     vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
