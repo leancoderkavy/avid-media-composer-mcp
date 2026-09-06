@@ -62,10 +62,10 @@ it("returns no language for digital silence without model inference or transcrip
   const result=await speech.detectLanguage(id,0,1);expect(result).toMatchObject({status:"digital_silence",language:null,candidates:[],transcriptCreated:false,languageVerified:false});expect(mocks.pipeline).not.toHaveBeenCalled();
   await expect(speech.detectLanguage(id,0,31)).rejects.toThrow("30 seconds");await expect(new SpeechAnalysis({...config,capabilities:new Set(["inspect"])}).detectLanguage(id,0,1)).rejects.toThrow();
 });
-it("resumes committed tokens after failure and preserves the parent and model method",async()=>{
+it.each(["tiny.en","base"] as const)("resumes %s tokens after failure and preserves the parent and model method",async model=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
   mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
-  await expect(speech.transcribe(id,0,65)).rejects.toMatchObject({code:"SPEECH_INCOMPLETE"});
+  await expect(speech.transcribe(id,0,65,{model,language:"en"})).rejects.toMatchObject({code:"SPEECH_INCOMPLETE"});
   expect((await mocks.pipeline.mock.results[0]!.value).model.generate).toBe(mocks.generate);
   const parent=(await speech.checkpoints.list(id)).runs[0]!;expect(parent).toMatchObject({state:"partial",completedWindows:1});
   const directory=await new MediaLibrary(config).directory(),file=path.join(directory,`speech-run-${parent.runId}`,"0.json"),before=await readFile(file,"utf8");
@@ -87,11 +87,11 @@ it("rejects changed audio plans, input tokens, source scope and completed checkp
   await unlink(completedFile);await expect(speech.checkpoints.status(completed.runId)).rejects.toThrow("missing windows");
 });
 
-it("persists the automatic choice across interrupted generation and resumes without redetecting",async()=>{
+it.each(["tiny","base"] as const)("persists %s automatic choice across interruption without redetecting",async model=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
   const detect=vi.spyOn(speech as any,"candidates").mockResolvedValue(["fr","en","de","es","zh"].map((language,index)=>({language,modelProbability:0.8/(index+1)})));
   mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
-  await expect(speech.transcribe(id,0,65,{model:"tiny",language:"auto"})).rejects.toMatchObject({code:"SPEECH_INCOMPLETE"});
+  await expect(speech.transcribe(id,0,65,{model,language:"auto"})).rejects.toMatchObject({code:"SPEECH_INCOMPLETE"});
   const parent=(await speech.checkpoints.list(id)).runs[0]!.runId;
   expect((await speech.checkpoints.read(parent)).record).toMatchObject({recipe:3,languageDecision:{language:"fr",selection:"model_candidate",analyzedSeconds:30}});
   const resumed=await speech.resume(parent);expect(resumed).toMatchObject({language:"fr",languageRequested:"auto",languageSelection:"model_candidate",reusedWindows:1,languageDetectionVerified:false});expect(detect).toHaveBeenCalledTimes(1);
