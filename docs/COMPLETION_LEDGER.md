@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Receipt publisher process interruption
+
+Executed actual child-process termination at instrumented partial-write and post-link boundaries in the production receipt publisher. The parent observed each barrier before killing the exact child and awaited its close event. Partial-write interruption left no final receipt and allowed a later successful publication; post-link interruption retained a complete receipt and refused replacement. Abandoned temporary files and the synthetic dependency tree were preserved. Evidence: `.avid-mcp-analysis/runtime-receipt-crash-aeb4f70c-53e5-44b8-9ed3-ea416dad18e8/evidence.json`; reproducible script: `qualify-runtime-receipt-crash.mjs`. Syntax and real execution passed. Full installer crashes, stale-lock recovery and power-loss durability remain open; no production code changed.
+
 ### Atomic optional-runtime receipts
 
 Full local check passed: 562 TypeScript tests, 36 Python tests, 137 tools, five skills, transports and fresh-package checks (`.avid-mcp-analysis/check-runtime-receipt.log`).
