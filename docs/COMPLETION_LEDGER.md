@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Fresh isolated core Python setup
+
+Added a repeatable research harness for a new core-inspection venv from an explicit base interpreter. It uses the existing hash-verified pip bootstrap, verifies agreement with the shipped core requirements, installs binary-only exact pyavb/pyaaf2 versions and runs dependency checks. Two actual MCP sessions read the Sonoma AVB and AAF fixtures identically. Original file hashes and base-interpreter package inventory remained unchanged.
+
+Evidence: `.avid-mcp-analysis/core-python-setup-02bde60a-7931-47b7-862a-98d3b39fe4ca/evidence.json`. The earlier `core-python-setup-4bed6c2c-e909-47c8-a4a4-f8695880bc10` run independently passed setup/reads before the explicit base-inventory assertion was added. Script syntax and diff checks passed. No production code changed; this qualifies the dependency setup recipe on the existing Windows machine, not clean-OS installation or an automatic installer lifecycle.
+
 ### Diagnose explicitly configured dependency executables
 
 `--doctor` now accepts absolute `--ffmpeg`, `--ffprobe` and `--python` paths, matching client configuration options. Explicit values override ambient settings without changing the environment or falling back when a selected executable is missing. Relative paths and doctor capability overrides are rejected. CLI help and local setup instructions document the options.

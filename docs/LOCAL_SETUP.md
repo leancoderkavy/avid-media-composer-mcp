@@ -2,6 +2,12 @@
 
 ## Diagnose explicit project paths
 
+### Fresh core Python environment evidence
+
+The research harness `node scripts/research/qualify-core-python-setup.mjs ABSOLUTE_BASE_PYTHON` creates a unique environment under `.avid-mcp-analysis`, bootstraps the already checksum-pinned pip wheel, installs the repository's exact pyavb/pyaaf2 versions from binary distributions, checks dependencies and performs real Sonoma AVB/AAF reads through two MCP connections. It retains the environment and evidence instead of installing into system Python. This harness uses the explicitly named development fixtures; it is not a general end-user installer.
+
+The final run at `.avid-mcp-analysis/core-python-setup-02bde60a-7931-47b7-862a-98d3b39fe4ca/evidence.json` passed with pip 26.2.1, pyavb 1.4.0 and pyaaf2 1.7.1. Source file hashes and the base interpreter's package inventory remained unchanged. The returned interpreter can be supplied to `--doctor --python` and client configuration's `--python`. This verifies an isolated dependency environment on the existing Windows machine; Node/base-Python installation, general automated runtime lifecycle and clean-OS qualification remain open.
+
 `avid-mcp --doctor --root ABSOLUTE_PROJECT_PATH --output ABSOLUTE_OUTPUT_DIRECTORY --native ABSOLUTE_AVID_EXECUTABLE` diagnoses those explicit paths instead of silently falling back to environment paths. Repeat `--root` for multiple allowed roots. Add `--ffmpeg ABSOLUTE_FILE --ffprobe ABSOLUTE_FILE --python ABSOLUTE_FILE` to check the same executables you intend to use in client configuration. Supplied paths must be absolute; roots must not contain path-list separators. Omitted settings retain their environment configuration. Capability flags remain client-configuration options.
 
 An explicitly selected missing executable is reported unavailable; it does not fall back to PATH. Actual CLI tests with deliberately broken ambient executable settings verified explicit overrides, missing-executable reporting and relative-path rejection. The system `C:/Python312/python.exe` was correctly reported unready because `pyavb` and `pyaaf2` were absent; the repository's prepared Python environment was separately checked. These are diagnostics on the existing machine, not proof of clean-machine installation.
