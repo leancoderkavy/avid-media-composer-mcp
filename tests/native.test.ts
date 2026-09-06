@@ -43,6 +43,19 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("does not verify rejected or unapplied renames and never replays their tokens",async()=>{
+    for(const failure of ["reported","unchanged"]){
+      const f=await hostFixture(),original=f.client.call.bind(f.client);let current="Original",writes=0;
+      vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+        if(method==="GetMobInfo")return [{column_name:"Name",column_value:current}];
+        if(method==="SetMobInfo"){writes++;if(failure==="reported"){current="Reviewed";return [{mob_failure:[{mob_id:"clip",failed_columns:[{column_name:"Name",column_value:"Reviewed"}]}]}];}return [];}
+        return original(method,body);
+      });
+      const plan=await f.adapter.preview({action:"rename_clip",bin:"fixture.avb",mobId:"clip",expectedName:"Original",name:"Reviewed"}),result=await f.adapter.apply(plan.token);
+      expect(result).toMatchObject({applicationCompleted:true,renameVerified:false,persistenceVerified:false,postStateRead:false,verificationError:"Native rename was not verified; inspect clip before another attempt"});
+      expect(result.postState).toEqual([{column_name:"Name",column_value:current}]);await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
+    }
+  });
   it("renames only the expected clip name and verifies name readback",async()=>{
     const f=await hostFixture(),original=f.client.call.bind(f.client);let current="Original",writes=0;
     vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{if(method==="GetMobInfo")return [{column_name:"Name",column_value:current}];if(method==="SetMobInfo"){writes++;expect(body).toEqual({mob_id:"clip",column:{column_name:"Name",column_value:"Reviewed"}});current="Reviewed";return [];}return original(method,body);});
