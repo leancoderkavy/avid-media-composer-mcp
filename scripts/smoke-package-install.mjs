@@ -332,6 +332,35 @@ try {
   if(savedTrim.verified!==true||savedTrim.cutAfter!==31||savedTrim.baseline!==trimBaselineRevision||savedTrim.candidate!==trimCandidateRevision)throw new Error("Installed MCP trim verification lost snapshot identity or result");
   const wrongTrim=await client.callTool({name:"avid_verify_saved_trim",arguments:{...savedTrimArgs,delta:-1}});
   if(!wrongTrim.isError||!JSON.stringify(wrongTrim).includes("exact requested trim"))throw new Error("Installed MCP accepted the wrong trim direction");
+  // Synthetic saved effect records check installed contracts; live media evidence is separate.
+  const colorBaseline="00000000-0000-4000-8000-000000000110",colorCandidate="00000000-0000-4000-8000-000000000111";
+  const colorEffect={id:"EFF2_LUTSFX",hasParameters:true,hasKeyframes:true,
+    linearLutDeclaration:{name:"Levels scaling",bitDepth:10,black:64,white:940,invertedFlagPresent:true,automaticConversion:true,transformationListName:"From Rec.709 [full range] to Rec.709"},
+    parametersFingerprint:{schema:1,sha256:"a".repeat(64)},keyframesFingerprint:{schema:1,sha256:"b".repeat(64)},
+    inputReference:{sourceMobId:"external-color",sourceTrackId:1,sourceStart:2850,length:60,rate:30,basis:"declared-equal-length-input"}};
+  const colorMob={...fixtureMob,mobId:"color",tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"TKFX",timelineStart:0,timelineEnd:60,opaque:true,effect:colorEffect}]}]};
+  const colorRecord={...record,revision:colorBaseline,bins:[{...record.bins[0],complete:false,mobs:[colorMob]}]};
+  await writeFile(path.join(snapshotDirectory,`snapshot-${colorBaseline}.json`),JSON.stringify(colorRecord));
+  const colorRange=await invoke("avid_saved_timeline_range",{revision:colorBaseline,mobId:"color",start:10,end:30});
+  if(!isDeepStrictEqual(colorRange.results[0]?.effect,colorEffect)||colorRange.results[0]?.opaque!==true)throw new Error("Installed color range lost declarations or opacity");
+  const colorClient=new Client({name:"avid-installed-color-reconnect",version:"1.0"});
+  try{
+    await colorClient.connect(new StdioClientTransport({command:generatedEntry.command,args:generatedEntry.args,cwd:temporary,stderr:"pipe",env:{...getDefaultEnvironment(),...generatedEntry.env}}));
+    const colorCall=async(name,args)=>{const response=await colorClient.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed color call failed: ${name}`);return response.structuredContent.data;};
+    const recovered=await colorCall("avid_saved_timeline_range",{revision:colorBaseline,mobId:"color",start:10,end:30});
+    if(!isDeepStrictEqual(recovered,colorRange))throw new Error("Installed reconnect changed color range");
+    const inputTrace=await colorCall("avid_trace_saved_sources",{revision:colorBaseline,mobId:"color",start:10,end:30});
+    const step=inputTrace.steps[0];
+    if(!inputTrace.incomplete||step?.effectInputOnly!==true||step.sourceStart!==2860||step.sourceEnd!==2880||step.status!=="unresolved")throw new Error("Installed color trace lost input bounds or uncertainty");
+    colorRecord.revision=colorCandidate;colorEffect.keyframesFingerprint.sha256="c".repeat(64);
+    const colorFile=path.join(snapshotDirectory,`snapshot-${colorCandidate}.json`);await writeFile(colorFile,JSON.stringify(colorRecord));
+    const changed=await colorCall("avid_diff_saved_snapshots",{baseline:colorBaseline,candidate:colorCandidate});
+    if(changed.totalChanges!==1||changed.complete!==false||changed.changes[0]?.change!=="changed")throw new Error("Installed color diff missed keyframe change");
+    delete colorEffect.linearLutDeclaration.transformationListName;await writeFile(colorFile,JSON.stringify(colorRecord));
+    const invalid=await colorClient.callTool({name:"avid_saved_timeline_range",arguments:{revision:colorCandidate,mobId:"color",start:10,end:30}});
+    if(!invalid.isError)throw new Error("Installed color reader accepted an incomplete automatic conversion declaration");
+    if(!isDeepStrictEqual(await readFile(collectionSource),collectionBytes))throw new Error("Installed color inspection changed the source fixture");
+  }finally{await colorClient.close();}
   if (withPython) {
     await smokeAafPackage({installedRoot,temporary,python});
     const inspectDependency = async () => {
@@ -358,6 +387,8 @@ try {
   const toolNames = new Set(tools.tools.map(tool => tool.name));
   for (const name of skillNames) {
     const instructions = (await readFile(path.join(installedRoot, "skills", name, "SKILL.md"), "utf8")).replaceAll("\r\n", "\n");
+    const checkoutInstructions=(await readFile(path.join(root,"skills",name,"SKILL.md"),"utf8")).replaceAll("\r\n","\n");
+    if(instructions!==checkoutInstructions)throw new Error(`Packaged skill differs from checkout: ${name}`);
     if (!instructions.startsWith(`---\nname: ${name}\n`) || !instructions.includes("\ndescription: ")) {
       throw new Error(`Packaged skill has invalid discovery metadata: ${name}`);
     }
@@ -375,6 +406,7 @@ try {
       toolDefinitions: "exact checkout match",
       clientSetup: "five JSON formats and Codex argv agree; server from installed Codex argv connected from foreign working directory; JSON mutations preserve Codex TOML",
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
+      colorSnapshots: "synthetic installed/reconnected LUT declarations, input uncertainty, keyframe diff and malformed-record refusal passed",
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       faceNotices: "both packaged model licenses match pinned upstream bytes",
       originalNotices: "packaged original-project notices match recorded upstream bytes",

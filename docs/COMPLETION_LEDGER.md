@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Installed color snapshot and workflow acceptance
+
+Extended fresh-tarball package checks with synthetic saved effect records. The installed MCP server preserves automatic-conversion/LUT declarations, parameter/keyframe fingerprints and opacity; a second client reads the identical range, traces the declared input with explicit incomplete status, detects a same-name keyframe change and rejects an incomplete automatic-conversion record. The authorized source fixture remains byte-identical. This checks installed record handling, not new native editing, media decoding or Python capture evidence.
+
+Package checks now also compare all five installed workflow skill files with checkout content after newline normalization, in addition to discovery metadata/tool-reference validation. Actual `npm run smoke:package -- --with-python` passed with 139 tools, five matching skills, exact tool definitions, both Python isolation/recovery and AAF checks. Log: `.avid-mcp-analysis/package-color-snapshot-recovery.log`. Script syntax passed; no production code changed and the full unit suite was not rerun. Current 6060c8f CodeQL passed while CI remained in progress at the check; prior full-plan gaps remain open.
+
 ### Combined native audio/color qualification
 
 Verified frame timing on the refreshed older AAC sequence; all 120 best matches align with source presentation times, but duplicate output audio channels remain. Created and saved a separate copy of the prepared-PCM sequence, applied UI Color Adapters refresh to that copy, and exported through guarded MCP. The same output now has exact source-clock 24-bit stereo PCM with distinct channels, all 120 technically verified frames, mean full-raster SSIM 0.958711 and maximum diagnostic presentation-time residual 0.334 microseconds. Original bin/media hashes and non-picture track structure stayed unchanged. Combined evidence: `.avid-mcp-analysis/native-color-fixture-3bfb1d55-f1d4-4675-936c-bd2ab3cf8694/combined-evidence.json`. See NATIVE_RENDER_QUALIFICATION.md for the source-bin baseline recheck and all comparison artifacts.
