@@ -10,8 +10,8 @@ import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 
 export const watchOptions=z.object({folder:z.string().min(1),depth:z.number().int().min(0).max(8).default(2),maxFiles:z.number().int().min(1).max(1000).default(100),enabled:z.boolean().default(true)}).strict();
-const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.string().optional(),error:z.string().optional()});
-const watchRecord=z.object({id:z.string().uuid(),options:watchOptions,observations:z.record(z.string(),observation),scannedAt:z.string().optional(),scope:z.string().regex(/^[a-f0-9]{64}$/).optional()});
+const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.string().optional(),error:z.string().optional(),cycle:z.string().uuid().optional()});
+const watchRecord=z.object({id:z.string().uuid(),options:watchOptions,observations:z.record(z.string(),observation),scannedAt:z.string().optional(),scope:z.string().regex(/^[a-f0-9]{64}$/).optional(),cursor:z.array(z.string().min(1).max(255)).max(9).optional(),cycle:z.string().uuid().optional()});
 type Watch=z.infer<typeof watchRecord>;
 const extensions=new Set([".mp4",".mov",".mxf",".wav",".mp3",".mkv",".avi",".aiff",".flac"]);
 
@@ -77,38 +77,52 @@ export class WatchFolders {
     return this.locked(id,async()=>{
       const record=await this.read(id);
       if(!record.options.enabled)return {id,skipped:"disabled"};
-      const files:string[]=[];let directories=0,truncated=false;
-      const walk=async(folder:string,depth:number)=>{
+      const files:string[]=[];let directories=0,entries=0,truncated=false;
+      const cursor=record.cursor;let nextCursor=cursor;
+      record.cycle??=randomUUID();
+      const compare=(a:string[],b:string[])=>{
+        for(let i=0;i<Math.min(a.length,b.length);i++){if(a[i]!==b[i])return a[i]!<b[i]!?-1:1;}
+        return a.length-b.length;
+      };
+      const walk=async(folder:string,parts:string[])=>{
         if(++directories>1000){truncated=true;return;}
-        for(const entry of await readdir(folder,{withFileTypes:true})){
-          if(files.length>=record.options.maxFiles){truncated=true;return;}
+        const children=(await readdir(folder,{withFileTypes:true})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
+        for(const entry of children){
+          const location=[...parts,entry.name],ancestor=cursor&&location.length<=cursor.length&&location.every((part,index)=>part===cursor[index]);
+          if(cursor&&compare(location,cursor)<=0&&!(entry.isDirectory()&&ancestor))continue;
+          if(files.length>=record.options.maxFiles||entries>=10000){truncated=true;return;}
+          entries++;nextCursor=location;
           if(entry.isSymbolicLink())continue;
           const target=path.join(folder,entry.name);
-          if(entry.isDirectory()&&depth<record.options.depth){
-            await resolveReadablePath(target,[record.options.folder],"directory");await walk(target,depth+1);
+          if(entry.isDirectory()&&parts.length<record.options.depth){
+            await resolveReadablePath(target,[record.options.folder],"directory");await walk(target,location);
+            if(truncated)return;
           }else if(entry.isFile()&&extensions.has(path.extname(entry.name).toLowerCase()))files.push(target);
         }
       };
-      await walk(record.options.folder,0);
+      await walk(record.options.folder,[]);
       const next:Watch["observations"]={};const indexed=[];
       for(const file of files){
         try{
           await resolveReadablePath(file,this.config.allowedRoots,"file");
           const before=await stat(file),signature=`${before.size}:${before.mtimeMs}:${before.ctimeMs}`;
           const previous=record.observations[file];
-          if(previous?.signature===signature&&previous.mediaId){next[file]=previous;continue;}
-          if(previous?.signature!==signature){next[file]={signature,stable:false};continue;}
+          if(previous?.signature===signature&&previous.mediaId){next[file]={...previous,cycle:record.cycle};continue;}
+          if(previous?.signature!==signature){next[file]={signature,stable:false,cycle:record.cycle};continue;}
           const result=await this.library.index([file]);
           const after=await stat(file);
-          if(`${after.size}:${after.mtimeMs}:${after.ctimeMs}`!==signature){next[file]={signature:"changed-during-index",stable:false};continue;}
-          next[file]={signature,stable:true,mediaId:result.entries[0]!.id};indexed.push({file,id:result.entries[0]!.id});
-        }catch(error){next[file]={signature:record.observations[file]?.signature??"",stable:false,error:(error as Error).message};}
+          if(`${after.size}:${after.mtimeMs}:${after.ctimeMs}`!==signature){next[file]={signature:"changed-during-index",stable:false,cycle:record.cycle};continue;}
+          next[file]={signature,stable:true,mediaId:result.entries[0]!.id,cycle:record.cycle};indexed.push({file,id:result.entries[0]!.id});
+        }catch(error){next[file]={signature:record.observations[file]?.signature??"",stable:false,error:(error as Error).message,cycle:record.cycle};}
         // Persist after each file so a later failure does not discard successful checkpoints.
         record.observations={...record.observations,...next};await this.save(record);
       }
-      record.observations=truncated?{...record.observations,...next}:next;
+      record.observations={...record.observations,...next};
+      if(!truncated)record.observations=Object.fromEntries(Object.entries(record.observations).filter(([,value])=>value.cycle===record.cycle));
+      record.cursor=truncated?nextCursor:undefined;
+      if(!truncated)record.cycle=undefined;
       record.scannedAt=new Date().toISOString();await this.save(record);
-      return {id,files:files.length,indexed,truncated,errors:Object.entries(next).filter(([,value])=>value.error).map(([file,value])=>({file,error:value.error})),pending:Object.values(next).filter(value=>!value.stable).length};
+      return {id,files:files.length,indexed,truncated,errors:Object.entries(record.observations).filter(([,value])=>value.error).map(([file,value])=>({file,error:value.error})),pending:Object.values(next).filter(value=>!value.stable).length};
     });
   }
   start(intervalSeconds=30){

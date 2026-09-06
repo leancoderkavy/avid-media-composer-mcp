@@ -1,5 +1,13 @@
 # Watch folder relocation
 
+## Bounded scans across large folders
+
+`maxFiles` limits files examined in one scan, not the lifetime coverage of the watch. A persisted component-wise lexical cursor advances through nested directories across scans and server reconnects. A scan also stops at 1,000 directory visits or 10,000 considered entries and resumes later. Directory listings are still read and sorted in memory; the entry budget does not bound a single directory listing's allocation.
+
+Two matching observations are still required before indexing. With multiple batches, a file's second observation usually occurs on the next complete sweep. Each scan's `files`, `indexed` and `pending` describe its batch; `truncated` means traversal will continue. `errors` includes all currently retained file failures so scanning a healthy batch cannot mask another batch's failure. Deleted observations are pruned only after a complete sweep, and changed/new files before the cursor are revisited during the next sweep. Successful per-file checkpoints survive interruption; the traversal cursor is advanced only at the end of the scan, so interruption may revisit files but existing signatures avoid duplicate successful indexing.
+
+Actual MCP qualification used three Sonoma copies, nested/prefix-sharing names and `maxFiles: 1`, with a fresh MCP process for every scan. The first sweep observed stability, the second indexed all three, and the third indexed none. Moving one owned copy outside the watch pruned only its observation after the next sweep. Original/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-batches-ba7f9e01-3cd4-4fc3-8683-577c8dc2bede/evidence.json`. Regression tests separately cover continuation beyond 1,000 directories and retained failures across batches. Arbitrary concurrent tree mutation, very large manifests and power-loss durability remain unqualified.
+
 ## Polling failure isolation
 
 Completed scans with per-file indexing failures also report a watch error: the failed-file count and the first error, within the same 1,024-character bound. Healthy media in that folder can still index. Detailed file errors remain in the scan result and manifest. A later error-free cycle clears the status; clearing after a file is moved out of the watched folder does not mean the media was repaired.

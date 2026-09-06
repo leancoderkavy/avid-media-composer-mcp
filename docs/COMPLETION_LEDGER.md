@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Watch traversal continuation
+
+Validation passed: full check with 693 TypeScript/46 Python tests and fresh-package/transport/Python/AAF checks (`check-watch-batches.log`); final TypeScript rerun after the cross-batch error addition passed all 694 tests (`test-watch-batches-final.log`). The real MCP batch harness also passed again on final code: `.avid-mcp-analysis/watch-batches-8ab4f30b-d9c3-431e-a1e6-682ed491e32e/evidence.json`. Inventory remains 140 tools/five skills. Full-plan acceptance remains open.
+
+Previously every scan restarted at the first directory entry, starving files past `maxFiles` and trees beyond the directory budget. Persisted lexical component cursors now resume bounded traversal across reconnects. Sweep identities retain observations across batches and prune unseen/deleted records only at sweep completion. Stable media avoids reindexing, new/changed media still requires matching observations, and known errors remain visible across healthy batches. Focused tests cover nested prefix names, reconnects, deletion, directory-budget continuation and cross-batch failures.
+
+Actual MCP qualification used `maxFiles: 1` over three Sonoma copies, reconnecting for each scan. Three sweeps respectively observed, indexed all files and avoided reindexing; a subsequent owned-copy move pruned its observation after a complete sweep. Original/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-batches-ba7f9e01-3cd4-4fc3-8683-577c8dc2bede/evidence.json`. This advances large-folder coverage; unbounded listing allocation, manifest growth, arbitrary concurrent tree mutation and full-plan recovery acceptance remain open.
+
 ### File-level polling errors
 
 Full check passed: 691 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-file-errors.log`). Full-plan acceptance remains open.

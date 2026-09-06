@@ -15,6 +15,33 @@ async function fixture(){
 }
 afterEach(()=>vi.restoreAllMocks());
 describe("watch checkpointing",()=>{
+  it('retains known file failures while scanning a different batch',async()=>{
+    const {folder,config}=await fixture(),broken=path.join(folder,'a.mp4');await writeFile(broken,'invalid');
+    vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>{if(files[0]===broken)throw new Error('invalid media');return {entries:[{id:'a'.repeat(64),file:files[0]!,duration:'10',streams:[]}],sourceModified:false};});
+    const service=new WatchFolders(config),watch=await service.configure({folder,maxFiles:1});
+    await service.scan(watch.id);await service.scan(watch.id);const failed=await service.scan(watch.id);
+    expect(failed.errors).toEqual([{file:broken,error:'invalid media'}]);
+    const healthy=await new WatchFolders(config).scan(watch.id);expect(healthy.indexed).toHaveLength(1);expect(healthy.errors).toEqual(failed.errors);
+  });
+  it('advances bounded batches across reconnects, nested names and deletion without reindexing',async()=>{
+    const {root,folder,config}=await fixture();await mkdir(path.join(folder,'a'));await writeFile(path.join(folder,'a','inner.mp4'),'inner');await writeFile(path.join(folder,'a.mp4'),'sibling');
+    const index=vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>({entries:[{id:createHash('sha256').update(files[0]!).digest('hex'),file:files[0]!,duration:'10',streams:[]}],sourceModified:false}));
+    const watch=await new WatchFolders(config).configure({folder,maxFiles:1}),manifest=path.join(root,'avid-mcp-library','watches',watch.id+'.json');
+    for(let i=0;i<8;i++)expect((await new WatchFolders(config).scan(watch.id)).files).toBeLessThanOrEqual(1);
+    expect(index).toHaveBeenCalledTimes(3);expect(new Set(index.mock.calls.map(([files])=>files[0])).size).toBe(3);
+    let record=JSON.parse(await readFile(manifest,'utf8'));expect(Object.keys(record.observations)).toHaveLength(3);expect(Object.values(record.observations).every((value:any)=>value.stable)).toBe(true);
+    await unlink(path.join(folder,'a.mp4'));
+    for(let i=0;i<5;i++)await new WatchFolders(config).scan(watch.id);
+    record=JSON.parse(await readFile(manifest,'utf8'));expect(Object.keys(record.observations)).toHaveLength(2);expect(index).toHaveBeenCalledTimes(3);
+    expect(await readFile(path.join(folder,'a','inner.mp4'),'utf8')).toBe('inner');
+  });
+  it('continues beyond the directory budget instead of restarting its first thousand directories',async()=>{
+    const {folder,config}=await fixture();
+    await Promise.all(Array.from({length:1002},(_,i)=>mkdir(path.join(folder,`d${String(i).padStart(4,'0')}`))));
+    const service=new WatchFolders(config),watch=await service.configure({folder,maxFiles:1});
+    expect(await service.scan(watch.id)).toMatchObject({truncated:true,files:0});
+    expect(await new WatchFolders(config).scan(watch.id)).toMatchObject({truncated:false,files:1,pending:1});
+  },20000);
   it('reports file indexing errors while preserving healthy progress and clears after retry',async()=>{
     const {folder,config}=await fixture(),broken=path.join(folder,'broken.mp4');await writeFile(broken,'invalid');
     let repaired=false;const index=vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>{
