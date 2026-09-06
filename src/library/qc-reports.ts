@@ -6,6 +6,7 @@ import type {ServerConfig} from "../config.js";
 import {MediaLibrary} from "./media-library.js";
 import {qcOptions} from "./qc.js";
 import {audioTimingSchema} from "./audio-timing.js";
+import {videoTimingSchema} from "./video-timing.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {readBoundedFile} from "../security/bounded-read.js";
 import {sha256File} from "../analysis/file-inventory.js";
@@ -18,10 +19,11 @@ const legacyIntervalSchema=z.object({start:z.number().finite().nonnegative(),end
 const videoCoverageSchema=z.object({decodedFrames:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),requestedSeconds:z.number().positive().max(600),meaning:z.string().max(10000)}).strict();
 const coverageSchema=z.object({samplesPerChannel:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),sampleRate:z.number().int().positive().max(768000),decodedSeconds:z.number().positive(),requestedSeconds:z.number().positive().max(600),amountMatchesRequestedDuration:z.boolean(),meaning:z.string().max(10000)}).strict();
 const reportSchema=z.object({schema:z.literal(1),id:digest,range:z.object({start:z.number().nonnegative(),end:z.number().positive()}).refine(r=>r.end>r.start),options:qcOptions,streams:z.object({video:z.number().int().nonnegative().nullable(),audio:z.number().int().nonnegative().nullable()}),findings:z.record(z.string(),z.unknown()),streamDetails:z.unknown().optional(),timing:z.unknown().optional(),audioCoverage:coverageSchema.nullable().optional(),reviewRequired:z.literal(true),limitations:z.array(z.string().max(10000)).max(100),sourceModified:z.literal(false)})
-  .extend({videoCoverage:videoCoverageSchema.nullable().optional(),audioTiming:audioTimingSchema.nullable().optional(),audioTimingMeaning:z.string().max(10000).optional()})
+  .extend({videoTiming:videoTimingSchema.nullable().optional(),videoTimingMeaning:z.string().max(10000).optional(),videoCoverage:videoCoverageSchema.nullable().optional(),audioTiming:audioTimingSchema.nullable().optional(),audioTimingMeaning:z.string().max(10000).optional()})
   .refine(value=>value.range.start===value.options.start&&value.range.end===value.options.end,"QC range and options disagree")
   .superRefine((value,ctx)=>{
     const {video,audio}=value.streams;
+    if(value.videoTiming!==undefined){const timing=value.videoTiming;if(timing===null?video!==null:video===null||timing.frames!==value.videoCoverage?.decodedFrames)ctx.addIssue({code:"custom",message:"QC video timing is inconsistent"});}
     for(const [kind,stream] of [["black",video],["freeze",video],["silence",audio]] as const){
       const intervals=value.findings[kind];if(intervals===undefined)continue;
       if(!Array.isArray(intervals)||intervals.length>10000){ctx.addIssue({code:"custom",message:"QC event collection is invalid"});continue;}

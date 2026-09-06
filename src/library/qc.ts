@@ -9,6 +9,7 @@ import {resolveReadablePath} from "../security/path-policy.js";
 import {sha256File} from "../analysis/file-inventory.js";
 import {runProcess} from "../process.js";
 import {parseAudioTiming} from "./audio-timing.js";
+import {parseVideoTiming} from "./video-timing.js";
 
 export const qcOptions=z.object({
   start:z.number().nonnegative().default(0),end:z.number().positive(),
@@ -101,10 +102,12 @@ export class MediaQc {
       const result=await runProcess(executable,[...base,...args,"-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:16*1024*1024});
       if(result.exitCode!==0)throw new Error(`QC decoding failed: ${result.stderr.slice(-1000)}`);log+=result.stderr;return result.stdout;
     };
-    if(video)decodedFrames=qcVideoFrames(await run(["-progress","pipe:1","-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},metadata=mode=print:key=lavfi.black_start,metadata=mode=print:key=lavfi.black_end,freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`,"-fps_mode","passthrough"]));
+    if(video)decodedFrames=qcVideoFrames(await run(["-progress","pipe:1","-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},metadata=mode=print:key=lavfi.black_start,metadata=mode=print:key=lavfi.black_end,freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},showinfo=checksum=0,vfrdet`,"-fps_mode","passthrough"]));
     if(audio)await run(["-map",`0:${audio.index}`,"-vn","-af",`atrim=start=${options.start}:end=${options.end},asetpts=PTS-${options.start}/TB,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},aformat=sample_rates=${audioRate},asettb=1/${audioRate},ashowinfo,astats=metadata=0:reset=0:measure_perchannel=none:measure_overall=Number_of_samples,loudnorm=print_format=json`]);
     if(await sha256File(source)!==id)throw new Error("Source changed during QC");
     const findings=parseQcLog(log,options.start,options.end);
+    const videoTiming=video?parseVideoTiming(log):null;
+    if(videoTiming&&videoTiming.frames!==decodedFrames)throw new Error("Video timing and processed frame count disagree");
     if(video&&!findings.frameTiming)throw new Error("Video QC summary missing; result is incomplete");
     if(audio&&!findings.loudness)throw new Error("Audio QC summary missing; result is incomplete");
     if(audio&&(findings.audioSamplesPerChannel===null||findings.audioSamplesPerChannel<=0))throw new Error("Audio QC decoded no samples or sample coverage is missing; result is incomplete");
@@ -113,6 +116,7 @@ export class MediaQc {
     const optionalNumber=(value:unknown)=>value!==undefined&&Number.isFinite(Number(value))?Number(value):null;
     const videoStart=optionalNumber(video?.start_time),audioStart=optionalNumber(audio?.start_time);
     const report={schema:1,id,range:{start:options.start,end:options.end},options,streams:{video:video?.index??null,audio:audio?.index??null},findings,
+      videoTiming,videoTimingMeaning:"Decoded PTS steps after shifting the requested range start to zero, in the recorded time base. Last PTS is not an endpoint; no frame duration, missing-frame count, contiguous coverage or perceptual sync inferred.",
       audioTiming,audioTimingMeaning:"Adjacent frame timestamp gaps/overlaps before loudness normalization. Integer ticks use 1/sampleRate after shifting the requested range start to zero; not union coverage, clock correction or perceptual sync.",
       videoCoverage:video?{decodedFrames,requestedSeconds:options.end-options.start,meaning:"Frames processed by the selected video QC filter chain with passthrough frame timing. Count does not prove continuous coverage, constant frame rate, or image fidelity."}:null,
       audioCoverage:audio?{samplesPerChannel:findings.audioSamplesPerChannel,sampleRate:audioRate,decodedSeconds:findings.audioSamplesPerChannel!/audioRate!,requestedSeconds:options.end-options.start,amountMatchesRequestedDuration:Math.abs(findings.audioSamplesPerChannel!-(options.end-options.start)*audioRate!)<=1,meaning:"Sample amount at the declared rate before loudness normalization. Does not prove continuous timestamp coverage or perceptual synchronization."}:null,

@@ -1,0 +1,11 @@
+# Decoded video timestamp accounting
+
+Full original Sonoma preview comparison also passed: 5,725 frames, time base 1/15360, first PTS 512, last PTS 2,931,200, all adjacent steps 512, zero duplicate/backward steps. These values matched independent FFprobe frame PTS and persisted readback; source bytes stayed unchanged. Evidence: `.avid-mcp-analysis/sonoma-full-qc-2838dbfb-5a3c-4fc6-8ef7-278f4d77ec3c/evidence.json`. Full local check passed with 588 TypeScript and 36 Python tests plus transports/fresh package (`check-video-timing.log`).
+
+QC records `videoTiming` for the selected video stream, or null when video is not selected. The record contains a rational timeBase, decoded frames, firstPts/lastPts, duplicateSteps, backwardSteps and minimum/maximum adjacent PTS deltas. All timestamps and deltas are integer ticks after the existing requested-start shift. First/last PTS are frame presentation timestamps, not coverage endpoints. Single-frame reports have null delta extrema.
+
+The reader requires complete sequential showinfo observations, a single positive time base, safe integer arithmetic and a frame count matching terminal FFmpeg progress. Saved reports validate count/stream consistency and timing invariants. Historical reports without videoTiming remain readable. The filter disables showinfo checksums to avoid additional pixel-checksum work; logs remain bounded by the existing process output limit.
+
+`qualify-video-timing.mjs` independently probes decoded frame PTS for regular and duplicate-timestamp FFV1 files and compares them with actual MCP QC/readback at starts 0 and 0.25 seconds. Four cases passed, including 30/22 duplicate steps in the duplicate cases and none in regular cases, with unchanged fixture hashes. Evidence: `.avid-mcp-analysis/video-timing-f7d91050-afac-4294-aed0-772867788642/evidence.json`. Backward steps are covered by parser tests, not an actual backwards-PTS media fixture.
+
+This is timestamp accounting, not a dropped-frame detector. A large delta does not establish how many frames should exist; repeated PTS do not establish repeated image content. No frame duration, missing-frame count, continuous coverage, source-clock correction or perceptual audio/video synchronization is inferred.

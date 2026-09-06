@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Explicit decoded video timestamp accounting
+
+Full local check passed: 588 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-video-timing.log`). Entire Sonoma PTS accounting also matched independent FFprobe and saved readback: 5,725 frames, 1/15360 time base, constant 512-tick steps, zero duplicate/backward steps; evidence `sonoma-full-qc-2838dbfb-5a3c-4fc6-8ef7-278f4d77ec3c` under `.avid-mcp-analysis`, original hash unchanged.
+
+QC now records decoded video time base, first/last PTS, duplicate/backward step counts and delta extrema. It refuses incomplete/reordered/unsafe observations and disagreement with processed frame counts. Persisted reads validate timing/stream/count consistency while preserving historical records. Four real regular/duplicate FFV1 cases at zero/nonzero starts matched independent FFprobe PTS and saved readback with source hashes unchanged. Evidence: `.avid-mcp-analysis/video-timing-f7d91050-afac-4294-aed0-772867788642/evidence.json`; see QC_VIDEO_TIMING.md. This does not infer frame durations, missing frames or perceptual sync.
+
 ### Full Sonoma preview QC after endpoint validation
 
 Actual QC covered the original preview's entire declared [0,190.866666) range. Its 5,725 processed video frames matched an independent full ffprobe decode; saved findings and audio timing matched readback through current validation, and the original SHA-256 stayed unchanged. Black/freeze/silence interval arrays were empty; this is not a delivery or perceptual verdict. Evidence: `.avid-mcp-analysis/sonoma-full-qc-910afe88-e723-4fc5-82e9-299f024fd155/evidence.json`; script: `qualify-sonoma-full-qc.mjs`. The original/prepared [60,90) regression also passed independent frame/PCM/timestamp checks and full findings readback: `sonoma-qc-amount-a3c20ec0-d220-451e-a9ac-d7fd19819c49`. Syntax and actual execution passed; production code did not change. At this check e92bdae had passed CodeQL, macOS CI and landing; Windows jobs remained running.

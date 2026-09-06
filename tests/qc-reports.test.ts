@@ -49,6 +49,11 @@ it('validates new unknown freeze endpoints while preserving historical reports',
  for(const interval of [open,{start:0,end:4,openAtRangeEnd:true}]){await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{freeze:[interval]}}));expect((await f.service.read(f.id,first)).report.findings.freeze).toEqual([interval]);}
  for(const interval of [{...open,end:4},{...open,start:4},{...open,openAtProcessingEnd:false}]){await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{freeze:[interval]}}));await expect(f.service.read(f.id,first)).rejects.toThrow('open interval');}
 });
+it('checks saved video timing against selection and measured frame counts',async()=>{
+ const f=await fixture(),videoTiming={frames:2,timeBase:{num:1,den:30},firstPts:0,lastPts:1,duplicateSteps:0,backwardSteps:0,minDelta:1,maxDelta:1},videoCoverage={decodedFrames:2,requestedSeconds:4,meaning:'fixture'};
+ await writeFile(f.reportPath,JSON.stringify({...f.report,videoTiming,videoCoverage}));expect((await f.service.read(f.id,first)).report.videoTiming).toEqual(videoTiming);
+ for(const patch of [{videoTiming:null},{videoCoverage:{...videoCoverage,decodedFrames:3}},{streams:{video:null,audio:1}}]){await writeFile(f.reportPath,JSON.stringify({...f.report,videoTiming,videoCoverage,...patch}));await expect(f.service.read(f.id,first)).rejects.toThrow();}
+});
 it.each(['black','freeze','silence'])('rejects malformed or out-of-scope stored %s intervals',async kind=>{
  const f=await fixture();
  for(const interval of [{start:-1,end:1},{start:2,end:1},{start:1,end:1},{start:0,end:5},{start:'0',end:1},null]){
