@@ -55,6 +55,9 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
     if(req.url==="/api/v1/health"){healthKey=req.headers["x-license-key"];res.end('{"status":"ok"}');return;}
     posted=JSON.parse(body);expect(req.headers["x-license-key"]).toBe("test-license-secret");
     if(req.url==="/api/v1/search/transcript"){
+      if(mode==="bulk"){
+        res.end(JSON.stringify({matches:Array.from({length:5},()=>({media_path:file,hash_str:"crc",start_seconds:2,end_seconds:3,text:"x".repeat(60000),start_timestamp:"00:00:02",end_timestamp:"00:00:03"}))}));return;
+      }
       res.end(JSON.stringify({matches:[{...(mode==="unresolved"?{}:{media_path:mode==="scope"?other:file}),hash_str:"crc",start_seconds:2,end_seconds:mode==="reversed"?1:3,text:"hello world",start_timestamp:"00:00:02",end_timestamp:"00:00:03",speaker:"SPEAKER_00",speaker_name:"Anna",license_key:"test-license-secret"}]}));return;
     }
     res.end(JSON.stringify({matches:[{frame_idx:"2",timestamp:"00:00:02",scene_start_timestamp:"00:00:01",scene_end_timestamp:"00:00:03",original_index:0,hash_str:"crc",video_path:mode==="scope"?other:file,image:"private-image",license_key:"test-license-secret"}]}));
@@ -73,6 +76,10 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
     mode="unresolved";await expect(transcript()).rejects.toMatchObject({code:"JUMPER_SCHEMA"});
     mode="reversed";await expect(transcript()).rejects.toMatchObject({code:"JUMPER_SCHEMA"});
     mode="scope";await expect(transcript()).rejects.toMatchObject({code:"JUMPER_SCOPE"});mode="normal";
+    mode="bulk";
+    const largerWireClient=new JumperReadClient({baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"test-license-secret",allowedRoots:[root]});
+    await expect(largerWireClient.searchTranscript({query:"hello",cacheDirectory:root,mediaPaths:[file],limit:5})).rejects.toMatchObject({code:"JUMPER_OUTPUT_SIZE"});
+    mode="normal";
     const before=requests;await expect(client.searchText({query:"scene",cacheDirectory:root,mediaPaths:[],limit:1})).rejects.toThrow();expect(requests).toBe(before);
     mode="scope";await expect(search()).rejects.toMatchObject({code:"JUMPER_SCOPE"});
     mode="large";await expect(search()).rejects.toMatchObject({code:"JUMPER_SIZE"});

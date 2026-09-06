@@ -12,6 +12,10 @@ const matchSchema=z.object({
 const responseSchema=z.object({matches:z.array(matchSchema).max(100)});
 const transcriptSchema=z.object({matches:z.array(z.object({media_path:z.string().min(1).max(32768),hash_str:z.string().max(256),start_seconds:z.number().nonnegative(),end_seconds:z.number().nonnegative(),text:z.string().max(65536),start_timestamp:z.string().max(32),end_timestamp:z.string().max(32),speaker:z.string().max(256).optional(),speaker_name:z.string().max(256).optional(),speakers:z.array(z.string().max(256)).max(100).optional()}).refine(match=>match.end_seconds>match.start_seconds)).max(100)});
 const fail=(code:string,message:string)=>new AvidMcpError(`JUMPER_${code}`,message);
+function boundedResult<T>(result:T):T{
+  if(Buffer.byteLength(JSON.stringify(result),"utf8")>256*1024)throw fail("OUTPUT_SIZE","Provider result exceeds 256 KiB; reduce the result limit or media selection");
+  return result;
+}
 interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number;owner?:{binary:string;sha256:string;identity:string}}
 const pairingSchema=z.object({binary:z.string().refine(path.isAbsolute),sha256:z.string().regex(/^[a-f0-9]{64}$/),identity:z.string().regex(/^[1-9]\d*:.+$/).max(128)}).strict();
 
@@ -80,7 +84,7 @@ export class JumperReadClient {
       if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
       matches.push({...match,media_path:file});
     }
-    return {provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false};
+    return boundedResult({provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false});
   }
   async searchText(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
     const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).parse(input);
@@ -94,6 +98,6 @@ export class JumperReadClient {
       if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
       matches.push({...match,video_path:file});
     }
-    return {provider:"jumper",matches,imagesOmitted:true,scoreAvailable:false,indexBasis:"one frame per second; not source edit frames",runtimeVersionVerified:false};
+    return boundedResult({provider:"jumper",matches,imagesOmitted:true,scoreAvailable:false,indexBasis:"one frame per second; not source edit frames",runtimeVersionVerified:false});
   }
 }
