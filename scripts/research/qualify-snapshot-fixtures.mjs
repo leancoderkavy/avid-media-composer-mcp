@@ -10,8 +10,8 @@ const root=path.resolve('.avid-mcp-analysis',`snapshot-fixtures-${randomUUID()}`
 const python=path.resolve('.venv',process.platform==='win32'?'Scripts/python.exe':'bin/python');
 const generate=await runProcess(python,['-c',
  `import sys,json; from pathlib import Path; sys.path.insert(0,sys.argv[1]); from test_timeline import TimelineTests; t=TimelineTests(); root=Path(sys.argv[2]); result=[]
-for name in ['subclip','stereo','opaque','transition']:
- d=root/name; d.mkdir(); p=t.transition_fixture(d) if name=='transition' else t.fixture(d) if name=='subclip' else t.stereo_fixture(d, (lambda e:setattr(e,'effect_id','OTHER_EFFECT')) if name=='opaque' else None); result.append(dict(name=name,file=str(p)))
+for name in ['subclip','stereo','opaque','transition','mixed']:
+ d=root/name; d.mkdir(); p=t.fixture(d,mixed=True) if name=='mixed' else t.transition_fixture(d) if name=='transition' else t.fixture(d) if name=='subclip' else t.stereo_fixture(d, (lambda e:setattr(e,'effect_id','OTHER_EFFECT')) if name=='opaque' else None); result.append(dict(name=name,file=str(p)))
 print(json.dumps(result))`,path.resolve('python/tests'),root],{timeoutMs:30000});
 assert.equal(generate.exitCode,0,generate.stderr);const fixtures=JSON.parse(generate.stdout);
 const client=new Client({name:'snapshot-fixture-proof',version:'1.0'});
@@ -25,10 +25,14 @@ try{
   const mob=captured.bins[0].mobs[0];
   const report=await call('avid_saved_sequence_complexity',{revision:captured.revision,mobId:mob.mobId});
   const range=await call('avid_saved_timeline_range',{revision:captured.revision,mobId:mob.mobId,start:0,end:mob.duration});
-  assert.equal(report.duration,fixture.name==='transition'?110:fixture.name==='subclip'?60:30);
-  assert.equal(report.complete,!['opaque','transition'].includes(fixture.name));
+  assert.equal(report.duration,fixture.name==='transition'?110:['subclip','mixed'].includes(fixture.name)?60:30);
+  assert.equal(report.complete,!['opaque','transition','mixed'].includes(fixture.name));
   assert.equal(report.opaqueNodes,['opaque','transition'].includes(fixture.name)?1:0);
-  assert.equal(report.sourceReferences,fixture.name==='opaque'?0:2);
+  assert.equal(report.sourceReferences,fixture.name==='opaque'?0:fixture.name==='mixed'?1:2);
+  if(fixture.name==='mixed'){
+   assert.equal(range.complete,false);assert.equal(report.warnings[0].mobRate,30);assert.equal(report.warnings[0].componentRate,24);
+   assert.equal(report.warnings[0].mapping,'omitted; no rate conversion inferred');
+  }
   if(fixture.name==='subclip')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart]),[[0,30,1090],[30,60,2000]]);
   if(fixture.name==='stereo')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart,n.channelCombiner.channelIndex]),[[0,30,2860,1],[0,30,2860,2]]);
   if(fixture.name==='transition'){

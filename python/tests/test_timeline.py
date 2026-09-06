@@ -80,7 +80,7 @@ class TimelineTests(unittest.TestCase):
                 self.assertEqual(len(nodes),1);self.assertTrue(nodes[0]['opaque'])
                 self.assertNotIn('sourceMobId',nodes[0])
 
-    def fixture(self,directory):
+    def fixture(self,directory,mixed=False):
         target=Path(directory)/'fixture.avb'
         with avb.open() as file:
             mob=file.create.Composition(mob_type='CompositionMob')
@@ -89,6 +89,7 @@ class TimelineTests(unittest.TestCase):
             track=file.create.Track();track.index=1
             sequence=file.create.Sequence(edit_rate=30,media_kind='picture')
             first=file.create.SourceClip(edit_rate=30,media_kind='picture');first.length=120;first.start_time=1000;first.track_id=1
+            if mixed:first.edit_rate=24
             second=file.create.SourceClip(edit_rate=30,media_kind='picture');second.length=180;second.start_time=2000;second.track_id=1
             sequence.components.extend([first,second]);track.component=sequence;mob.tracks.append(track)
             file.content.add_mob(mob);file.write(str(target))
@@ -102,6 +103,14 @@ class TimelineTests(unittest.TestCase):
             self.assertEqual(mob['duration'],60)
             nodes=mob['tracks'][0]['nodes']
             self.assertEqual([(n['timelineStart'],n['timelineEnd'],n['sourceStart']) for n in nodes],[(0,30,1090),(30,60,2000)])
+
+    def test_mixed_rate_component_is_omitted_with_rate_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result=index_bin(self.fixture(directory,mixed=True))
+            self.assertFalse(result['complete'])
+            warning=result['warnings'][0]
+            self.assertEqual((warning['code'],warning['mobRate'],warning['componentRate']),('MIXED_EDIT_RATE',30,24))
+            self.assertEqual(len(result['mobs'][0]['tracks'][0]['nodes']),1)
 
     def test_traversal_limit(self):
         with tempfile.TemporaryDirectory() as directory:

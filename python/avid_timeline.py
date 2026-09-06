@@ -36,7 +36,8 @@ def index_bin(filename, max_nodes=10000):
                     kind=component.class_id.decode('ascii',errors='replace')
                     component_rate=float(component.edit_rate)
                     if component_rate!=rate:
-                        warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'MIXED_EDIT_RATE','kind':kind})
+                        warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'MIXED_EDIT_RATE','kind':kind,
+                                         'mobRate':rate,'componentRate':component_rate,'mapping':'omitted; no rate conversion inferred'})
                         return
                     if kind=='SEQU':
                         for _,offset,child in component.positions():
