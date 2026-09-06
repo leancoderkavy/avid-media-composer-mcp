@@ -13,6 +13,8 @@ Use `avid_saved_sequence_complexity` with that revision and the target mob ID fo
 
 For a before/after review, create a second snapshot after the requested edit is saved and call `avid_diff_saved_snapshots`. Report semantic changes with bin/MOB/track references; distinguish missing coverage from an empty diff.
 
+Diff results also paginate: follow `nextAfter` as `after` with the same baseline/candidate revisions until null. `totalChanges` is the comparison-wide count; do not present the first 200 changes as the entire review when more pages remain.
+
 Use `avid_analyze_dnx_turnover` when the user supplies a DNx turnover to check, following its discovered schema. Report unresolved media paths, track/rate inconsistencies, unsupported effects and dependency gaps supported by the results. Do not infer relink or render success from a parsed AAF or AVB.
 
 Return a concise turnover report with input paths, snapshot revisions, observed source uses, differences and remaining host checks. Preserve source projects and media.

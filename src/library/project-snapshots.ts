@@ -66,13 +66,16 @@ export class ProjectSnapshots {
     }
     return record;
   }
-  async diff(baseline:string,candidate:string){
-    const before=await this.read(baseline),after=await this.read(candidate);
+  async diff(baseline:string,candidate:string,after=-1,limit=200){
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200)throw new Error("Invalid snapshot diff page");
+    const before=await this.read(baseline),candidateRecord=await this.read(candidate);
     const index=(value:z.infer<typeof snapshotSchema>)=>new Map(value.bins.flatMap(bin=>bin.mobs.map(mob=>[`${bin.file}\0${mob.mobId}`,{bin:bin.file,...mob}] as const)));
-    const a=index(before),b=index(after),changes=[];
+    const a=index(before),b=index(candidateRecord),changes=[];
     for(const [key,value] of a){const next=b.get(key);if(!next)changes.push({change:"removed",bin:value.bin,mobId:value.mobId,name:value.name});else if(digest(value)!==digest(next))changes.push({change:"changed",bin:value.bin,mobId:value.mobId,before:value,after:next});}
     for(const [key,value] of b)if(!a.has(key))changes.push({change:"added",bin:value.bin,mobId:value.mobId,name:value.name});
-    return {baseline,candidate,changes:changes.slice(0,200),truncated:changes.length>200,complete:[...before.bins,...after.bins].every(bin=>bin.complete),comparison:"Semantic mob/track/source fields; excludes volatile save metadata and opaque effect parameters"};
+    const page=changes.slice(after+1,after+1+limit).map((change,offset)=>({index:after+1+offset,...change}));
+    const more=after+1+page.length<changes.length;
+    return {baseline,candidate,changes:page,totalChanges:changes.length,nextAfter:more?page.at(-1)!.index:null,truncated:more,complete:[...before.bins,...candidateRecord.bins].every(bin=>bin.complete),comparison:"Semantic mob/track/source fields; excludes volatile save metadata and opaque effect parameters"};
   }
   async range(revision:string,mobId:string,start:number,end:number,ordinal?:number,after=-1,limit=100){
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start)throw new Error("Invalid edit-unit range");

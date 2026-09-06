@@ -19,6 +19,12 @@ try{
   const captured=await client.callTool({name:'avid_snapshot_saved_bins',arguments:{bins:[bin]}});assert.ok(!captured.isError,JSON.stringify(captured));
   revision=captured.structuredContent.data.revision;assert.equal(captured.structuredContent.data.bins[0].sha256,binBefore);
   diff=await client.callTool({name:'avid_diff_saved_snapshots',arguments:{baseline:evidence.snapshot.revision,candidate:revision}});assert.ok(!diff.isError,JSON.stringify(diff));
+  const pages=[];let after=-1;
+  do{
+   const page=await client.callTool({name:'avid_diff_saved_snapshots',arguments:{baseline:evidence.snapshot.revision,candidate:revision,after,limit:1}});
+   assert.ok(!page.isError,JSON.stringify(page));pages.push(...page.structuredContent.data.changes);after=page.structuredContent.data.nextAfter;
+  }while(after!==null);
+  assert.deepEqual(pages,diff.structuredContent.data.changes);
  }
  const result=await client.callTool({name:'avid_saved_sequence_complexity',arguments:{revision,mobId:sequence.mobId}});
  assert.ok(!result.isError,JSON.stringify(result));const data=result.structuredContent.data;

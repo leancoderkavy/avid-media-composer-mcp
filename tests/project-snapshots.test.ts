@@ -16,6 +16,18 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("retrieves snapshot changes beyond 200 without repeating or losing changes",async()=>{
+    const {record,save,snapshots}=await fixture(),template=record.bins[0]!.mobs[0]!;
+    record.bins[0]!.mobs=Array.from({length:203},(_,i)=>({...template,mobId:`mob-${i}`}));
+    const baseline=await save();record.revision=randomUUID();
+    for(const mob of record.bins[0]!.mobs)mob.name='Renamed';
+    const candidate=await save(),first=await snapshots.diff(baseline,candidate);
+    expect(first.changes).toHaveLength(200);expect(first.totalChanges).toBe(203);expect(first.nextAfter).toBe(199);
+    const last=await snapshots.diff(baseline,candidate,first.nextAfter!);
+    expect(last.changes.map(change=>change.index)).toEqual([200,201,202]);expect(last.nextAfter).toBeNull();
+    expect((await snapshots.diff(baseline,candidate,999)).changes).toEqual([]);
+    await expect(snapshots.diff(baseline,candidate,-2)).rejects.toThrow('page');
+  });
   it("retrieves every source reference beyond the original 500-row limit",async()=>{
     const {record,save,snapshots}=await fixture(),track=record.bins[0]!.mobs[0]!.tracks[0]!;
     track.nodes=Array.from({length:503},()=>({...track.nodes[0]!}));
