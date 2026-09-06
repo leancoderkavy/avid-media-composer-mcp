@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Structured native RPC rejection diagnostics
+
+Full `npm run check` passed: 632 TypeScript tests, 41 Python tests, 139 tools, five skills, both transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-rpc-errors.log`). Remote checks for this change remain separate; the full implementation goal is not complete.
+
+Native response rejection now preserves `NATIVE_RPC_REJECTED` through MCP error serialization instead of classifying it as an internal connector error. Known numeric native error types and bounded HTTP/gRPC diagnostics are retained; unknown fields in parsed structured diagnostics are omitted. `operationOutcome: not_verified` and `nextStep: inspect_state_before_retrying_write` do not authorize replay or certify no mutation. Seven tests cover the observed column error, bounds, malformed/plain/Unicode diagnostics and unsupported structured values.
+
+A read-only actual native GetBinColumnInfo probe for a uniquely nonexistent bin returned type 9 through the new error path. It created no bin and preserved original source-bin/media hashes. Evidence: `.avid-mcp-analysis/native-rpc-error-e2a93c97-7e9a-48ad-aeaa-ac8250313dca/observation.json`; harness: `scripts/research/qualify-native-rpc-error.mjs`. This verifies native transport/error formatting without repeating a failed metadata write. Generic transport and other application-level failures retain their existing handling.
+
 ### Native Record request failed exact viewer verification
 
 Final full `npm run check` passed after removing the experimental option: 625 TypeScript tests, 41 Python tests, 139 tools, five packaged skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-viewer-boundaries.log`). The earlier 627-test run covered the temporary extension and is not evidence of a qualified Record feature. Production adapter code is unchanged from the preceding commit; tests and user guidance now explicitly retain the observed boundary.

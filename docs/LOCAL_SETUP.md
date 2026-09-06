@@ -73,6 +73,8 @@ This proves the named CLI's configuration lifecycle and live MCP connection. Des
 
 Native edits use `avid_native_preview` then the exact token with `avid_native_apply`. Enable `edit`, or `project-write` for bin creation. Tokens are single-use and check current project/target evidence. An abandoned `.avid-mcp/native-write.lock` under the user's home requires inspection before manual removal. No automatic retry or atomic undo is promised. Application completion, post-state readback and persistence are distinct evidence.
 
+Rejected native RPC responses report `NATIVE_RPC_REJECTED`, with bounded HTTP/gRPC status and the native numeric error type when present. `operationOutcome: "not_verified"` deliberately does not certify that a write had no effect. Follow `nextStep: "inspect_state_before_retrying_write"`; do not turn this error into an automatic replay or token replacement. The error may describe a read failure too: an actual missing-bin column inspection returned native type 9 without creating a bin. Unknown structured diagnostic fields are omitted from the returned error.
+
 `create_subclip` takes source-relative `startFrame` and exclusive `endFrame`, retains all source tracks, and currently requires a 30 fps source/project. It creates an Avid subclip, not a sequence. The returned created MOB and metadata should be inspected before further operations.
 
 ## Optional local models

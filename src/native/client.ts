@@ -60,6 +60,28 @@ export async function verifyNativeOwner(binary: string): Promise<string> {
   return `${owners[0].pid}:${owners[0].started}`;
 }
 
+/** Report host status without turning an RPC rejection into permission to replay a write. */
+export function nativeRpcRejection(headers: Record<string, unknown>): AvidMcpError {
+  const httpStatus=typeof headers[":status"]==="number"&&Number.isInteger(headers[":status"])?headers[":status"]:null;
+  const grpcStatus=typeof headers["grpc-status"]==="string"?headers["grpc-status"].slice(0,32):null;
+  let diagnostic=typeof headers["grpc-message"]==="string"?headers["grpc-message"].slice(0,4096):"";
+  try { diagnostic=decodeURIComponent(diagnostic); } catch { /* Retain bounded malformed diagnostics. */ }
+  let nativeErrorType:number|undefined;
+  try {
+    const parsed:unknown=JSON.parse(diagnostic);
+    // Do not expose arbitrary fields from structured host diagnostics.
+    if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed)){
+      const value=parsed as Record<string,unknown>;
+      diagnostic=typeof value.ErrorMessage==="string"?value.ErrorMessage:"Host returned a structured rejection without a message";
+      if(typeof value.ErrorType==="number"&&Number.isSafeInteger(value.ErrorType))nativeErrorType=value.ErrorType;
+    }else diagnostic="Host returned an unsupported diagnostic value";
+  }catch { /* Plain-text gRPC diagnostics are also valid. */ }
+  diagnostic=diagnostic.slice(0,1024);
+  return new AvidMcpError("NATIVE_RPC_REJECTED",
+    `Native RPC rejected: HTTP ${httpStatus??"unknown"}, gRPC ${grpcStatus??"unknown"}${diagnostic?`: ${diagnostic}`:""}. Inspect state before retrying a write.`,
+    {httpStatus,grpcStatus,...(nativeErrorType===undefined?{}:{nativeErrorType}),operationOutcome:"not_verified",nextStep:"inspect_state_before_retrying_write"});
+}
+
 function exchange(method: string, payload: Buffer): Promise<Buffer[]> {
   return new Promise((resolve, reject) => {
     const connection = connect("http://127.0.0.1:9100");
@@ -90,9 +112,7 @@ function exchange(method: string, payload: Buffer): Promise<Buffer[]> {
       try {
         if (headers[":status"] !== 200 || headers["grpc-status"] !== "0" ||
           !String(headers["content-type"]).startsWith("application/grpc")) {
-          let detail=String(headers["grpc-message"]??"").slice(0,1024);
-          try { detail=decodeURIComponent(detail); } catch { /* retain malformed service diagnostic */ }
-          throw new Error(`Native RPC rejected: HTTP ${headers[":status"]}, gRPC ${headers["grpc-status"]}: ${detail}`);
+          throw nativeRpcRejection(headers);
         }
         finish(undefined, decodeFrames(Buffer.concat(chunks)));
       } catch (error) { finish(error as Error); }
