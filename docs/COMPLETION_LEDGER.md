@@ -741,3 +741,8 @@ CI run 34018539471 for 272c056 completed successfully. The first discovery packa
 
 Full check for collection discovery passed: 493 TypeScript tests, 32 Python tests, 136-tool transport checks and fresh-package installation with exact tool definitions and Python isolation/recovery. Log: .avid-mcp-analysis/check-collection-discovery.log. This proves package compatibility and the bounded collection workflow, not general native editing or AI-client model invocation.
 
+
+### Installed collection recovery acceptance
+
+Fresh-tarball smoke now invokes collection discovery through the installed stdio server, continues past an invalid record, discovers and reads the next valid revision with exact saved ranges, then confirms omitted-only results when the synthetic indexed source points outside the generated client's allowed root. Fixtures use declared synthetic metadata; this is installed workflow/scope evidence, not native media interpretation. The 136-tool package check passed with exact checkout definitions, five generated client formats and Python isolation/recovery. Log: .avid-mcp-analysis/package-collection-recovery.log. Sonoma reconnect/export evidence remains separately recorded above.
+

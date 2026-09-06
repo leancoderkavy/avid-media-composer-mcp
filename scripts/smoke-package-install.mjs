@@ -201,6 +201,22 @@ try {
   record.revision=candidate;for(const mob of record.bins[0].mobs)mob.name="After";
   await writeFile(path.join(snapshotDirectory,`snapshot-${candidate}.json`),JSON.stringify(record));
   const invoke=async(name,args)=>{const response=await client.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed pagination call failed: ${name}`);return response.structuredContent.data;};
+  const collectionSource=path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),collectionBytes=await readFile(collectionSource),collectionId=createHash("sha256").update(collectionBytes).digest("hex");
+  await writeFile(path.join(snapshotDirectory,`${collectionId}.json`),JSON.stringify({id:collectionId,file:collectionSource,bytes:collectionBytes.length,metadata:{format:{duration:"10"}},transcript:[]}));
+  const collectionRecord={name:"Installed collection",selects:[{id:collectionId,start:2,end:5,label:"",tags:[],note:""}]};
+  await writeFile(path.join(snapshotDirectory,`collection-${baseline}.json`),"damaged record");
+  await writeFile(path.join(snapshotDirectory,`collection-${candidate}.json`),JSON.stringify(collectionRecord));
+  const collectionPage=await invoke("avid_list_collections",{limit:1});
+  if(collectionPage.results.length||collectionPage.omitted!==1||collectionPage.nextAfter!==baseline)throw new Error("Installed collection discovery lost damaged-record continuation");
+  const collectionLast=await invoke("avid_list_collections",{after:collectionPage.nextAfter,limit:1});
+  if(collectionLast.results[0]?.revision!==candidate||collectionLast.results[0]?.duration!==3||collectionLast.nextAfter!==null)throw new Error("Installed collection discovery failed");
+  const recoveredCollection=await invoke("avid_read_collection",{revision:collectionLast.results[0].revision});
+  if(!isDeepStrictEqual(recoveredCollection.selects,collectionRecord.selects))throw new Error("Installed collection read changed saved ranges");
+  // The output directory is not a permitted media root in this generated client configuration.
+  const outsideSource=path.join(temporary,"outside-media.bin");await writeFile(outsideSource,"out of scope");
+  await writeFile(path.join(snapshotDirectory,`${collectionId}.json`),JSON.stringify({id:collectionId,file:outsideSource,bytes:12,metadata:{format:{duration:"10"}},transcript:[]}));
+  const collectionDenied=await invoke("avid_list_collections",{});
+  if(collectionDenied.results.length||collectionDenied.omitted!==2||JSON.stringify(collectionDenied).includes(collectionRecord.name)||JSON.stringify(collectionDenied).includes(outsideSource))throw new Error("Installed collection discovery exposed out-of-scope contents");
   const discovered=await invoke("avid_saved_snapshots",{limit:1});
   const discoveredLast=await invoke("avid_saved_snapshots",{limit:1,after:discovered.nextAfter});
   if(discovered.snapshots[0]?.revision!==baseline||discoveredLast.snapshots[0]?.revision!==candidate||discoveredLast.nextAfter!==null)throw new Error("Installed snapshot discovery failed");
@@ -286,6 +302,7 @@ try {
       originalNotices: "packaged original-project notices match recorded upstream bytes",
       cachedNotices: "six model notice mappings create and reuse from installed package",
       inventoryReport: "installed stream/tag rendering and changed-source refusal preserve prior output",
+      collectionDiscovery: "installed damaged-record continuation, saved-range readback and out-of-scope omission passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",

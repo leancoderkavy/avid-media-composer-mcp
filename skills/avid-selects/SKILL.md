@@ -43,4 +43,3 @@ Each native token is single-use. On an uncertain import/export, inspect the atte
 Return collection revision, source ranges, artifact paths and the exact level of host verification completed. Do not describe an interchange file as an edited live timeline.
 
 After reconnecting, use avid_list_collections to rediscover saved revisions. Follow nextAfter until null, including empty pages: inaccessible or invalid records are counted as omitted. Discovery checks current media scope; export additionally verifies content hashes.
-
