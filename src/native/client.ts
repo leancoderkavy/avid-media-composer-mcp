@@ -43,10 +43,12 @@ export async function loadNativeSchema(binary: string): Promise<protobuf.Root> {
   return root;
 }
 
-async function verifyOwner(binary: string): Promise<string> {
+export async function verifyNativeOwner(binary: string): Promise<string> {
   if (process.platform !== "win32") throw new AvidMcpError("NATIVE_PLATFORM_UNQUALIFIED", "Native host qualification is Windows-only");
   const result = await runProcess("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
-    "$ErrorActionPreference='Stop'; @(Get-NetTCPConnection -State Listen -LocalPort 9100 | Where-Object { $_.LocalAddress -eq '127.0.0.1' } | ForEach-Object { $p=Get-Process -Id $_.OwningProcess; @{path=$p.Path;pid=$p.Id;started=$p.StartTime.ToUniversalTime().ToString('o')} }) | ConvertTo-Json -Compress"],
+    // NetTCPIP's installed CDXML maps Listen to State=2 on this CIM class.
+    // Query the same provider directly to avoid loading the NetTCPIP module per RPC.
+    `$ErrorActionPreference='Stop'; @(Get-CimInstance -Namespace root/StandardCimv2 -ClassName MSFT_NetTCPConnection -Filter "LocalPort = 9100 AND LocalAddress = '127.0.0.1' AND State = 2" | ForEach-Object { $p=Get-Process -Id $_.OwningProcess; @{path=$p.Path;pid=$p.Id;started=$p.StartTime.ToUniversalTime().ToString('o')} }) | ConvertTo-Json -Compress`],
   { timeoutMs: 10000, maxOutputBytes: 8192 });
   if (result.exitCode !== 0) throw new AvidMcpError("NATIVE_NOT_CONNECTED", "Cannot identify the native listener owner");
   const value: unknown = JSON.parse(result.stdout);
@@ -135,7 +137,7 @@ export class NativeClient {
   constructor(readonly binary: string) {}
   async call(method: NativeMethod, body: Record<string, unknown> = {}, expectedOwner?:string): Promise<Record<string, any>[]> {
     if (![...NATIVE_READS, ...NATIVE_WRITES].includes(method)) throw new Error("Unsupported native method");
-    this.ownerIdentity = await verifyOwner(this.binary);
+    this.ownerIdentity = await verifyNativeOwner(this.binary);
     if(expectedOwner&&this.ownerIdentity!==expectedOwner)throw new Error("Native listener owner changed before dispatch");
     const root = await loadNativeSchema(this.binary);
     const requestType = root.lookupType(`mcapi.${method}Request`);

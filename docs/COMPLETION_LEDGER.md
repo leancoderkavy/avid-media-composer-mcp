@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Faster native owner lookup with fresh verification retained
+
+Full local check passed: 620 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-owner-cim.log`). A direct call against the actual Avid listener with Node as the expected executable also rejected with NATIVE_OWNER_MISMATCH. Current-change remote verification remains pending.
+
+Read-only measurements found owner lookup dominated native latency. The installed Windows NetTCPIP CDXML maps Get-NetTCPConnection to ROOT/StandardCimv2/MSFT_NetTCPConnection and Listen to State 2. Switched the native guard to a direct filtered Get-CimInstance query of that provider, preserving fresh per-RPC owner lookup, executable path resolution, PID/start identity and schema binary hashing. No ownership caching or omitted guard was introduced.
+
+Five-sample comparisons matched original/direct owner results exactly. Observed median full GetAppInfo time fell from 1,571 ms before to 941 ms after; saved fixture hashes stayed unchanged. Evidence and limitations: NATIVE_READ_PERFORMANCE.md, especially `.avid-mcp-analysis/native-read-timing-a2931e8c-000a-4cb3-93f8-bc5ffbe4162c/evidence.json`. All 69 focused native/owner tests passed, covering fresh calls and absent/ambiguous/foreign/failed owner refusal. This is one-host latency evidence; broad performance, concurrency and the full implementation plan remain open.
+
 ### Packaged review guidance for Comments
 
 Updated the original avid-review-markers workflow to cover requested whole-clip Comments alongside timestamped markers. It uses the new column/value reads, requires exact expectedComment and writable declarations, preserves user text rather than silently converting unsupported input, and distinguishes native readback from historical saved evidence. It explains not_recorded/absent/recorded comment status and keeps unrelated bins outside persistence checks.

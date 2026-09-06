@@ -1,0 +1,36 @@
+import {mkdir,writeFile,realpath} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {performance} from 'node:perf_hooks';
+import assert from 'node:assert/strict';
+import {NativeClient,loadNativeSchema} from '../../dist/native/client.js';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+assert.equal(process.platform,'win32');assert.equal(process.argv.length,2);
+const binary='C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe';
+const fixture='D:/Avid Projects/MCP_Sonoma_30p_20260905/MCP_Color_ac0a950e18ee.avb';
+const fixtureHash=await sha256File(fixture);assert.equal(fixtureHash,'8dabb465c84239d5d13ae0715500f0173f9946c171295da2a51cb09c584fd329');
+const root=path.resolve('.avid-mcp-analysis',`native-read-timing-${randomUUID()}`);await mkdir(root);
+const client=new NativeClient(binary),samples=[];let ownerIdentity;
+for(let index=0;index<5;index++){
+ let start=performance.now();const schema=await loadNativeSchema(binary);const schemaMs=performance.now()-start;
+ assert.ok(schema.lookupType('mcapi.GetAppInfoRequest'));
+ start=performance.now();
+ const owner=await runProcess('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop'; @(Get-NetTCPConnection -State Listen -LocalPort 9100 | Where-Object { $_.LocalAddress -eq '127.0.0.1' } | ForEach-Object { $p=Get-Process -Id $_.OwningProcess; @{path=$p.Path;pid=$p.Id;started=$p.StartTime.ToUniversalTime().ToString('o')} }) | ConvertTo-Json -Compress"],{timeoutMs:10000,maxOutputBytes:8192});
+ const ownerProbeMs=performance.now()-start;assert.equal(owner.exitCode,0,owner.stderr);
+ const parsed=JSON.parse(owner.stdout),owners=Array.isArray(parsed)?parsed:[parsed];assert.equal(owners.length,1);
+ assert.equal((await realpath(owners[0].path)).toLowerCase(),(await realpath(binary)).toLowerCase());
+ const observed=`${owners[0].pid}:${owners[0].started}`;if(ownerIdentity)assert.equal(observed,ownerIdentity);else ownerIdentity=observed;
+ start=performance.now();
+ const direct=await runProcess('powershell.exe',['-NoProfile','-NonInteractive','-Command',`$ErrorActionPreference='Stop'; @(Get-CimInstance -Namespace root/StandardCimv2 -ClassName MSFT_NetTCPConnection -Filter "LocalPort = 9100 AND LocalAddress = '127.0.0.1' AND State = 2" | ForEach-Object { $p=Get-Process -Id $_.OwningProcess; @{path=$p.Path;pid=$p.Id;started=$p.StartTime.ToUniversalTime().ToString('o')} }) | ConvertTo-Json -Compress`],{timeoutMs:10000,maxOutputBytes:8192});
+ const directCimMs=performance.now()-start;assert.equal(direct.exitCode,0,direct.stderr);
+ const directValue=JSON.parse(direct.stdout),directOwners=Array.isArray(directValue)?directValue:[directValue];
+ assert.deepEqual(directOwners,owners);
+ start=performance.now();const app=await client.call('GetAppInfo');const fullReadMs=performance.now()-start;
+ assert.equal(client.ownerIdentity,ownerIdentity);assert.ok(app.length>0);
+ samples.push({index,schemaMs,ownerProbeMs,directCimMs,fullReadMs});
+}
+assert.equal(await sha256File(fixture),fixtureHash);
+const summary=Object.fromEntries(['schemaMs','ownerProbeMs','directCimMs','fullReadMs'].map(key=>{const values=samples.map(s=>s[key]).sort((a,b)=>a-b);return [key,{min:values[0],median:values[2],max:values[4]}];}));
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({samples,summary,ownerIdentity,fixture,fixtureHash,unchanged:true,scope:'Five sequential read-only samples on one running Windows host. Schema load, independent identical owner-probe command and full guarded GetAppInfo timings are separate runs, not an exact decomposition or cross-host benchmark. No checks bypassed or cached.'},null,2),{flag:'wx'});
+console.log(JSON.stringify({root,summary,unchanged:true}));
