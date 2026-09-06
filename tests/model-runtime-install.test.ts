@@ -20,8 +20,9 @@ it("publishes qualified staging and reuses an unchanged runtime without npm muta
 });
 it("audits and adopts a legacy runtime without rerunning install",async()=>{
  const root=await fixture(),runtime=path.join(root,"runtime");await mkdir(runtime);await writeFile(path.join(runtime,"package.json"),JSON.stringify(runtimeManifest));await populate(runtime);
- expect(await modelRuntimeStatus(root)).toMatchObject({managed:false,unchanged:null});
- const result=await installModelRuntime(root);expect(result).toMatchObject({reused:true,receipt:{adoptedLegacy:true,checks:{scriptsDisabled:false}}});expect(runner).toHaveBeenCalledTimes(2);expect(runner.mock.calls[0]![1][1]).toBe("audit");
+ expect(await modelRuntimeStatus(root)).toMatchObject({managed:false,unchanged:null,inferencePreflight:{state:"adoption_required",passed:false,modelLoadVerified:false}});
+ const result=await installModelRuntime(root);expect(result).toMatchObject({reused:true,receipt:{adoptedLegacy:true,checks:{scriptsDisabled:false}},inferencePreflight:{state:"verified",passed:true,modelLoadVerified:false}});expect(runner).toHaveBeenCalledTimes(2);expect(runner.mock.calls[0]![1][1]).toBe("audit");
+ await writeFile(path.join(runtime,"unexpected.txt"),"preserve");expect(await modelRuntimeStatus(root)).toMatchObject({inferencePreflight:{state:"tree_changed",passed:false,modelLoadVerified:false}});expect(runner).toHaveBeenCalledTimes(2);
 });
 it("retains failed staging without publishing a runtime or deleting the failure evidence",async()=>{
  const root=await fixture();runner.mockImplementation(async(_command,args,options)=>{if(args[1]==="install")await populate(options.cwd);return {exitCode:args[1]==="audit"?1:0,stdout:"",stderr:"failure"};});

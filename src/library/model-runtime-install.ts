@@ -20,10 +20,10 @@ async function basic(directory:string){
 }
 export async function modelRuntimeStatus(cache:string){
  const root=await realpath(path.resolve(cache)),directory=path.join(root,"runtime"),entry=await basic(directory),receiptFile=path.join(directory,"installation.json");
- if(!await exists(receiptFile))return {directory,entry,managed:false as const,unchanged:null,receipt:null,note:"Legacy runtime has no tree receipt. Explicit installation can audit and adopt it without reinstalling dependencies."};
+ if(!await exists(receiptFile))return {directory,entry,managed:false as const,unchanged:null,receipt:null,inferencePreflight:{state:"adoption_required" as const,passed:false,modelLoadVerified:false,nextStep:"Explicitly run --install-model-runtime --model-dir PATH to audit and adopt this legacy runtime."},note:"Legacy runtime has no tree receipt. Explicit installation can audit and adopt it without reinstalling dependencies."};
  if((await lstat(receiptFile)).isSymbolicLink())throw new Error("Model runtime receipt cannot be a link");
  const receipt=receiptSchema.parse(await readBoundedJson(receiptFile,16384)),treeSha256=await packageTreeHash(directory);
- return {directory,entry,managed:true as const,unchanged:treeSha256===receipt.treeSha256,treeSha256,receipt,note:"Tree consistency and previous audit/import evidence; not publisher authentication or a current vulnerability audit."};
+ return {directory,entry,managed:true as const,unchanged:treeSha256===receipt.treeSha256,treeSha256,receipt,inferencePreflight:{state:treeSha256===receipt.treeSha256?"verified" as const:"tree_changed" as const,passed:treeSha256===receipt.treeSha256,modelLoadVerified:false,nextStep:treeSha256===receipt.treeSha256?"Runtime receipt verification passed; model availability and actual loading require separate checks.":"Use a fresh model directory; changed dependencies will not be imported or automatically repaired."},note:"Tree consistency and previous audit/import evidence; not publisher authentication or a current vulnerability audit."};
 }
 /** Explicit setup only. Inference never invokes npm or fetches dependencies. */
 export async function installModelRuntime(cache:string){
