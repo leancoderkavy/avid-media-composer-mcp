@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Fresh installed media-volume diagnostic
+
+Installed a new development tarball into a unique temporary directory and matched the entrypoint/server/native-module hashes to the checkout. The three-session actual native probe passed from that installed runtime with an outside-checkout working directory: two authorized reads, one excluded-project refusal with no volume data, unchanged protected bin/media and entrypoint hashes. Evidence: `.avid-mcp-analysis/native-media-volumes-c48e50f4-42c7-4f86-a401-bfc50525f3c9/evidence.json`; runtime/archive receipt: `.avid-mcp-analysis/native-volume-installed-runtime.json`.
+
+Harness syntax, diff checks and actual installed execution passed. Production code is unchanged; this does not claim a clean OS, model/client GUI setup, publication or other host versions. See [installed diagnostic](NATIVE_MEDIA_VOLUMES.md#fresh-installed-native-runtime).
+
 ### Media-volume project-scope refusal
 
 Extended real-host MCP qualification with a third fresh session whose allowed roots exclude the current project. It refused the media-volume query without volume data/names; two authorized sessions continued to return declarations and all protected hashes stayed unchanged. Evidence: `.avid-mcp-analysis/native-media-volumes-45a61e33-0046-4954-9b11-b8bae996114a/evidence.json`. A new regression confirms refusal before the volume RPC is invoked. All 117 focused native tests passed; production code is unchanged and the prior full implementation/package checks remain applicable.
