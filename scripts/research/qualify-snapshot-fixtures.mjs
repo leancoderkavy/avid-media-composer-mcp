@@ -33,6 +33,10 @@ try{
    assert.equal(range.complete,false);assert.equal(report.warnings[0].mobRate,30);assert.equal(report.warnings[0].componentRate,24);
    assert.equal(report.warnings[0].mapping,'omitted; no rate conversion inferred');
    assert.equal(range.results.length,0);assert.equal(report.warnings[1].code,'UNRESOLVED_SEQUENCE_OFFSETS');
+   const usage=await call('avid_saved_source_usage',{revision:captured.revision,sourceMobId:'unresolved-probe'});
+   assert.equal(usage.complete,false);assert.deepEqual(usage.usages,[]);
+   assert.equal(usage.coverage[0].warnings[0].code,'MIXED_EDIT_RATE');
+   assert.equal(usage.coverage[0].warnings[1].code,'UNRESOLVED_SEQUENCE_OFFSETS');
   }
   if(fixture.name==='subclip')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart]),[[0,30,1090],[30,60,2000]]);
   if(fixture.name==='stereo')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart,n.channelCombiner.channelIndex]),[[0,30,2860,1],[0,30,2860,2]]);

@@ -16,6 +16,14 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("explains incomplete zero-match source usage with bounded per-bin warnings",async()=>{
+    const {record,save,snapshots}=await fixture();
+    Object.assign(record.bins[0]!,{complete:false,warnings:Array.from({length:12},()=>({code:'MIXED_EDIT_RATE',mobRate:30,componentRate:24}))});
+    const result=await snapshots.usage(await save(),'missing');
+    expect(result.usages).toEqual([]);expect(result.complete).toBe(false);
+    expect(result.coverage[0]).toMatchObject({complete:false,warningCount:12,warningsTruncated:true});
+    expect(result.coverage[0]!.warnings).toHaveLength(10);
+  });
   it("continues filtered timeline pages using global node indices across tracks",async()=>{
     const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!,first=mob.tracks[0]!;
     first.nodes=Array.from({length:205},()=>({...first.nodes[0]!}));

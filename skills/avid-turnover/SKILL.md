@@ -9,6 +9,8 @@ For sequence source mapping, create `avid_snapshot_saved_bins` over the relevant
 
 Source-usage results are paginated. Pass `nextAfter` as `after` with the same snapshot revision and source mob ID until it is null. `totalReferences` counts direct matching references across the snapshot, including separate stereo channel references; it does not count unique editorial cuts. A truncated page is not the complete turnover inventory.
 
+Review source-usage `coverage` for each bin, including warnings and `warningsTruncated`. Zero matches with incomplete coverage do not establish that a source is unused. Report mixed-rate or opaque omissions before recommending media cleanup or relinking.
+
 Use `avid_saved_sequence_complexity` with that revision and the target mob ID for per-track node kinds, source-reference counts and opaque-node coverage. Include media kinds: track count can include timecode, and stereo channel references are not separate editorial cuts. Treat the result as direct saved structure, not a render-time estimate, media-online check or recursively expanded effect inventory. Use a fresh snapshot when the user asks about the current saved bin.
 
 For a before/after review, create a second snapshot after the requested edit is saved and call `avid_diff_saved_snapshots`. Report semantic changes with bin/MOB/track references; distinguish missing coverage from an empty diff.

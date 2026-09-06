@@ -117,7 +117,8 @@ export class ProjectSnapshots {
       if(node.sourceMobId===sourceMobId){const current=index++;if(current>after&&usages.length<=limit)usages.push({index:current,bin:bin.file,mobId:mob.mobId,name:mob.name,track:track.ordinal,mediaKind:track.mediaKind,rate:mob.rate,...node});}
     }
     const page=usages.slice(0,limit);
-    return {revision,sourceMobId,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete),scope:"Direct saved-bin source references; opaque effects and retimes may hide references"};
+    const coverage=snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
+    return {revision,sourceMobId,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete),coverage,scope:"Direct saved-bin source references; opaque effects, mixed rates and retimes may hide references. Zero matches in incomplete coverage do not prove the source is unused."};
   }
   async complexity(revision:string,mobId:string){
     const snapshot=await this.read(revision);
