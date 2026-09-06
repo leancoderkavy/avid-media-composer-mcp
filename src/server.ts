@@ -208,7 +208,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
   registerLibraryTools(server, config);
   server.registerTool("avid_native_read", {
     description: "Opt-in Windows native app/project/bin/clip/marker inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots.",
-    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "link_settings", "export_settings", "import_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
+    inputSchema: { query: z.enum(["app", "project", "bins", "bin", "clips", "clip", "markers", "tracks", "link_settings", "export_settings", "import_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
     outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
   }, async ({ query, bin, mobId }) => execute("avid_native_read", () => native.read(query, bin, mobId)));
   server.registerTool("avid_native_preview", {

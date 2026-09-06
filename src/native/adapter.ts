@@ -52,7 +52,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -67,7 +67,7 @@ export class NativeAdapter {
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path: relative, bin_flags: ["AllTypes"] });
     if (query === "clips") return clips;
     if (!mobId || !clips.some(clip => clip.mob_id === mobId)) throw new Error("Clip is not in the specified bin");
-    const response = await this.client.call(query === "clip" ? "GetMobInfo" : "GetMarkers", { mob_id: mobId });
+    const response = await this.client.call(query === "tracks" ? "GetMobTrackInfo" : query === "clip" ? "GetMobInfo" : "GetMarkers", { mob_id: mobId });
     return query === "markers" ? response.flatMap(body => Array.isArray(body.info) ? body.info : []) : response;
   }
   private async binPath(project: string, bin: string) {

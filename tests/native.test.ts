@@ -40,6 +40,10 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("requires bin membership before native track inspection",async()=>{
+    const f=await hostFixture();await expect(f.adapter.read("tracks","fixture.avb","outside")).rejects.toThrow("specified bin");expect(f.calls.some(call=>call.method==="GetMobTrackInfo")).toBe(false);
+    await f.adapter.read("tracks","fixture.avb","clip");expect(f.calls.at(-1)).toEqual({method:"GetMobTrackInfo",body:{mob_id:"clip"}});
+  });
   it("exports AAF references once and retains the lock if structural verification fails",async()=>{
     const {adapter,calls,source}=await hostFixture();const action={action:"export_aaf_master" as const,bin:"fixture.avb",mobId:"clip",preset:"Fixture",sourceFile:source,expectedSourceSha256:await sha256File(source)};
     vi.mocked(verifyNativeAafMaster).mockImplementation(async()=>{await expect(withNativeLock(async()=>1)).rejects.toThrow();return {masterContractVerified:true} as any;});
