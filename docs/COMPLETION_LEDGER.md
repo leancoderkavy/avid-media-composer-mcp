@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Python dependency audit gate and default-branch alert reconciliation
+
+Root and landing npm audits returned zero known vulnerabilities. Current development dependencies fast-uri 3.1.7 and qs 6.16.0 meet the patched thresholds of all five open GitHub default-branch alerts; the alerts remain open because no merge is claimed. Fresh isolated pip-audit 2.10.1 strict requirements audits passed for the shipped parser dependencies and the research dependencies including resolved hpack/hyperframe. Retained JSON reports and versions are documented in [security audit](SECURITY_AUDIT.md).
+
+Added a dedicated CI Python audit job and Dependabot scopes for research/audit tooling. Local audit executions and workflow YAML/unique-scope checks passed. Runtime source is unchanged, so the preceding 663 TypeScript/46 Python/full-package result remains applicable. This is dependency advisory coverage, not complete code security, optional-runtime approval or release acceptance.
+
 ### Exact marker-update postconditions
 
 Actual MCP UUID marker update/save/reopen, explicit restoration/save/reopen and final cleanup passed. The second note remained unchanged; restored saved MOBs/warnings matched the original marker-bearing capture and final cleanup matched the empty baseline. Original sources were unchanged. Evidence: `.avid-mcp-analysis/native-marker-update-12ef1be1-0fc7-4f82-ad38-e470586ed11b/evidence.json`. The owned fixture is marker-empty; no atomic undo or non-UUID update proof is claimed.

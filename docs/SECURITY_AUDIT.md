@@ -1,5 +1,17 @@
 # Security audit
 
+## Dependency refresh: 2026-09-06 development branch
+
+At source commit `ad88887`, root and landing `npm audit --json` each reported zero known vulnerabilities (310 and 445 total dependency entries respectively). The root resolved `fast-uri@3.1.7` and `qs@6.16.0`. GitHub still reported five open default-branch alerts: fast-uri alerts 10, 11, 13 and 14 (patched threshold 3.1.6), and qs alert 12 (patched threshold 6.16.0). This development branch already meets those thresholds; the default branch has not received these changes. Alerts were not dismissed and no merge/release is claimed.
+
+A fresh isolated `pip-audit==2.10.1` installation audited the shipped requirements with strict collection: pyavb 1.4.0 and pyaaf2 1.7.1 had no known vulnerabilities. A separate strict audit resolved research requirements and found none for protobuf 7.35.1, h2 4.4.1, hpack 4.2.0 and hyperframe 6.1.0. Evidence: `.avid-mcp-analysis/audit-current.json`, `audit-landing-current.json`, `audit-python-runtime.json` and `audit-python-research.json`. These are time-specific advisory checks, not source-code audits or proof that packages are vulnerability-free.
+
+CI now runs both Python requirements audits in a separate bounded job. Audit collection errors and known vulnerabilities fail the job; no advisory suppression or automatic dependency repair is configured. Dependabot also covers `/scripts/research` and the pinned audit tool in `/scripts/security`. Local YAML parsing and duplicate-scope validation passed. The scanner uses the [PyPA pip-audit requirements and strict collection interface](https://github.com/pypa/pip-audit#usage).
+
+Optional separately installed AI runtimes, native binaries, model provenance/licensing and remaining full-plan security acceptance require their own checks. The original source/security review below remains historical and is not refreshed by a clean dependency scan.
+
+## Original audit
+
 Audit date: 2026-07-30
 
 Scope: TypeScript MCP server, local stdio and Streamable HTTP transports, filesystem policy, Python AVB/AAF sidecar, `ffprobe` execution, file-mailbox Extension bridge, edit-plan confirmation, dependencies, GitHub Actions, and contributor controls.

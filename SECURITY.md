@@ -43,6 +43,7 @@ control. The hosted configuration is a read-only inspection and compatibility se
 
 ## Dependency notes
 
+- CI audits both shipped Python requirements and research requirements with pinned `pip-audit` and strict dependency collection. Known-vulnerability scans are time-specific; they do not establish parser safety or optional model-runtime security. See the dated audit refresh for development-branch versus default-branch results.
 - `pyavb` is an independent reverse-engineered parser, not an Avid-supported guarantee.
 - `pyaaf2` implements the standardized AAF format but vendor-specific objects may still require compatibility testing.
 - `ffprobe` is executed without a shell and receives a resolved local file path.
