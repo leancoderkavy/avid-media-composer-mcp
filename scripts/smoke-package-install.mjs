@@ -159,12 +159,16 @@ try {
   const discovered=await invoke("avid_saved_snapshots",{limit:1});
   const discoveredLast=await invoke("avid_saved_snapshots",{limit:1,after:discovered.nextAfter});
   if(discovered.snapshots[0]?.revision!==baseline||discoveredLast.snapshots[0]?.revision!==candidate||discoveredLast.nextAfter!==null)throw new Error("Installed snapshot discovery failed");
+  const recoveredRevision=discovered.snapshots[0].revision;
+  const recoveredMobs=await invoke("avid_saved_snapshot_mobs",{revision:recoveredRevision,limit:1});
+  const recoveredMobsLast=await invoke("avid_saved_snapshot_mobs",{revision:recoveredRevision,limit:1,after:recoveredMobs.nextAfter});
+  if(recoveredMobs.totalMobs!==2||recoveredMobs.mobs[0]?.mobId!=="sequence"||recoveredMobsLast.mobs[0]?.mobId!=="second"||recoveredMobsLast.nextAfter!==null)throw new Error("Installed snapshot mob discovery failed");
   const diff=await invoke("avid_diff_saved_snapshots",{baseline,candidate,limit:1});
   const diffLast=await invoke("avid_diff_saved_snapshots",{baseline,candidate,limit:1,after:diff.nextAfter});
   const usage=await invoke("avid_saved_source_usage",{revision:baseline,sourceMobId:"source",limit:3});
   const usageLast=await invoke("avid_saved_source_usage",{revision:baseline,sourceMobId:"source",limit:3,after:usage.nextAfter});
-  const range=await invoke("avid_saved_timeline_range",{revision:baseline,mobId:"sequence",start:0,end:60,limit:1});
-  const rangeLast=await invoke("avid_saved_timeline_range",{revision:baseline,mobId:"sequence",start:0,end:60,limit:1,after:range.nextAfter});
+  const range=await invoke("avid_saved_timeline_range",{revision:recoveredRevision,mobId:recoveredMobs.mobs[0].mobId,start:0,end:60,limit:1});
+  const rangeLast=await invoke("avid_saved_timeline_range",{revision:recoveredRevision,mobId:recoveredMobs.mobs[0].mobId,start:0,end:60,limit:1,after:range.nextAfter});
   if(diff.totalChanges!==2||diffLast.changes[0]?.index!==1||diffLast.nextAfter!==null||usage.totalReferences!==4||usageLast.usages[0]?.index!==3||usageLast.nextAfter!==null||rangeLast.results[0]?.overlapSourceStart!==120||rangeLast.nextAfter!==null)throw new Error("Installed snapshot pagination contract failed");
   if (withPython) {
     const inspectDependency = async () => {
@@ -207,6 +211,7 @@ try {
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
       snapshotPagination: "synthetic diff, usage and range continuation passed",
+      snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
     }),
