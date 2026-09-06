@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Real audio-sync decoder cancellation
+
+The HTTP MCP cancellation harness observed an actual FFmpeg descendant of the owned 60-second audio-sync worker, cancelled through `avid_cancel_analysis_job`, verified the terminal cancellation/worker-exit/tree-attempt record and successful queued follow-on analysis, then read the cancelled result through a fresh connection without replay. Post-action process inventory confirmed the observed worker/descendant identities disappeared. Original Sonoma source hash stayed unchanged. Evidence: `.avid-mcp-analysis/audio-sync-cancel-62ef2db2-4a45-4912-bb39-a124436ef050/evidence.json`.
+
+Two PCM scratch files remained, each 11,520,000 bytes, with stable hashes across reconnect. The harness retained them; cancellation is not complete artifact cleanup. Scratch currently lacks a durable job-owner manifest, so explicit bounded discovery/recovery remains an implementation gap. No arbitrary folder deletion, automatic resume, atomic containment, abrupt server-loss or Mac proof is claimed. This turn changes research/docs only; the latest runtime retains its existing validation evidence.
+
 ### Audio offset degradation and window consistency
 
 Controlled Sonoma derivatives now cover off-grid delays, deterministic additive noise, a 32 kbit/s MP3 round trip and a 0.5% speed-change diagnostic. Clean/moderate-noise/MP3 candidates were within 5 ms for these fixtures; heavy noise returned weak match. The speed-change probe initially exposed a misleading strong overall candidate. Three independent window searches now withhold a single-offset candidate when supported offsets differ by more than 30 ms, and explicitly report insufficient or partial window support. This does not infer a drift cause or rate.

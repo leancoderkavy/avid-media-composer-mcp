@@ -51,4 +51,12 @@ Passing revised observations are in `.avid-mcp-analysis/audio-sync-variants-2c30
 
 ## Remaining qualification
 
-Qualify independent recordings, noise/compression, non-window-aligned delays, sparse/repeated sounds, clock drift, and multichannel behavior before broad accuracy claims. Exercise cancellation during this specific decoder's active FFmpeg process and abrupt scratch cleanup; the job framework alone is not that operation-specific evidence. Native Avid sync edits and lip-sync verification remain separate work. No npm release is claimed.
+Qualify independent recordings, broader noise/compression, sparse/repeated sounds, clock drift, and multichannel behavior before broad accuracy claims. Native Avid sync edits and lip-sync verification remain separate work. No npm release is claimed.
+
+## Windows decoder cancellation and retained scratch
+
+`scripts/research/qualify-audio-sync-cancel.mjs` starts a real 60-second Sonoma audio-sync job and a queued two-second job through HTTP MCP. Before explicit cancellation it observes the owned worker and an FFmpeg descendant through Windows process inventory. It then verifies a cancelled terminal record with user cancellation reason, worker exit and successful tree-termination attempt, followed by completion of the queued job. A fresh MCP session reads the same cancelled journal without automatic replay. A subsequent inventory confirms the observed process identities are absent (PID plus creation timestamp, not PID alone). This is observation before/after cancellation, not an atomic process-tree containment guarantee.
+
+Evidence: `.avid-mcp-analysis/audio-sync-cancel-62ef2db2-4a45-4912-bb39-a124436ef050/evidence.json`. Source SHA-256 remained unchanged. The worker's forced termination skipped normal cleanup and left `reference.f32le` and `comparison.f32le`, each 11,520,000 bytes, in the owned experiment's `avid-mcp-library/audio-sync-c4gklS` directory. Their byte counts and hashes stayed stable across reconnect; the harness deliberately retained them as evidence. File completeness is not a successful analysis result, and the cancelled job exposes no result.
+
+Explicit bounded scratch discovery/recovery is still needed before claiming complete cancellation cleanup. Scratch directories currently have random names and no durable job-ownership manifest; do not infer authority to delete arbitrary `audio-sync-*` directories from the name or apparent age. Abrupt server loss, concurrent orphan recovery, global disk limits and native Mac cancellation remain unqualified.
