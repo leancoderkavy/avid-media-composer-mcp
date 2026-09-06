@@ -1,4 +1,5 @@
 """One bounded EDL export experiment from the disposable Sonoma sequence; inspect dialogs after invocation."""
+import argparse
 import hashlib
 import json
 import uuid
@@ -12,8 +13,14 @@ MOB='060a2b340101010501010f1013-000000-3737af0e12888806-0e10d8bbc16d-18d9'
 ALLOWED={'GetOpenProjectInfo','GetMobInfo','GetListOfExportEDLSettings','GetListOfBinItems','ExportEDL'}
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--test-owned-collision",action="store_true")
+    args=parser.parse_args()
     expected=Path.home()/'Avid EDL Exports'/'MCP_Sonoma_AAF_Selects.edl'
-    if expected.exists():raise ValueError('Research output already exists; do not replay or overwrite')
+    if args.test_owned_collision:
+        if expected.with_name('MCP_Sonoma_AAF_Selects.001.edl').exists():raise ValueError('Collision experiment already has numbered output; inspect instead of replaying')
+        if not expected.is_file() or hashlib.sha256(expected.read_bytes()).hexdigest()!='2a0d4cb9ccf21e4fdbae3bdd376acc8303549d4f7cedd92333a0be1a9870e12d':raise ValueError('Collision test requires the exact owned first native artifact')
+    elif expected.exists():raise ValueError('Research output already exists; do not replay or overwrite')
     raw=BINARY.read_bytes()
     if hashlib.sha256(raw).hexdigest()!='3ca4d082a3afe00a120d6061d6ee94e20e6113238f0b016398700f3439ec9194':
         raise ValueError('Unqualified installed binary')
@@ -49,7 +56,16 @@ def main():
     if not any('Default EDL' in v.get('setting_names',[]) for v in settings):raise ValueError('Preset missing')
     request={'mob_id':MOB,'edl_settings_name':'Default EDL','track_list':{'track_labels':[{'type':'TRACKTYPE_PICTURE','number':1},{'type':'TRACKTYPE_SOUND','number':1},{'type':'TRACKTYPE_SOUND','number':2}]}}
     (directory/'attempt.json').write_text(json.dumps({'request':request,'scope':'No destination field; inspect returned path/dialogs and never automatically replay.'}))
+    if args.test_owned_collision:
+        original=expected.read_bytes()
+        if hashlib.sha256(original).hexdigest()!='2a0d4cb9ccf21e4fdbae3bdd376acc8303549d4f7cedd92333a0be1a9870e12d':raise ValueError('Owned artifact changed before collision setup')
+        (directory/'original.edl').write_bytes(original)
+        sentinel=b'AVID_MCP_OWNED_COLLISION_SENTINEL\n'
+        expected.write_bytes(sentinel)
+        (directory/'collision.json').write_text(json.dumps({'target':str(expected),'originalSha256':hashlib.sha256(original).hexdigest(),'sentinelSha256':hashlib.sha256(sentinel).hexdigest(),'restoration':'Inspect host and result before restoring original; no automatic write retry'}))
     result=call('ExportEDL',request)
+    if args.test_owned_collision:
+        (directory/'after-collision.bin').write_bytes(expected.read_bytes())
     print(json.dumps({'directory':str(directory.resolve()),'result':result}))
 
 if __name__=='__main__':main()
