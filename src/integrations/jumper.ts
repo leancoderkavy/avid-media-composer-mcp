@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {AvidMcpError} from "../errors.js";
 import {resolveReadablePath} from "../security/path-policy.js";
+import {verifyWindowsLoopbackOwner} from "./loopback-owner.js";
 
 const matchSchema=z.object({
   frame_idx:z.string().regex(/^\d+$/).max(20),timestamp:z.string().max(32),
@@ -9,7 +10,7 @@ const matchSchema=z.object({
 });
 const responseSchema=z.object({matches:z.array(matchSchema).max(100)});
 const fail=(code:string,message:string)=>new AvidMcpError(`JUMPER_${code}`,message);
-interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number}
+interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number;owner?:{binary:string;sha256:string;identity:string}}
 
 /** Optional licensed provider. No SDK, model downloads, analysis writes or image output. */
 export class JumperReadClient {
@@ -23,9 +24,13 @@ export class JumperReadClient {
       if(!Number.isSafeInteger(value)||value<min||value>max)throw fail("LIMIT",`Invalid ${name}`);
     }
     this.base=base.href;
-    this.options=Object.freeze({...options,allowedRoots:Object.freeze([...options.allowedRoots])});
+    this.options=Object.freeze({...options,allowedRoots:Object.freeze([...options.allowedRoots]),...(options.owner?{owner:Object.freeze({...options.owner})}:{})});
   }
   private async request(endpoint:"/health"|"/search/text",body?:unknown):Promise<unknown>{
+    if(this.options.owner){
+      const url=new URL(this.base);
+      await verifyWindowsLoopbackOwner({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",binary:this.options.owner.binary,sha256:this.options.owner.sha256,expectedIdentity:this.options.owner.identity});
+    }
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),this.options.timeoutMs??10000);
     try{
       const response=await fetch(this.base+endpoint,{method:body===undefined?"GET":"POST",redirect:"error",signal:controller.signal,
