@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Declared saved marker locations
+
+Extended the read-only marker research inspector to follow bounded same-rate sequence paths, accumulate component positions and apply subclip bounds. Unknown effects, transitions, invalid offsets, mixed rates and inconsistent sequence lengths return unresolved coordinates. Existing recognized equal-length color-adapter input paths retain explicit `declared_effect_input` status rather than claiming verified effect output. The actual retained two-marker AVB snapshot resolves frames 15 and 75 on picture track 1, matching native evidence; report: `.avid-mcp-analysis/native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4/saved-marker-position-verification.json`. Saved snapshots/evidence hashes remained unchanged.
+
+Three regression tests cover direct positions, frame zero, subclip bounds, malformed paths, transitions, mixed rates, lengths, offsets and opaque effects. The initial actual-file probe exposed pyavb list slicing returning raw object references; materializing the component list fixed the traversal and the retained fixture then passed. This is research infrastructure for saved marker support, not a production decoder or full graph/render proof. General audio/effect/rate mapping and the original full-plan acceptance remain open.
+
+Validation: all 44 Python tests passed. The final verifier additionally compared positions/track labels against the retained post-save native readback, using exclusive copied snapshots at `C:/Users/kavyr/AppData/Local/Temp/avid-marker-position-7asgtqv7`; it passed without overwriting the earlier report. Diff checks passed. TypeScript production code is unchanged, so its prior full-suite result is not represented as a new run.
+
 ### Independent saved marker records and before/after snapshots
 
 Extended the live batch harness with exclusive hash-checked before/persisted/cleaned AVB snapshots. Fresh real native run passed in `native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4`, owned bin `MCP_Batch_ca92028d.avb`. New read-only research inspector/verifier found zero/two/zero TMBC records, matched requested UUID/name/comment/user/color labels and component reference paths, and compared all existing decoded timeline fields across the three saved snapshots. Original source bin and MP4 hashes were unchanged. Retained report: `.avid-mcp-analysis/native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4/saved-marker-verification.json`.

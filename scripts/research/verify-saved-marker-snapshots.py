@@ -13,7 +13,7 @@ def load_module(name, path):
     return module
 
 
-def verify(root):
+def verify(root, compare_positions=False):
     root = root.resolve(strict=True)
     evidence_file = root / 'evidence.json'
     evidence_hash = hashlib.sha256(evidence_file.read_bytes()).hexdigest()
@@ -42,6 +42,17 @@ def verify(root):
         assert paths[0][-3:] == ['attributes', '_TMP_CRM', '0']
         canonical = lambda value: value.removeprefix('urn:smpte:umid:').replace('.', '').replace('-', '').lower()
         assert canonical(paths[0][0]) == canonical(evidence['mobId'])
+        if compare_positions:
+            location = next(ref['location'] for ref in saved['references'] if ref['objectIndex'] == record['objectIndex'])
+            native = [item for item in evidence['persisted'] if item['guid'] == expected['guid']]
+            assert len(native) == 1
+            assert location['status'] in ['direct_sequence', 'declared_effect_input']
+            assert location['sequenceFrame'] == expected['offset']
+            assert location['sequenceFrame'] == native[0].get('offset', 0)
+            assert location['trackIndex'] == expected['track']['number']
+            assert location['trackIndex'] == native[0]['track_label']['number']
+            assert native[0]['track_label'].get('type', 'TRACKTYPE_PICTURE') == expected['track']['type']
+            assert location['mediaKind'] == {'TRACKTYPE_PICTURE': 'picture', 'TRACKTYPE_SOUND': 'sound'}[expected['track']['type']]
     graphs = {label: timeline.index_bin(root / (label + '.avb')) for label in inventories}
     for label in ['persisted-markers', 'cleaned-markers']:
         for field in ['mobs', 'warnings', 'complete', 'nodeCount']:
@@ -50,20 +61,23 @@ def verify(root):
     for inventory in inventories.values():
         assert hashlib.sha256(Path(inventory['file']).read_bytes()).hexdigest() == inventory['sha256']
     report = {'inventories': inventories, 'markerIdentityAndTextVerified': True,
+              'declaredPositionsMatchNativeFixture': compare_positions,
               'decodedTimelineFieldsUnchanged': True, 'savedMarkerRemovalVerified': True,
               'sequencePositionsVerified': False, 'completeGraphEquivalenceVerified': False,
               'warnings': graphs['before-markers']['warnings'],
               'scope': 'Owned saved snapshots; TMBC identities/text/color labels and reference paths. '
                        'Component offsets are not sequence positions. Opaque effects remain unverified.'}
-    with (root / 'saved-marker-verification.json').open('x', encoding='utf-8') as output:
+    with (root / ('saved-marker-position-verification.json' if compare_positions else 'saved-marker-verification.json')).open('x', encoding='utf-8') as output:
         json.dump(report, output, indent=2)
     return {'root': str(root), 'markersVerified': len(saved['records']),
             'savedMarkerRemovalVerified': True, 'decodedTimelineFieldsUnchanged': True,
+            'declaredPositionsMatchNativeFixture': compare_positions,
             'sequencePositionsVerified': False}
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('evidence_directory', type=Path)
+    parser.add_argument('--compare-positions', action='store_true')
     args = parser.parse_args()
-    print(json.dumps(verify(args.evidence_directory)))
+    print(json.dumps(verify(args.evidence_directory, args.compare_positions)))

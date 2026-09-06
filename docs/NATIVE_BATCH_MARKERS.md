@@ -24,6 +24,8 @@ Run `.venv/Scripts/python.exe scripts/research/verify-saved-marker-snapshots.py 
 
 ## Native readback contract
 
+The research inspector now follows same-rate sequence component paths to declared marker locations. It refuses transition overlap, inconsistent lengths, invalid offsets and unknown effects. Recognized equal-length color-adapter inputs retain `status: declared_effect_input`; they are not treated as fully verified output mappings. On the retained two-marker fixture, both declared frames (15 and 75), picture track index 1 and marker identities match the native evidence. Run the saved-snapshot verifier with `--compare-positions` to write the separate exclusive `saved-marker-position-verification.json`. Direct sequence, frame-zero/subclip bounds and refusal cases have unit coverage. Broader audio/effect/rate structures and production MCP exposure remain open.
+
 Frame-zero offsets may be absent in protobuf responses; verification applies the qualified numeric default of zero. A regression case failed before that fix and passed afterward. This does not authorize inferring an offset from arbitrary non-native records.
 
 Fresh corrected-code qualification passed in `.avid-mcp-analysis/native-batch-markers-c8750760-3e8d-4822-8248-a04621e44ba3/evidence.json`: verified batch application, saved/reopened marker fields and baseline marker-list restoration after explicit deletion. Original source-bin/media hashes were unchanged. Initial default-enum mismatch and no-replay recovery are retained separately in `native-batch-markers-62921df6-59f3-47cb-8ad4-b4bdb287eb02`.
