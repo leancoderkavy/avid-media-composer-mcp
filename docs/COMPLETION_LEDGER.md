@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Forced stdio client deadline preserves caption resume
+
+Real Windows SDK stdio closure was exercised during a 12-frame direct Florence batch after a partial checkpoint appeared. The harness observed only the exact child handle owned by its SDK transport, recorded the SDK's kill requests, and confirmed that child's closure before resuming. Close took about 2.1 seconds; the recorded exit signal was SIGTERM, and the original RPC reported `Connection closed`. Kill requests are recorded separately from the observed exit; they are not all claimed as effective terminations.
+
+A fresh MCP session verified a partial run containing two captions, explicitly resumed into a different run and completed all 12 captions with `reusedCaptions: 2`. Both original prefix files and their reused counterparts were byte-identical, and source media was unchanged. Evidence: `.avid-mcp-analysis/stdio-caption-deadline-6c169f30-a18c-4be1-a5f1-4544ceac0839/evidence.json` and `owner-exit.json`, from `scripts/research/qualify-stdio-caption-deadline.mjs`.
+
+`MODEL_SHUTDOWN.md` explains graceful direct-call draining, worker-job cancellation and this explicit recovery path. This research changes no runtime source and does not establish automatic replay, arbitrary descendant containment, power-loss recovery, other clients' deadlines or caption accuracy. The full objective remains open.
+
 ### Closing HTTP sessions retain resource admission slots
 
 HTTP previously removed a context before asynchronous model/worker cleanup finished, letting new initializations replace a still-draining session. MCP server close now awaits registered library cleanup; analysis shutdown waits for worker closure, tree-attempt completion and terminal checkpoints, and watch shutdown waits for the polling pass. HTTP invalidates the session ID immediately but releases capacity only after cleanup succeeds. Failed cleanup remains counted and is reported, preventing repeated replacement sessions from bypassing the limit.
