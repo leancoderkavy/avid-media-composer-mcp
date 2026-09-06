@@ -126,6 +126,8 @@ This read-only search requires `inspect`, checks access to every requested index
 
 ## Media QC
 
+Saved JSON reports can be discovered with `avid_qc_reports` and read with `avid_read_qc_report`. Both require inspect authority, an indexed media ID and a current unchanged source within allowed roots. Discovery scans up to 50 report files per page (20 by default); pages may contain no matching reports, so follow `next`. Each read is limited to 4 MiB. Unreadable discovery candidates are counted. Pass the discovered SHA-256 when reading to reject changed report bytes. The returned checksum binds the stored JSON, not an authenticated analysis receipt; reading does not rerun QC or verify the HTML companion.
+
 Queued QC uses `avid_start_analysis_job` with `kind: "qc"`. Poll `avid_analysis_job_status` for its result. Status reads wait for that job's pending journal writes, including a terminal write queued while an earlier write finishes. A `journalError` means the live result has not been reliably persisted; retain that result and investigate the storage failure. This does not guarantee survival of abrupt process termination before acknowledgement or restart unfinished computation. Completed and failed QC records have been verified in a new server session without a separate history request before disconnecting.
 
 `avid_media_qc` (or a `qc` analysis job) decodes a selected range of up to 600 seconds and writes JSON/HTML findings in the library output directory. It requires `export` and uses the first video and audio streams. All thresholds are included in the report: black pixel/picture ratio and minimum duration, freeze noise/duration, and silence dB/duration. Source hashes are checked before and after processing.

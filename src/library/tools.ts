@@ -20,6 +20,7 @@ import {ProjectSnapshots} from "./project-snapshots.js";
 import {AafBuilder,aafBuildSchema,aafMergeSchema} from "./aaf-builder.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc,qcOptions} from "./qc.js";
+import {QcReports} from "./qc-reports.js";
 import {ShotDetection,shotOptions} from "./shots.js";
 import {People,peopleEditSchema,peopleRange,peopleSearchOptions} from "./people.js";
 import {TranscriptRevisions,transcriptEdits} from "./transcripts.js";
@@ -37,6 +38,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const snapshots = new ProjectSnapshots(config);
   const people = new People(config);
   const qc = new MediaQc(config);
+  const qcReports = new QcReports(config);
   const shots = new ShotDetection(config);
   const summaries = new MediaSummaries(config);
   const visualSummaries = new VisualSummaries(config);
@@ -116,6 +118,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({revision,expectedSha256})=>result("avid_delete_summary",()=>summaries.remove(revision,expectedSha256)));
   server.registerTool("avid_media_qc", {description:"Decode up to ten minutes of selected video/audio streams (absolute metadata stream indices; omit for first of each type, null to skip) for black, freeze, silence, input loudness and timestamp-variation findings. Writes JSON/HTML reports; requires export. Findings need review and are not delivery certification or perceptual sync analysis.",inputSchema:{id,options:qcOptions},annotations:write},
     ({id,options})=>result("avid_media_qc",()=>qc.analyze(id,options)));
+  server.registerTool("avid_qc_reports",{description:"Discover saved QC JSON reports for a current authorized media ID. Pages scan bounded report files and may contain no matches. Returns revisions and checksums; does not rerun QC.",inputSchema:{id,after:z.string().uuid().optional(),limit:z.number().int().min(1).max(50).default(20)},annotations:read},({id,after,limit})=>result("avid_qc_reports",()=>qcReports.list(id,after,limit)));
+  server.registerTool("avid_read_qc_report",{description:"Read a saved QC JSON report by media ID and revision, optionally requiring its SHA-256. Verifies current source and stable report bytes; stored findings are not a new decode or delivery certification.",inputSchema:{id,revision:z.string().uuid(),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/).optional()},annotations:read},({id,revision,expectedSha256})=>result("avid_read_qc_report",()=>qcReports.read(id,revision,expectedSha256)));
   server.registerTool("avid_detect_shots", {description:"Decode a source range up to one hour for threshold-based visual cuts and half-open shot intervals with representative timestamps. Requires export and FFmpeg scdet. Flashes/motion may create false cuts; use a shots job for long ranges.",inputSchema:{id,options:shotOptions},annotations:write},
     ({id,options})=>result("avid_detect_shots",()=>shots.detect(id,options)));
   server.registerTool("avid_index_visual_shots", {description:"Detect cuts and index one local CLIP midpoint per detected shot, retaining source ranges in search results. Requires export, cached models and FFmpeg; rejects over 1200 shots instead of dropping coverage. Use a visual_shots job for long ranges.",inputSchema:{id,options:shotOptions},annotations:write},
