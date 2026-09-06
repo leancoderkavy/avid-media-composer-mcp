@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Active FFmpeg preparation owner-crash evidence
+
+Added and executed `qualify-preparation-worker-crash.mjs`: actual production preparation with injected FFmpeg input pacing on an owned five-second fixture. Observed the spawned worker alive and more than 64 KiB written, killed its exact owner, and confirmed owner closure. The worker was absent at the first subsequent observation; the 262,180-byte retained MOV failed independent FFprobe with missing moov metadata. Success/failure receipts were absent, status reported unresolved/unknown worker state, and source bytes were preserved. Evidence: `.avid-mcp-analysis/preparation-worker-crash-b0e21a1f-20bf-4618-9c7b-b9bf89d44e75/evidence.json`. Syntax/actual execution passed; no production code changed and the full suite was not rerun. Cause of worker exit, arbitrary descendant containment, long-media behavior and automatic cleanup remain open; this is not a general parent-crash recovery guarantee.
+
 ### Complete-file preparation receipt publication
 
 Full local check passed: 593 TypeScript tests, 36 Python tests, 139 tools, five skills, both transports and fresh-package recovery checks (`.avid-mcp-analysis/check-source-clock-publication.log`).
