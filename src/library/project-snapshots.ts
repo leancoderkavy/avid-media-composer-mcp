@@ -33,6 +33,14 @@ function sourceReferenceCoverage(value:z.infer<typeof bin>,candidates:z.infer<ty
   return {references,distinctSourceIds:referenced.size,resolvedSourceIds:referenced.size-unresolved.length-ambiguous.length,unresolvedCount:unresolved.length,ambiguousCount:ambiguous.length,unresolvedIds:unresolved.slice(0,10),ambiguousIds:ambiguous.slice(0,10),truncated:unresolved.length>10||ambiguous.length>10,allReferencesResolve:unresolved.length===0&&ambiguous.length===0,scope:candidates.length===1?"Direct references matched within one saved bin; no media availability, cycle or source-range validation.":"References from this bin matched across all captured bins. Repeated matching identities remain ambiguous even when names agree; unresolved IDs may be external or terminal. No media availability, cycle or source-range validation."};
 }
 const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,sourceReferences:sourceReferenceCoverage(bin),snapshotSourceReferences:sourceReferenceCoverage(bin,snapshot.bins),warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
+function selectSnapshotBins(bins:z.infer<typeof bin>[],file?:string){
+  if(file===undefined)return bins;
+  if(!path.isAbsolute(file))throw new Error("Snapshot bin must be an absolute path returned by mob discovery");
+  const key=(value:string)=>process.platform==="win32"?path.resolve(value).toLowerCase():path.resolve(value);
+  const selected=bins.filter(bin=>key(bin.file)===key(file));
+  if(selected.length!==1)throw new Error("Expected one matching bin in the authorized snapshot");
+  return selected;
+}
 const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 /** Publish only fully written bytes, without replacing an existing revision. */
@@ -152,12 +160,12 @@ export class ProjectSnapshots {
     const more=after+1+page.length<changes.length;
     return {baseline,candidate,changes:page,totalChanges:changes.length,nextAfter:more?page.at(-1)!.index:null,truncated:more,complete:[...before.bins,...candidateRecord.bins].every(bin=>bin.complete),coverage:{baseline:snapshotCoverage(before),candidate:snapshotCoverage(candidateRecord)},comparison:"Semantic mob/track/source fields; excludes volatile save metadata and opaque effect parameters. Zero changes do not establish equivalence when coverage is incomplete."};
   }
-  async range(revision:string,mobId:string,start:number,end:number,ordinal?:number,after=-1,limit=100){
+  async range(revision:string,mobId:string,start:number,end:number,ordinal?:number,after=-1,limit=100,binFile?:string){
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start)throw new Error("Invalid edit-unit range");
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200||(ordinal!==undefined&&(!Number.isSafeInteger(ordinal)||ordinal<0)))throw new Error("Invalid timeline range page");
     const snapshot=await this.read(revision);
-    const matches=snapshot.bins.flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
-    if(matches.length!==1)throw new Error("Expected one matching mob; snapshot only the target bin when IDs occur in multiple bins");
+    const matches=selectSnapshotBins(snapshot.bins,binFile).flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
+    if(matches.length!==1)throw new Error("Expected one matching mob; provide its bin path from snapshot mob discovery when IDs repeat");
     const target=matches[0]!,results=[];let cursor=0;
     tracks:for(const track of target.mob.tracks){
       for(const node of track.nodes){
@@ -170,7 +178,7 @@ export class ProjectSnapshots {
       }
     }
     const page=results.slice(0,limit);
-    return {revision,mobId,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(target.bin),snapshotSourceReferenceCoverage:sourceReferenceCoverage(target.bin,snapshot.bins),rangeConvention:"half-open edit units",origin:"saved-bin"};
+    return {revision,mobId,bin:target.bin.file,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(target.bin),snapshotSourceReferenceCoverage:sourceReferenceCoverage(target.bin,snapshot.bins),rangeConvention:"half-open edit units",origin:"saved-bin"};
   }
   async usage(revision:string,sourceMobId:string,after=-1,limit=500){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>500)throw new Error("Invalid source usage page");
@@ -183,10 +191,10 @@ export class ProjectSnapshots {
     const coverage=snapshotCoverage(snapshot);
     return {revision,sourceMobId,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete),coverage,scope:"Direct saved-bin source references; opaque effects, mixed rates and retimes may hide references. Zero matches in incomplete coverage do not prove the source is unused."};
   }
-  async complexity(revision:string,mobId:string){
+  async complexity(revision:string,mobId:string,binFile?:string){
     const snapshot=await this.read(revision);
-    const matches=snapshot.bins.flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
-    if(matches.length!==1)throw new Error("Expected one matching mob; snapshot only the target bin when IDs occur in multiple bins");
+    const matches=selectSnapshotBins(snapshot.bins,binFile).flatMap(bin=>bin.mobs.filter(mob=>mob.mobId===mobId).map(mob=>({bin,mob})));
+    if(matches.length!==1)throw new Error("Expected one matching mob; provide its bin path from snapshot mob discovery when IDs repeat");
     const {bin,mob}=matches[0]!;
     const sources=new Set<string>();let nodes=0,opaqueNodes=0,sourceReferences=0;
     const tracks=mob.tracks.map(track=>{

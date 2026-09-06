@@ -200,3 +200,13 @@ it("pages all source identities beyond coverage samples without omission",async(
  expect([...first.sources,...second.sources,...last.sources].map(row=>row.sourceMobId)).toEqual(track.nodes.map(node=>node.sourceMobId));expect(last.nextAfter).toBeNull();expect(first.totalSourceIds).toBe(23);expect(first.sources[0]).toMatchObject({status:"unresolved",candidateCount:0,references:1});
  await expect(snapshots.sourceResolution(revision,-2)).rejects.toThrow();await expect(snapshots.sourceResolution(revision,-1,201)).rejects.toThrow();
 });
+
+it("queries repeated MOB IDs in a chosen historical bin without recapturing",async()=>{
+ const {record,save,snapshots}=await fixture(),first=record.bins[0]!,file=path.join(path.dirname(first.file),"copy.avb");await writeFile(file,"copy");
+ record.bins.push({...first,file,mobs:[{...first.mobs[0]!,name:"Copy",tracks:[]}]});const revision=await save();
+ await expect(snapshots.range(revision,"sequence",0,30)).rejects.toThrow("bin path");await expect(snapshots.complexity(revision,"sequence")).rejects.toThrow("bin path");
+ expect(await snapshots.range(revision,"sequence",0,30,undefined,-1,100,first.file)).toMatchObject({bin:first.file,results:[{sourceMobId:"source"}]});
+ expect(await snapshots.range(revision,"sequence",0,30,undefined,-1,100,file)).toMatchObject({bin:file,results:[]});
+ await unlink(file);expect(await snapshots.complexity(revision,"sequence",file)).toMatchObject({name:"Copy",trackCount:0});
+ await expect(snapshots.complexity(revision,"sequence","copy.avb")).rejects.toThrow("absolute");await expect(snapshots.complexity(revision,"sequence",path.join(os.tmpdir(),"absent.avb"))).rejects.toThrow("matching bin");
+});
