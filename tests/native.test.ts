@@ -29,6 +29,7 @@ async function hostFixture(){
     if(method==="GetAppInfo")return [{app_busy_status:"Idle"}];
     if(method==="GetListOfExportSettings")return [{setting_names:["Fixture"]}];
     if(method==="GetListOfBinItems")return [{mob_id:"clip"}];
+    if(method==="GetMobTrackInfo")return [{track_info_list:{track_info:[{label:{type:"TRACKTYPE_PICTURE",number:1},num_segments:2}]}}];
     if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"},{column_name:"Frame Count Duration",column_value:"5726"},{column_name:"Source File",column_value:"source.mov"},{column_name:"Source Path",column_value:root}];
     if(method==="GetMarkers"){if(failPost)throw new Error("post-read unavailable");return [{info:[marker]}];}
     if(method==="ChangeMarker")Object.assign(marker,body.info);
@@ -43,6 +44,15 @@ describe("native boundaries", () => {
   it("requires bin membership before native track inspection",async()=>{
     const f=await hostFixture();await expect(f.adapter.read("tracks","fixture.avb","outside")).rejects.toThrow("specified bin");expect(f.calls.some(call=>call.method==="GetMobTrackInfo")).toBe(false);
     await f.adapter.read("tracks","fixture.avb","clip");expect(f.calls.at(-1)).toEqual({method:"GetMobTrackInfo",body:{mob_id:"clip"}});
+  });
+  it("refuses missing and contradictory native track inventories",async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);let payload:any[]=[];
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetMobTrackInfo"?Promise.resolve(payload):original(method,body));
+    await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow();
+    payload=[{track_info_list:null}];await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow();
+    const track={label:{type:"TRACKTYPE_PICTURE",number:1},num_segments:2};payload=[{track_info_list:{track_info:[track,track]}}];await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow("duplicate");
+    payload=[{track_info_list:{track_info:[{...track,num_segments:-1}]}}];await expect(f.adapter.read("tracks","fixture.avb","clip")).rejects.toThrow();
+    payload=[{track_info_list:{track_info:[]}}];expect(await f.adapter.read("tracks","fixture.avb","clip")).toEqual(payload);
   });
   it("exports AAF references once and retains the lock if structural verification fails",async()=>{
     const {adapter,calls,source}=await hostFixture();const action={action:"export_aaf_master" as const,bin:"fixture.avb",mobId:"clip",preset:"Fixture",sourceFile:source,expectedSourceSha256:await sha256File(source)};

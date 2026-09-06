@@ -68,6 +68,11 @@ export class NativeAdapter {
     if (query === "clips") return clips;
     if (!mobId || !clips.some(clip => clip.mob_id === mobId)) throw new Error("Clip is not in the specified bin");
     const response = await this.client.call(query === "tracks" ? "GetMobTrackInfo" : query === "clip" ? "GetMobInfo" : "GetMarkers", { mob_id: mobId });
+    if(query==="tracks"){
+      const bodies=z.array(z.object({track_info_list:z.object({track_info:z.array(z.object({label:z.object({type:z.string().min(1),number:z.number().int().nonnegative()}),num_segments:z.number().int().nonnegative()}).passthrough()).max(256)}).passthrough()}).passthrough()).min(1).max(256).parse(response);
+      const labels=new Set<string>();let count=0;
+      for(const body of bodies)for(const item of body.track_info_list.track_info){if(++count>256)throw new Error("Native track inventory exceeds 256 tracks");const key=JSON.stringify([item.label.type,item.label.number]);if(labels.has(key))throw new Error("Native track inventory contains duplicate labels");labels.add(key);}
+    }
     return query === "markers" ? response.flatMap(body => Array.isArray(body.info) ? body.info : []) : response;
   }
   private async binPath(project: string, bin: string) {
