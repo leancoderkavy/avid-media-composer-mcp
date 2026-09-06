@@ -53,18 +53,24 @@ export class WatchFolders {
     throw new Error("Watch lock recovery is active or unresolved; inspect its recovery guard");
   }
   async lockStatus(id:string){
-    requireCapability(this.config.capabilities,"inspect");await this.read(id,true);
-    const file=path.join(await this.directory(),`${id}.lock`);
+    requireCapability(this.config.capabilities,"inspect");z.string().uuid().parse(id);
+    const directory=await this.directory();let configurationPresent=true;
+    // A process can die after taking a creation lock but before its first manifest.
+    // Only actual manifest absence skips configuration validation, never damaged state.
+    try{await lstat(path.join(directory,`${id}.json`));}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")configurationPresent=false;else throw error;}
+    if(configurationPresent)await this.read(id,true);
+    const file=path.join(directory,`${id}.lock`),base={id,configurationPresent};
     try{if((await lstat(file)).isSymbolicLink())throw new Error("Watch lock cannot be a symbolic link");}
-    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return {id,locked:false as const,recoverable:false};throw error;}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return {...base,locked:false as const,recoverable:false};throw error;}
     const bytes=await readBoundedFile(file,4096),sha256=createHash("sha256").update(bytes).digest("hex");
     let owner:z.infer<typeof watchOwner>;
     try{owner=watchOwner.parse(JSON.parse(bytes.toString("utf8")));}
-    catch{return {id,locked:true as const,recoverable:false,sha256,reason:"Legacy or malformed owner record requires separate inspection"};}
-    if(owner.id!==id||owner.host!==os.hostname()||owner.scope!==this.scope)return {id,locked:true as const,recoverable:false,sha256,reason:"Owner identity, local host or configured scope does not match"};
-    try{process.kill(owner.pid,0);return {id,locked:true as const,recoverable:false,sha256,owner,reason:"Owner PID is running (including possible PID reuse)"};}
-    catch(error){if((error as NodeJS.ErrnoException).code!=="ESRCH")return {id,locked:true as const,recoverable:false,sha256,owner,reason:"Owner liveness is uncertain"};}
-    return {id,locked:true as const,recoverable:true,sha256,owner,reason:"Local owner PID is absent; explicit checksum-bound recovery is available"};
+    catch{return {...base,locked:true as const,recoverable:false,sha256,reason:"Legacy or malformed owner record requires separate inspection"};}
+    if(owner.id!==id||owner.host!==os.hostname()||owner.scope!==this.scope)return {...base,locked:true as const,recoverable:false,sha256,reason:"Owner identity, local host or configured scope does not match"};
+    try{process.kill(owner.pid,0);return {...base,locked:true as const,recoverable:false,sha256,owner,reason:"Owner PID is running (including possible PID reuse)"};}
+    catch(error){if((error as NodeJS.ErrnoException).code!=="ESRCH")return {...base,locked:true as const,recoverable:false,sha256,owner,reason:"Owner liveness is uncertain"};}
+    return {...base,locked:true as const,recoverable:true,sha256,owner,reason:"Local owner PID is absent; explicit checksum-bound recovery is available"};
   }
   async recoverLock(id:string,expectedSha256:string){
     requireCapability(this.config.capabilities,"project-write");z.string().uuid().parse(id);z.string().regex(/^[a-f0-9]{64}$/).parse(expectedSha256);
@@ -76,7 +82,7 @@ export class WatchFolders {
       const file=path.join(directory,`${id}.lock`),archive=path.join(directory,`${id}.recovered-${randomUUID()}.json`);
       await writeFile(archive,JSON.stringify({state:"prepared-for-release",preparedAt:new Date().toISOString(),lock:status,checkpointModified:false,mediaModified:false}),{flag:"wx"});
       const current=await this.lockStatus(id);
-      if(!current.recoverable||current.sha256!==expectedSha256)throw new Error("Watch owner or lock changed before recovery release");
+      if(!current.locked||!current.recoverable||current.sha256!==expectedSha256)throw new Error("Watch owner or lock changed before recovery release");
       await unlink(file);
       return {id,released:true,archive,checkpointModified:false,mediaModified:false,scanRetried:false};
     }finally{await guard.close();await unlink(guardFile);}
@@ -101,12 +107,18 @@ export class WatchFolders {
   }
   async list(){
     const directory=await this.directory();
-    const files=(await readdir(directory)).filter(name=>/^[a-f0-9-]{36}\.json$/.test(name));
-    if(files.length>100)throw new Error("Watch count exceeds limit");
+    const names=await readdir(directory),files=new Set(names.filter(name=>/^[a-f0-9-]{36}\.json$/.test(name)));
+    const ids=[...new Set(names.filter(name=>/^[a-f0-9-]{36}\.(json|lock)$/.test(name)).map(name=>name.slice(0,36)))];
+    if(ids.length>100)throw new Error("Watch count exceeds limit");
     const records=[];
-    for(const file of files){
-      try{const record=await this.read(file.slice(0,-5));records.push({id:record.id,options:record.options,scannedAt:record.scannedAt,files:Object.keys(record.observations).length});}
-      catch(error){records.push({id:file.slice(0,-5),unavailable:true,error:(error as Error).message});}
+    for(const id of ids){
+      try{
+        if(!files.has(`${id}.json`)){
+          const lock=await this.lockStatus(id);if(!lock.locked)continue;
+          records.push({id,unavailable:true,configurationMissing:true,lock,error:"Watch owner lock exists without a published configuration; inspect before recovery"});continue;
+        }
+        const record=await this.read(id);records.push({id:record.id,options:record.options,scannedAt:record.scannedAt,files:Object.keys(record.observations).length});
+      }catch(error){records.push({id,unavailable:true,error:(error as Error).message});}
     }
     return records;
   }

@@ -1,4 +1,4 @@
-import {mkdtemp,mkdir,writeFile,readFile,readdir,realpath} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,readFile,readdir,realpath,unlink} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {randomUUID,createHash} from "node:crypto";
@@ -42,4 +42,25 @@ it("refuses a PID that becomes live during recovery",async()=>{
 it("a retained recovery guard prevents scans and further recovery without changing state",async()=>{
  const f=await fixture(),sha=await f.setOwner(f.owner),guard=path.join(f.directory,f.record.id+".recovery.lock");await writeFile(guard,"retained");
  await expect(f.service.scan(f.record.id)).rejects.toThrow(/recovery/);await expect(f.service.recoverLock(f.record.id,sha)).rejects.toThrow(/EEXIST/);expect(await readFile(guard,"utf8")).toBe("retained");
+});
+it("recovers an orphaned creation lock without creating a missing manifest",async()=>{
+ const f=await fixture(),sha=await f.setOwner(f.owner);await unlink(f.manifest);
+ vi.spyOn(process,"kill").mockImplementation(()=>{throw Object.assign(new Error("gone"),{code:"ESRCH"});});
+ expect(await f.service.lockStatus(f.record.id)).toMatchObject({configurationPresent:false,recoverable:true});
+ expect(await f.service.list()).toEqual([expect.objectContaining({id:f.record.id,unavailable:true,configurationMissing:true,lock:expect.objectContaining({recoverable:true})})]);
+ expect(await f.service.recoverLock(f.record.id,sha)).toMatchObject({released:true,checkpointModified:false});
+ await expect(readFile(f.manifest)).rejects.toMatchObject({code:"ENOENT"});
+ expect(await f.service.lockStatus(f.record.id)).toMatchObject({configurationPresent:false,locked:false});
+ expect(await f.service.list()).toEqual([]);
+});
+it("does not mistake a malformed manifest for an interrupted creation",async()=>{
+ const f=await fixture(),sha=await f.setOwner(f.owner);await writeFile(f.manifest,'{broken');
+ const kill=vi.spyOn(process,"kill");await expect(f.service.lockStatus(f.record.id)).rejects.toThrow();
+ await expect(f.service.recoverLock(f.record.id,sha)).rejects.toThrow();expect(kill).not.toHaveBeenCalled();
+ expect(await readFile(f.manifest,"utf8")).toBe('{broken');expect(await readFile(f.lock,"utf8")).toBe(JSON.stringify(f.owner));
+});
+it("refuses orphaned locks from a different path scope",async()=>{
+ const f=await fixture(),sha=await f.setOwner({...f.owner,scope:'foreign'});await unlink(f.manifest);
+ const kill=vi.spyOn(process,"kill");expect(await f.service.lockStatus(f.record.id)).toMatchObject({configurationPresent:false,recoverable:false});
+ await expect(f.service.recoverLock(f.record.id,sha)).rejects.toThrow(/not eligible/);expect(kill).not.toHaveBeenCalled();
 });

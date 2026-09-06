@@ -51,8 +51,26 @@ await new WatchFolders(loadConfig(process.env)).scan(${JSON.stringify(watch.id)}
  const archive=JSON.parse(await readFile(recovered.archive,'utf8'));assert.equal(archive.lock.sha256,stopped.sha256);
  const resumed=await call('avid_scan_watch_folder',{watchId:watch.id});assert.equal(resumed.indexed[0].id,id);
  const stable=await call('avid_scan_watch_folder',{watchId:watch.id});assert.deepEqual(stable.indexed,[]);
+ const scanOwnerPid=child.pid;
+ // Also terminate initial creation after ownership is recorded, before any manifest exists.
+ const createScript=`import {WatchFolders} from ${module('library/watch-folders.js')};
+import {loadConfig} from ${module('config.js')};
+WatchFolders.prototype.save=async function(record){console.log('CREATE_PAUSED:'+record.id);setInterval(()=>{},1000);await new Promise(()=>{});};
+await new WatchFolders(loadConfig(process.env)).configure({folder:${JSON.stringify(folder)}});`;
+ const createFile=path.join(root,'owned-create-worker.mjs');await writeFile(createFile,createScript,{flag:'wx'});
+ child=spawn(process.execPath,[createFile],{env,stdio:['ignore','pipe','pipe'],windowsHide:true});const creationExited=once(child,'exit');child.stderr.resume();
+ const orphanId=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(new Error('Creation pause timeout')),30000);child.stdout.on('data',data=>{output+=data.toString();const match=output.match(/CREATE_PAUSED:([a-f0-9-]{36})/);if(match){clearTimeout(timer);resolve(match[1]);}});child.once('error',error=>{clearTimeout(timer);reject(error);});child.once('exit',code=>{clearTimeout(timer);reject(new Error('Creation exited early: '+code));});});
+ const orphanManifest=path.join(root,'avid-mcp-library','watches',orphanId+'.json');await assert.rejects(readFile(orphanManifest),{code:'ENOENT'});
+ const liveOrphan=await call('avid_watch_lock_status',{watchId:orphanId});assert.equal(liveOrphan.configurationPresent,false);assert.equal(liveOrphan.recoverable,false);
+ await call('avid_recover_watch_lock',{watchId:orphanId,expectedSha256:liveOrphan.sha256},true);
+ child.kill('SIGKILL');const creationExit=await creationExited;await client.close();client=await connect();
+ const orphanDiscovery=(await call('avid_list_watch_folders',{})).find(item=>item.id===orphanId);assert.equal(orphanDiscovery.configurationMissing,true);assert.equal(orphanDiscovery.lock.recoverable,true);
+ const orphanRecovery=await call('avid_recover_watch_lock',{watchId:orphanId,expectedSha256:orphanDiscovery.lock.sha256});assert.equal(orphanRecovery.released,true);await assert.rejects(readFile(orphanManifest),{code:'ENOENT'});
+ assert.equal((await call('avid_list_watch_folders',{})).some(item=>item.id===orphanId),false);
+ const replacement=await call('avid_configure_watch_folder',{options:{folder}});assert.notEqual(replacement.id,orphanId);
+ const creation={ownerPid:child.pid,exit:creationExit,liveOrphan,orphanDiscovery,orphanRecovery,replacement,manifestNeverPublished:true};
  assert.equal(await sha256File(source),id);assert.equal(await sha256File(copy),id);
  assert.equal(await sha256File(entry),entrySha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({entry,entrySha256,installation,watchId:watch.id,ownerPid:child.pid,exit,live,stopped,recovered,resumed,stable,checkpointPreservedAtRecovery:true,sourceAndCopyUnchanged:true,scope:'Real owned Node process terminated after real Sonoma indexing, before checkpoint publication. Actual MCP live-owner refusal, reconnect, checksum refusal, stopped-owner recovery and resumed stable scanning. Not power-loss, shared-host or descendant-containment qualification.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({entry,entrySha256,installation,watchId:watch.id,ownerPid:scanOwnerPid,exit,live,stopped,recovered,resumed,stable,creation,checkpointPreservedAtRecovery:true,sourceAndCopyUnchanged:true,scope:'Real owned Node processes terminated after Sonoma indexing and during initial watch creation before manifest publication. Actual MCP live-owner refusal, reconnect, discovery, checksum refusal, stopped-owner recovery and resumed scanning/configuration. Not power-loss, shared-host or descendant-containment qualification.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,passed:true}));
 }finally{if(child&&child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await client.close();}
