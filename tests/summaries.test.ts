@@ -32,6 +32,18 @@ it("permits discovery and deletion after transcript removal while protecting sou
   await expect(new MediaSummaries({...config,allowedRoots:[]}).list(id)).rejects.toThrow();
   await expect(summaries.remove(saved.revision,"wrong")).rejects.toThrow("changed");expect((await summaries.remove(saved.revision,list.summaries[0]!.sha256)).deleted).toBe(true);
 });
+it("surfaces incomplete descendant text even when the overview ends cleanly",async()=>{
+  const {id,config,summaries}=await fixture(),transcript=await new MediaLibrary(config).importTranscript(id,[{start:0,end:10,text:"Editorial source. ".repeat(350)},{start:10,end:20,text:"Further source. ".repeat(350)}]);
+  inference.mockResolvedValue([{summary_text:"Complete sentence."}]).mockResolvedValueOnce([{summary_text:"Potentially unfinished leaf"}]);
+  const saved=await summaries.generate(id,transcript.revision),root=await summaries.node(saved.revision);
+  expect(root.node.mayBeTruncated).toBe(false);
+  expect(root.children.every(child=>child.children.length>0)).toBe(true);
+  expect(root.quality).toMatchObject({subtreeMayBeTruncated:true,potentiallyTruncatedNodeIds:["n0"]});
+  const leaf=await summaries.node(saved.revision,"n1");expect(leaf.quality).toMatchObject({subtreeMayBeTruncated:false,potentiallyTruncatedNodeIds:[]});
+  const directory=await new MediaLibrary(config).directory(),file=path.join(directory,`summary-${saved.revision}.json`),original=await readFile(file,"utf8");
+  const restored=await new MediaSummaries({...config,modelDirectory:undefined}).node(saved.revision);
+  expect(restored.quality).toEqual(root.quality);expect(await readFile(file,"utf8")).toBe(original);
+});
 it("reuses an interrupted prefix after restart and validates the final output",async()=>{
   const {id,config,transcript,summaries}=await fixture();inference.mockResolvedValueOnce([{summary_text:"First committed node."}]).mockRejectedValueOnce(new Error("interrupted"));
   await expect(summaries.generate(id,transcript.revision)).rejects.toMatchObject({code:"SUMMARY_INCOMPLETE"});

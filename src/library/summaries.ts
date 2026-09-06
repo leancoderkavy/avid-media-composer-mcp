@@ -108,10 +108,10 @@ export class MediaSummaries{
     if(!node)throw new Error("Unknown summary node");
     // read() validates the tree before walking descendants. A split transcript
     // segment can occur in multiple leaves; return its original text only once.
-    const indices=new Set<number>();
-    const collect=(current:Node)=>{for(const index of current.sourceIndices)indices.add(index);for(const child of current.children)collect(byId.get(child)!);};
+    const indices=new Set<number>(),potentiallyTruncatedNodeIds:string[]=[];
+    const collect=(current:Node)=>{if(current.mayBeTruncated)potentiallyTruncatedNodeIds.push(current.nodeId);for(const index of current.sourceIndices)indices.add(index);for(const child of current.children)collect(byId.get(child)!);};
     collect(node);
-    return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>byId.get(id)!),sources:source.segments.filter(s=>indices.has(s.index)),sourceScope:node.children.length?"descendant_leaves":"direct_leaf",reviewRequired:true,factualEntailmentVerified:false};
+    return {revision,sha256,id:record.id,transcriptRevision:record.transcriptRevision,model:record.model,node,children:node.children.map(id=>byId.get(id)!),sources:source.segments.filter(s=>indices.has(s.index)),quality:{potentiallyTruncatedNodeIds,subtreeMayBeTruncated:potentiallyTruncatedNodeIds.length>0,scope:"Selected node and all descendants",note:"Sentence-ending heuristic only; an empty list does not verify completeness or factual accuracy."},sourceScope:node.children.length?"descendant_leaves":"direct_leaf",reviewRequired:true,factualEntailmentVerified:false};
   }
   async list(id:string,after="",limit=20){
     await this.library.metadata([id]);if(after)z.string().uuid().parse(after);z.number().int().min(1).max(100).parse(limit);
