@@ -38,10 +38,13 @@ def index_bin(filename, max_nodes=10000):
                     if component_rate!=rate:
                         warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'MIXED_EDIT_RATE','kind':kind,
                                          'mobRate':rate,'componentRate':component_rate,'mapping':'omitted; no rate conversion inferred'})
-                        return
+                        return False
                     if kind=='SEQU':
                         for _,offset,child in component.positions():
-                            visit(child,position+offset,depth+1)
+                            if visit(child,position+offset,depth+1) is False:
+                                warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'UNRESOLVED_SEQUENCE_OFFSETS',
+                                                 'kind':kind,'mapping':'remaining sequence nodes omitted after mixed-rate component'})
+                                return False
                         return
                     length=int(getattr(component,'length',0))
                     left=max(position,start)

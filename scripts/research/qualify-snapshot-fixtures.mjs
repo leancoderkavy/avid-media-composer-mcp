@@ -28,10 +28,11 @@ try{
   assert.equal(report.duration,fixture.name==='transition'?110:['subclip','mixed'].includes(fixture.name)?60:30);
   assert.equal(report.complete,!['opaque','transition','mixed'].includes(fixture.name));
   assert.equal(report.opaqueNodes,['opaque','transition'].includes(fixture.name)?1:0);
-  assert.equal(report.sourceReferences,fixture.name==='opaque'?0:fixture.name==='mixed'?1:2);
+  assert.equal(report.sourceReferences,['opaque','mixed'].includes(fixture.name)?0:2);
   if(fixture.name==='mixed'){
    assert.equal(range.complete,false);assert.equal(report.warnings[0].mobRate,30);assert.equal(report.warnings[0].componentRate,24);
    assert.equal(report.warnings[0].mapping,'omitted; no rate conversion inferred');
+   assert.equal(range.results.length,0);assert.equal(report.warnings[1].code,'UNRESOLVED_SEQUENCE_OFFSETS');
   }
   if(fixture.name==='subclip')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart]),[[0,30,1090],[30,60,2000]]);
   if(fixture.name==='stereo')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart,n.channelCombiner.channelIndex]),[[0,30,2860,1],[0,30,2860,2]]);

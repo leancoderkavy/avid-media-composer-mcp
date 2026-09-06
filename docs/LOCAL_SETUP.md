@@ -453,3 +453,5 @@ Snapshot comparisons reject duplicate bin identities and duplicate mob IDs withi
 Timeline-range queries build at most one page plus one matching lookahead node, while retaining global node indices across track filters. The underlying snapshot is still parsed in full under its existing size limit. Follow cursors with unchanged revision, mob, range and track filter.
 
 Mixed-rate snapshot warnings include `mobRate`, `componentRate` and an explicit mapping status. Unsupported components are omitted rather than converted implicitly, so returned nodes and counts are incomplete even when `opaqueNodes` is zero. Review `complete` and warnings together; absence of a returned reference does not prove absence from the sequence.
+
+After a mixed-rate component, sequence offsets are unresolved: the inspector omits later nodes in that sequence and propagates this uncertainty to containing sequences. `UNRESOLVED_SEQUENCE_OFFSETS` explains the omission. A known same-rate prefix is retained. This supersedes the earlier behavior that retained later same-rate nodes despite an unresolved preceding duration; no rate conversion is inferred.

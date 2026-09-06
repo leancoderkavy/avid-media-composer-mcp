@@ -89,8 +89,9 @@ class TimelineTests(unittest.TestCase):
             track=file.create.Track();track.index=1
             sequence=file.create.Sequence(edit_rate=30,media_kind='picture')
             first=file.create.SourceClip(edit_rate=30,media_kind='picture');first.length=120;first.start_time=1000;first.track_id=1
-            if mixed:first.edit_rate=24
+            if mixed is True:first.edit_rate=24
             second=file.create.SourceClip(edit_rate=30,media_kind='picture');second.length=180;second.start_time=2000;second.track_id=1
+            if mixed=='second':second.edit_rate=24
             sequence.components.extend([first,second]);track.component=sequence;mob.tracks.append(track)
             file.content.add_mob(mob);file.write(str(target))
         return target
@@ -110,7 +111,27 @@ class TimelineTests(unittest.TestCase):
             self.assertFalse(result['complete'])
             warning=result['warnings'][0]
             self.assertEqual((warning['code'],warning['mobRate'],warning['componentRate']),('MIXED_EDIT_RATE',30,24))
-            self.assertEqual(len(result['mobs'][0]['tracks'][0]['nodes']),1)
+            self.assertEqual(result['mobs'][0]['tracks'][0]['nodes'],[])
+            self.assertEqual(result['warnings'][1]['code'],'UNRESOLVED_SEQUENCE_OFFSETS')
+
+    def test_known_prefix_survives_but_nested_uncertainty_stops_later_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result=index_bin(self.fixture(directory,mixed='second'))
+            nodes=result['mobs'][0]['tracks'][0]['nodes']
+            self.assertEqual([(n['timelineStart'],n['timelineEnd'],n['sourceStart']) for n in nodes],[(0,30,1090)])
+            self.assertFalse(result['complete'])
+            original=self.fixture(directory,mixed=True)
+            nested=Path(directory)/'nested.avb'
+            with avb.open(str(original)) as file:
+                mob=list(file.content.mobs)[0]
+                outer=file.create.Sequence(edit_rate=30,media_kind='picture')
+                outer.components.append(mob.tracks[0].component)
+                later=file.create.SourceClip(edit_rate=30,media_kind='picture');later.length=30;later.start_time=3000;later.track_id=1
+                outer.components.append(later);mob.tracks[0].component=outer
+                mob.length=330;mob.attributes['_END']=330;file.write(str(nested))
+            result=index_bin(nested)
+            self.assertEqual(result['mobs'][0]['tracks'][0]['nodes'],[])
+            self.assertEqual(sum(w['code']=='UNRESOLVED_SEQUENCE_OFFSETS' for w in result['warnings']),2)
 
     def test_traversal_limit(self):
         with tempfile.TemporaryDirectory() as directory:
