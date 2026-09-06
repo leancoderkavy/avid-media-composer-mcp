@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Cross-platform bin-column assertion repair
+
+The edc063b Windows Node 20/24 jobs, landing and CodeQL passed, but both macOS jobs failed because a new non-disclosure assertion searched the entire result for `private`, which also occurs in macOS's legitimate `/private` temporary paths. The test now checks exact column-array equality and absence of the injected `unrequested` property. This still rejects leaked extra column fields without rejecting an authorized bin path. All 54 focused native tests passed locally; production code is unchanged. Remote verification of this correction remains pending, and the full-plan gaps below remain open.
+
 ### Live native bin-column discovery
 
 Added `bin_columns` to `avid_native_read`, using the locally derived GetBinColumnInfo contract. The native allowlist now has 14 reads and 15 writes. Inspection is bin/project scoped, rechecks project/path after the call, bounds total columns/string lengths, rejects duplicate names and malformed flags, preserves whitespace names and strips unrelated fields. Protobuf defaults are materialized. Avid's writable flag is not connector write authorization or proof of arbitrary metadata editing support.

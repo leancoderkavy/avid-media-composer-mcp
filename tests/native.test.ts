@@ -48,7 +48,8 @@ describe("native boundaries", () => {
     const column={column_name:'   ',column_value_type:'Undefined',column_hidden:false,column_is_custom:false,column_is_readonly:true};
     vi.spyOn(f.client,'call').mockImplementation((method,body)=>method==='GetBinColumnInfo'?Promise.resolve([{column:[{...column,unrequested:'private'}]}]):original(method,body));
     const result=await f.adapter.read('bin_columns','fixture.avb');
-    expect(result).toMatchObject({columns:[column]});expect(JSON.stringify(result)).not.toContain('private');
+    expect(result).toHaveProperty('columns',[column]);
+    expect(JSON.stringify(result)).not.toContain('"unrequested"');
     expect(f.calls.filter(c=>c.method==='GetOpenProjectInfo')).toHaveLength(2);
   });
   it.each(['duplicate','oversized','malformed','changed-project'])('refuses %s native column results',async variant=>{
