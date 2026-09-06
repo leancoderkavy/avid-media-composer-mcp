@@ -46,7 +46,7 @@ The installed Windows Claude CLI passed isolated connection, removal and broken-
 
 A fresh managed development-package installation also passed actual native app/project/bin/clip reads against the existing qualified Windows Avid host. Independent checkout Python inspection confirmed the saved Sonoma picture/stereo ranges and unchanged source/bin hashes. Evidence: `installed-native-9dbb445d-006a-4012-b656-6f3ca0d64a88`. This is installed-server native evidence; it does not establish clean-machine dependency setup or a model invoking Avid through a named client.
 
-The optional licensed Jumper provider, additional enterprise adapters and separately shipped Windows UI actions remain unfinished. Mac implementation and real-host qualification are explicitly deferred to work on a Mac. These requirements remain in the completion ledger rather than being removed from scope.
+The optional licensed Jumper provider has a [bounded loopback health/text-search client foundation](JUMPER_PROVIDER.md) with fixture tests; MCP exposure, listener pairing and licensed runtime qualification remain unfinished. Additional enterprise adapters and separately shipped Windows UI actions also remain unfinished. Mac implementation and real-host qualification are explicitly deferred to work on a Mac. These requirements remain in the completion ledger rather than being removed from scope.
 
 ## Latest complete local check
 

@@ -1,0 +1,45 @@
+import {expect,it} from "vitest";
+import {createServer} from "node:http";
+import {mkdtemp,writeFile,unlink,rmdir} from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import {JumperReadClient} from "../src/integrations/jumper.js";
+
+it("refuses remote, named-host, credential-bearing and altered-path endpoints",()=>{
+  for(const baseUrl of ["https://127.0.0.1/api/v1","http://localhost:6699/api/v1","http://example.com/api/v1","http://key@127.0.0.1/api/v1","http://127.0.0.1/api/v1?key=x","http://127.0.0.1/other"]){
+    expect(()=>new JumperReadClient({baseUrl,licenseKey:"test",allowedRoots:[]})).toThrow();
+  }
+});
+
+it("enforces scope, suppresses images and secrets, and bounds real loopback responses",async()=>{
+  const root=await mkdtemp(path.join(os.tmpdir(),"avid-jumper-")),file=path.join(root,"clip.mp4"),other=path.join(root,"other.mp4");
+  await writeFile(file,"fixture");await writeFile(other,"other");
+  let mode="normal",requests=0,healthKey:unknown,posted:Record<string,unknown>|undefined;
+  const server=createServer(async(req,res)=>{
+    requests++;let body="";for await(const chunk of req)body+=chunk;
+    if(mode==="redirect"){res.writeHead(302,{location:"http://127.0.0.1:1/secret"});res.end();return;}
+    res.setHeader("content-type","application/json");
+    if(mode==="error"){res.statusCode=401;res.end('test-license-secret');return;}
+    if(mode==="large"){res.end(JSON.stringify({data:"x".repeat(2000)}));return;}
+    if(req.url==="/api/v1/health"){healthKey=req.headers["x-license-key"];res.end('{"status":"ok"}');return;}
+    posted=JSON.parse(body);expect(req.headers["x-license-key"]).toBe("test-license-secret");
+    res.end(JSON.stringify({matches:[{frame_idx:"2",timestamp:"00:00:02",scene_start_timestamp:"00:00:01",scene_end_timestamp:"00:00:03",original_index:0,hash_str:"crc",video_path:mode==="scope"?other:file,image:"private-image",license_key:"test-license-secret"}]}));
+  });
+  await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const address=server.address();if(!address||typeof address==="string")throw new Error("No test address");
+  const client=new JumperReadClient({baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"test-license-secret",allowedRoots:[root],maxResponseBytes:1024});
+  const search=()=>client.searchText({query:"scene",cacheDirectory:root,mediaPaths:[file],limit:1});
+  try{
+    expect(await client.health()).toMatchObject({status:"ok",runtimeVersionVerified:false});expect(healthKey).toBeUndefined();
+    const result=await search();expect(result.matches).toHaveLength(1);expect(JSON.stringify(result)).not.toMatch(/private-image|test-license-secret/);
+    expect(posted).toMatchObject({search_all:false,max_results:1,media_paths:[file]});
+    const before=requests;await expect(client.searchText({query:"scene",cacheDirectory:root,mediaPaths:[],limit:1})).rejects.toThrow();expect(requests).toBe(before);
+    mode="scope";await expect(search()).rejects.toMatchObject({code:"JUMPER_SCOPE"});
+    mode="large";await expect(search()).rejects.toMatchObject({code:"JUMPER_SIZE"});
+    mode="redirect";await expect(search()).rejects.toMatchObject({code:"JUMPER_REQUEST"});
+    mode="error";await expect(search()).rejects.toMatchObject({code:"JUMPER_HTTP",message:"Provider returned HTTP 401"});
+  }finally{
+    server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+    await unlink(file);await unlink(other);await rmdir(root);
+  }
+});

@@ -1,0 +1,9 @@
+# Optional Jumper provider
+
+`src/integrations/jumper.ts` implements an original read-client foundation against the [public OpenAPI contract](https://docs.getjumper.io/api-reference/openapi.json), refreshed on 2026-09-05 (API version 1.0). It is not yet registered as an MCP tool or required by core installation. No vendor implementation or license key is bundled.
+
+The client supports unauthenticated health and licensed text search over explicitly selected, authorized local files and an authorized cache directory. Search never sets `search_all` and requires existing analysis to be loaded by the provider. It sends the user's key only in the documented header for search. It accepts literal IPv4/IPv6 loopback HTTP addresses, refuses redirects and bounds response bytes and request duration. Locality alone does not authenticate the listening process; process identity/pairing remains acceptance work before MCP exposure.
+
+Search output contains validated metadata only. Provider JPEG previews and unknown properties are omitted after bounded receipt; this does not prevent the provider from sending image bytes to the adapter. Returned paths must resolve to the requested media selection. There are no similarity scores. The provider's frame index uses a one-frame-per-second basis, not source edit frames. Health does not advertise a runtime version, so results explicitly report that runtime-version verification is absent.
+
+Real loopback fixture tests exercise headers, scope rejection, image/key omission, oversized replies, redirects and HTTP failures. They are simulated-provider evidence, not a licensed Jumper runtime test. Remaining work includes MCP configuration/tools, secure listener pairing, version/contract qualification, licensed live search, additional public operations and explicit image opt-in. Core local search and native Avid operations remain independent.
