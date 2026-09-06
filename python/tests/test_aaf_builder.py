@@ -2,12 +2,38 @@ import unittest
 import tempfile
 import sys
 import hashlib
+from unittest.mock import patch
 from pathlib import Path
 import aaf2
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from avid_aaf_builder import inspect,build,inspect_selects
 
 class AafBuilderTests(unittest.TestCase):
+    def test_build_refuses_changed_preserved_mobs_and_weak_definitions(self):
+        original=aaf2.mobs.MasterMob.create_source_clip
+        for mode in ['name','definition']:
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as folder:
+                request=self.fixture(Path(folder))
+                def change(master,*args,**kwargs):
+                    clip=original(master,*args,**kwargs)
+                    if mode=='name':master.name='Unexpected changed source'
+                    else:master.slots[0].segment['DataDefinition'].value['Description'].value='Changed definition'
+                    return clip
+                with patch.object(aaf2.mobs.MasterMob,'create_source_clip',change):
+                    with self.assertRaisesRegex(ValueError,'Preserved source graph changed'):build(request)
+                self.assertEqual(hashlib.sha256(Path(request['source']).read_bytes()).hexdigest(),request['expectedSha256'])
+
+    def test_build_refuses_output_change_during_final_inspection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request=self.fixture(Path(folder))
+            def inspect_then_change(file):
+                result=inspect_selects(file)
+                with aaf2.open(str(file),'rw') as f:next(f.content.mastermobs()).name='Late change'
+                return result
+            with patch('avid_aaf_builder.inspect_selects',side_effect=inspect_then_change):
+                with self.assertRaisesRegex(ValueError,'output changed during verification'):build(request)
+            self.assertEqual(hashlib.sha256(Path(request['source']).read_bytes()).hexdigest(),request['expectedSha256'])
+
     def fixture(self,root):
         source=root/'source.aaf'
         with aaf2.open(str(source),'w') as f:
@@ -22,6 +48,7 @@ class AafBuilderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             request=self.fixture(Path(folder));info=inspect(request['source']);self.assertEqual(len(info['locators']),1)
             result=build(request);self.assertEqual(result['frames'],50);self.assertTrue(result['conformanceVerified']);self.assertFalse(result['hostImportVerified'])
+            self.assertTrue(result['sourceGraphVerified']);self.assertEqual(result['sha256'],hashlib.sha256(Path(request['output']).read_bytes()).hexdigest())
             self.assertEqual(hashlib.sha256(Path(request['source']).read_bytes()).hexdigest(),request['expectedSha256'])
             with self.assertRaises(FileExistsError):build(request)
     def test_invalid_mappings_rates_ranges_and_checksum_leave_no_output(self):

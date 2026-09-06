@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from fractions import Fraction
 import aaf2
+import avid_aaf_graph as diagnostic
 from aaf2.auid import AUID
 
 COMBINER='6b46dd7a-132d-4856-ab21-8b751d8462ec'
@@ -130,6 +131,14 @@ def build(request):
     source=Path(request['source']);output=Path(request['output']);info=inspect(source)
     before=hashlib.sha256(source.read_bytes()).hexdigest()
     if before!=request['expectedSha256']:raise ValueError('AAF template changed')
+    diagnostic.visited=0
+    with aaf2.open(str(source)) as original:
+        mobs=list(original.content.mobs)
+        if not mobs or len(mobs)>1000:raise ValueError('Source mob count limit exceeded')
+        targets={}
+        preserved={str(m.mob_id):diagnostic.graph(m,weak_targets=targets) for m in mobs}
+        if len(preserved)!=len(mobs):raise ValueError('Duplicate source mob identity')
+        definitions=diagnostic.referenced_definitions(targets)
     rate=Fraction(request['rate']);selects=request['selects'];tracks=request['tracks']
     if rate<=0 or rate>120 or not 1<=len(selects)<=500 or not 1<=len(tracks)<=16:raise ValueError('AAF build limits exceeded')
     if len({t['name'] for t in tracks})!=len(tracks):raise ValueError('Duplicate destination track names')
@@ -176,7 +185,12 @@ def build(request):
             slot.segment.length=total
         mob_id=str(composition.mob_id)
     if hashlib.sha256(source.read_bytes()).hexdigest()!=before:raise ValueError('Template changed during build')
+    verified_hash=hashlib.sha256(output.read_bytes()).hexdigest()
     with aaf2.open(str(output)) as f:
+        targets={}
+        actual={str(m.mob_id):diagnostic.graph(m,weak_targets=targets) for m in f.content.mobs if str(m.mob_id)!=mob_id}
+        actual_definitions=diagnostic.referenced_definitions(targets)
+        if actual!=preserved or actual_definitions!=definitions:raise ValueError('Preserved source graph changed during build')
         composition=next(m for m in f.content.compositionmobs() if str(m.mob_id)==mob_id)
         for index,slot in enumerate(composition.slots):
             stereo=tracks[index].get('channels')==2
@@ -184,7 +198,9 @@ def build(request):
             expected=[[(s['mobId'],sid,s['start'],s['length']) for sid in (s['slotIds'][index] if stereo else [s['slotIds'][index]])] for s in selects]
             if actual!=expected or slot.segment.length!=total:raise ValueError('AAF output conformance failed')
     inspect_selects(output)
-    return {'output':str(output),'mobId':mob_id,'frames':total,'rate':str(rate),'tracks':len(tracks),'cuts':len(selects),'conformanceVerified':True,'hostImportVerified':False}
+    if hashlib.sha256(source.read_bytes()).hexdigest()!=before:raise ValueError('Template changed during verification')
+    if hashlib.sha256(output.read_bytes()).hexdigest()!=verified_hash:raise ValueError('AAF output changed during verification')
+    return {'output':str(output),'sha256':verified_hash,'sourceGraphVerified':True,'mobId':mob_id,'frames':total,'rate':str(rate),'tracks':len(tracks),'cuts':len(selects),'conformanceVerified':True,'hostImportVerified':False}
 
 if __name__=='__main__':
     from avid_aaf_merge import merge

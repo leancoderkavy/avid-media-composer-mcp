@@ -77,9 +77,11 @@ export class AafBuilder {
     const request=aafBuildSchema.parse(input),prepared=await this.prepare(request.template);
     if(request.expectedSha256!==prepared.sha256)throw new Error("AAF template checksum changed; inspect again");
     const output=path.join(prepared.directory,"selects.aaf"),result=await this.run({action:"build",source:prepared.source,output,...request},prepared.directory);
-    if(result.output!==output||result.conformanceVerified!==true)throw new Error("AAF output evidence invalid");
+    if(result.output!==output||result.conformanceVerified!==true||result.sourceGraphVerified!==true||typeof result.sha256!=="string"||! /^[a-f0-9]{64}$/.test(result.sha256))throw new Error("AAF output evidence invalid");
     for(const media of prepared.media)if(await sha256File(await resolveReadablePath(media.file,this.config.allowedRoots,"file"))!==media.sha256)throw new Error("Referenced media changed during build");
-    const report={...result,sha256:await sha256File(await resolveReadablePath(output,[prepared.directory],"file")),templateSha256:prepared.sha256,media:prepared.media,sourceModified:false,limitations:["Straight cuts only","All selected source slots must match the composition edit rate","Only explicit stereo channel combiners; no other effects, transitions, retimes or embedded essence","Generating an AAF is not an Avid import, playback or render"]};
+    if(await sha256File(await resolveReadablePath(output,[prepared.directory],"file"))!==result.sha256)throw new Error("AAF output changed after conformance verification");
+    if(await sha256File(await resolveReadablePath(prepared.source,this.config.allowedRoots,"file"))!==prepared.sha256)throw new Error("AAF template changed after conformance verification");
+    const report={...result,templateSha256:prepared.sha256,media:prepared.media,sourceModified:false,limitations:["Straight cuts only","All selected source slots must match the composition edit rate","Stored source properties and reachable weak definitions verified; implicit schemas are not fully compared","Only explicit stereo channel combiners; no other effects, transitions, retimes or embedded essence","Generating an AAF is not an Avid import, playback or render"]};
     await writeFile(path.join(prepared.directory,"receipt.json"),JSON.stringify(report,null,2),{flag:"wx"});return report;
   }
 }
