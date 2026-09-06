@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Actual Codex model-selected MCP calls
+
+Installed Codex CLI 0.153.4 reported ChatGPT authentication and completed an ephemeral read-only model run with per-invocation MCP configuration. The model called avid_ping and avid_inventory_project_files with hashes, then returned the unique synthetic filename and exact independently calculated SHA-256. The harness asserts successful structured results, exact arguments, allowed server/tool names, final-answer values, no other completed tool types and unchanged fixture bytes. Evidence: `.avid-mcp-analysis/codex-model-decfa8d3-bb9e-4b20-86cc-c47ff328f576/evidence.json` and retained event stream; script: `qualify-codex-model.mjs`. Syntax and two actual model runs passed. This closes the basic model-driven named-client read workflow only; fresh installation, GUI and native Avid calls remain separate. Claude 2.1.260 remains signed out. No production code changed.
+
 ### Retain installer locks when subprocess closure is uncertain
 
 Full local check passed: 573 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-runtime-uncertain-lock.log`). Real pre-npm lock/staging crash tests also passed against the new build: `.avid-mcp-analysis/runtime-setup-crash-9af9d1e7-faa8-4dfc-9f0d-73f27ed0662b/evidence.json`.
