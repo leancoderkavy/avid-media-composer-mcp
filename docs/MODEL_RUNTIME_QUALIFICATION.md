@@ -1,5 +1,11 @@
 # Optional runtime installation and offline inference qualification
 
+## Setup owner interruption before npm
+
+`scripts/research/qualify-runtime-setup-crash.mjs` invokes the production installer in child processes and pauses after completed exclusive lock creation or completed staging-manifest creation. The parent confirms that the recorded PID is the child, observes a competing install refusal while it is alive, kills that exact process, awaits its close event, and checks another install refusal. Both barriers retained identical lock bytes, published no runtime, and preserved the expected staging contents. Evidence: `.avid-mcp-analysis/runtime-setup-crash-6c34cb1d-0695-47dc-b112-4369cfd45364/evidence.json`; both children closed with SIGKILL.
+
+The initial research harness exited at an unresolved promise instead of remaining at its barrier; adding an IPC message listener made the successful run retain the child until explicit termination. The successful run asserts termination rather than treating a stale lock as process evidence. This qualification stops before npm launches: automatic recovery, orphaned dependency installers, interruption during download/audit/import, and power-loss durability remain open. No production installer behavior changed.
+
 The optional Transformers.js runtime is installed separately from the core MCP package. New installations use a unique staging directory, disable npm lifecycle scripts, audit high-severity dependencies, import the runtime in a child process and record a complete dependency-tree checksum before publishing the runtime directory. The child closes native-library handles before directory publication.
 
 An existing receipt is checked before reuse; setup does not rerun npm install or silently repair changed dependencies. A legacy runtime with the exact expected manifest can be audited and imported, then adopted with a tree receipt without reinstalling dependencies. For adoption, scriptsDisabled:false means this operation does not establish the original installation's script policy. It does not prove that scripts ran.

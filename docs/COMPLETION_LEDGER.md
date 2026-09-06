@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Installer owner interruption
+
+Actual production installer child-process tests passed at completed lock and staging-manifest writes. A contender was refused while the owner remained live; after exact-child SIGKILL and close, restart was also refused with lock bytes and staged manifest preserved and no runtime published. Evidence: `.avid-mcp-analysis/runtime-setup-crash-6c34cb1d-0695-47dc-b112-4369cfd45364/evidence.json`; reproducible script: `qualify-runtime-setup-crash.mjs`. Syntax and real execution passed. This establishes pre-npm crash behavior, not automatic recovery, orphaned npm handling or power-loss durability. See MODEL_RUNTIME_QUALIFICATION.md. Production code did not change.
+
 ### Exact summary source spans
 
 Full local check passed: 565 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-summary-source-spans.log`). The preceding pushed head f875960 passed all CI and CodeQL checks; these local changes require their own remote checks after push.
