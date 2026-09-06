@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Isolated record-loading metadata change
+
+Created a fresh owned PCM/color copy with a staged record-load qualification harness. Initial and extra close/reopen control graphs matched exactly. Computer use confirmed the bin through the full tab menu and loaded its only sequence into Record without comment/column edits. Native viewer readback confirmed its exact MOB. The loaded-but-unsaved file still matched control; after close/reopen, the only decoded change was one 120-frame DescriptiveMetadata filler track. Original source-bin/media and server-entry hashes remained unchanged. Evidence: `.avid-mcp-analysis/record-load-0c802313-caf2-4f5a-9be6-18ae92a5ddcb/`; detailed scope and hashes in NATIVE_VIEWER_QUALIFICATION.md. The additional track is retained as a difference, not accepted as baseline restoration.
+
+Updated the packaged selects workflow to inspect loading changes before establishing the immediate pre-edit saved baseline, preserve the earlier snapshot and avoid silently discarding metadata tracks. Added a regression requiring an otherwise exact trim with an additional descriptive-metadata track to fail. All 18 trim-verifier tests and typecheck passed. Fresh-package/Python/AAF checks passed with 139 tools and five matching skills (`.avid-mcp-analysis/package-record-load-workflow.log`). Full unit suite was not rerun; this does not add a shipped record-loading executor or resolve the separate Comments write rejection.
+
 ### Comments visible after reload; post-UI graph restoration failed
 
 Read-only saved inspection found a visible Comments column already present, and native GetBinInfo reported the fixture open/unlocked. A deliberate guarded close/reopen preserved the decoded baseline; a fresh comment set then succeeded and survived another reopen. The staged verifier exposed its own incorrect hardcoded copied-name suffix after writing. Replaced name matching with canonical MOB identity, checked target uniqueness before mutation, and added read-only verify-set recovery rather than replay. Actual recovery verified only the expected saved comment change. Fixture experiment: `.avid-mcp-analysis/native-comment-ui-611ac5bb-08a8-4255-9068-e56eb9236cef/`.

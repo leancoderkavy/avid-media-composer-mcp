@@ -1,5 +1,15 @@
 # Native viewer loading qualification
 
+## Record loading can change the saved graph
+
+A controlled fresh copy of the Sonoma PCM/color sequence reproduced the added metadata track without any Comments write or bin-column adjustment. `scripts/research/qualify-native-record-load.mjs prepare` creates the owned bin and captures an initial graph, then performs an additional close/reopen control. All decoded mobs matched. Computer use confirmed the exact bin in the tab menu and double-clicked its sequence row; the record timeline loaded at 01:00:00:00 and the bin showed an unsaved-change indicator. `capture <absolute prepared directory>` required native Record-viewer identity readback before saving/reopening and retaining the resulting graph.
+
+Evidence: `.avid-mcp-analysis/record-load-0c802313-caf2-4f5a-9be6-18ae92a5ddcb/`, bin `MCP_Load_7006b4d8.avb`, native MOB `060a2b340101010501010f1013-000000-5faf2bdb12898806-4b74d8bbc16d-18d9`. Control and loaded-but-not-yet-saved file hashes were both `f23421b76c5b3c8e7b726655270a7043de40037b72b9caa60a71e58c4e02a91b`. After save/reopen, the hash was `e44449e45a087468fc8e344ff0115e269a67702e05b53e3ef5991da7ce7da84a`. The only decoded difference was an appended ordinal-3, index-1 `DescriptiveMetadata` track with one `FILL` spanning frames 0–120. Other decoded mob fields, including picture/sound ranges, were unchanged. Original source-bin/media and server-entry hashes were preserved.
+
+This isolates the observed record-loading/save sequence from comment and column edits on this fixture. It does not establish that every sequence gains such a track, identify the internal Avid mechanism, or prove unknown binary-field equivalence. The candidate is retained, not treated as restored. Saved-edit verification must retain a pre-load snapshot and inspect loading changes before establishing its immediate pre-edit baseline. Metadata tracks remain part of full graph comparison; they must not be silently discarded to make a trim pass.
+
+## Source viewer
+
 `show_clip` uses the existing preview/apply token flow and requests the Source viewer. Its receipt reports `viewerVerified` only when bin-scoped viewer readback contains the requested MOB ID with viewer type `Source`. Application completion alone does not establish that result. A failed read or identity mismatch leaves verification false and does not replay the request.
 
 `postStateRead` records whether post-state data was obtained, separately from verification. A mismatched viewer can therefore have `postStateRead: true` and `viewerVerified: false`, with the observed data retained for review. A failed read has `postStateRead: false`. Rename receipts use the same distinction with `renameVerified`; clients must not treat successful readback alone as successful application of the requested state.

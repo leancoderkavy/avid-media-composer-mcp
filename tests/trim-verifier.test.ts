@@ -21,6 +21,11 @@ it("rejects unrelated changes and incomplete selected-track edits",()=>{
  const {before,after,plan}=fixture();after.mobs[0]!.name="Unexpected rename";expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("exact requested trim");
  after.mobs[0]!.name="Keep name";after.mobs[0]!.tracks[1]=structuredClone(before.mobs[0]!.tracks[1]!);expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("exact requested trim");
 });
+it("does not ignore an added descriptive-metadata track during an otherwise exact trim",()=>{
+ const {before,after,plan}=fixture();
+ const changed={...after,mobs:after.mobs.map((mob,index)=>index?mob:{...mob,tracks:[...mob.tracks,{ordinal:2,index:1,mediaKind:"DescriptiveMetadata",nodes:[{kind:"FILL",timelineStart:0,timelineEnd:120}]}]})};
+ expect(()=>verifySavedDualRollerTrim(before,changed,plan)).toThrow("exact requested trim");
+});
 it("rejects wrong incoming source offsets and empty results",()=>{
  const {before,after,plan}=fixture();after.mobs[0]!.tracks[0]!.nodes[1]!.sourceStart--;expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("exact requested trim");
  before.mobs[0]!.tracks[0]!.nodes[1]!.timelineEnd=61;expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("empty a clip");
