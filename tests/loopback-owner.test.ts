@@ -4,6 +4,7 @@ import {verifyWindowsLoopbackOwner} from "../src/integrations/loopback-owner.js"
 import {sha256File} from "../src/analysis/file-inventory.js";
 import {JumperReadClient} from "../src/integrations/jumper.js";
 import path from "node:path";
+import {runProcess} from "../src/process.js";
 
 it.skipIf(process.platform!=="win32")("verifies an actual owned listener and refuses changed checksum/process identity",async()=>{
   let requests=0,license:unknown;
@@ -14,6 +15,12 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
   try{
     const owner=await verifyWindowsLoopbackOwner(args);
     expect(owner.pid).toBe(process.pid);
+    const cliArgs=["--import","tsx",path.resolve("src/cli.ts"),"--pair-jumper",process.execPath,"--jumper-sha256",args.sha256,"--jumper-port",String(args.port)];
+    const paired=await runProcess(process.execPath,cliArgs,{timeoutMs:15000,maxOutputBytes:8192});
+    expect(paired.exitCode).toBe(0);
+    expect(JSON.parse(paired.stdout)).toMatchObject({provider:"jumper",owner:{identity:owner.identity,sha256:args.sha256}});
+    const invalid=await runProcess(process.execPath,[...cliArgs,"--doctor"],{timeoutMs:15000,maxOutputBytes:8192});
+    expect(invalid.exitCode).toBe(1);expect(invalid.stdout).toBe("");
     const options={baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"fixture-license",allowedRoots:[process.cwd()],owner:{binary:process.execPath,sha256:args.sha256,identity:owner.identity}};
     const client=new JumperReadClient(options);
     // Mutation of pairing configuration after construction must not affect dispatch.

@@ -1,5 +1,13 @@
 # Optional Jumper provider
 
+Windows pairing preflight is available after building:
+
+```powershell
+node dist/cli.js --pair-jumper "C:\Path\To\VerifiedProvider.exe" --jumper-sha256 "<expected lowercase SHA-256>" --jumper-port 6699
+```
+
+Use the executable and expected hash you have independently verified for your installed provider. The command does not identify a vendor from a process name or certify an arbitrary supplied hash. It prints the loopback base URL and owner pairing fields, writes no configuration, makes no HTTP request and requires no license key. Restarting the provider invalidates its PID/start-time pairing. Other setup options cannot be combined with this command. MCP configuration and licensed provider execution are still pending.
+
 `src/integrations/jumper.ts` implements an original read-client foundation against the [public OpenAPI contract](https://docs.getjumper.io/api-reference/openapi.json), refreshed on 2026-09-05 (API version 1.0). It is not yet registered as an MCP tool or required by core installation. No vendor implementation or license key is bundled.
 
 The client supports unauthenticated health and licensed text search over explicitly selected, authorized local files and an authorized cache directory. Search never sets `search_all` and requires existing analysis to be loaded by the provider. It sends the user's key only in the documented header for search. It accepts literal IPv4/IPv6 loopback HTTP addresses, refuses redirects and bounds response bytes and request duration. Locality alone does not authenticate the listening process; process identity/pairing remains acceptance work before MCP exposure.
