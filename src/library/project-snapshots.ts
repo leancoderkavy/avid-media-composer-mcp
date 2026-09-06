@@ -25,6 +25,7 @@ const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCod
 });
 const bin=z.object({schema:z.literal(1),file:z.string(),sha256:z.string().regex(/^[a-f0-9]{64}$/),mobs:z.array(mob).max(1000),warnings:z.array(z.record(z.string(),z.unknown())).max(1000),complete:z.boolean(),nodeCount:unit,stateOrigin:z.string()});
 const snapshotSchema=z.object({revision:z.string().uuid(),createdAt:z.string(),bins:z.array(bin).max(100)});
+const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
 const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 export class ProjectSnapshots {
@@ -87,7 +88,7 @@ export class ProjectSnapshots {
     for(const [key,value] of b)if(!a.has(key))changes.push({change:"added",bin:value.bin,mobId:value.mobId,name:value.name});
     const page=changes.slice(after+1,after+1+limit).map((change,offset)=>({index:after+1+offset,...change}));
     const more=after+1+page.length<changes.length;
-    return {baseline,candidate,changes:page,totalChanges:changes.length,nextAfter:more?page.at(-1)!.index:null,truncated:more,complete:[...before.bins,...candidateRecord.bins].every(bin=>bin.complete),comparison:"Semantic mob/track/source fields; excludes volatile save metadata and opaque effect parameters"};
+    return {baseline,candidate,changes:page,totalChanges:changes.length,nextAfter:more?page.at(-1)!.index:null,truncated:more,complete:[...before.bins,...candidateRecord.bins].every(bin=>bin.complete),coverage:{baseline:snapshotCoverage(before),candidate:snapshotCoverage(candidateRecord)},comparison:"Semantic mob/track/source fields; excludes volatile save metadata and opaque effect parameters. Zero changes do not establish equivalence when coverage is incomplete."};
   }
   async range(revision:string,mobId:string,start:number,end:number,ordinal?:number,after=-1,limit=100){
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start)throw new Error("Invalid edit-unit range");
@@ -117,7 +118,7 @@ export class ProjectSnapshots {
       if(node.sourceMobId===sourceMobId){const current=index++;if(current>after&&usages.length<=limit)usages.push({index:current,bin:bin.file,mobId:mob.mobId,name:mob.name,track:track.ordinal,mediaKind:track.mediaKind,rate:mob.rate,...node});}
     }
     const page=usages.slice(0,limit);
-    const coverage=snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
+    const coverage=snapshotCoverage(snapshot);
     return {revision,sourceMobId,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete),coverage,scope:"Direct saved-bin source references; opaque effects, mixed rates and retimes may hide references. Zero matches in incomplete coverage do not prove the source is unused."};
   }
   async complexity(revision:string,mobId:string){

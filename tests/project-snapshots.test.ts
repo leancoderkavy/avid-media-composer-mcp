@@ -16,6 +16,14 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("retains baseline and candidate omissions even when visible fields have no differences",async()=>{
+    const {record,save,snapshots}=await fixture(),baseline=await save();
+    record.revision=randomUUID();Object.assign(record.bins[0]!,{complete:false,warnings:[{code:'UNRESOLVED_SEQUENCE_OFFSETS'}]});
+    const result=await snapshots.diff(baseline,await save());
+    expect(result.changes).toEqual([]);expect(result.complete).toBe(false);
+    expect(result.coverage.baseline[0]!.complete).toBe(true);
+    expect(result.coverage.candidate[0]!.warnings[0]).toEqual({code:'UNRESOLVED_SEQUENCE_OFFSETS'});
+  });
   it("explains incomplete zero-match source usage with bounded per-bin warnings",async()=>{
     const {record,save,snapshots}=await fixture();
     Object.assign(record.bins[0]!,{complete:false,warnings:Array.from({length:12},()=>({code:'MIXED_EDIT_RATE',mobRate:30,componentRate:24}))});

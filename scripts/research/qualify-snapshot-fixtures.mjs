@@ -37,6 +37,10 @@ try{
    assert.equal(usage.complete,false);assert.deepEqual(usage.usages,[]);
    assert.equal(usage.coverage[0].warnings[0].code,'MIXED_EDIT_RATE');
    assert.equal(usage.coverage[0].warnings[1].code,'UNRESOLVED_SEQUENCE_OFFSETS');
+   const comparison=await call('avid_diff_saved_snapshots',{baseline:captured.revision,candidate:captured.revision});
+   assert.deepEqual(comparison.changes,[]);assert.equal(comparison.complete,false);
+   assert.equal(comparison.coverage.baseline[0].warnings[1].code,'UNRESOLVED_SEQUENCE_OFFSETS');
+   assert.deepEqual(comparison.coverage.baseline,comparison.coverage.candidate);
   }
   if(fixture.name==='subclip')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart]),[[0,30,1090],[30,60,2000]]);
   if(fixture.name==='stereo')assert.deepEqual(range.results.map(n=>[n.timelineStart,n.timelineEnd,n.sourceStart,n.channelCombiner.channelIndex]),[[0,30,2860,1],[0,30,2860,2]]);
