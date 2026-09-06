@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Black QC across depth and range
+
+Eight real MCP cases passed for generated 8-bit/10-bit FFV1, full/limited range, each over [0,4) and [0.5,3.5). Raw decoding independently confirmed intended integer luma and frame amounts. QC matched exact source-clock black intervals, 120/90 decoded frames and source pixel/range declarations; persisted reads matched and fixture hashes stayed unchanged. Evidence: `.avid-mcp-analysis/qc-black-depth-270780c2-6df9-40ac-9760-f4ad5bccd412/evidence.json`; see QC_BLACK_DEPTH.md. Syntax and actual script execution passed. No production code changed; near-black thresholds, HDR perceptual behavior and camera/delivery qualification remain open.
+
 ### Discoverable color-declaration facets
 
 Fresh-package checks passed with 137 tools, five skills, Codex command validation and Python/AAF isolation (`.avid-mcp-analysis/check-color-facets-package.log`). The complete unit suite was not rerun for this increment; the affected library suite, build, actual media workflow and installed-package gate were run.
