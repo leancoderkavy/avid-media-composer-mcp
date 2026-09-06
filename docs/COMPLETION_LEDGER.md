@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Extractive summary quality counterexamples
+
+Evaluated an original source-offset sentence-selection candidate on eight existing synthetic editorial cases plus a cancellation/reinstatement case. Every selected quote matched its exact source span, but sentence budgeting omitted a responsible person and filming prohibition, and deduplication removed a later reinstatement. Raw omitted occurrences are retained so distinct-text coverage cannot conceal temporal information loss. Candidate remains research-only; no production summary backend changed. Committed evidence: `docs/extractive-summary-benchmark.json`; local run: `.avid-mcp-analysis/extractive-summary-ba7ae7da-2d54-48ad-839e-0a64855fd215/evidence.json`. Syntax and actual execution passed. Generated and extractive factual/context acceptance both remain open; see SUMMARY_QUALITY_QUALIFICATION.md.
+
 ### Receipt temporary-file ownership
 
 Full local check passed: 563 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-runtime-temp-ownership.log`). Previous production commit 02b4a0c passed CI and CodeQL.
