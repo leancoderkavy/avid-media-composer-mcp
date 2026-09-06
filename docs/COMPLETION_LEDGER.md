@@ -411,3 +411,7 @@ EDL export failures retain the scoped `native-export-UUID/attempt.json` evidence
 Validation: 16 recovery tests passed, including absent/present responses, missing or wrong evidence checksums, evidence appearing during either stopped-host check, changed attempt bytes, and out-of-directory response evidence. These are isolated tests with mocked stopped-host checks, not a live Avid shutdown/recovery qualification.
 
 Full validation checkpoint: `npm run check` passed with 420 TypeScript tests, 32 Python tests, stdio/HTTP smoke checks, and fresh-tarball validation of 133 tools and five skills/client configuration formats including Python missing/restored isolation. Log: `.avid-mcp-analysis/check-edl-recovery.log`.
+
+### Windows EDL prior-file alias correction
+
+CI run 34011349873 exposed a preexisting-output comparison failure on Windows Node 20/24: lexical prior paths can differ from `realpath` output through a parent alias. Output verification now resolves every prior entry within the authorized export directory before comparison and refuses missing or out-of-scope prior entries. A junction/symlink parent regression covers this independently of runner-specific short paths. Targeted native/EDL tests: 35 passed; typecheck passed. This does not establish atomic filesystem identity or prevent native writes before post-verification.

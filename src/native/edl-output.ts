@@ -30,6 +30,7 @@ export async function verifyNativeEdlOutput(directory:string,response:unknown,ex
   const output=await resolveReadablePath(body.path,[root],"file");
   if(path.dirname(output)!==root||path.extname(output).toLowerCase()!==".edl")throw new Error("Native EDL output must be an EDL file directly inside the authorized export directory");
   const key=(file:string)=>process.platform==="win32"?path.resolve(file).toLowerCase():path.resolve(file);
-  if(existingPaths.some(file=>key(file)===key(output)))throw new Error("Native EDL output existed before export; new artifact identity is unverified");
+  const priorCanonical=await Promise.all(existingPaths.map(file=>resolveReadablePath(file,[root],"either")));
+  if(priorCanonical.some(file=>key(file)===key(output)))throw new Error("Native EDL output existed before export; new artifact identity is unverified");
   return {output,...await verifyEdlCuts(output,contract)};
 }
