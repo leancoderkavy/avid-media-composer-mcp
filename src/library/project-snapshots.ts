@@ -199,16 +199,19 @@ export class ProjectSnapshots {
     const page=results.slice(0,limit);
     return {revision,mobId,bin:target.bin.file,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(target.bin),snapshotSourceReferenceCoverage:sourceReferenceCoverage(target.bin,snapshot.bins),rangeConvention:"half-open edit units",origin:"saved-bin"};
   }
-  async usage(revision:string,sourceMobId:string,after=-1,limit=500){
+  async usage(revision:string,sourceMobId:string,after=-1,limit=500,includeEffectInputs=false){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>500)throw new Error("Invalid source usage page");
     const snapshot=await this.read(revision),usages=[];
-    let index=0;
+    let index=0,effectInputsFound=false;
     for(const bin of snapshot.bins)for(const mob of bin.mobs)for(const track of mob.tracks)for(const node of track.nodes){
-      if(node.sourceMobId===sourceMobId){const current=index++;if(current>after&&usages.length<=limit)usages.push({index:current,bin:bin.file,mobId:mob.mobId,name:mob.name,track:track.ordinal,mediaKind:track.mediaKind,rate:mob.rate,...node});}
+      const input=node.effect?.inputReference;
+      const effectInputOnly=includeEffectInputs&&node.kind==='TKFX'&&node.opaque===true&&node.effect?.id==='EFF2_LUTSFX'&&track.mediaKind==='picture'&&input?.sourceMobId===sourceMobId&&input.rate===mob.rate&&input.length===node.timelineEnd-node.timelineStart;
+      if(effectInputOnly)effectInputsFound=true;
+      if(node.sourceMobId===sourceMobId||effectInputOnly){const current=index++;if(current>after&&usages.length<=limit)usages.push({index:current,bin:bin.file,mobId:mob.mobId,name:mob.name,track:track.ordinal,mediaKind:track.mediaKind,rate:mob.rate,...node,...(effectInputOnly?{effectInputOnly:true,mapping:'Declared equal-length effect input; rendered output correspondence unverified'}:{})});}
     }
     const page=usages.slice(0,limit);
     const coverage=snapshotCoverage(snapshot);
-    return {revision,sourceMobId,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete),coverage,scope:"Direct saved-bin source references; opaque effects, mixed rates and retimes may hide references. Zero matches in incomplete coverage do not prove the source is unused."};
+    return {revision,sourceMobId,includeEffectInputs,usages:page,totalReferences:index,nextAfter:usages.length>limit?page.at(-1)!.index:null,truncated:usages.length>limit,complete:snapshot.bins.every(bin=>bin.complete)&&!effectInputsFound,coverage,scope:"Direct saved-bin source references, optionally including declared equal-length color-adapter inputs marked effectInputOnly. Keep includeEffectInputs unchanged when paging. Opaque effects, mixed rates and retimes may hide references. Zero matches in incomplete coverage do not prove the source is unused; effect inputs do not verify rendered correspondence."};
   }
   async complexity(revision:string,mobId:string,binFile?:string){
     const snapshot=await this.read(revision);

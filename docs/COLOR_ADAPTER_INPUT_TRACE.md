@@ -1,5 +1,9 @@
 # Color-adapter input references
 
+`avid_saved_source_usage` now accepts `includeEffectInputs: true` to find these declared color-adapter inputs alongside direct source references. The default remains direct references only. Keep this option, revision and source ID unchanged while following `nextAfter`. Each effect match retains the opaque TKFX node and nested `effect.inputReference`, adds `effectInputOnly: true`, and leaves rendered correspondence explicitly unverified. No top-level source range is invented. Rate/length mismatches and unsupported effect kinds are omitted. Matching effect inputs keep `complete: false` across every page, including an empty continuation page.
+
+Actual capture/reconnect and one-result-page MCP usage queries passed on the retained PCM/color Sonoma bin, finding both effect inputs at source starts 2850 and 3300 without changing the bin hash. Evidence: `.avid-mcp-analysis/saved-color-effects-1b8951fb-e8ff-4008-ad96-b255d898fa0b/evidence.json`. This is saved input discovery, not live/unsaved usage or rendered-source verification.
+
 Saved timeline inspection can expose `effect.inputReference` for the observed `EFF2_LUTSFX` structure. This describes the effect's saved input clip, separately from the opaque effect node. It does not promote that input to a verified rendered source range.
 
 Recognition requires the bounded single-linear-LUT declaration, a picture effect with non-reversed/zero mode/scalar flags, exactly one input track with index 1, and a picture sequence of the same rate and length. That sequence must contain exactly one full-length picture SourceClip, with at most two zero-length fillers. Nested effects, transitions, extra clips, rate/length mismatches, nonzero fillers and unsupported color payloads do not receive an input reference. Source bounds clip the declared input to the captured mob range.

@@ -36,6 +36,18 @@ try{
  const inputs=trace.steps.filter(step=>step.effectInputOnly);
  assert.equal(inputs.length,2);assert.deepEqual(inputs.map(step=>[step.sourceStart,step.sourceEnd]),[[2880,2910],[3300,3330]]);
  assert.ok(inputs.every(step=>step.kind==='TKFX'&&step.status==='reference'));
+ const sourceMobId=result.results[0].effect.inputReference.sourceMobId;
+ const direct=await call(client,'avid_saved_source_usage',{revision:snapshot.revision,sourceMobId});
+ assert.ok(direct.usages.every(node=>!node.effectInputOnly));
+ const usages=[];let after=-1;
+ do{
+  const page=await call(client,'avid_saved_source_usage',{revision:snapshot.revision,sourceMobId,includeEffectInputs:true,after,limit:1});
+  assert.equal(page.complete,false);usages.push(...page.usages);after=page.nextAfter;
+ }while(after!==null);
+ const effectUsages=usages.filter(node=>node.mobId===mob.mobId&&node.effectInputOnly);
+ assert.equal(effectUsages.length,2);
+ assert.deepEqual(effectUsages.map(node=>node.effect.inputReference.sourceStart),[2850,3300]);
+ assert.ok(effectUsages.every(node=>node.kind==='TKFX'&&node.opaque&&!('sourceStart' in node)));
  assert.equal(await sha256File(file),hash);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({file,hash,events,unchanged:true,scope:'Actual saved refreshed bin through MCP capture/reconnect, effect declarations and equal-length input-reference diagnostics. Rendered correspondence and parameter meaning remain unverified.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,revision:snapshot.revision,effects:result.results.map(n=>n.effect),unchanged:true}));

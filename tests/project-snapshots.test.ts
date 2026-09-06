@@ -16,6 +16,21 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("opts into declared effect-input usage without flattening opaque nodes",async()=>{
+    const {record,save,snapshots}=await fixture(),node=record.bins[0]!.mobs[0]!.tracks[0]!.nodes[0]!;
+    const input={sourceMobId:'source',sourceTrackId:1,sourceStart:90,length:60,rate:30,basis:'declared-equal-length-input'};
+    Object.assign(node,{kind:'TKFX',opaque:true,effect:{id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true,inputReference:input}});
+    for(const key of ['sourceMobId','sourceTrackId','sourceStart'])Reflect.deleteProperty(node,key);
+    const revision=await save();
+    expect((await snapshots.usage(revision,'source')).usages).toEqual([]);
+    const result=await snapshots.usage(revision,'source',-1,1,true);
+    expect(result.usages).toMatchObject([{kind:'TKFX',opaque:true,effectInputOnly:true,effect:{inputReference:input}}]);
+    expect(result.usages[0]).not.toHaveProperty('sourceStart');expect(result.complete).toBe(false);
+    expect((await snapshots.usage(revision,'source',0,1,true)).complete).toBe(false);
+    for(const change of [{rate:24},{rate:30,length:59}]){
+      Object.assign(input,change);await save();expect((await snapshots.usage(revision,'source',-1,1,true)).usages).toEqual([]);
+    }
+  });
   it("detects a same-name effect parameter change without claiming complete coverage",async()=>{
     const {record,save,snapshots}=await fixture(),node=record.bins[0]!.mobs[0]!.tracks[0]!.nodes[0]!;
     const effect={id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true,parametersFingerprint:{schema:1,sha256:'a'.repeat(64)}};

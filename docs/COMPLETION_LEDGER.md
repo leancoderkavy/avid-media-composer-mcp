@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Opt-in saved color-input usage discovery
+
+Full local `npm run check` passed: 603 TypeScript tests, Python checks, 139 tools, five matching skills, transports and fresh-package/Python/AAF acceptance. Log: `.avid-mcp-analysis/check-effect-input-usage.log`. Remote checks for this increment remain separate.
+
+`avid_saved_source_usage` accepts `includeEffectInputs` (default false). Opt-in results include supported saved equal-length color-adapter inputs without fabricating top-level direct source ranges. Matching nodes retain TKFX/opaque declarations and nested input references, carry `effectInputOnly`, and keep completion false across pages. The option must stay fixed with the revision/source ID during pagination. Unsupported effect kinds and rate/length mismatches are omitted.
+
+Actual PCM/color Sonoma capture/reconnect and one-result-page usage calls found both declared input starts, 2850 and 3300, while preserving the retained bin hash. Evidence: `.avid-mcp-analysis/saved-color-effects-1b8951fb-e8ff-4008-ad96-b255d898fa0b/evidence.json`. Focused snapshot tests passed (26), including opt-in/default behavior, preserved opacity, empty continuation and mismatched inputs. See COLOR_ADAPTER_INPUT_TRACE.md. This adds saved source discovery, not rendered source correspondence, general effects, live unsaved graphs or full-plan completion.
+
 ### Installed native bin-column reconnect qualification
 
 Extended the native column harness to bind execution to an installed entry checksum and compare a second MCP process with the first and direct native reads. Fresh managed-package qualification now includes this check alongside existing project/bin/track/viewer reads and independent saved timeline verification. Actual execution passed: 179 declarations matched, both server entry and bin hashes stayed unchanged, and package archive identity was preserved. Evidence: `.avid-mcp-analysis/installed-native-7e590d97-ebfe-402b-a94c-ee39ac9dfe00/evidence.json`; column evidence: `native-bin-columns-85d2bb18-9e3f-48b4-ab91-6487f5b301df` under the same analysis root. Both script syntax checks passed. No production code changed; the full unit suite was not rerun. This qualifies installed read/reconnect behavior on the existing host, not clean-machine prerequisites, named GUI clients, writes or general editor coverage.
