@@ -2,6 +2,8 @@
 
 ## Qualified model-driven native read
 
+Native write acceptance has a separate client approval boundary: this Codex non-interactive configuration rejects avid_native_apply because its approval policy is never. An attempted preview/apply rename on owned Copy.05 was refused; the model verified the original name without token replay. The explicit `--expect-approval-refusal` mode of `qualify-codex-native-rename.mjs` verifies this refusal and unchanged clip/bin/source evidence. Its default mode requires an actual rename/restoration and currently fails at this gate. Use an approval-capable client workflow to qualify writes; do not weaken tool annotations or treat preview success as execution. No model-driven editing pass is claimed.
+
 The existing authenticated Windows Codex CLI completed app/project/open-bin inspection through avid_native_read against Media Composer 2024.12.58720. Responses matched bracketing direct adapter reads, and all 23 saved open bins retained their hashes. `scripts/research/qualify-codex-native-read.mjs` reproduces this read-only test for the explicitly named Sonoma project and installed Avid executable. It exposes only the native read tool with inspect capability, records model events, and refuses mismatched results. This uses existing host prerequisites and does not prove native writes, UI state, playback, atomic snapshots or clean-machine installation. Evidence: `.avid-mcp-analysis/codex-native-read-14f00355-56ad-4aca-8ff4-434b1d40fd9f/evidence.json`.
 
 ## Codex command generation

@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Model-driven native edit approval boundary
+
+Attempted an authorized temporary rename/restoration of owned Copy.05 through Codex. Native preview succeeded, but Codex refused avid_native_apply with "MCP tool call requires approval, but approval policy is never". The model did not replay the token and read the exact original name afterward. Direct before/after clip metadata, saved-bin hash and original MP4 hash stayed equal. The ordinary edit acceptance failed; a separate explicit --expect-approval-refusal run passed the exact refusal/no-change assertions: `.avid-mcp-analysis/codex-native-rename-407dbc3e-08ee-4d8f-a1df-3fbd1a724578/evidence.json`. Initial failed edit evidence: `codex-native-rename-2ba43262-92f7-4be4-b75b-55cc6c0c57b2`. Script: `qualify-codex-native-rename.mjs`. No approval controls were relaxed. Model-driven editing still requires a client workflow that can obtain approval; this is not an editing or persistence pass.
+
 ### Codex model-selected native Avid inspection
 
 Actual authenticated Codex called avid_native_read once each for app, project and open_bins against the existing Media Composer 2024.12.58720 Sonoma session. All three successful structured payloads matched direct NativeAdapter reads before and after; all 23 open-bin SHA-256 values and the server entry hash remained unchanged. The final answer reported the build, project and all returned bin filenames. No other completed tool types appeared. Evidence: `.avid-mcp-analysis/codex-native-read-14f00355-56ad-4aca-8ff4-434b1d40fd9f/evidence.json` and event stream; reproducible `qualify-codex-native-read.mjs`. Syntax and real execution passed. This advances model-driven live native inspection, not writes, atomic session snapshots, playback, fresh-machine installation or GUI qualification. No production code changed.
