@@ -49,14 +49,22 @@ export async function doctor(config: ServerConfig) {
       return {ok:data.available,data,...(!data.available ? {error:data.error ?? "Dependency is unavailable"} : {})};
     } catch(error) { return {ok:false,error:(error as Error).message}; }
   };
-  const [roots, ffmpeg, ffprobe, python, native] = await Promise.all([
-    check(() => Promise.all(config.allowedRoots.map(root => realpath(root)))),
+  const [roots, outputDirectory, ffmpeg, ffprobe, python, native] = await Promise.all([
+    check(() => {
+      if(!config.allowedRoots.length)throw new Error("No allowed roots are configured");
+      return Promise.all(config.allowedRoots.map(root => realpath(root)));
+    }),
+    config.outputRoot ? check(async () => {
+      const resolved=await realpath(config.outputRoot!);
+      if(!(await stat(resolved)).isDirectory())throw new Error("Configured output root is not a directory");
+      return {path:resolved,scope:"Directory existence only; write permission and capacity are not tested"};
+    }) : Promise.resolve({ok:false,error:"Output directory is not explicitly configured"}),
     dependencyCheck(() => probeFfmpeg(config.ffmpegExecutable ?? "ffmpeg", config.commandTimeoutMs)),
     dependencyCheck(() => probeFfprobe(config.ffprobeExecutable, config.commandTimeoutMs)),
     dependencyCheck(() => probePythonInspector({pythonExecutable:config.pythonExecutable,timeoutMs:config.commandTimeoutMs})),
     config.nativeBinary ? check(() => new NativeAdapter(config).read("app")) : Promise.resolve({ok:false,error:"Native adapter is not configured"}),
   ]);
-  return { platform:process.platform, node:process.versions.node, roots, ffmpeg, ffprobe, python, native,
+  return { platform:process.platform, node:process.versions.node, roots, outputDirectory, ffmpeg, ffprobe, python, native,
     enabledCapabilities:[...config.capabilities], outputRoot:config.outputRoot ?? null,
     note:"Dependency presence is not host editing qualification. Mac native support is not qualified." };
 }

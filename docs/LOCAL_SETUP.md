@@ -21,6 +21,8 @@ Create the output directory first. Configure executable paths using `AVID_MCP_FF
 
 The doctor reports FFmpeg, ffprobe, Python packages and native connectivity separately. Each dependency's `ok` reflects availability; FFmpeg and ffprobe must identify themselves as the configured tool. A successful version probe does not verify codecs, rendering quality or editor operations.
 
+The doctor rejects an empty allowed-root list and reports `outputDirectory` separately. An explicitly configured output path must already exist as a directory; the check creates nothing and does not prove write permission or free capacity. An unconfigured output directory is reported as such, rather than failing unrelated inspection probes. Allowed roots may still name individual files for narrow read access.
+
 ## Client configuration
 
 ```powershell
