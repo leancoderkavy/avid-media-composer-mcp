@@ -746,3 +746,8 @@ Full check for collection discovery passed: 493 TypeScript tests, 32 Python test
 
 Fresh-tarball smoke now invokes collection discovery through the installed stdio server, continues past an invalid record, discovers and reads the next valid revision with exact saved ranges, then confirms omitted-only results when the synthetic indexed source points outside the generated client's allowed root. Fixtures use declared synthetic metadata; this is installed workflow/scope evidence, not native media interpretation. The 136-tool package check passed with exact checkout definitions, five generated client formats and Python isolation/recovery. Log: .avid-mcp-analysis/package-collection-recovery.log. Sonoma reconnect/export evidence remains separately recorded above.
 
+
+### Complete-file collection publication
+
+Collection save and OTIO export now stage bytes before exclusive hard-link publication, matching the existing local immutable-output pattern. Paused-write tests confirm discovery cannot see partial collection files and no final OTIO exists before completion. Injected write failures leave prior directory entries unchanged; a competing final file is preserved and the caller's stage removed. Seventeen focused tests and typecheck passed. Actual Sonoma derivative MCP discovery/reconnect/export and changed-source refusal passed again: .avid-mcp-analysis/collection-alias-54fb2aa3-28b6-4b46-8a93-432953c36ab6/evidence.json. These checks do not establish power-loss durability or termination at every publication phase. CI for discovery commit a2d90c7 completed successfully.
+

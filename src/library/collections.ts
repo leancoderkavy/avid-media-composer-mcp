@@ -1,4 +1,4 @@
-import {writeFile, opendir} from "node:fs/promises";
+import {writeFile, opendir, link, unlink} from "node:fs/promises";
 import path from "node:path";
 import {pathToFileURL} from "node:url";
 import {randomUUID} from "node:crypto";
@@ -17,6 +17,14 @@ export const selectSchema=z.object({
 }).strict().refine(value=>value.end>value.start,"Select end must follow start");
 export const collectionSchema=z.object({name:z.string().min(1).max(120),selects:z.array(selectSchema).min(1).max(500)}).strict();
 type Collection=z.infer<typeof collectionSchema>;
+
+async function publish(file:string,serialized:string){
+  const temporary=`${file}.${randomUUID()}.tmp`;
+  try{
+    await writeFile(temporary,serialized,{flag:"wx",mode:0o600});
+    await link(temporary,file);
+  }finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
+}
 
 /** Immutable user-curated selects. Timeline positions are seconds from the stringout start. */
 export class Collections {
@@ -37,7 +45,7 @@ export class Collections {
     const collection=collectionSchema.parse(input);
     await this.validate(collection);
     const revision=randomUUID();
-    await writeFile(path.join(await this.library.directory(),`collection-${revision}.json`),JSON.stringify(collection),{flag:"wx"});
+    await publish(path.join(await this.library.directory(),`collection-${revision}.json`),JSON.stringify(collection));
     return {revision,name:collection.name,selects:collection.selects.length,immutable:true};
   }
   async read(revision:string){
@@ -103,7 +111,7 @@ export class Collections {
         {OTIO_SCHEMA:"Track.1",name:"V1",kind:"Video",source_range:null,effects:[],markers:[],metadata:{},children:clips}
       ]}};
     const output=path.join(await this.library.directory(),`selects-${randomUUID()}.otio`);
-    await writeFile(output,JSON.stringify(document,null,2),{flag:"wx"});
+    await publish(output,JSON.stringify(document,null,2));
     return {output,revision,clips:clips.length,rate,quantization:"Nearest edit frame; exclusive end",avidImportVerified:false,
       limitations:["One video track; audio routing, transitions, effects and retimes are not authored", "References local source files; media is not embedded"]};
   }
