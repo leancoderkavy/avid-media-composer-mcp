@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Actual native duplication in an owned bin
+
+Qualified a single `DuplicateBinItems` call after creating/populating a new owned bin with the protected Sonoma sequence. The returned new identity matched the only added item; the copied original ID/name and protected original membership/bytes remained unchanged. Selection moved to the new duplicate. Computer use observed both four-second rows and saved only the owned bin.
+
+Independent saved AVB comparison passed all decoded fields except top-level name/MOB ID and matched reachable source records; one shared unresolved reference remains. An initial native-ID versus saved-URN spelling mismatch in the harness failed before comparison and was corrected without dropping identity bytes. Original MP4 hash was unchanged. See [duplication research](NATIVE_DUPLICATION_RESEARCH.md), native-copy `520aa510-9579-4ac1-a735-6946b78b0b5f` and saved evidence `f51d5686-5a3c-438d-918a-6dba81847acd`.
+
+Actual execution, saved verification, nine research transport/descriptor tests and syntax/diff checks passed. Production code is unchanged; a shipped guarded duplicate action, reopen, undo, batch/master and rendering remain unfinished.
+
 ### Fresh installed media-volume diagnostic
 
 Installed a new development tarball into a unique temporary directory and matched the entrypoint/server/native-module hashes to the checkout. The three-session actual native probe passed from that installed runtime with an outside-checkout working directory: two authorized reads, one excluded-project refusal with no volume data, unchanged protected bin/media and entrypoint hashes. Evidence: `.avid-mcp-analysis/native-media-volumes-c48e50f4-42c7-4f86-a401-bfc50525f3c9/evidence.json`; runtime/archive receipt: `.avid-mcp-analysis/native-volume-installed-runtime.json`.
