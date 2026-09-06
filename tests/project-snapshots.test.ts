@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile,readdir} from "node:fs/promises";
+import {mkdtemp,writeFile,readFile,readdir,unlink} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
@@ -16,6 +16,15 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("identifies deleted bins while preserving authorized historical mob discovery",async()=>{
+    const {record,save,snapshots,config}=await fixture(),revision=await save();
+    expect((await snapshots.mobs(revision)).mobs[0]!.binPresent).toBe(true);
+    await unlink(record.bins[0]!.file);
+    expect((await snapshots.list()).snapshots[0]!.missingBins).toBe(1);
+    expect((await snapshots.mobs(revision)).mobs[0]!.binPresent).toBe(false);
+    expect((await snapshots.range(revision,'sequence',0,30)).results).toHaveLength(1);
+    await expect(new ProjectSnapshots({...config,allowedRoots:[]}).mobs(revision)).rejects.toThrow('outside');
+  });
   it("pages mob identities needed to query recovered snapshots",async()=>{
     const {record,save,snapshots,config}=await fixture(),template=record.bins[0]!.mobs[0]!;
     record.bins[0]!.mobs=Array.from({length:102},(_,i)=>({...template,mobId:`mob-${i}`}));

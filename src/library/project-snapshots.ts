@@ -44,7 +44,7 @@ export class ProjectSnapshots {
     const snapshot=await this.read(revision),mobs=[];let index=0;
     for(const bin of snapshot.bins)for(const mob of bin.mobs){
       const current=index++;
-      if(current>after&&mobs.length<=limit)mobs.push({index:current,bin:bin.file,binSha256:bin.sha256,mobId:mob.mobId,name:mob.name,mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration,trackCount:mob.tracks.length,complete:bin.complete});
+      if(current>after&&mobs.length<=limit)mobs.push({index:current,bin:bin.file,binPresent:!snapshot.missingBins.includes(bin.file),binSha256:bin.sha256,mobId:mob.mobId,name:mob.name,mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration,trackCount:mob.tracks.length,complete:bin.complete});
     }
     const page=mobs.slice(0,limit);
     return {revision,mobs:page,totalMobs:index,nextAfter:mobs.length>limit?page.at(-1)!.index:null,origin:"historical saved snapshot; repeated mob IDs in different bins remain distinct entries"};
@@ -61,7 +61,7 @@ export class ProjectSnapshots {
     }
     const candidates=names.sort().filter(id=>!after||id>after),page=candidates.slice(0,limit),snapshots=[];let unavailable=0;
     for(const revision of page){
-      try{const record=await this.read(revision);snapshots.push({revision,createdAt:record.createdAt,bins:record.bins.length,mobs:record.bins.reduce((sum,bin)=>sum+bin.mobs.length,0),complete:record.bins.every(bin=>bin.complete)});}
+      try{const record=await this.read(revision);snapshots.push({revision,createdAt:record.createdAt,bins:record.bins.length,missingBins:record.missingBins.length,mobs:record.bins.reduce((sum,bin)=>sum+bin.mobs.length,0),complete:record.bins.every(bin=>bin.complete)});}
       catch{unavailable++;}
     }
     return {snapshots,nextAfter:candidates.length>page.length?page.at(-1)!:null,scanned:page.length,unavailable,meaning:"Historical saved snapshots. Follow nextAfter even for empty pages; damaged or inaccessible entries are counted without exposing their contents."};
@@ -97,15 +97,17 @@ export class ProjectSnapshots {
     const file=await resolveReadablePath(path.join(directory,`snapshot-${revision}.json`),[directory],"file");
     const record=snapshotSchema.parse(await readBoundedJson(file,32*1024*1024));
     if(record.revision!==revision)throw new Error("Snapshot identity mismatch");
+    const missingBins:string[]=[];
     for(const bin of record.bins){
       try{await resolveReadablePath(bin.file,this.config.allowedRoots,"file");}
       catch(error){
         if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;
         // Deleted bins may still be compared if their parent remains in scope.
         await resolveReadablePath(path.dirname(bin.file),this.config.allowedRoots,"directory");
+        missingBins.push(bin.file);
       }
     }
-    return record;
+    return {...record,missingBins};
   }
   async diff(baseline:string,candidate:string,after=-1,limit=200){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200)throw new Error("Invalid snapshot diff page");
