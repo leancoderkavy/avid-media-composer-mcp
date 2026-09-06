@@ -1,4 +1,4 @@
-import {mkdir,writeFile,stat,opendir} from "node:fs/promises";
+import {mkdir,writeFile,stat,opendir,open,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
@@ -16,6 +16,15 @@ const MAX_MEDIA_BYTES=4*1024**3;
 const digest=z.string().regex(/^[a-f0-9]{64}$/);
 const attemptSchema=z.object({source:z.string().min(1).max(32768),sourceSha256:digest,videoStream:sourceClockOptions.shape.videoStream,audioStream:sourceClockOptions.shape.audioStream,output:z.string().min(1).max(32768),recipe:z.literal(CLOCK),startedAt:z.string().datetime()}).strict();
 const receiptStatusSchema=attemptSchema.omit({startedAt:true}).extend({outputSha256:digest,verified:z.literal(true),sourceUnchanged:z.literal(true),hostImportVerified:z.literal(false)}).strip();
+/** Exclusive complete-file publication; no replacement or power-loss durability claim. */
+export async function publishPreparationReceipt(directory:string,receipt:unknown){
+  const temporary=path.join(directory,`.receipt-${randomUUID()}.tmp`);
+  const handle=await open(temporary,"wx",0o600);
+  try{
+    try{await handle.writeFile(JSON.stringify(receipt,null,2));}finally{await handle.close();}
+    await link(temporary,path.join(directory,"receipt.json"));
+  }finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
+}
 type Stream=Record<string,unknown>;
 const number=(value:unknown)=>typeof value==="number"||typeof value==="string"&&value.trim()!==""?Number(value):NaN;
 export function sourceClockStreams(streams:Stream[],videoIndex:number,audioIndex:number){
@@ -148,7 +157,7 @@ export class SourceClockMedia {
       if(await sha256File(await resolveReadablePath(source,this.config.allowedRoots,"file"))!==options.expectedSha256)throw new Error("Source changed during preparation");
       if(await sha256File(await resolveReadablePath(output,[directory],"file"))!==outputBefore)throw new Error("Output changed during verification");
       const receipt={source,sourceSha256:options.expectedSha256,output,outputSha256:outputBefore,videoStream:options.videoStream,audioStream:options.audioStream,original,prepared,recipe:CLOCK,videoEssenceSha256:videoHash,videoClock,sourceClockPcmSha256:pcmHash,continuity,sourceUnchanged:true,verified:true,hostImportVerified:false,limitations:["Only selected streams are included","Presentation-clock normalization may insert or remove audio samples","No Avid import, relink, color or perceptual sync qualification"]};
-      await writeFile(path.join(directory,"receipt.json"),JSON.stringify(receipt,null,2),{flag:"wx"});return receipt;
+      await publishPreparationReceipt(directory,receipt);return receipt;
     }catch(error){await writeFile(path.join(directory,"failure.json"),JSON.stringify({verified:false,message:error instanceof Error?error.message:String(error),output,attempt}),{flag:"wx"});throw error;}
   }
 }

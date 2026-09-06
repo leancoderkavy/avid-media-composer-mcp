@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Complete-file preparation receipt publication
+
+Full local check passed: 593 TypeScript tests, 36 Python tests, 139 tools, five skills, both transports and fresh-package recovery checks (`.avid-mcp-analysis/check-source-clock-publication.log`).
+
+Production preparation now writes and closes an exclusively owned temporary receipt before hard-link publication at receipt.json; existing receipts are never replaced. Normal cleanup only removes the temporary file created by this call. Twelve focused tests/build passed, including competing publishers and unchanged pre-existing receipt. Actual production crash barriers after attempt creation, partial staged receipt write and complete staging all left the final receipt absent; MCP discovery/status/retry passed with source and interrupted files unchanged. Evidence: `.avid-mcp-analysis/source-clock-crash-a9635021-567c-41bf-abc9-d2a11971bcd5/evidence.json`. Unsupported hard-link filesystems fail publication. This addresses interrupted final JSON visibility; mid-worker crashes, cleanup, receipt authenticity and power-loss durability remain open.
+
 ### Installed preparation reconnect acceptance
 
 Fresh-tarball package checks now exercise source-clock discovery/status through installed MCP with synthetic saved records. A second client continues the first client's damaged-record cursor, finds the valid attempt, reads unresolved state, matches receipt/output bytes and rejects changed output. Source and attempt records stay unchanged; no FFmpeg/conversion evidence is inferred from this fixture. Actual `npm run smoke:package -- --with-python` passed with 139 tools, five skills, exact checkout definitions, client configuration, Python isolation and AAF checks. Log: `.avid-mcp-analysis/check-installed-preparation-recovery.log`. Script syntax passed; no production code changed and the full unit suite was not rerun. Real conversion/interruption evidence remains separately recorded.

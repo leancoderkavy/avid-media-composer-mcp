@@ -9,11 +9,25 @@ import assert from 'node:assert/strict';
 
 if(process.argv[2]==='child'){
  process.on('message',()=>{});
- const [root,file,expectedSha256,phase]=process.argv.slice(3),original=fs.promises.writeFile;
- fs.promises.writeFile=async(target,...args)=>{
+ const [root,file,expectedSha256,phase]=process.argv.slice(3),original=fs.promises.writeFile,originalOpen=fs.promises.open,originalLink=fs.promises.link;
+ fs.promises.open=async(target,...args)=>{
+  const handle=await originalOpen(target,...args);
+  if(phase==='partial-receipt'&&path.basename(String(target)).startsWith('.receipt-')){
+   const write=handle.writeFile.bind(handle);
+   handle.writeFile=async(data,...options)=>{
+    await write(String(data).slice(0,24),...options);
+    process.send({phase,directory:path.dirname(String(target))});await new Promise(()=>{});
+   };
+  }
+  return handle;
+ };
+ fs.promises.link=async(source,target)=>{
   if(phase==='before-receipt'&&path.basename(String(target))==='receipt.json'){
    process.send({phase,directory:path.dirname(String(target))});await new Promise(()=>{});
   }
+  return originalLink(source,target);
+ };
+ fs.promises.writeFile=async(target,...args)=>{
   await original(target,...args);
   if(phase==='attempt'&&path.basename(String(target))==='attempt.json'){
    process.send({phase,directory:path.dirname(String(target))});await new Promise(()=>{});
@@ -33,7 +47,7 @@ if(process.argv[2]==='child'){
  const file=path.join(root,'fixture.mp4');
  const generated=await runProcess('ffmpeg',['-nostdin','-v','error','-n','-f','lavfi','-i','testsrc2=s=160x90:r=30:d=2','-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=2','-c:v','libx264','-c:a','aac','-ac','2',file],{timeoutMs:30000});
  assert.equal(generated.exitCode,0,generated.stderr);const expectedSha256=await sha256File(file),results=[];
- for(const phase of ['attempt','before-receipt']){
+ for(const phase of ['attempt','partial-receipt','before-receipt']){
   const child=spawn(process.execPath,[fileURLToPath(import.meta.url),'child',root,file,expectedSha256,phase],{windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   let stderr='',timer;child.stderr.on('data',chunk=>{stderr=(stderr+chunk).slice(-8192);});
   const closed=new Promise(resolve=>child.once('close',(code,signal)=>resolve({code,signal})));
@@ -44,7 +58,10 @@ if(process.argv[2]==='child'){
    });clearTimeout(timer);assert.equal(ready.phase,phase);
    const directory=ready.directory;
    const inventory=async()=>Object.fromEntries(await Promise.all((await readdir(directory)).sort().map(async name=>[name,await sha256File(path.join(directory,name))])));
-   const before=await inventory();assert.deepEqual(Object.keys(before),phase==='attempt'?['attempt.json']:['attempt.json','prepared.mov']);
+   const before=await inventory(),staged=Object.keys(before).filter(name=>/^\.receipt-[a-f0-9-]{36}\.tmp$/.test(name));
+   assert.equal(staged.length,phase==='attempt'?0:1);
+   assert.deepEqual(Object.keys(before).filter(name=>!staged.includes(name)),phase==='attempt'?['attempt.json']:['attempt.json','prepared.mov']);
+   if(staged.length){const bytes=await readFile(path.join(directory,staged[0]),'utf8');if(phase==='partial-receipt')assert.throws(()=>JSON.parse(bytes));else assert.equal(JSON.parse(bytes).verified,true);}
    const attempt=JSON.parse(await readFile(path.join(directory,'attempt.json'),'utf8'));assert.equal(attempt.sourceSha256,expectedSha256);
    assert.equal(child.kill('SIGKILL'),true);const termination=await closed;
    await assert.rejects(access(path.join(directory,'receipt.json')),{code:'ENOENT'});
@@ -72,6 +89,6 @@ if(process.argv[2]==='child'){
    }finally{await client.close();}
   }finally{clearTimeout(timer);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await closed;}
  }
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({file,expectedSha256,results,scope:'Production preparation killed at instrumented write barriers with no active subprocess. Fresh MCP retry recomputes into a new directory. No mid-FFmpeg orphan handling, interrupted receipt write, automatic discovery, cleanup or power-loss durability qualification.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({file,expectedSha256,results,scope:'Production preparation killed at instrumented completed attempt, partial staged receipt and completed staged receipt barriers with no active subprocess. Final receipt remains absent; fresh MCP discovery/status/retry recomputes into a new directory. No mid-FFmpeg orphan handling, cleanup or power-loss durability qualification.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,passed:true,results}));
 }

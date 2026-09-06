@@ -2,7 +2,7 @@ import {it,expect,vi} from "vitest";
 import {mkdtemp,writeFile,readFile,readdir,realpath,unlink,mkdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets,verifyVideoPacketClock} from "../src/library/source-clock.js";
+import {SourceClockMedia,sourceClockStreams,contiguousPcmPackets,verifyVideoPacketClock,publishPreparationReceipt} from "../src/library/source-clock.js";
 import {loadConfig} from "../src/config.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 const mock=vi.hoisted(()=>({run:vi.fn()}));
@@ -99,4 +99,12 @@ it("discovers attempts after damaged pages without disclosing other source recor
  await expect(service.list(f.source,f.options.expectedSha256,undefined,51)).rejects.toThrow();
  await expect(new SourceClockMedia({...f.config,allowedRoots:[root]}).list(f.source,f.options.expectedSha256)).rejects.toThrow();
  await writeFile(f.source,"changed");await expect(service.list(f.source,f.options.expectedSha256)).rejects.toThrow("source changed");
+});
+it("publishes exactly one complete receipt without replacing a competing receipt",async()=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),"avid-receipt-")),first={marker:"first",values:Array.from({length:100},(_,i)=>i)},second={marker:"second",values:[7]};
+ const results=await Promise.allSettled([publishPreparationReceipt(directory,first),publishPreparationReceipt(directory,second)]);
+ expect(results.filter(r=>r.status==="fulfilled")).toHaveLength(1);
+ const bytes=await readFile(path.join(directory,"receipt.json"),"utf8");expect([first,second]).toContainEqual(JSON.parse(bytes));
+ await expect(publishPreparationReceipt(directory,{replacement:true})).rejects.toThrow();
+ expect(await readFile(path.join(directory,"receipt.json"),"utf8")).toBe(bytes);expect(await readdir(directory)).toEqual(["receipt.json"]);
 });
