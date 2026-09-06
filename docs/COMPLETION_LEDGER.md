@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Preserve the installation-to-recovery harness chain
+
+The preceding lifecycle extension removed the first installation by default, breaking the existing `qualify-package-removal.mjs` consumer. Package deletion is now selected explicitly with `--remove-packages`; the default again retains both installations after configuration rollback/removal. Unknown arguments are rejected before creating fixtures. Local setup documentation describes both paths.
+
+Actual execution of the corrected default followed by the separate removal harness passed on fresh current-branch installations. It verified live-server and added-file refusal, manually staged intact quarantine, refusal while a server ran from that quarantine, recovery after shutdown, successful recovered-server ping, and explicit removal of both packages with the original archive preserved. Evidence: `.avid-mcp-analysis/package lifecycle ccc08299-3833-475d-b6ca-bbfed88e2ad1/evidence.json` and `removal-evidence.json`; logs: `package-recovery-chain-install.log` and `package-recovery-chain-removal.log`. This simulates the intact pre-deletion interruption state; it is not a forced process crash, partial-deletion repair or power-loss proof. Production code is unchanged. Syntax/diff checks passed; prior 2d00361 CI/CodeQL passed. Full-plan acceptance remains open.
+
 ### Installed package removal after configuration rollback
 
 Extended `qualify-package-install.mjs` beyond its prior two-install activation/rollback/configuration-removal coverage. Actual Windows execution refused package removal while its stdio server remained live, then successfully pinged that same server. After closing the client, explicit removal succeeded and filesystem inspection confirmed the owned installation directory absent. The second installation's complete tree remained unchanged; client configuration and source archive hashes were preserved. Evidence: `.avid-mcp-analysis/package lifecycle 83cbd96f-6fe4-4106-9af4-0dc2ea1fae9a/evidence.json`; log: `.avid-mcp-analysis/package-lifecycle-removal.log`.
