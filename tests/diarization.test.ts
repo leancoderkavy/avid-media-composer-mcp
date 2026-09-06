@@ -34,7 +34,7 @@ it("persists source-time overlapping spans, paginates after reconnect and delete
 it("rejects damaged audio and unauthorized sources and reports unavailable saved analyses",async()=>{
   const f=await fixture(),result=await f.speakers.generate(f.id,0,2);await expect(new SpeakerAnalysis({...f.config,allowedRoots:[]}).read(result.analysisId)).rejects.toThrow();
   await writeFile(path.join(f.base,`speakers-${result.analysisId}`,"speech.f32"),"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow("audio changed");expect((await f.speakers.list(f.id)).analyses[0]).toMatchObject({state:"unavailable"});
-  await writeFile(f.source,"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow("source changed");
+  await writeFile(f.source,"changed");await expect(f.speakers.read(result.analysisId)).rejects.toThrow(/[Ss]ource changed/);
 });
 it("keeps valid results discoverable beside corrupt, mismatched and unpublished records with bounded diagnostics",async()=>{
   const f=await fixture(),valid=await f.speakers.generate(f.id,0,2),record=await readFile(path.join(f.base,`speakers-${valid.analysisId}`,"analysis.json"),"utf8"),ids:string[]=[];
@@ -164,7 +164,7 @@ it("rejects stale checkpoints, changed runtime/audio/source and insufficient res
   await expect(new SpeakerAnalysis({...f.config,capabilities:new Set(["inspect"])}).resume(parentId,checkpoint.sha256)).rejects.toThrow();
   mocks.runtime.mockResolvedValueOnce({unchanged:true,treeSha256:"c".repeat(64),receipt:{workerSha256:"b".repeat(64)}});await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("runtime changed");expect(mocks.run).not.toHaveBeenCalled();
   const audio=path.join(f.base,`speakers-${parentId}`,"speech.f32"),original=await readFile(audio);await writeFile(audio,"corrupt");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("audio changed");await writeFile(audio,original);
-  await writeFile(f.source,"changed");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow("source changed");expect(mocks.run).not.toHaveBeenCalled();
+  await writeFile(f.source,"changed");await expect(f.speakers.resume(parentId,checkpoint.sha256)).rejects.toThrow(/[Ss]ource changed/);expect(mocks.run).not.toHaveBeenCalled();
 });
 it("requires explicit saved options and refuses nonfinite checkpoint audio even when its checksum matches",async()=>{
   const f=await fixture(),normal=mocks.run.getMockImplementation()!;mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,0,2)).rejects.toThrow();

@@ -39,7 +39,7 @@ export class SpeakerAnalysis{
   private tail:Promise<unknown>=Promise.resolve();
   constructor(private config:ServerConfig){}
   private serialize<T>(fn:()=>Promise<T>){const operation=this.tail.then(fn);this.tail=operation.catch(()=>{});return operation;}
-  private async source(id:string){sha.parse(id);const [entry]=await new MediaLibrary(this.config).metadata([id]);if(!entry)throw new Error("Unknown speaker media");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Speaker source changed; reindex");return {source,entry};}
+  private async source(id:string){sha.parse(id);const entry=await new MediaLibrary(this.config).validatedMetadata(id);if(!entry)throw new Error("Unknown speaker media");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Speaker source changed; reindex");return {source,entry};}
   private async directory(analysisId:string){uuid.parse(analysisId);const root=await new MediaLibrary(this.config).directory();return resolveReadablePath(path.join(root,`speakers-${analysisId}`),[root],"directory");}
   private async record(analysisId:string){
     const directory=await this.directory(analysisId),file=await resolveReadablePath(path.join(directory,"analysis.json"),[directory],"file"),bytes=await readBoundedFile(file,2*1024*1024),record=recordSchema.parse(JSON.parse(bytes.toString("utf8")));
