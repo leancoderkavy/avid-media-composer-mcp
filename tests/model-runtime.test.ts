@@ -1,4 +1,4 @@
-import {mkdtemp,mkdir,writeFile} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,realpath} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {pathToFileURL} from "node:url";
@@ -33,7 +33,7 @@ it("bypasses pipeline preflight and enforces local pinned component options",asy
  await writeFile(path.join(root,"runtime","installation.json"),JSON.stringify({schema:1,kind:"avid-model-runtime",transformers:"4.2.0",treeSha256,checkedAt:new Date().toISOString(),nodeVersion:process.versions.node,checks:{scriptsDisabled:true,auditHighPassed:true,importPassed:true},adoptedLegacy:false}));
  const loaded=await modelRuntime(root),revision="a".repeat(40);
  for(const task of ["summarization","automatic-speech-recognition","text-generation"] as const)await loaded.pipeline(task,"owner/fixture",{revision,local_files_only:false,cache_dir:"wrong",dtype:"q8"});
- const internal=await import(pathToFileURL(entry).href);expect(internal.env).toMatchObject({allowRemoteModels:false,cacheDir:path.resolve(root)});expect(internal.calls).toHaveLength(7);
+ const internal=await import(pathToFileURL(await realpath(entry)).href);expect(internal.env).toMatchObject({allowRemoteModels:false,cacheDir:path.resolve(root)});expect(internal.calls).toHaveLength(7);
  for(const call of internal.calls){expect(call.model).toBe(path.resolve(root,"owner/fixture",revision));expect(call.options).toMatchObject({revision,local_files_only:true,cache_dir:path.resolve(root),dtype:"q8"});}
  await expect(loaded.pipeline("summarization","owner/fixture",{})).rejects.toThrow("fixed model revision");
  await expect(loaded.pipeline("feature-extraction","owner/fixture",{revision})).rejects.toThrow("Unsupported");

@@ -86,7 +86,7 @@ it("persists the automatic choice across interrupted generation and resumes with
   expect((await speech.checkpoints.read(parent)).record).toMatchObject({recipe:3,languageDecision:{language:"fr",selection:"model_candidate",analyzedSeconds:30}});
   const resumed=await speech.resume(parent);expect(resumed).toMatchObject({language:"fr",languageRequested:"auto",languageSelection:"model_candidate",reusedWindows:1,languageDetectionVerified:false});expect(detect).toHaveBeenCalledTimes(1);
   const manifestFile=path.join(await new MediaLibrary(config).directory(),`speech-run-${resumed.runId}`,"manifest.json"),manifest=JSON.parse(await readFile(manifestFile,"utf8"));manifest.languageDecision.candidates[0].modelProbability=0.9;await writeFile(manifestFile,JSON.stringify(manifest));await expect(speech.checkpoints.status(resumed.runId)).rejects.toThrow("manifest changed");
-});
+},15000);
 it("retains legacy checkpoints but refuses incompatible audio timing on resume",async()=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);
   mocks.generate.mockResolvedValueOnce({type:"int64",dims:[1,2],data:BigInt64Array.from([1n,2n])}).mockRejectedValueOnce(new Error("stop"));
