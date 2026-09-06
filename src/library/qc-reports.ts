@@ -5,6 +5,7 @@ import * as z from "zod/v4";
 import type {ServerConfig} from "../config.js";
 import {MediaLibrary} from "./media-library.js";
 import {qcOptions} from "./qc.js";
+import {audioTimingSchema} from "./audio-timing.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {readBoundedFile} from "../security/bounded-read.js";
 import {sha256File} from "../analysis/file-inventory.js";
@@ -13,10 +14,11 @@ const digest=z.string().regex(/^[a-f0-9]{64}$/),revisionSchema=z.string().uuid()
 const videoCoverageSchema=z.object({decodedFrames:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),requestedSeconds:z.number().positive().max(600),meaning:z.string().max(10000)}).strict();
 const coverageSchema=z.object({samplesPerChannel:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),sampleRate:z.number().int().positive().max(768000),decodedSeconds:z.number().positive(),requestedSeconds:z.number().positive().max(600),amountMatchesRequestedDuration:z.boolean(),meaning:z.string().max(10000)}).strict();
 const reportSchema=z.object({schema:z.literal(1),id:digest,range:z.object({start:z.number().nonnegative(),end:z.number().positive()}).refine(r=>r.end>r.start),options:qcOptions,streams:z.object({video:z.number().int().nonnegative().nullable(),audio:z.number().int().nonnegative().nullable()}),findings:z.record(z.string(),z.unknown()),streamDetails:z.unknown().optional(),timing:z.unknown().optional(),audioCoverage:coverageSchema.nullable().optional(),reviewRequired:z.literal(true),limitations:z.array(z.string().max(10000)).max(100),sourceModified:z.literal(false)})
-  .extend({videoCoverage:videoCoverageSchema.nullable().optional()})
+  .extend({videoCoverage:videoCoverageSchema.nullable().optional(),audioTiming:audioTimingSchema.nullable().optional(),audioTimingMeaning:z.string().max(10000).optional()})
   .refine(value=>value.range.start===value.options.start&&value.range.end===value.options.end,"QC range and options disagree")
   .superRefine((value,ctx)=>{
     const {video,audio}=value.streams;
+    if(value.audioTiming!==undefined){const t=value.audioTiming;if(t===null?audio!==null:audio===null||t.sampleRate!==value.audioCoverage?.sampleRate||t.samples!==value.findings.audioSamplesPerChannel)ctx.addIssue({code:"custom",message:"QC audio timing is inconsistent"});}
     if((video===null&&audio===null)||(video!==null&&video===audio)||
       (value.options.videoStream!==undefined&&value.options.videoStream!==video)||
       (value.options.audioStream!==undefined&&value.options.audioStream!==audio)){

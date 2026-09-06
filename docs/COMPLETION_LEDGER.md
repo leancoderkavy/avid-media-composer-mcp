@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Audio QC timestamp accounting
+
+Audio QC now records bounded integer frame timestamp accounting before loudness normalization, distinguishing sample amounts from adjacent-frame gaps/overlaps. Missing/reordered/unsafe observations and sample-total inconsistencies fail; persisted reads validate accounting and stream metadata while preserving legacy reports. Actual original/prepared Sonoma [60,90) MCP QC matched independently clipped FFprobe timestamps and PCM sample counts, then matched saved-report retrieval. Original: 320 gap ticks, 3,776 overlap ticks, six discontinuities; prepared: none. Source hashes unchanged. Evidence: `.avid-mcp-analysis/sonoma-qc-amount-c0ad7c43-495b-48d6-afe1-e4c5f39efc6d/evidence.json`; see QC_AUDIO_TIMING.md. Full local check passed: 560 TypeScript tests, 36 Python tests, 137 tools, five skills, transports and fresh package (`check-audio-timing.log`). Union coverage, perceptual sync and physical trim handles remain unverified.
+
 ### Saved trim coordinate-origin checks
 
 Full local check passed: 555 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-trim-origin.log`).

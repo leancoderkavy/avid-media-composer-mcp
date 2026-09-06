@@ -32,8 +32,16 @@ try{
   const samplesPerChannel=bytes/4;
   assert.equal(samplesPerChannel,source.samples);assert.equal(report.audioCoverage.samplesPerChannel,samplesPerChannel);
   assert.equal(report.audioCoverage.amountMatchesRequestedDuration,samplesPerChannel===1440000);
+  const audioProbe=await runProcess('ffprobe',['-v','error','-select_streams','a:0','-show_frames','-show_entries','frame=best_effort_timestamp,nb_samples:stream=time_base','-of','json',source.file],{timeoutMs:120000,maxOutputBytes:8*1024*1024});assert.equal(audioProbe.exitCode,0,audioProbe.stderr);
+  const audioData=JSON.parse(audioProbe.stdout);assert.equal(audioData.streams[0].time_base,'1/48000');assert.equal(origin,0);
+  const intervals=audioData.frames.map(f=>({start:Math.max(60*48000,f.best_effort_timestamp),end:Math.min(90*48000,f.best_effort_timestamp+f.nb_samples)})).filter(f=>f.end>f.start);
+  let gaps=0,overlaps=0,discontinuities=0;
+  for(let i=1;i<intervals.length;i++){const gap=intervals[i].start-intervals[i-1].end;if(gap)discontinuities++;if(gap>0)gaps+=gap;else overlaps-=gap;}
+  const independentTiming={frames:intervals.length,sampleRate:48000,samples:intervals.reduce((sum,f)=>sum+f.end-f.start,0),firstPts:intervals[0].start-60*48000,endPts:intervals.at(-1).end-60*48000,gapSamples:gaps,overlapSamples:overlaps,discontinuities};
+  assert.deepEqual(report.audioTiming,independentTiming);
+  const saved=await call('avid_read_qc_report',{id:source.sha256,revision:report.revision});assert.deepEqual(saved.report.audioTiming,independentTiming);
   assert.equal(await sha256File(source.file),source.sha256);
-  results.push({source,report,pcm,pcmSha256:await sha256File(pcm),samplesPerChannel,videoFrames,sourceUnchanged:true});
+  results.push({source,report,pcm,pcmSha256:await sha256File(pcm),samplesPerChannel,videoFrames,independentTiming,savedTimingMatches:true,sourceUnchanged:true});
  }
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,range:[60,90],results,limitations:['One fixed Sonoma range','Sample amount does not identify timestamp overlaps/gaps or establish perceptual sync','Existing prepared source-clock artifact used']},null,2));
  console.log(JSON.stringify({ok:true,root,counts:results.map(r=>({name:r.source.name,samples:r.samplesPerChannel}))}));

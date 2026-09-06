@@ -46,6 +46,14 @@ it("validates stored sample amount arithmetic and stream selection without inven
  }
  await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:0,audio:null},audioCoverage:null}));expect((await f.service.read(f.id,first)).audioCoverageStatus).toBe("audio_not_selected");
 });
+it("preserves audio timing on read and rejects inconsistent stream or sample accounting",async()=>{
+ const f=await fixture(),audioTiming={frames:2,sampleRate:48000,samples:48000,firstPts:0,endPts:48010,gapSamples:10,overlapSamples:0,discontinuities:1};
+ const current={...f.report,findings:{...f.report.findings,audioSamplesPerChannel:48000},audioCoverage:{samplesPerChannel:48000,sampleRate:48000,decodedSeconds:1,requestedSeconds:4,amountMatchesRequestedDuration:false,meaning:'fixture'},audioTiming};
+ await writeFile(f.reportPath,JSON.stringify(current));expect((await f.service.read(f.id,first)).report.audioTiming).toEqual(audioTiming);
+ for(const change of [{audioTiming:null},{audioTiming:{...audioTiming,sampleRate:44100}},{audioTiming:{...audioTiming,endPts:48000}},{streams:{video:0,audio:null}}]){
+  await writeFile(f.reportPath,JSON.stringify({...current,...change}));await expect(f.service.read(f.id,first)).rejects.toThrow();
+ }
+});
 it("rejects contradictory selected streams in direct reads and discovery",async()=>{
  const f=await fixture();
  for(const change of [
