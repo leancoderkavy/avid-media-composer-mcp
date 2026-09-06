@@ -21,17 +21,20 @@ try{
  const shots=await call('avid_detect_shots',{id,options:{start:0,end:0.5}});assert.ok(shots.decodedFrames>0);assert.equal(shots.id,id);const shotBytes=await readFile(shots.output,'utf8');
  const visual=await call('avid_index_visual',{ids:[id],samplesPerFile:1,range:{start:0,end:0.5}});assert.equal(visual.samples,1);
  const speech=await call('avid_transcribe_media',{id,start:0,end:0.5,options:{model:'tiny.en',language:'en'}});
+ const captionBatch=await call('avid_caption_batch',{id,times:[0.25]});assert.equal(captionBatch.state,'completed');assert.equal(captionBatch.completedCaptions,1);
  const qc=await call('avid_media_qc',{id,options:{start:0,end:0.5,audioStream:null}});await client.close();client=await connect();
  const visualMatch=await call('avid_search_visual_frame',{indexId:visual.indexId,id,time:0.25,limit:1});
  assert.equal(visualMatch.matchingSamples,1);assert.equal(visualMatch.results[0].id,id);assert.equal(visualMatch.results[0].time,0.25);assert.ok(visualMatch.results[0].score>0.999);
+ const savedCaptions=await call('avid_caption_run',{runId:captionBatch.runId});assert.equal(savedCaptions.state,'completed');assert.deepEqual(savedCaptions.captions,captionBatch.captions);
  const savedSpeech=await call('avid_speech_run',{runId:speech.runId});assert.equal(savedSpeech.state,'completed');
  const savedQc=await call('avid_read_qc_report',{id,revision:qc.revision});assert.equal(savedQc.report.id,id);
  await writeFile(alias,'changed disposable alias');const directory=path.dirname(report.output),before=(await readdir(directory)).sort();
  const visualRefused=await client.callTool({name:'avid_search_visual_frame',arguments:{indexId:visual.indexId,id,time:0.25,limit:1}});assert.equal(visualRefused.isError,true);assert.ok(JSON.stringify(visualRefused).includes('Source changed since indexing'));
+ const captionsRefused=await client.callTool({name:'avid_caption_run',arguments:{runId:captionBatch.runId}});assert.equal(captionsRefused.isError,true);assert.ok(JSON.stringify(captionsRefused).includes('Source changed since indexing'));
  const speechRefused=await client.callTool({name:'avid_speech_run',arguments:{runId:speech.runId}});assert.equal(speechRefused.isError,true);assert.ok(JSON.stringify(speechRefused).includes('Source changed since indexing'));
  const qcRefused=await client.callTool({name:'avid_read_qc_report',arguments:{id,revision:qc.revision}});assert.equal(qcRefused.isError,true);assert.ok(JSON.stringify(qcRefused).includes('Source changed since indexing'));
  const shotsRefused=await client.callTool({name:'avid_detect_shots',arguments:{id,options:{start:0,end:0.5}}});assert.equal(shotsRefused.isError,true);assert.ok(JSON.stringify(shotsRefused).includes('Source changed since indexing'));assert.equal(await readFile(shots.output,'utf8'),shotBytes);
  const refused=await client.callTool({name:'avid_media_report',arguments:{ids:[id]}});assert.equal(refused.isError,true);assert.ok(JSON.stringify(refused).includes('Source changed since indexing'));assert.deepEqual((await readdir(directory)).sort(),before);assert.equal(await readFile(report.output,'utf8'),html);assert.equal(await sha256File(source),sourceHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,sourceHash,sourceUnchanged:true,report,copied,thumbnail,qc,savedQc,shots,speech,savedSpeech,visual,visualMatch,allCopiesChangedRefused:true,scope:'Actual MCP reconnect using a one-second Sonoma-derived disposable fixture; report, byte copy, thumbnail, shot decoding, local speech/checkpoint read and video-only QC/read via matching alias'},null,2));console.log(JSON.stringify({passed:true,root}));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,sourceHash,sourceUnchanged:true,report,copied,thumbnail,qc,savedQc,shots,speech,savedSpeech,visual,visualMatch,captionBatch,savedCaptions,allCopiesChangedRefused:true,scope:'Actual MCP reconnect using a one-second Sonoma-derived disposable fixture; report, byte copy, thumbnail, shot decoding, local speech/checkpoint read and video-only QC/read via matching alias'},null,2));console.log(JSON.stringify({passed:true,root}));
 }finally{await client.close();}
 

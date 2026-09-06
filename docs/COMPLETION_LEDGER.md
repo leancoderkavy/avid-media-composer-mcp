@@ -688,3 +688,7 @@ Uniform visual-index planning, final source verification and resume-time checkpo
 ### Full verification after alias recovery
 
 `npm run check` passed on source commit `911298b`: 489 TypeScript tests across 83 files, 32 Python tests, 135-tool stdio/HTTP checks, dry packing and fresh installation with exact definitions, six notice mappings, inventory/source refusal, source tracing, five client formats and Python available/missing/restored isolation. Log: `.avid-mcp-analysis/check-alias-recovery.log`. Current-head CI was still running when checked; CodeQL for `1e448b0` was successful. Caption/speaker/people alias integration and the broader original feature/quality/host acceptance requirements remain open.
+
+### Caption and batch alias recovery
+
+Frame-caption generation/reads and caption-batch source validation now use matching checksum-verified aliases. Build and ten caption/visual-summary tests passed. The actual MCP alias harness generated one local Florence caption at 0.25 seconds, verified completed batch state and identical caption references after reconnect, then rejected batch verification once both disposable copies changed. The full cumulative alias harness also passed, preserving the original Sonoma checksum. Evidence: `.avid-mcp-analysis/alias-reconnect-b89da7ce-6e3b-4f6a-9019-2f5cb0f7d532/evidence.json`; log: `alias-caption-reconnect.log`. This qualifies generation/read/source recovery, not caption factual quality or a new live interrupted batch-resume test.

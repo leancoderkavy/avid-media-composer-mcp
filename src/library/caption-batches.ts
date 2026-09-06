@@ -19,7 +19,7 @@ async function publish(file:string,value:unknown){const temporary=file+`.${rando
 export class CaptionBatches{
   constructor(private config:ServerConfig,private captions=new FrameCaptions(config)){}
   async dispose(){await this.captions.dispose();}
-  private async source(id:string){sha.parse(id);const [entry]=await new MediaLibrary(this.config).metadata([id]);if(!entry)throw new Error("Caption batch media unavailable");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Caption batch source changed");return entry;}
+  private async source(id:string){sha.parse(id);const entry=await new MediaLibrary(this.config).validatedMetadata(id);if(!entry)throw new Error("Caption batch media unavailable");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Caption batch source changed");return entry;}
   private async directory(runId:string){uuid.parse(runId);const root=await new MediaLibrary(this.config).directory();return resolveReadablePath(path.join(root,`caption-run-${runId}`),[root],"directory");}
   async read(runId:string){
     const directory=await this.directory(runId),record=header.parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"manifest.json"),[directory],"file"),16384));if(record.runId!==runId)throw new Error("Caption run identity mismatch");await this.source(record.id);

@@ -44,7 +44,7 @@ it("rejects duplicate/unordered references, source scope and writes without perm
  await expect(f.summaries.generate(f.id,[...f.references].reverse())).rejects.toThrow("increasing");
  await expect(new VisualSummaries({...f.config,allowedRoots:[]}).generate(f.id,f.references)).rejects.toThrow();
  await expect(new VisualSummaries({...f.config,capabilities:new Set(["inspect"])}).generate(f.id,f.references)).rejects.toThrow();
- await writeFile(f.source,"changed");await expect(f.summaries.generate(f.id,f.references)).rejects.toThrow("source changed");
+ await writeFile(f.source,"changed");await expect(f.summaries.generate(f.id,f.references)).rejects.toThrow(/[Ss]ource changed/);
 });
 it("continues bounded discovery past corrupt and unrelated revisions after restart",async()=>{
  const f=await fixture(),saved=await f.summaries.generate(f.id,f.references),damaged="00000000-0000-4000-8000-000000000001",other="00000000-0000-4000-8000-000000000002";
