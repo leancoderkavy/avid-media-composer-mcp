@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Interrupted recovery guard visibility
+
+An interrupted recovery could delete the owner lock while retaining its recovery guard. The old inspection then returned `locked: false` without explaining why scans remained blocked, and a guard-only orphan could disappear from listing. Inspection now reports `blockedByRecoveryGuard`, bounded guard bytes/hash and ineligibility for ordinary recovery. Listing includes guard-only IDs and marks them unavailable, with or without a manifest. Internal owner validation remains separate so an active recovery can verify its own guarded release.
+
+Actual fresh installed-runtime qualification paused an owned recovery process after owner-lock deletion and guard-handle closure, killed it before guard deletion, then reconnected through MCP. Before and after termination, inspection correctly distinguished absent owner from retained guard; discovery, scan refusal, recovery refusal and unchanged guard/media/entry hashes passed. Evidence: `.avid-mcp-analysis/watch-lock-recovery-186ac1d7-8ddd-4308-804a-2440ac2150ca/evidence.json`. That owned guard remains intentionally retained. Automatic guard recovery and power-loss qualification remain open.
+
+Full local check passed 717 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 tools/five skills (`check-watch-guard-status.log`). CI and CodeQL for preceding 00640f2 passed; the new commit has separate CI. The full goal remains incomplete.
+
 ### Interrupted watch creation recovery
 
 Lock inspection previously required a published watch manifest, making a process crash during first-time configuration undiscoverable through watch listing and ineligible for recovery. Listing now includes orphan lock IDs, while inspection explicitly distinguishes missing configuration from malformed or inaccessible existing state. Only actual absence skips manifest validation; matching versioned owner ID, local host, configured-root scope, stopped PID and checksum remain required. Recovery does not invent a manifest or retry creation.
