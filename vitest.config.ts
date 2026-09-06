@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Keep process-heavy suites bounded on high-core development machines.
+    maxWorkers: 4,
     coverage: {
       provider: "v8",
       thresholds: {
