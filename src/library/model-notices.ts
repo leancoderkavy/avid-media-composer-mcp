@@ -1,7 +1,7 @@
 import path from "node:path";
 import {fileURLToPath} from "node:url";
-import {mkdir,realpath,lstat,writeFile} from "node:fs/promises";
-import {createHash} from "node:crypto";
+import {mkdir,realpath,lstat,writeFile,link,unlink} from "node:fs/promises";
+import {createHash,randomUUID} from "node:crypto";
 import {readBoundedFile} from "../security/bounded-read.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 
@@ -25,7 +25,12 @@ export async function installModelNotice(cache:string,model:string,revision:stri
   directory=await resolveReadablePath(directory,[root],"directory");
  }
  const file=path.join(directory,"UPSTREAM.LICENSE");let created=false;
- try{await writeFile(file,bytes,{flag:"wx"});created=true;}catch(error){if((error as NodeJS.ErrnoException).code!=="EEXIST")throw error;}
+ const staged=path.join(directory,`.notice-${randomUUID()}.creating`);
+ // Publish a completed file exclusively; concurrent setup must never read a partial notice.
+ await writeFile(staged,bytes,{flag:"wx"});
+ try{
+  try{await link(staged,file);created=true;}catch(error){if((error as NodeJS.ErrnoException).code!=="EEXIST")throw error;}
+ }finally{await unlink(staged);}
  if((await lstat(file)).isSymbolicLink())throw new Error("Model notice cannot be a link");
  if(digest(await readBoundedFile(file,16384))!==notice.sha256)throw new Error("Existing model notice changed; refusing to overwrite it");
  return {file,sha256:notice.sha256,created,scope:"Retained original-project notice; see packaged provenance documentation for conversion-specific limitations"};
