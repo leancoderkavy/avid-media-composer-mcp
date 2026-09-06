@@ -31,3 +31,9 @@ This qualifies the single same-session cycle, including intervening saves. It do
 ## MCP verification tool
 
 avid_verify_saved_trim compares two saved snapshot revisions with explicit baselineBin/candidateBin, mobId, cut, delta (-1 or 1), and selected trackOrdinals. Capture each state using avid_snapshot_saved_bins. The result verifies all normalized captured mob fields within the selected bins; it does not inspect other bins or execute a trim. Warning/incomplete graphs, unresolved or mixed-rate direct sources, unsupported cut components and unrelated edits are refused. Real MCP evidence: .avid-mcp-analysis/saved-trim-mcp-0d7379ba-0c81-474e-bf2e-bd61d85d4dd0/evidence.json. The captured Avid V1/A1/A2 trim passed, while a V1-only expectation failed.
+
+## Backward trim and restoration
+
+A new controlled computer-use cycle on the same disposable Copy.05 sequence entered dual-roller mode with all three media tracks selected, pressed comma once, saved, then invoked undo and saved again. The counters changed from 0/0 to -1/-1 and back to 0/0. The saved graph moved the cut from frame 60 to 59 and incoming source starts from 3300 to 3299 on V1/A1/A2, retaining 120 total frames. Production verification passed the backward edit and forward inverse. All decoded restored mobs equal the baseline; trim mode was exited afterward.
+
+Evidence: `.avid-mcp-analysis/native-ui-backward-20260906/verification.json`. Baseline SHA-256: `a32ac6db26653ff723c4d947d70a9e60ce2f1b806c7f9215984e27b53f33b03b`; backward: `25cbac5b2e20f132afa3fb71ce870a0949b42b24176e8d93cf931b3963f2b898`; restored: `8b8ccefa6225a38acc6aae30be05d05b469c14b8758afc12bdd80494df785822`. The capture/verifier scripts are `capture-native-ui-backward.mjs` and `verify-native-ui-backward.mjs`. This qualifies one observed negative-direction edit and same-session recovery; it does not ship UI execution or establish playback fidelity.
