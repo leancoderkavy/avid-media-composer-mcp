@@ -1,4 +1,4 @@
-import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,lstat} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -21,5 +21,24 @@ const updated=await cli(second.setup,[...base,'--update','--expected-sha256',ini
 const restored=await cli(second.setup,[...base,'--restore',updated.backup,'--expected-sha256',updated.sha256]);await ping(first.entry);
 const removed=await cli(first.setup,[...base,'--remove','--expected-sha256',restored.sha256]);assert.ok(!JSON.parse(await readFile(configFile,'utf8')).mcpServers['avid-media-composer']);
 assert.equal(await sha256File(archive),hash);assert.equal(await sha256File(first.entry),first.entrySha256);assert.equal(await sha256File(second.entry),second.entrySha256);
-await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,second,initial,updated,restored,removed,archiveUnchanged:true,pings:['first','second','restored-first'],scope:'Two isolated installs of the same branch package; configuration activation/rollback/removal via generated commands, not different-version compatibility, package deletion, system dependency installation or named-client UI'},null,2));
+const packageRoot=path.join(root,'installed packages'),configHash=await sha256File(configFile);
+const firstStatus=await cli('dist/cli.js',['--package-status',first.installationId,'--package-root',packageRoot]);assert.ok(firstStatus.unchanged);
+const removeArgs=['--package-remove',first.installationId,'--package-root',packageRoot,'--expected-sha256',firstStatus.receiptSha256];
+const active=new Client({name:'managed-package-removal-refusal',version:'1.0'});
+await active.connect(new StdioClientTransport({command:process.execPath,args:[first.entry],env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_CAPABILITIES:'inspect'},stderr:'pipe'}));
+let refusal;
+try{
+ assert.ok(!(await active.callTool({name:'avid_ping',arguments:{}})).isError);
+ refusal=await runProcess(process.execPath,['dist/cli.js',...removeArgs],{timeoutMs:60000,maxOutputBytes:2*1024*1024});
+ await writeFile(path.join(root,'active-removal.json'),JSON.stringify(refusal,null,2),{flag:'wx'});
+ assert.notEqual(refusal.exitCode,0);assert.match(refusal.stderr,/Node process references this installation/);
+ assert.equal(await sha256File(first.entry),first.entrySha256);
+ assert.ok(!(await active.callTool({name:'avid_ping',arguments:{}})).isError);
+}finally{await active.close();}
+const packageRemoved=await cli('dist/cli.js',removeArgs);assert.equal(packageRemoved.removed,true);
+await assert.rejects(lstat(first.directory),{code:'ENOENT'});
+assert.equal(await sha256File(second.entry),second.entrySha256);
+const secondStatus=await cli('dist/cli.js',['--package-status',second.installationId,'--package-root',packageRoot]);assert.ok(secondStatus.unchanged);
+assert.equal(await sha256File(configFile),configHash);assert.equal(await sha256File(archive),hash);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,second,initial,updated,restored,removed,firstStatus,activeRemovalRefused:true,activeServerStillResponsive:true,packageRemoved,secondStatus,configurationUnchangedByPackageRemoval:true,archiveUnchanged:true,pings:['first','second','restored-first'],scope:'Two isolated installs of the same branch package; configuration activation/rollback/removal, live-server removal refusal and stopped-package deletion; not different-version compatibility, system dependency installation or named-client UI'},null,2));
 console.log(JSON.stringify({passed:true,evidence:path.join(root,'evidence.json')}));

@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Installed package removal after configuration rollback
+
+Extended `qualify-package-install.mjs` beyond its prior two-install activation/rollback/configuration-removal coverage. Actual Windows execution refused package removal while its stdio server remained live, then successfully pinged that same server. After closing the client, explicit removal succeeded and filesystem inspection confirmed the owned installation directory absent. The second installation's complete tree remained unchanged; client configuration and source archive hashes were preserved. Evidence: `.avid-mcp-analysis/package lifecycle 83cbd96f-6fe4-4106-9af4-0dc2ea1fae9a/evidence.json`; log: `.avid-mcp-analysis/package-lifecycle-removal.log`.
+
+The harness retains the live-refusal response before assertions and uses the existing receipt-checked removal CLI outside the target installation. It creates only isolated fixture installations. Production code is unchanged; this real installation/lifecycle run passed rather than repeating the full unit suite. This does not close named-client GUI onboarding, clean-machine dependencies, optional-model removal, cross-version data compatibility or Mac removal. The full plan remains incomplete.
+
 ### Malformed native diagnostic filtering
 
 Four negative cases reproduced unknown-field disclosure when oversized or malformed structured diagnostics fell back to raw text. The fallback now replaces malformed encoded or structured content with a bounded generic diagnostic while preserving ordinary plain-text errors and known fields from valid objects. The cases failed before the fix and passed afterward; 78 focused native tests passed. Installed-package smoke additionally checks known type-55 serialization and malformed/oversized field omission.

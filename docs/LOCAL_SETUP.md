@@ -289,6 +289,8 @@ The receipt records archive, entry, setup and lockfile hashes plus a complete in
 
 Managed package status/removal (Windows):
 
+The real installation lifecycle harness now verifies two fresh branch installations, configuration activation/rollback/removal, refusal to delete a running server, continued ping after refusal, and successful directory removal after shutdown. It also checks that the other installation's complete tree, client configuration and original archive remain unchanged. Run `node scripts/research/qualify-package-install.mjs` after building. Evidence: `.avid-mcp-analysis/package lifecycle 83cbd96f-6fe4-4106-9af4-0dc2ea1fae9a/evidence.json`. This uses existing Windows/Node prerequisites and synthetic client configuration; named-client GUI and clean-machine qualification remain separate.
+
 ```powershell
 node dist/cli.js --package-status "INSTALLATION_UUID" --package-root "D:\Avid MCP Packages"
 node dist/cli.js --package-remove "INSTALLATION_UUID" --package-root "D:\Avid MCP Packages" --expected-sha256 "RECEIPT_SHA256_FROM_STATUS"
