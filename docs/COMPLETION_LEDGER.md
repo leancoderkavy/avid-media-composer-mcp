@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Cancellation waits for the tree-termination result
+
+Analysis-job cancellation previously advanced the queue as soon as the worker closed, even when Windows taskkill was still pending. The active slot now remains occupied and status remains `cancelling` until both worker closure and the tree-termination attempt settle. The closed worker handle is removed immediately, preventing a late failed tree attempt from sending a fallback kill to a closed PID. Failed tree attempts remain explicit uncertainty; this change does not prove every descendant stopped.
+
+Deterministic tests cover late successful and failed tree results, tree-result-before-close, and shutdown while a late result is pending. Real MCP cancellation of Sonoma QC, queued QC completion, terminal records after reconnect, and unchanged source hash passed in `.avid-mcp-analysis/job-worker-exit-19162dca-85de-4046-8480-d43723e78ca7/evidence.json`. The research harness now supports `--cancel` alongside its existing external worker-exit experiment. This runtime test does not force the race or independently inventory every descendant. Parent-loss containment, power-loss recovery and the full goal remain open.
+
+Full local `npm run check` passed: 719 TypeScript tests, 46 Python tests, stdio/HTTP smoke tests and fresh installed-package/Python/AAF validation with 142 matching tool definitions and five skills (`.avid-mcp-analysis/check-job-tree-order.log`).
+
 ### Observed master-timecode seeking
 
 Computer Use selected the owned Source viewer's sequence master counter and confirmed Right-arrow navigation to frame 1. After a Num Lock toggle, keypad relative +1 reached frame 2; unsigned partial timecode 300 reached frame 90, and 000 restored frame 0. Exact MOB/viewer/frame MCP observations and unchanged saved-bin/source hashes passed at every completed step. The counter was restored to V1 TC1 and the Num Lock toggle repeated; final frame 0 was independently verified. Initial Boolean keyboard state was not measured. The underlying cause of earlier failed entry is not isolated, and no unattended executor or visual playback claim is added. See `NATIVE_UI_SEEK_QUALIFICATION.md` for evidence and the official tracking-format reference.

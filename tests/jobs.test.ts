@@ -53,21 +53,32 @@ it.skipIf(process.platform!=="win32")("retains failed tree termination and waits
  state.workers[0].emit("close",1);await jobs.readStatus(first.id);
  expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:false,reason:"Tree termination timed out"}});jobs.close();
 });
-it.skipIf(process.platform!=="win32")("persists a tree result arriving after worker closure without killing another worker",async()=>{
+it.skipIf(process.platform!=="win32").each([true,false])("waits for a late tree result (success=%s) before advancing the queue",async succeeded=>{
  let resolve!: (value:any)=>void;state.terminate.mockReturnValueOnce(new Promise(done=>{resolve=done;}));
  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
  const second=await jobs.start({kind:"index",files:["second.mp4"]});jobs.cancel(first.id);state.workers[0].emit("close",1);
- resolve({method:"windows-taskkill",succeeded:false,reason:"Tree termination did not report success"});await new Promise(done=>setImmediate(done));
+ expect(await jobs.readStatus(first.id)).toMatchObject({status:"cancelling",workerExit:{code:1}});
+ expect(state.workers).toHaveLength(1);expect(jobs.status(second.id).status).toBe("queued");
+ resolve({method:"windows-taskkill",succeeded,...(!succeeded?{reason:"Tree termination did not report success"}:{})});await new Promise(done=>setImmediate(done));
  expect(state.workers[0].kill).not.toHaveBeenCalled();expect(state.workers[1].kill).not.toHaveBeenCalled();
- await jobs.readStatus(first.id);expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:false}});
+ await jobs.readStatus(first.id);expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded}});
  jobs.close();state.workers[1].emit("close",1);await jobs.readStatus(second.id);
+});
+it.skipIf(process.platform!=="win32")("shutdown during a pending tree result cancels the queue without dispatching it",async()=>{
+ let release!:(value:any)=>void;state.terminate.mockReturnValueOnce(new Promise(resolve=>{release=resolve;}));
+ const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]}),second=await jobs.start({kind:"index",files:["second.mp4"]});
+ jobs.cancel(first.id);state.workers[0].emit("close",1);jobs.close();
+ expect(await jobs.readStatus(first.id)).toMatchObject({status:"cancelling",cancellationReason:"user"});
+ expect(await jobs.readStatus(second.id)).toMatchObject({status:"cancelled",cancellationReason:"shutdown"});
+ release({method:"windows-taskkill",succeeded:true});await new Promise(resolve=>setImmediate(resolve));
+ expect(await jobs.readStatus(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:true}});expect(state.workers).toHaveLength(1);
 });
 it("keeps cancellation pending and does not dispatch the next worker until close",async()=>{
   const jobs=await fixture();const first=await jobs.start({kind:"index",files:["first.mp4"]}),second=await jobs.start({kind:"index",files:["second.mp4"]});
   expect(jobs.cancel(first.id).status).toBe("cancelling");expect(jobs.status(second.id).status).toBe("queued");expect(state.workers).toHaveLength(1);
   state.workers[0].emit("error",new Error("termination failed"));
   expect(jobs.status(first.id).status).toBe("cancelling");expect(state.workers).toHaveLength(1);
-  state.workers[0].emit("close",1);expect(jobs.status(first.id).status).toBe("cancelled");expect(state.workers).toHaveLength(2);
+  state.workers[0].emit("close",1);await jobs.readStatus(first.id);expect(jobs.status(first.id).status).toBe("cancelled");expect(state.workers).toHaveLength(2);
   jobs.close();state.workers[1].emit("close",1);
   expect((await jobs.journal.read(first.id)).status).toBe("cancelled");
 });
@@ -82,7 +93,7 @@ it("oversized worker output requests termination and cannot become a successful 
   state.workers[0].stdout.emit("data",Buffer.alloc(2*1024*1024+1));
   expect(jobs.status(first.id)).toMatchObject({status:"cancelling",cancellationReason:"output_limit",error:"Worker output exceeded 2 MiB; cancellation requested"});
   state.workers[0].stdout.emit("data",Buffer.from('{}'));state.workers[0].emit("close",0);
-  expect(jobs.status(first.id).status).toBe("cancelled");expect(jobs.status(first.id).result).toBeUndefined();jobs.close();
+  expect((await jobs.readStatus(first.id)).status).toBe("cancelled");expect(jobs.status(first.id).result).toBeUndefined();jobs.close();
 });
 
 it("does not expose a completed status before its terminal journal write settles",async()=>{

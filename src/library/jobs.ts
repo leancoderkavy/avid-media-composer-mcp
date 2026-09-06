@@ -44,6 +44,7 @@ interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"co
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
   private checkpoints=new Map<string,Promise<void>>();
+  private terminations=new Map<string,Promise<void>>();
   private active=0;
   private closing=false;
   readonly journal:JobJournal;
@@ -83,12 +84,13 @@ export class AnalysisJobs {
       if(process.platform==="win32"){
         // The PID belongs to the worker created below; terminate its ffmpeg descendants too.
         const child=job.child;
-        void terminateWindowsTree(child)!.then(result=>{
+        const termination=terminateWindowsTree(child)!.then(result=>{
           job.treeTermination=result;
           this.checkpoint(job);
           // A failed tree kill is not proof that descendants stopped.
           if(!result.succeeded&&job.child===child)child.kill();
         });
+        this.terminations.set(job.id,termination);
       }else job.child.kill("SIGTERM");
     }
     this.pump();return this.status(id);
@@ -112,7 +114,7 @@ export class AnalysisJobs {
         try{if(failure)throw new Error(failure);job.result=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(Buffer.concat(output)));job.status="completed";}
         catch(e){job.error=(e as Error).message;job.status="failed";}
       }
-      delete job.child;this.checkpoint(job);this.active--;this.pump();
+      delete job.child;this.terminations.delete(job.id);this.checkpoint(job);this.active--;this.pump();
     };
     let outputBytes=0;
     child.stdout.on("data",chunk=>{
@@ -130,7 +132,13 @@ export class AnalysisJobs {
     });
     child.on("close",(code,signal)=>{
       job.workerExit={code,signal:signal??null};
-      finish(code===0?undefined:error||(signal?`Worker terminated by ${signal}`:`Worker exited ${code}`));
+      // Closure alone does not establish that the tree-termination attempt settled.
+      // Release this handle immediately so a late failure cannot kill a closed PID.
+      delete job.child;
+      const failure=code===0?undefined:error||(signal?`Worker terminated by ${signal}`:`Worker exited ${code}`);
+      const termination=this.terminations.get(job.id);
+      if(termination){this.checkpoint(job);void termination.then(()=>finish(failure));}
+      else finish(failure);
     });
     child.stdin.on("error",()=>{});
     child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec}));

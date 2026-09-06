@@ -7,6 +7,8 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
 assert.equal(process.platform,'win32');
+assert.ok(process.argv.slice(2).every(arg=>arg==='--cancel'),'Unknown argument');
+const cancel=process.argv.includes('--cancel');
 const root=path.resolve('.avid-mcp-analysis',`job-worker-exit-${randomUUID()}`);await mkdir(root);
 const file='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id='3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca';assert.equal(await sha256File(file),id);
 const connect=async()=>{const client=new Client({name:'job-worker-exit',version:'1.0'}),transport=new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(file),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}});await client.connect(transport);return {client,transport};};
@@ -20,11 +22,18 @@ try{
  const inventory=spawnSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "ParentProcessId = ${pid}" | Select-Object ProcessId,CreationDate,CommandLine | ConvertTo-Json -Compress`],{encoding:'utf8',windowsHide:true,timeout:15000});assert.equal(inventory.status,0,inventory.stderr);
  const parsed=JSON.parse(inventory.stdout),workers=(Array.isArray(parsed)?parsed:[parsed]).filter(worker=>/[/\\]library[/\\]worker\.js/.test(worker.CommandLine));assert.equal(workers.length,1);const worker=workers[0];assert.ok(Number.isInteger(worker.ProcessId)&&worker.ProcessId>0);
  const current=spawnSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "ProcessId = ${worker.ProcessId}" | Select-Object ProcessId,CreationDate,ParentProcessId | ConvertTo-Json -Compress`],{encoding:'utf8',windowsHide:true,timeout:15000});assert.equal(current.status,0);const matched=JSON.parse(current.stdout);assert.equal(matched.CreationDate,worker.CreationDate);assert.equal(matched.ParentProcessId,pid);
- const killed=spawnSync('taskkill.exe',['/PID',String(worker.ProcessId),'/T','/F'],{encoding:'utf8',windowsHide:true,timeout:15000});await writeFile(path.join(root,'termination.json'),JSON.stringify({worker,killed:{status:killed.status,stdout:killed.stdout,stderr:killed.stderr}},null,2),{flag:'wx'});assert.equal(killed.status,0);
+ if(cancel){
+   const cancelling=await call('avid_cancel_analysis_job',{jobId:first.id});
+   assert.ok(['cancelling','cancelled'].includes(cancelling.status));
+   await writeFile(path.join(root,'termination.json'),JSON.stringify({worker,cancelling},null,2),{flag:'wx'});
+ }else{
+   const killed=spawnSync('taskkill.exe',['/PID',String(worker.ProcessId),'/T','/F'],{encoding:'utf8',windowsHide:true,timeout:15000});await writeFile(path.join(root,'termination.json'),JSON.stringify({worker,killed:{status:killed.status,stdout:killed.stdout,stderr:killed.stderr}},null,2),{flag:'wx'});assert.equal(killed.status,0);
+ }
  const wait=async jobId=>{for(let n=0;n<60;n++){const value=await call('avid_analysis_job_status',{jobId});if(['failed','completed','cancelled'].includes(value.status))return value;await new Promise(resolve=>setTimeout(resolve,500));}throw new Error('Worker completion not observed within observation window');};
- const failed=await wait(first.id),completed=await wait(next.id);assert.equal(failed.status,'failed');assert.equal(failed.result,undefined);assert.ok(failed.workerExit);assert.notEqual(failed.workerExit.code,0);assert.equal(completed.status,'completed');assert.deepEqual(completed.workerExit,{code:0,signal:null});
+ const failed=await wait(first.id),completed=await wait(next.id);assert.equal(failed.status,cancel?'cancelled':'failed');assert.equal(failed.result,undefined);assert.ok(failed.workerExit);assert.notEqual(failed.workerExit.code,0);assert.equal(completed.status,'completed');assert.deepEqual(completed.workerExit,{code:0,signal:null});
+ if(cancel){assert.equal(failed.cancellationReason,'user');assert.equal(failed.treeTermination?.succeeded,true);}
  await connection.client.close();connection=await connect();
- const recovered=[];for(const job of [failed,completed]){const record=await call('avid_analysis_job_status',{jobId:job.id});assert.equal(record.status,job.status);assert.deepEqual(record.workerExit,job.workerExit);assert.equal(record.automaticReplay,false);recovered.push(record);}
+ const recovered=[];for(const job of [failed,completed]){const record=await call('avid_analysis_job_status',{jobId:job.id});assert.equal(record.status,job.status);assert.deepEqual(record.workerExit,job.workerExit);assert.deepEqual(record.treeTermination,job.treeTermination);assert.equal(record.automaticReplay,false);recovered.push(record);}
  assert.equal(await sha256File(file),id);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({failed,completed,recovered,sourceUnchanged:true,scope:'Owned analysis worker tree killed while MCP parent stayed alive. Failed job retained no result, queued real MP4 QC completed, terminal exit details survived reconnect. Not parent-loss/orphan containment or power-loss recovery.'},null,2),{flag:'wx'});console.log(JSON.stringify({root,passed:true}));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({mode:cancel?'mcp-cancellation':'external-worker-exit',failed,completed,recovered,sourceUnchanged:true,scope:'Owned analysis worker stopped while MCP parent stayed alive. Stopped job retained no result, queued real MP4 QC completed, terminal exit and tree-attempt details survived reconnect. Does not force event ordering or independently inventory every descendant; not parent-loss/orphan containment or power-loss recovery.'},null,2),{flag:'wx'});console.log(JSON.stringify({root,passed:true}));
 }finally{await connection.client.close();}
