@@ -14,6 +14,7 @@ import {AafBuilder} from "../library/aaf-builder.js";
 import {verifyNativeAafMaster} from "./aaf-verifier.js";
 
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
+const clipName=z.string().min(1).max(120).refine(value=>value.trim().length>0,"Clip name cannot be blank").refine(value=>/^[\x20-\x7e]+$/.test(value),"Qualified native rename supports printable ASCII only; this host can replace other characters");
 const id = z.string().min(1).max(256);
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
@@ -30,7 +31,7 @@ export const nativeActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("change_marker"), bin: z.string().min(1), mobId: id, guid: id, comment: z.string().max(4000), color }).strict(),
   z.object({ action: z.literal("delete_marker"), bin: z.string().min(1), mobId: id, guid: id }).strict(),
   z.object({ action: z.literal("show_clip"), bin: z.string().min(1), mobId: id }).strict(),
-  z.object({action:z.literal("rename_clip"),bin:z.string().min(1),mobId:id,expectedName:z.string().min(1).max(1024),name}).strict(),
+  z.object({action:z.literal("rename_clip"),bin:z.string().min(1),mobId:id,expectedName:z.string().min(1).max(1024),name:clipName}).strict(),
   z.object({action:z.literal("create_subclip"),bin:z.string().min(1),mobId:id,startFrame:z.number().int().nonnegative().max(2147483647),endFrame:z.number().int().positive().max(2147483647)}).strict().refine(value=>value.endFrame>value.startFrame,"Subclip end must follow start"),
 ]);
 type Action = z.infer<typeof nativeActionSchema>;

@@ -43,6 +43,12 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it("accepts editorial clip names without relaxing filesystem bin-name rules",()=>{
+    const action={action:"rename_clip",bin:"fixture.avb",mobId:"clip",expectedName:"Original"};
+    for(const name of ["Scene 01 / A.B", "Arrival (take 2)"]){expect(nativeActionSchema.parse({...action,name})).toMatchObject({name});}
+    for(const name of ["Café", "葡萄园：到达", "   ","bad\nname","bad\u0000name","bad\u0085name","a".repeat(121)])expect(nativeActionSchema.safeParse({...action,name}).success).toBe(false);
+    expect(nativeActionSchema.safeParse({action:"create_bin",name:"../Café"}).success).toBe(false);
+  });
   it("refuses rename application without edit authority before further native calls",async()=>{
     const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);
     vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetMobInfo"?Promise.resolve([{column_name:"Name",column_value:"Original"}]):original(method,body));
