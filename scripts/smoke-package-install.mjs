@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -129,6 +130,22 @@ try {
   if (tools.tools.length !== 129 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
+  // Tool count alone cannot detect schema changes from newly resolved dependencies.
+  const checkoutClient = new Client({name:"avid-mcp-checkout-schema-reference",version:"1.0.0"});
+  try {
+    await checkoutClient.connect(new StdioClientTransport({
+      command:process.execPath,args:[path.join(root,"dist","index.js")],cwd:temporary,stderr:"pipe",
+      env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.resolve(root,"tests","fixtures","sample-project"),AVID_MCP_CAPABILITIES:"inspect"},
+    }));
+    const reference=await checkoutClient.listTools();
+    if(reference.nextCursor||tools.nextCursor)throw new Error("Package schema comparison requires complete discovery; implement pagination before increasing server page count");
+    const byName=(a,b)=>a.name.localeCompare(b.name);
+    if(!isDeepStrictEqual([...reference.tools].sort(byName),[...tools.tools].sort(byName))) {
+      const expected=new Map(reference.tools.map(tool=>[tool.name,tool]));
+      const changed=tools.tools.filter(tool=>!isDeepStrictEqual(expected.get(tool.name),tool)).map(tool=>tool.name);
+      throw new Error(`Installed tool definitions differ from checkout: ${changed.join(", ") || "tool inventory changed"}`);
+    }
+  } finally {await checkoutClient.close();}
   if (withPython) {
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
@@ -168,6 +185,7 @@ try {
       tools: tools.tools.length,
       skills: skillNames.length,
       install: "fresh-tarball",
+      toolDefinitions: "exact checkout match",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
     }),
