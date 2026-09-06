@@ -1,7 +1,8 @@
 import {z} from "zod";
 import {AvidMcpError} from "../errors.js";
 import {resolveReadablePath} from "../security/path-policy.js";
-import {verifyWindowsLoopbackOwner} from "./loopback-owner.js";
+import {verifyWindowsLoopbackOwner,verifyWindowsLoopbackConnection} from "./loopback-owner.js";
+import {verifiedHttpJson} from "./verified-http.js";
 import path from "node:path";
 
 const matchSchema=z.object({
@@ -56,6 +57,10 @@ export class JumperReadClient {
     if(this.options.owner){
       const url=new URL(this.base);
       await verifyWindowsLoopbackOwner({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",binary:this.options.owner.binary,sha256:this.options.owner.sha256,expectedIdentity:this.options.owner.identity});
+      const owner=this.options.owner;
+      return verifiedHttpJson({url:new URL(this.base+endpoint),...(body===undefined?{}:{body:JSON.stringify(body)}),licenseKey:this.options.licenseKey,
+        timeoutMs:this.options.timeoutMs??10000,maxResponseBytes:this.options.maxResponseBytes??8*1024*1024,
+        verify:peerPort=>verifyWindowsLoopbackConnection({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",peerPort,binary:owner.binary,sha256:owner.sha256,expectedIdentity:owner.identity})});
     }
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),this.options.timeoutMs??10000);
     try{
