@@ -62,7 +62,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -130,6 +130,13 @@ export class NativeAdapter {
       return {viewers,outOfBinOmitted:all.length-viewers.length,scope:"Current viewer entries whose MOB IDs belong to the requested bin. Position is reported by Avid; no playback, source mapping or atomic editor snapshot is verified."};
     }
     if (!mobId || !clips.some(clip => clip.mob_id === mobId)) throw new Error("Clip is not in the specified bin");
+    if(query==='clip_columns'){
+      const columns=z.array(z.object({column_name:z.string().min(1).max(1024),column_value:z.string().max(65536).default('')})).max(512).parse(await this.client.call('GetMobInfo',{mob_id:mobId,includes_empty_columns:true,only_visible_columns:false}));
+      if(new Set(columns.map(c=>c.column_name)).size!==columns.length||columns.reduce((n,c)=>n+c.column_name.length+c.column_value.length,0)>1048576)throw new Error('Duplicate or oversized native clip columns');
+      const after=await this.client.call('GetListOfBinItems',{bin_relative_path:relative,bin_flags:['AllTypes']});
+      if(!after.some(clip=>clip.mob_id===mobId)||(await this.project()).path!==project.path||await this.binPath(project.path,bin??'')!==target)throw new Error('Native clip membership or project changed during column inspection');
+      return {bin:target,mobId,columns,includesEmptyColumns:true,scope:'Avid-reported column values including empty fields; omitted string values use the protobuf empty-string default. Missing rows remain unavailable, not inferred empty. Includes hidden columns. Not an atomic snapshot or metadata-write authorization.'};
+    }
     const response = await this.client.call(query === "tracks" ? "GetMobTrackInfo" : query === "clip" ? "GetMobInfo" : "GetMarkers", { mob_id: mobId });
     if(query==="tracks"){
       if(response.length===0)throw new AvidMcpError("NATIVE_TRACK_DATA_UNAVAILABLE","Avid returned no track information for this bin member. This does not establish that the clip has no tracks. Inspect its current state before relying on track data.");

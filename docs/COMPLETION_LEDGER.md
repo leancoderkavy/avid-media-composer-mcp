@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Explicit empty native clip-column reads
+
+Full local `npm run check` passed: 608 TypeScript tests, Python checks, 139 tools, five matching skills, transports and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-native-clip-columns.log`. Current-change remote verification remains pending.
+
+Investigating safe comment edits showed ordinary GetMobInfo omitted Comments even though the bin declares it. The locally extracted request contract exposes includes_empty_columns and only_visible_columns; an explicit empty-inclusive read returned 179 rows including an empty Comments value. Added scoped `clip_columns` to `avid_native_read` with bounded name/value output, duplicate refusal, protobuf empty-string defaults only for returned rows, and post-read membership/project/path checks. Ordinary clip reads are unchanged. This establishes a needed read precondition; comment writes and clearing remain unqualified.
+
+All 58 native tests passed. Actual MCP results matched direct native values, a second MCP process returned identical data, and the saved bin hash stayed unchanged: `.avid-mcp-analysis/native-bin-columns-3ea0731d-7fde-4787-83bb-2abfa3dbc97d/evidence.json`. See NATIVE_BIN_COLUMNS.md. Prior 065a770 CI/CodeQL passed; c1bfbc1 CodeQL passed while CI remained running at this check. Broader full-plan requirements remain open.
+
 ### Actual AI interpretation of saved effect counts
 
 Added and executed `qualify-codex-effect-report.mjs` against the preceding Sonoma saved-color qualification. Codex made exactly one `avid_saved_sequence_complexity` call; its payload matched an independent ProjectSnapshots read. The structured answer correctly reported two EFF2_LUTSFX nodes, incomplete coverage, unknown render cost and unknown enabled state. The explanation distinguished saved declarations from verified behavior. Source bin, server/client executable and input evidence hashes were unchanged. Evidence: `.avid-mcp-analysis/codex-effect-report-95a54bd7-37df-4e05-b46b-91a41666953d/evidence.json`.

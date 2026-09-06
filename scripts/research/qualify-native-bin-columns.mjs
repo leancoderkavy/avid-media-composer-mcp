@@ -23,12 +23,20 @@ try{
  assert.equal(data.columns.length,179);assert.equal(data.columns.find(c=>c.column_name==='Name').column_is_readonly,false);
  assert.equal(data.columns.find(c=>c.column_name==='Comments').column_is_custom,true);
  assert.ok(data.columns.some(c=>c.column_name==='   '&&c.column_is_readonly));
+ const mobId='060a2b340101010501010f1013-000000-4db8fc4012898806-9c3dd8bbc16d-18d9';
+ const raw=await native.call('GetMobInfo',{mob_id:mobId,includes_empty_columns:true,only_visible_columns:false});
+ const values=await client.callTool({name:'avid_native_read',arguments:{query:'clip_columns',bin,mobId}});events.push(values);
+ assert.ok(!values.isError,JSON.stringify(values));const clipData=values.structuredContent.data;
+ assert.deepEqual(clipData.columns,raw.map(c=>({column_name:c.column_name,column_value:c.column_value??''})));
+ assert.equal(clipData.columns.length,179);assert.equal(clipData.columns.find(c=>c.column_name==='Comments').column_value,'');
  await client.close();
  const reconnected=new Client({name:'native-bin-column-reconnect',version:'1.0'});
  try{
   await reconnected.connect(transport());
   const result=await reconnected.callTool({name:'avid_native_read',arguments:{query:'bin_columns',bin}});events.push(result);
   assert.ok(!result.isError,JSON.stringify(result));assert.deepEqual(result.structuredContent.data,data);
+  const values=await reconnected.callTool({name:'avid_native_read',arguments:{query:'clip_columns',bin,mobId}});events.push(values);
+  assert.ok(!values.isError,JSON.stringify(values));assert.deepEqual(values.structuredContent.data,clipData);
  }finally{await reconnected.close();}
  const after=(await native.call('GetBinColumnInfo',{bin_path:file})).flatMap(body=>body.column);assert.deepEqual(after,data.columns);
  assert.equal(await sha256File(file),hash);

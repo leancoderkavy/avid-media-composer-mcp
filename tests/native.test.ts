@@ -43,6 +43,25 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it('reads empty clip columns without inventing missing rows',async()=>{
+    const f=await hostFixture('inspect'),original=f.client.call.bind(f.client);
+    vi.spyOn(f.client,'call').mockImplementation((method,body)=>{
+      if(method==='GetMobInfo'){expect(body).toEqual({mob_id:'clip',includes_empty_columns:true,only_visible_columns:false});return Promise.resolve([{column_name:'Comments',private:'ignored'},{column_name:'Name',column_value:'Clip'}]);}
+      return original(method,body);
+    });
+    const result=await f.adapter.read('clip_columns','fixture.avb','clip');
+    expect(result).toMatchObject({includesEmptyColumns:true,columns:[{column_name:'Comments',column_value:''},{column_name:'Name',column_value:'Clip'}]});
+    expect(JSON.stringify(result)).not.toContain('"private"');
+  });
+  it.each(['duplicate','malformed','membership'])('refuses %s clip column reads',async variant=>{
+    const f=await hostFixture('inspect'),original=f.client.call.bind(f.client);let queried=false;
+    vi.spyOn(f.client,'call').mockImplementation((method,body)=>{
+      if(method==='GetMobInfo'){queried=true;return Promise.resolve(variant==='duplicate'?[{column_name:'Name'},{column_name:'Name'}]:[{column_name:'Name',column_value:variant==='malformed'?null:'Clip'}]);}
+      if(queried&&variant==='membership'&&method==='GetListOfBinItems')return Promise.resolve([]);
+      return original(method,body);
+    });
+    await expect(f.adapter.read('clip_columns','fixture.avb','clip')).rejects.toThrow();
+  });
   it("reads scoped column declarations with whitespace names and no extra fields",async()=>{
     const f=await hostFixture('inspect'),original=f.client.call.bind(f.client);
     const column={column_name:'   ',column_value_type:'Undefined',column_hidden:false,column_is_custom:false,column_is_readonly:true};

@@ -214,7 +214,7 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
   registerLibraryTools(server, config);
   server.registerTool("avid_native_read", {
     description: "Opt-in Windows native app/project/bin/clip/marker/track inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots. Edl_settings lists preset names without verifying preset content or exporting files. Open_bins returns bounded canonical paths in the current authorized project with project checks before and after enumeration; it is not atomic. Viewers requires bin and omits entries outside it. Tracks requires bin and mobId, and returns labels, flags and segment counts with schema defaults; it does not return clip source ranges or a complete live timeline graph.",
-    inputSchema: { query: z.enum(["app", "project", "bins", "open_bins", "bin", "bin_columns", "clips", "selected_clips", "clip", "markers", "tracks", "viewers", "link_settings", "export_settings", "edl_settings", "import_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
+    inputSchema: { query: z.enum(["app", "project", "bins", "open_bins", "bin", "bin_columns", "clips", "selected_clips", "clip", "clip_columns", "markers", "tracks", "viewers", "link_settings", "export_settings", "edl_settings", "import_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
     outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
   }, async ({ query, bin, mobId }) => execute("avid_native_read", () => native.read(query, bin, mobId)));
   server.registerTool("avid_native_preview", {
