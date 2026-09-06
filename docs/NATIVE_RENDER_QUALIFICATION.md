@@ -1,5 +1,13 @@
 # Avid sequence render qualification
 
+## Isolated color-adapter refresh result, 2026-09-06
+
+Created `MCP_Color_ca6d9cb31bcc.avb` with a copy of the owned Copy.05 sequence and verified saved sequence semantics before refresh, excluding its new name/identity. UI Refresh Sequence > Color Adapters was applied to the selected copy. Native close/open persisted that bin; the saved picture nodes changed to opaque TKFX wrappers. This is evidence of an adapter-related structure change, not full effect/source-graph interpretation.
+
+Export using `MCP_H264_Stereo_Legal_20260905` passed technical verification including all 120 decoded frames, legal-range BT.709 declarations and stereo 48 kHz PCM. Output SHA-256: `d182cfbf8be15552dbe4e426c175c2b15f5bf9226f94b8da923d04e61bca2d19`. Independent full-resolution comparison using the existing source-frame alignment and Lanczos reference yielded mean SSIM 0.958711, minimum 0.901226, RGB RMSE 4.429720 and aggregate PSNR 35.203279 dB. The preceding unrefreshed native render had mean SSIM 0.784061. No output range retagging was applied in this experiment.
+
+Original Copy.05 saved-bin and MP4 hashes remained at their baselines. Evidence is retained in `.avid-mcp-analysis/native-color-fixture-dccc9bf2-5f8a-46ff-9768-3ec701e901e0` and `.avid-mcp-analysis/full-resolution-dc5135ec-151a-4eee-9fab-d7fdf6048cba/evidence.json`. This supports source color-adapter propagation as the next integration target. Scaling differences, broader presets/media, effect mapping, audio fidelity and general color conformance remain open. No production refresh action or automatic correction is claimed.
+
 ## Live source-color and export-preset inspection, 2026-09-06
 
 Computer use inspected the currently loaded `MCP_Sonoma_AAF_Selects.Copy.05` in the Sonoma Windows project. Export As selected `MCP_H264_Stereo_Legal_20260905`. Its UME options showed Rec.709, **Keep as Legal Range**, H.264 8-bit, constant 20 Mbps, PCM stereo 48 kHz/24-bit, Use Marks off, Use Selected Tracks on and Include Inactive Audio Tracks on. The dialogs were canceled; no export or preset save was requested. A temporary Not Responding title during dismissal cleared on fresh observation.

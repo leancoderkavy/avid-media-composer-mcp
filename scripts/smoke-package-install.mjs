@@ -240,7 +240,7 @@ try {
   // Synthetic saved preparation records exercise installed recovery, not media conversion.
   const clockBad=path.join(snapshotDirectory,`source-clock-${baseline}`),clockGood=path.join(snapshotDirectory,`source-clock-${candidate}`);
   await mkdir(clockBad);await mkdir(clockGood);
-  const clockDamaged=path.join(clockBad,"attempt.json"),clockAttempt=path.join(clockGood,"attempt.json"),clockOutput=path.join(clockGood,"prepared.mov");
+  const clockDamaged=path.join(clockBad,"attempt.json"),clockAttempt=path.join(clockGood,"attempt.json"),clockOutput=path.join(await realpath(clockGood),"prepared.mov");
   await writeFile(clockDamaged,"damaged preparation record");
   const clockRecord={source:await realpath(collectionSource),sourceSha256:collectionId,videoStream:0,audioStream:1,output:clockOutput,recipe:"aresample=48000:async=1:first_pts=0",startedAt:"2026-09-06T00:00:00.000Z"};
   const clockRecordBytes=JSON.stringify(clockRecord);await writeFile(clockAttempt,clockRecordBytes);
@@ -255,7 +255,7 @@ try {
       return response.structuredContent.data;
     };
     const next=await clockCall("avid_list_source_clock_attempts",{file:collectionSource,expectedSha256:collectionId,after:clockPage.nextAfter,limit:1});
-    if(next.attempts[0]?.runId!==candidate||next.nextAfter!==null)throw new Error("Installed preparation reconnect lost attempt");
+    if(next.attempts[0]?.runId!==candidate||next.nextAfter!==null)throw new Error(`Installed preparation reconnect lost attempt: ${JSON.stringify(next)}`);
     const unresolved=await clockCall("avid_source_clock_status",{runId:candidate});
     if(unresolved.state!=="unresolved"||unresolved.workerState!=="unknown"||unresolved.outputSha256!==null)throw new Error("Installed unresolved attempt inferred completion");
     const outputBytes=Buffer.from("synthetic prepared bytes"),outputSha256=createHash("sha256").update(outputBytes).digest("hex");await writeFile(clockOutput,outputBytes);

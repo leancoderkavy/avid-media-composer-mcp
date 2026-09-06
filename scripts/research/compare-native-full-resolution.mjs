@@ -11,6 +11,11 @@ const variants=[
  {name:'native',file:path.resolve('.avid-mcp-analysis/native-render-mcp-e0f60e5d-67c3-49ac-9ba0-7de71d73453c/native-export-2984bde7-47e5-4d40-a287-886f9aeb454d/export/render.mp4'),sha256:'8fd3fb4c04d24f3fd2200e600dab3e16edb1ad0329384a6814d1cb22d5f85cc0'},
  {name:'tagged',file:path.resolve('.avid-mcp-analysis/render-range-tags-7a26beb3-2085-44f1-97f5-bdb413f52ace/render-full-range.mp4'),sha256:'c6e125caaeb2c2321f8fd7f762447c0621bbf325d1b528ca9140b914f56d5bca'}
 ];
+assert.ok(process.argv.length<=3,'Supply at most one existing Sonoma render');
+if(process.argv[2]){
+ const file=path.resolve(process.argv[2]);assert.equal(path.extname(file).toLowerCase(),'.mp4');
+ variants.splice(0,variants.length,{name:'candidate',file,sha256:await sha256File(file)});
+}
 const sourceSha256=await sha256File(source);assert.equal(sourceSha256,'3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca');
 for(const variant of variants)assert.equal(await sha256File(variant.file),variant.sha256);
 const root=path.resolve('.avid-mcp-analysis',`full-resolution-${randomUUID()}`);await mkdir(root);
