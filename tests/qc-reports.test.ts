@@ -37,6 +37,13 @@ it("validates stored video coverage and preserves explicit unselected versus leg
  }
  await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:null,audio:1},videoCoverage:null}));expect((await f.service.read(f.id,first)).videoCoverageStatus).toBe("video_not_selected");
 });
+it('validates open black detections without upgrading their duration certainty',async()=>{
+ const f=await fixture(),tail={start:2,end:null,minimumDurationVerified:false,meaning:'fixture'};
+ const save=async(value:unknown)=>writeFile(f.reportPath,JSON.stringify({...f.report,findings:{...f.report.findings,blackOpenAtProcessingEnd:value}}));
+ await save(tail);expect((await f.service.read(f.id,first)).report.findings.blackOpenAtProcessingEnd).toEqual(tail);
+ for(const value of [{...tail,start:4},{...tail,end:4},{...tail,minimumDurationVerified:true}]){await save(value);await expect(f.service.read(f.id,first)).rejects.toThrow('open black');}
+ await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:null,audio:1},findings:{blackOpenAtProcessingEnd:tail}}));await expect(f.service.read(f.id,first)).rejects.toThrow('open black');
+});
 it("validates stored sample amount arithmetic and stream selection without inventing legacy coverage",async()=>{
  const f=await fixture(),coverage={samplesPerChannel:48000,sampleRate:48000,decodedSeconds:1,requestedSeconds:4,amountMatchesRequestedDuration:false,meaning:"fixture"};
  const current={...f.report,findings:{...f.report.findings,audioSamplesPerChannel:48000},audioCoverage:coverage};

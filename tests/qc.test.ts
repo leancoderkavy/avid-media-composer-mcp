@@ -1,5 +1,12 @@
 import {it,expect} from "vitest";
 import {parseQcLog,qcOptions,qcVideoFrames} from "../src/library/qc.js";
+
+it('preserves an open black start without inventing an end or minimum duration',()=>{
+ expect(parseQcLog('lavfi.black_start=2\n',10,12.5).blackOpenAtProcessingEnd).toMatchObject({start:12,end:null,minimumDurationVerified:false});
+ expect(parseQcLog('lavfi.black_start=0\nlavfi.black_end=1\n',10,12.5).blackOpenAtProcessingEnd).toBeNull();
+ expect(parseQcLog('lavfi.black_start=0\nlavfi.black_end=1\nlavfi.black_start=2\n',10,12.5).blackOpenAtProcessingEnd?.start).toBe(12);
+ for(const time of ['-1','3','1e999'])expect(()=>parseQcLog(`lavfi.black_start=${time}\n`,10,12.5)).toThrow('outside');
+});
 it("requires a positive frame count in the terminal progress block, never an earlier count",()=>{
   expect(qcVideoFrames('frame=1\nprogress=continue\nframe= 120\nfps=30\nprogress=end\n')).toBe(120);
   for(const progress of ['frame=120\nprogress=continue\nprogress=end','frame=120\nprogress=continue','frame=0\nprogress=end','frame=1.5\nprogress=end','frame=99999999999999999\nprogress=end','frame=10\nframe=11\nprogress=end','frame=10\nprogress=end\nframe=11'])expect(()=>qcVideoFrames(progress)).toThrow(/incomplete/);

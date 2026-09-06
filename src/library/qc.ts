@@ -49,6 +49,13 @@ export function parseQcLog(log:string,start:number,end:number){
   const clip=(time:number)=>Math.max(start,Math.min(end,start+time));
   const black:Interval[]=[];
   for(const match of log.matchAll(new RegExp(`black_start:${numeric}\\s+black_end:${numeric}`,"g")))black.push({start:clip(Number(match[1])),end:clip(Number(match[2]))});
+  let openBlack:number|undefined,blackTransitions=0;
+  for(const match of log.matchAll(new RegExp(`lavfi\\.black_(start|end)=${numeric}(?=\\s|$)`,"g"))){
+    if(++blackTransitions>10000)throw new Error("QC black transition limit exceeded");
+    const time=Number(match[2]);if(!Number.isFinite(time)||time<0||start+time>=end)throw new Error("QC black transition is outside the analyzed range");
+    openBlack=match[1]==="start"?start+time:undefined;
+  }
+  const blackOpenAtProcessingEnd=openBlack===undefined?null:{start:openBlack,end:null,minimumDurationVerified:false,meaning:"Black-start metadata had no closing transition before processing ended. May be shorter than blackSeconds; no media endpoint or perceptual darkness inferred."};
   const intervals=(kind:"freeze"|"silence")=>{
     const result:Interval[]=[];let beginning:number|undefined;
     const regex=new RegExp(`${kind}_(start|end):\\s*${numeric}`,"g");
@@ -72,7 +79,7 @@ export function parseQcLog(log:string,start:number,end:number){
   const sampleMatch=[...log.matchAll(/Number of samples:\s*(\d+)\s*$/gm)].at(-1);
   const sampleCount=sampleMatch?Number(sampleMatch[1]):null;
   const audioSamplesPerChannel=sampleCount!==null&&Number.isSafeInteger(sampleCount)?sampleCount:null;
-  return {black:black.filter(item=>item.end>item.start),freeze:intervals("freeze"),silence:intervals("silence"),frameTiming:vfr?{variableFraction:Number(vfr[1]),variableIntervals:Number(vfr[2]),constantIntervals:Number(vfr[3]),meaning:"Decoded timestamp interval variation; not a frame-drop or sync diagnosis"}:null,loudness,audioSamplesPerChannel};
+  return {blackOpenAtProcessingEnd,black:black.filter(item=>item.end>item.start),freeze:intervals("freeze"),silence:intervals("silence"),frameTiming:vfr?{variableFraction:Number(vfr[1]),variableIntervals:Number(vfr[2]),constantIntervals:Number(vfr[3]),meaning:"Decoded timestamp interval variation; not a frame-drop or sync diagnosis"}:null,loudness,audioSamplesPerChannel};
 }
 
 export class MediaQc {
@@ -93,7 +100,7 @@ export class MediaQc {
       const result=await runProcess(executable,[...base,...args,"-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:16*1024*1024});
       if(result.exitCode!==0)throw new Error(`QC decoding failed: ${result.stderr.slice(-1000)}`);log+=result.stderr;return result.stdout;
     };
-    if(video)decodedFrames=qcVideoFrames(await run(["-progress","pipe:1","-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`,"-fps_mode","passthrough"]));
+    if(video)decodedFrames=qcVideoFrames(await run(["-progress","pipe:1","-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},metadata=mode=print:key=lavfi.black_start,metadata=mode=print:key=lavfi.black_end,freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`,"-fps_mode","passthrough"]));
     if(audio)await run(["-map",`0:${audio.index}`,"-vn","-af",`atrim=start=${options.start}:end=${options.end},asetpts=PTS-${options.start}/TB,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},aformat=sample_rates=${audioRate},asettb=1/${audioRate},ashowinfo,astats=metadata=0:reset=0:measure_perchannel=none:measure_overall=Number_of_samples,loudnorm=print_format=json`]);
     if(await sha256File(source)!==id)throw new Error("Source changed during QC");
     const findings=parseQcLog(log,options.start,options.end);

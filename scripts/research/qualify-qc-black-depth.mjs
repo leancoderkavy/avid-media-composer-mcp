@@ -32,6 +32,7 @@ try{
   results.push({fixture,report});await writeFile(path.join(root,'results.json'),JSON.stringify(results,null,2));
   assert.deepEqual(report.findings.black,[{start,end:1},{start:2,end:3}]);assert.equal(report.videoCoverage.decodedFrames,(end-start)*30);
   assert.equal(report.streamDetails.video.pix_fmt,fixture.format);assert.equal(report.streamDetails.video.color_range,fixture.range);
+  assert.equal(report.findings.blackOpenAtProcessingEnd,null);
   const saved=await call('avid_read_qc_report',{id:fixture.id,revision:report.revision});assert.deepEqual(saved.report.findings.black,report.findings.black);
   assert.equal(await sha256File(fixture.file),fixture.id);
  }

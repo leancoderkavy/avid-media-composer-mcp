@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Preserve black detections open at processing end
+
+Full local check passed: 579 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-black-tail.log`). Repeated real tests with stored-field validation passed: `qc-black-tail-9b48cda7-21dd-4bb7-b002-e15161e67152` and `qc-black-depth-fa1dcea0-89d8-4aa3-bcdc-8bc4c678e1d8` under `.avid-mcp-analysis`.
+
+Reproduced a missed 0.5-second trailing-black interval and last-frame endpoint truncation for longer tails. QC now captures blackdetect transition metadata and returns blackOpenAtProcessingEnd separately, with no inferred end or minimum-duration claim. Saved reads validate its range, uncertainty and selected-video consistency while preserving older reports. Actual four-tail MCP/save-read cases and eight depth/range cases passed, sources unchanged. Evidence: `.avid-mcp-analysis/qc-black-tail-5fdfc91f-e8a3-4f56-80fd-c2bfdf5ee6a9/evidence.json`; see QC_BLACK_DEPTH.md. General threshold/perceptual and delivery qualification remain open.
+
 ### Black QC across depth and range
 
 Eight real MCP cases passed for generated 8-bit/10-bit FFV1, full/limited range, each over [0,4) and [0.5,3.5). Raw decoding independently confirmed intended integer luma and frame amounts. QC matched exact source-clock black intervals, 120/90 decoded frames and source pixel/range declarations; persisted reads matched and fixture hashes stayed unchanged. Evidence: `.avid-mcp-analysis/qc-black-depth-270780c2-6df9-40ac-9760-f4ad5bccd412/evidence.json`; see QC_BLACK_DEPTH.md. Syntax and actual script execution passed. No production code changed; near-black thresholds, HDR perceptual behavior and camera/delivery qualification remain open.
