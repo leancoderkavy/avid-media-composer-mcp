@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Active HTTP session deletion and expiry
+
+Real Sonoma QC qualification now covers explicit HTTP session DELETE and idle expiry with client streams closed. Both runs first observed an active FFmpeg process under the owned analysis worker, then verified the old session returned 404, both active and queued jobs were cancelled with reason `shutdown`, the queued job had no worker exit/result (not dispatched), the active job retained successful tree-termination/exit details, and fresh-session journal reads preserved those outcomes. All observed worker/descendant process identities were absent afterward, and the source hash was unchanged.
+
+Evidence: `.avid-mcp-analysis/http-session-delete-34e66834-ff04-47ec-b995-a490d01d57a3/evidence.json` and `.avid-mcp-analysis/http-session-expire-1183c6f7-e203-4380-8770-a8b6e4e7d45a/evidence.json`. The first expiry experiment (`http-session-expire-40605ade-1e42-4806-8df6-fc10a368284d/events.json`) returned completed QC instead of cancelled work: the eight-second idle threshold was too long for that fixture. Its failed assertion is retained, not counted as active cleanup proof. The passing expiry uses a two-second test override; the default remains 30 minutes.
+
+This adds a repeatable research harness and evidence, with no runtime changes. The prior 724 TypeScript/46 Python package validation remains separate from these actual Windows process observations. Open streaming requests intentionally inhibit idle expiry; OS-signal shutdown, slow model disposal, atomic containment and abrupt parent loss remain open within the full plan.
+
 ### HTTP job lifetime across requests
 
 Real HTTP Sonoma QC exposed that each response closed its MCP server: the next status was unresolved and explicit cancellation failed (`http-job-lifecycle-ada347f0-4e82-4ea5-ad9d-d1adc33d7bfa`). Persistent authenticated MCP sessions now preserve job and service state across responses, with bounded capacity, explicit DELETE, idle expiry and server-close disposal. The same real-media start/status/cancel harness passed with status running and successful cancellation (`http-job-lifecycle-ef89c9a1-af37-4672-a6db-fb42c317ea13`), preserving the source hash. Both evidence directories are under `.avid-mcp-analysis/`.
