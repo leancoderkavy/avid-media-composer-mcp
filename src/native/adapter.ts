@@ -23,6 +23,7 @@ const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Blac
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("copy_clip"),bin:z.string().min(1),mobId:id,destinationBin:z.string().min(1)}).strict(),
   z.object({action:z.literal("select_clips"),bin:z.string().min(1),mobIds:selectionIds,expectedSelectedMobIds:selectionIds}).strict(),
   z.object({action:z.literal("export_edl"),bin:z.string().min(1),mobId:id,preset:name,exportDirectory:z.string().min(1),expected:edlCutContract}).strict(),
   z.object({action:z.literal("export_aaf_master"),bin:z.string().min(1),mobId:id,preset:name,sourceFile:z.string().min(1),expectedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
@@ -149,7 +150,16 @@ export class NativeAdapter {
     if(action.action==="open_bin")return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),action};
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path:path.relative(project.path,bin),bin_flags:["AllTypes"] });
     if ("mobId" in action && !clips.some(clip => clip.mob_id === action.mobId)) throw new Error("Target clip is not in bin");
+    if(action.action==="copy_clip"){
+      requireCapability(this.config.capabilities,"edit");
+      const destination=await this.binPath(project.path,action.destinationBin);
+      if(destination.toLowerCase()===bin.toLowerCase())throw new Error("Copy destination must differ from source bin");
+      const target=await this.client.call("GetListOfBinItems",{bin_relative_path:path.relative(project.path,destination),bin_flags:["AllTypes"]});
+      if(target.length)throw new Error("Copy destination must be empty");
+      return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),clips,destination,destinationSha256:await sha256File(destination),action};
+    }
     if(action.action==="select_clips"){
+
       requireCapability(this.config.capabilities,"edit");
       if(action.mobIds.some(id=>!clips.some(clip=>clip.mob_id===id)))throw new Error("Selection target is not in bin");
       const selection=await this.read("selected_clips",action.bin) as {clips:{mob_id:string}[]};
@@ -353,7 +363,12 @@ export class NativeAdapter {
               comment: action.comment, color: action.color } }); break;
           }
           case "delete_marker": result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] }); break;
+          case "copy_clip": {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner||!("destination" in observedState))throw new Error("Copy host or project changed before dispatch");
+            result=await this.client.call("CopyBinItems",{source_bin_path:observedState.bin,destination_bin_path:observedState.destination,mob_id:[action.mobId]},observedState.owner);break;
+          }
           case "select_clips": {
+
             if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Selection host or project changed before dispatch");
             result=await this.client.call("SelectMobsInBin",{bin_path:await this.binPath(project.path,action.bin),mob_ids:action.mobIds,add_to_selection:false},observedState.owner);break;
           }
@@ -368,7 +383,15 @@ export class NativeAdapter {
         }
         let postState:unknown,verificationError:string|undefined;
         try {
-          if(action.action==="select_clips"){
+          if(action.action==="copy_clip"){
+            const reported=z.array(z.object({mob_id:z.array(id).length(1)})).length(1).parse(result)[0]!.mob_id[0]!;
+            const copied=await this.read("clips",action.destinationBin) as Record<string,any>[],source=await this.read("clips",action.bin) as Record<string,any>[];
+            postState={copied,source};
+            if((await this.project()).path!==project.path)throw new Error("Project changed during copy verification");
+            const identities=(rows:Record<string,any>[])=>rows.map(row=>row.mob_id).sort();
+            if(reported===action.mobId||copied.length!==1||copied[0]!.mob_id!==reported||!("clips" in observedState)||digest(identities(source))!==digest(identities(observedState.clips)))throw new Error("Copy identity or source membership not verified; inspect both bins before another attempt");
+          }else if(action.action==="select_clips"){
+
             postState=await this.read("selected_clips",action.bin);
             const selected=(postState as {clips:{mob_id:string}[]}).clips.map(item=>item.mob_id).sort();
             const reported=action.mobIds.length===0&&result.length===0?[]:z.array(z.object({selected_mob_ids:z.array(id).max(4096)})).length(1).parse(result)[0]!.selected_mob_ids;
@@ -395,7 +418,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false,...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
+          persistenceVerified: false,...(action.action==="copy_clip"?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;

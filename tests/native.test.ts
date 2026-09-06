@@ -325,3 +325,17 @@ it("rejects a selection post-read whose project changed",async()=>{
  });
  await expect(f.adapter.read("selected_clips","fixture.avb")).rejects.toThrow();
 });
+
+it.each([false,true])("copies into an empty bin and verifies new identity (mismatch=%s)",async(mismatch)=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);await writeFile(path.join(path.dirname(f.source),"target.avb"),"empty");let target:any[]=[],writes=0;
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems"&&body?.bin_relative_path==="target.avb")return target;
+  if(method==="CopyBinItems"){writes++;target=[{mob_id:mismatch?"unexpected":"new-copy"}];return [{mob_id:["new-copy"]}];}
+  return original(method,body);
+ });
+ const action={action:"copy_clip" as const,bin:"fixture.avb",mobId:"clip",destinationBin:"target.avb"};
+ await expect(f.adapter.preview({...action,destinationBin:"fixture.avb"})).rejects.toThrow("differ");
+ const stale=await f.adapter.preview(action);target=[{mob_id:"user-addition"}];await expect(f.adapter.apply(stale.token)).rejects.toThrow("empty");expect(writes).toBe(0);target=[];
+ const plan=await f.adapter.preview(action);expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,copyIdentityVerified:!mismatch,persistenceVerified:false,sourceFidelityVerified:false});
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
+});
