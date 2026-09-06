@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Watch polling failure isolation
+
+Full `npm run check` passed with 689 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-isolation.log`). An additional unavailable/overlap regression added during that run passed in the subsequent nine-test focused watch suite; it was not in that full-suite count.
+
+Each unavailable record or thrown scan failure now contributes bounded watch-specific status diagnostics without aborting scans of later watches. A healthy completed cycle clears diagnostics. Existing serial scans, overlap prevention and exclusive locks remain in place. Regression tests cover a real fixture lock, healthy indexing, explicit recovery, unavailable records, bounded error text and overlapping ticks.
+
+Actual MCP timer qualification passed with an owned Sonoma MP4 copy: the first watch stayed locked while the second indexed, the fixture lock was preserved, explicit fixture-lock removal restored the first watch, and status cleared. Original/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-isolation-84c336d6-641c-4b32-8d52-8cca5b259b3c/evidence.json`. General stale-lock/power-loss recovery and the remaining full-plan requirements are still open.
+
 ### Explicit recovery of unavailable watch folders
 
 New watch manifests retain a normalized allowed-root fingerprint. Reconfiguration/removal can tolerate an unavailable old folder only when that fingerprint matches the current scope; new targets still require normal current-root validation. Scanning still refuses unavailable folders, and replacement resets observations. Changed scopes, legacy unavailable records and stale locks are not bypassed.

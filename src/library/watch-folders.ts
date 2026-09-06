@@ -20,6 +20,7 @@ export class WatchFolders {
   private timer:ReturnType<typeof setInterval>|undefined;
   private pending:Promise<unknown>|undefined;
   private lastError:string|undefined;
+  private watchErrors:{id:string;error:string}[]=[];
   private library:MediaLibrary;
   private readonly scope:string;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);this.scope=createHash("sha256").update(JSON.stringify([...new Set(config.allowedRoots.map(root=>{const resolved=path.resolve(root);return process.platform==="win32"?resolved.toLowerCase():resolved;}))].sort())).digest("hex");}
@@ -117,12 +118,19 @@ export class WatchFolders {
     this.timer=setInterval(()=>{
       if(this.pending)return;
       this.pending=this.list().then(async records=>{
-        for(const record of records){if("options" in record&&record.options?.enabled)await this.scan(record.id);}
-        this.lastError=undefined;
-      }).catch(error=>{this.lastError=(error as Error).message;}).finally(()=>{this.pending=undefined;});
+        const errors:{id:string;error:string}[]=[];
+        const recordError=(id:string,error:unknown)=>errors.push({id,error:(error instanceof Error?error.message:String(error)).slice(0,1024)});
+        for(const record of records){
+          if("unavailable" in record){recordError(record.id,record.error);continue;}
+          if(!record.options?.enabled)continue;
+          try{await this.scan(record.id);}catch(error){recordError(record.id,error);}
+        }
+        this.watchErrors=errors;
+        this.lastError=errors.length?`${errors.length} watch folder(s) unavailable or failed to scan`:undefined;
+      }).catch(error=>{this.lastError=(error instanceof Error?error.message:String(error)).slice(0,1024);}).finally(()=>{this.pending=undefined;});
     },intervalSeconds*1000);
     this.timer.unref();return this.status();
   }
   stop(){if(this.timer)clearInterval(this.timer);this.timer=undefined;return this.status();}
-  status(){return {running:Boolean(this.timer),scanInProgress:Boolean(this.pending),lastError:this.lastError??null,automaticRestart:false,staleLockPolicy:"Inspect PID and operation state before manually removing a stale watch lock"};}
+  status(){return {running:Boolean(this.timer),scanInProgress:Boolean(this.pending),lastError:this.lastError??null,watchErrors:this.watchErrors.map(error=>({...error})),automaticRestart:false,staleLockPolicy:"Inspect PID and operation state before manually removing a stale watch lock"};}
 }

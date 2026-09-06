@@ -1,4 +1,4 @@
-import {mkdtemp,mkdir,writeFile,readFile,rename,realpath} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,readFile,rename,realpath,unlink} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
@@ -15,6 +15,39 @@ async function fixture(){
 }
 afterEach(()=>vi.restoreAllMocks());
 describe("watch checkpointing",()=>{
+  it('reports unavailable records, bounds errors and prevents overlapping polling cycles',async()=>{
+    const {config}=await fixture(),service=new WatchFolders(config);
+    const list=vi.spyOn(service,'list').mockResolvedValue([{id:'missing',unavailable:true,error:'x'.repeat(2000)},{id:'healthy',options:{folder:'fixture',depth:2,maxFiles:100,enabled:true},files:0,scannedAt:undefined}]);
+    let finish!:()=>void;const scan=vi.spyOn(service,'scan').mockImplementation(()=>new Promise(resolve=>{finish=()=>resolve({id:'healthy',skipped:'disabled'});}));
+    let tick!:()=>void;vi.spyOn(globalThis,'setInterval').mockImplementation(((callback:()=>void)=>{tick=callback;return {unref(){}};}) as any);vi.spyOn(globalThis,'clearInterval').mockImplementation(()=>{});
+    service.start(10);
+    try{
+      tick();await vi.waitFor(()=>expect(scan).toHaveBeenCalledTimes(1));tick();expect(list).toHaveBeenCalledTimes(1);
+      finish();await vi.waitFor(()=>expect(service.status().scanInProgress).toBe(false));
+      expect(service.status().watchErrors).toEqual([{id:'missing',error:'x'.repeat(1024)}]);
+      service.status().watchErrors[0]!.error='mutated';expect(service.status().watchErrors[0]!.error).toHaveLength(1024);
+    }finally{service.stop();}
+  });
+  it('continues past a locked watch, preserves its lock, and clears diagnostics after recovery',async()=>{
+    const {root,folder,config}=await fixture(),service=new WatchFolders(config);
+    await service.configure({folder});await service.configure({folder});
+    const records=await service.list(),first=records[0]!,second=records[1]!;
+    const lock=path.join(root,'avid-mcp-library','watches',first.id+'.lock');await writeFile(lock,'owned test lock',{flag:'wx'});
+    const index=vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>({entries:[{id:'a'.repeat(64),file:files[0]!,duration:'10',streams:[]}],sourceModified:false}));
+    let tick!:()=>void;vi.spyOn(globalThis,'setInterval').mockImplementation(((callback:()=>void)=>{tick=callback;return {unref(){}};}) as any);
+    vi.spyOn(globalThis,'clearInterval').mockImplementation(()=>{});
+    service.start(10);
+    const poll=async()=>{tick();await vi.waitFor(()=>expect(service.status().scanInProgress).toBe(false));};
+    try{
+      await poll();await poll();expect(index).toHaveBeenCalledTimes(1);
+      expect(service.status()).toMatchObject({watchErrors:[{id:first.id,error:expect.stringContaining('EEXIST')}],lastError:expect.any(String)});
+      expect(await readFile(lock,'utf8')).toBe('owned test lock');
+      const healthy=JSON.parse(await readFile(path.join(root,'avid-mcp-library','watches',second.id+'.json'),'utf8'));
+      expect(Object.values(healthy.observations)).toEqual([expect.objectContaining({stable:true,mediaId:'a'.repeat(64)})]);
+      await unlink(lock);await poll();await poll();expect(index).toHaveBeenCalledTimes(2);
+      expect(service.status()).toMatchObject({lastError:null,watchErrors:[]});
+    }finally{service.stop();}
+  });
   it('repoints an unavailable watch within its original scope and resets stability',async()=>{
     const {root,folder,config}=await fixture(),scoped={...config,allowedRoots:[root]},service=new WatchFolders(scoped),watch=await service.configure({folder});
     await service.scan(watch.id);const moved=path.join(root,'relocated');await rename(folder,moved);
