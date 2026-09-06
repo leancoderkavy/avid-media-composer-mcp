@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Shipped native media-volume diagnostic
+
+Extended `avid_native_read` with `media_volumes`, requiring inspection authority and a scoped current project. It preserves host-wide display names and uint64 strings, bounds aggregate responses, omits unknown fields and retains absent defaults. Project and listener-owner changes refuse the result. Explicit unknown units/path/online flags prevent storage declarations from being presented as relink evidence.
+
+Actual read-only MCP qualification passed across two fresh sessions with source/bin hashes unchanged: `.avid-mcp-analysis/native-media-volumes-cf6f6f5f-b35c-441f-95f1-77ce9b6a4ab3/evidence.json`. Focused native tests passed 116 cases, including precision, malformed/overflow/count/authority and unstable-host regressions. See [media volumes](NATIVE_MEDIA_VOLUMES.md). Native discovery is now 16 reads/16 writes; MCP discovery remains 143 tools.
+
+Validation passed 782 TypeScript tests, 46 Python tests and both transports. The first package check correctly rejected a turnover-skill mismatch caused by editing that skill after packing; no implementation failure was observed. With files held fixed, fresh-package/Python/AAF validation passed with exact tool/skill agreement. Logs: `.avid-mcp-analysis/check-native-media-volumes.log` and `.avid-mcp-analysis/check-native-media-volumes-package-final.log`. Final ledger text was added afterward; no claim of a newly published registry package is made.
+
 ### Native media-volume discovery
 
 The installed descriptor and an actual listener-owner-verified read established that `GetMediaVolumeList` returns three display names and raw uint64 free-space declarations on the qualified Windows host. Added an explicit opt-in to the bounded research utility; default inspection and its three ordinary reads remain unchanged. Unknown units and non-atomic comparison with Windows free-byte counts prevent a capacity or path-mapping claim. See [media-volume research](NATIVE_MEDIA_VOLUMES.md) and `.avid-mcp-analysis/native-media-volumes-20260906.json`.

@@ -18,4 +18,12 @@ Evidence: `.avid-mcp-analysis/native-media-volumes-20260906.json`. Reproduce wit
 .venv/Scripts/python.exe scripts/research/inspect_mcapi.py 'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe' --probe-read-only --media-volumes --output .avid-mcp-analysis/native-media-volumes-new.json
 ```
 
-`--media-volumes` requires explicit `--probe-read-only`. The fixed research RPC allowlist now has four reads; the default live probe still calls only the original three. Response bytes, runtime and volume count remain bounded. This is research-only: no production native/MCP allowlist or tool count changed, no editor mutation was sent, and no media relink, shared-storage health or complete live timeline graph was established.
+`--media-volumes` requires explicit `--probe-read-only`. The fixed research RPC allowlist now has four reads; the default live probe still calls only the original three. Response bytes, runtime and volume count remain bounded. This initial experiment was research-only and sent no editor mutation.
+
+## MCP diagnostic
+
+`avid_native_read` with `query: "media_volumes"` now exposes the observed read through the qualified Windows native adapter. It requires inspection authority and a current project within configured roots. The explicitly requested inventory is host-wide, not limited to volumes containing that project. Project path and listener owner are checked around the read; this is not an atomic snapshot.
+
+The diagnostic retains volume names as display strings, exact uint64 values as decimal strings, and absent fields as absent. It does not convert a display name into a path, infer shared-storage health, calculate capacity, or establish media online/relink status. It returns `freeSpaceUnit: null`, `pathsResolved: false` and `mediaOnlineVerified: false`. Response shape and the aggregate 256-volume limit are enforced. Empty declared lists are allowed; unknown properties are omitted.
+
+`qualify-native-media-volumes.mjs` passed against the actual host through two fresh inspect-only stdio MCP sessions. Both returned the observed three names, preserved omitted shared flags and raw values, and left the protected bin/original media hashes unchanged. Evidence: `.avid-mcp-analysis/native-media-volumes-cf6f6f5f-b35c-441f-95f1-77ce9b6a4ab3/evidence.json`. Regression coverage includes uint64 maximum precision, malformed/numeric/overflow values, oversized lists, absent authority and changed project/listener ownership. The native allowlist now has 16 reads and 16 writes; MCP tool count stays 143 because this extends an existing query.

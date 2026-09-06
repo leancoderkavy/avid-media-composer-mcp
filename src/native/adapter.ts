@@ -69,11 +69,24 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "mob_bin" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "media_volumes" | "bins" | "mob_bin" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
     if (query === "project") return project;
+    if (query === "media_volumes") {
+      const owner = this.client.ownerIdentity;
+      const uint64 = z.string().refine(value => /^(0|[1-9][0-9]{0,19})$/.test(value) && BigInt(value) <= 18446744073709551615n);
+      const volume = z.object({name:z.string().min(1).max(4096), is_shared:z.boolean().optional(), free_space:uint64.optional()});
+      const bodies = z.array(z.object({volumes:z.array(volume).max(256).default([])})).min(1).max(256).parse(
+        await this.client.call("GetMediaVolumeList", {}, owner));
+      const volumes = bodies.flatMap(body => body.volumes);
+      if (volumes.length > 256) throw new Error("Native media-volume inventory exceeds 256 entries");
+      if ((await this.project()).path !== project.path || this.client.ownerIdentity !== owner)
+        throw new Error("Native project or listener owner changed during media-volume inspection");
+      return {volumes, freeSpaceUnit:null, pathsResolved:false, mediaOnlineVerified:false,
+        scope:"Host-wide Avid volume declarations, gated by an authorized current project. Display names are not paths; free_space remains an exact decimal string with unverified units and freshness. Omitted protobuf defaults remain omitted. No writable capacity, shared-storage health, media online or relink verification; project/owner checks are not an atomic snapshot."};
+    }
     if(query==="mob_bin"){
       const requested=id.parse(mobId);
       const bodies=z.array(z.object({absolute_path:z.string().min(1).max(32768)})).length(1).parse(await this.client.call("GetBinFromMob",{mob_id:requested}));

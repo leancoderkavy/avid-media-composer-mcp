@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+`avid_native_read` now supports `media_volumes`: bounded host-wide volume declarations gated by an authorized current project, with exact raw uint64 strings, omitted defaults and explicit unknown units/path/online status. Two fresh inspect-only MCP sessions passed on the qualified Windows host with protected source/bin hashes unchanged. See [media-volume diagnostic](NATIVE_MEDIA_VOLUMES.md).
+
 Actual Source Play-button use advanced the disposable Sonoma fixture from frame 0 to 119 with visible meter activity; a ruler click restored frame 0 and independent MCP reads/file hashes verified the endpoints and source preservation. Home did not restore this focus state. Captured video remained blank, leaving visual/audio fidelity and a shipping playback adapter unqualified. See [source playback evidence](NATIVE_SOURCE_PLAYBACK.md).
 
 Audio offset analysis accepts integer sample rates with fractional samples per 10 ms envelope window, including 22,050 and 11,025 Hz. Absolute sample boundaries prevent cumulative rounding drift and provenance retains integer tail counts. Both rates passed actual derived-Sonoma MCP offset, channel/refusal and reconnect checks; see [audio research](AUDIO_SYNC_RESEARCH.md).

@@ -5,6 +5,8 @@ description: Inspect saved Avid bins and interchange files for source usage, tim
 
 Start with `avid_get_capabilities`. Analyze the requested saved project/bin with `avid_analyze_project` or `avid_analyze_bin`; use `avid_analyze_aaf`, `avid_analyze_ale`, `avid_analyze_edl` or `avid_analyze_otio` for the supplied interchange format.
 
+For an explicitly requested host storage diagnostic, use `avid_native_read` with `query: "media_volumes"` on the qualified Windows host. It requires an authorized open project but returns host-wide volume declarations. Treat names as display labels and `free_space` as raw decimal strings with unknown units/freshness; absent shared flags remain absent. Do not infer paths, writable capacity, media-online state or relink success from this inventory.
+
 After reconnecting, use `avid_saved_snapshots` to discover historical revision IDs in the configured output library. Follow `nextAfter` even when a page is empty and report unavailable entries as missing evidence. Discovery does not verify current bin hashes; capture a fresh snapshot for current saved state.
 
 Use `avid_saved_snapshot_mobs` for a recovered revision to find mob IDs, names, bin identities and structural metadata. Follow its continuation cursor. If a mob ID occurs in multiple bins, capture only the target bin before requesting a single-mob range or complexity report.

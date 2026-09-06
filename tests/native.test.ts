@@ -23,6 +23,37 @@ it.each(['add-comment','add-name','change-comment'])('refuses unsupported single
  expect(nativeActionSchema.safeParse({...add,name:'',comment:'Review: take 2 - OK!'}).success).toBe(true);
 });
 
+it("retains exact media-volume declarations without inventing paths, units or omitted defaults", async () => {
+  const f = await hostFixture("inspect"), original = f.client.call.bind(f.client);
+  vi.spyOn(f.client,"call").mockImplementation((method,body)=>method === "GetMediaVolumeList"
+    ? Promise.resolve([{volumes:[{name:"Display only (Z:)",free_space:"18446744073709551615",extra:"omit"},{name:"Display only (Z:)",is_shared:false}]}]) : original(method,body));
+  const result = await f.adapter.read("media_volumes");
+  expect(result).toMatchObject({volumes:[{name:"Display only (Z:)",free_space:"18446744073709551615"},{name:"Display only (Z:)",is_shared:false}],freeSpaceUnit:null,pathsResolved:false,mediaOnlineVerified:false});
+  expect(JSON.stringify(result)).not.toContain('"extra"');
+  expect((result as any).volumes[0]).not.toHaveProperty("is_shared");
+  expect((result as any).volumes[1]).not.toHaveProperty("free_space");
+});
+it.each(["number", "overflow", "negative", "malformed", "too-many", "changed-owner", "changed-project"])("refuses invalid or unstable media-volume evidence: %s",async variant=>{
+  const f=await hostFixture("inspect"),original=f.client.call.bind(f.client); let queried=false;
+  vi.spyOn(f.client,"call").mockImplementation((method,body)=>{
+    if(method==="GetMediaVolumeList") {
+      queried=true;
+      if(variant==="changed-owner")f.client.ownerIdentity="replacement";
+      const value=variant==="number"?123:variant==="overflow"?"18446744073709551616":variant==="negative"?"-1":variant==="malformed"?"bad":"0";
+      return Promise.resolve([{volumes:Array.from({length:variant==="too-many"?257:1},()=>({name:"Volume",free_space:value}))}]);
+    }
+    if(queried&&variant==="changed-project"&&method==="GetOpenProjectInfo")return Promise.resolve([{path:os.tmpdir()}]);
+    return original(method,body);
+  });
+  await expect(f.adapter.read("media_volumes")).rejects.toThrow();
+});
+it("accepts empty media-volume declarations and refuses missing inspection authority",async()=>{
+  const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);
+  vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetMediaVolumeList"?Promise.resolve([{}]):original(method,body));
+  expect(await f.adapter.read("media_volumes")).toMatchObject({volumes:[],mediaOnlineVerified:false});
+  const denied=await hostFixture("export"); await expect(denied.adapter.read("media_volumes")).rejects.toThrow(); expect(denied.calls).toEqual([]);
+});
+
 async function hostFixture(capabilities="inspect,edit,project-write,export"){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));
   await writeFile(path.join(root,"fixture.avb"),"saved bin");
