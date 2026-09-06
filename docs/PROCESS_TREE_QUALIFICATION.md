@@ -1,5 +1,11 @@
 # External process-tree qualification
 
+## Abrupt runner-owner termination
+
+`qualify-process-owner-crash.mjs` runs the production process runner in an owned child, waits for a known worker PID, kills the runner owner and awaits its close, then measures continued heartbeat writes. A direct worker stopped, while a detached worker launched through a wrapper continued writing after owner termination. Each worker has a unique cooperative stop file and a 30-second self-expiry; cleanup confirms PID absence. Evidence: `.avid-mcp-analysis/process-owner-crash-c36efb20-ec06-4150-92f4-250382f09a05/evidence.json` (direct) and `.avid-mcp-analysis/process-owner-crash-b70b923a-9974-440d-8ca3-f19f435e2481/evidence.json` (detached).
+
+This is a confirmed owner-crash containment gap, separate from the implemented timeout/output-limit tree termination. Dead installer PID checks alone cannot prove that staged files have no remaining writers. Recovery must establish worker containment/closure or retain the old staging and use a separate destination. These are Node fixtures, not proof of actual npm behavior or an explanation of why the direct worker exited on this host. No production containment fix is claimed.
+
 Windows runtime research on 2026-09-05 distinguishes direct-child closure from descendant closure. This extends the direct-process tests; it does not qualify automatic artifact cleanup.
 
 Run `node scripts/research/qualify-process-descendants.mjs` after building. Each fixture starts a Node wrapper and a descendant that writes a tick file. It exercises timeout and output overflow with ordinary and detached descendants. Immediately after the runner returns, the probe checks descendant PID existence and continued writes. A unique stop file then asks that original fixture to exit, and the probe confirms PID absence. It does not kill arbitrary PIDs or leave the fixtures running.

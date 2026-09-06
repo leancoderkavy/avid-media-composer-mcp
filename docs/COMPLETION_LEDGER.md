@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Runner-owner crash and detached writers
+
+Actual owner-SIGKILL research found a detached Node worker continued heartbeat writes after the production runner's owner closed; a direct worker did not. Both workers stopped cooperatively and PID absence was verified. See PROCESS_TREE_QUALIFICATION.md and `qualify-process-owner-crash.mjs`. This demonstrates that dead installer PID alone cannot authorize stale-lock/staging recovery. Timeout tree termination remains distinct from abrupt-owner containment; automatic recovery and actual npm-child qualification remain open. No production code changed.
+
 ### Installer owner interruption
 
 Actual production installer child-process tests passed at completed lock and staging-manifest writes. A contender was refused while the owner remained live; after exact-child SIGKILL and close, restart was also refused with lock bytes and staged manifest preserved and no runtime published. Evidence: `.avid-mcp-analysis/runtime-setup-crash-6c34cb1d-0695-47dc-b112-4369cfd45364/evidence.json`; reproducible script: `qualify-runtime-setup-crash.mjs`. Syntax and real execution passed. This establishes pre-npm crash behavior, not automatic recovery, orphaned npm handling or power-loss durability. See MODEL_RUNTIME_QUALIFICATION.md. Production code did not change.
