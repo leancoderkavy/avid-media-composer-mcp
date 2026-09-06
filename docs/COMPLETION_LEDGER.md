@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Installed Codex setup regression gate
+
+The fresh-package smoke check now decodes the installed Codex argument array, rejects malformed/duplicate environment assignments, and compares its server command, entry and environment exactly with all five JSON client formats. It then connects using that decoded command from a foreign working directory. Installed CLI install/update/remove/restore attempts against an owned Codex TOML fixture are refused and preserve every byte. Actual fresh-tarball execution passed with 137 tools, five skills and Python/AAF package checks: `.avid-mcp-analysis/check-installed-codex-argv-protection.log`. This gate requires no authenticated client or Codex binary; actual Codex/model executions remain separately evidenced. No production code changed.
+
 ### Supported Codex setup command generation
 
 Full local check passed: 574 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-codex-setup.log`). The existing package check covers five JSON formats; the separate real Codex CLI probe covers the new argument-array format.

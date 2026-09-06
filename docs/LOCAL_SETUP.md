@@ -2,6 +2,8 @@
 
 ## Codex command generation
 
+The regular fresh-package check now covers the generated Codex argument array alongside the five JSON client formats, starts the installed server using that decoded command from a foreign directory, and verifies that JSON lifecycle flags leave an existing Codex TOML fixture unchanged. This is an automated package regression gate; it does not substitute for the real Codex client/model acceptance runs.
+
 Run `avid-mcp --client codex --root ABSOLUTE_PROJECT_PATH` to print a JSON object containing `command: "codex"` and its exact `args` array. Optional output, native executable, model/dependency paths, capabilities and checksum-bound installed server entry use the same validation as other client formats. An installer or AI can execute the generated command with an argument-array process API and `shell: false`; do not join the arguments into a shell string. Codex itself writes the TOML configuration. Inspect any existing `avid-media-composer` entry before applying the command, since Codex may replace it.
 
 This mode generates an add command; connector-managed JSON install/update/remove/restore flags do not operate on Codex TOML. Use the Codex CLI to manage that configuration. Actual isolated add/get/remove with a special-character fixture path passed using Codex 0.153.4: `.avid-mcp-analysis/codex-setup-8716bd00-3e09-4f0d-b8a2-9bdb83eb2449/evidence.json`. Reproduce with `node scripts/research/qualify-codex-setup.mjs ABSOLUTE_CODEX_EXECUTABLE`. Model calls and fresh-package acceptance are separately recorded below.

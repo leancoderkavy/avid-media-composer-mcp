@@ -145,13 +145,26 @@ try {
   // Exercise the installed setup CLI from a foreign working directory, then
   // launch exactly the command it tells users to put into their MCP client.
   let generatedEntry;
-  for(const format of ["generic","claude","cursor","vscode","lmstudio"]){
+  for(const format of ["generic","claude","cursor","vscode","lmstudio","codex"]){
     const generated=spawnSync(process.execPath,[path.join(installedRoot,"dist","cli.js"),
       "--client",format,"--root",path.resolve(root,"tests","fixtures","sample-project"),
       "--output",temporary,...(withPython&&path.isAbsolute(python)?["--python",python]:[])],
       {cwd:temporary,env:getDefaultEnvironment(),encoding:"utf8",timeout:10000,windowsHide:true});
     if(generated.error||generated.status!==0)throw new Error(`Installed ${format} setup failed: ${generated.stderr}`);
-    const config=JSON.parse(generated.stdout),entry=(format==="vscode"?config.servers:config.mcpServers)?.["avid-media-composer"];
+    const config=JSON.parse(generated.stdout);
+    let entry=(format==="vscode"?config.servers:config.mcpServers)?.["avid-media-composer"];
+    if(format==="codex"){
+      if(config.command!=="codex"||!Array.isArray(config.args)||!isDeepStrictEqual(config.args.slice(0,3),["mcp","add","avid-media-composer"]))throw new Error("Installed Codex setup omitted add command");
+      const separator=config.args.indexOf("--",3),env={};
+      if(separator<3||(separator-3)%2!==0)throw new Error("Installed Codex setup has malformed environment arguments");
+      for(let i=3;i<separator;i+=2){
+        const value=config.args[i+1],equals=typeof value==="string"?value.indexOf("="):-1;
+        if(config.args[i]!=="--env"||equals<1)throw new Error("Installed Codex setup has malformed environment assignment");
+        const key=value.slice(0,equals);if(Object.hasOwn(env,key))throw new Error("Installed Codex setup repeats an environment key");
+        env[key]=value.slice(equals+1);
+      }
+      entry={command:config.args[separator+1],args:config.args.slice(separator+2),env};
+    }
     if(format==="vscode"){
       if(entry?.type!=="stdio")throw new Error("Installed VS Code setup omitted stdio type");
       delete entry.type;
@@ -159,6 +172,13 @@ try {
     if(!entry||entry.command!==process.execPath||!Array.isArray(entry.args)||entry.args.length!==1||!path.isAbsolute(entry.args[0])||await realpath(entry.args[0])!==await realpath(path.join(installedRoot,"dist","index.js"))||entry.env?.AVID_MCP_CAPABILITIES!=="inspect")throw new Error(`Installed ${format} setup selected an unexpected server or authority`);
     if(generatedEntry&&!isDeepStrictEqual(entry,generatedEntry))throw new Error(`Installed ${format} setup differs from generic configuration`);
     generatedEntry=entry;
+  }
+  const codexConfig=path.join(temporary,"codex-config.toml"),codexOriginal='model = "preserve-fixture"\n[mcp_servers.other]\ncommand = "preserve-other-server"\n';
+  await writeFile(codexConfig,codexOriginal,{flag:"wx"});
+  for(const mutation of [["--install"],["--update"],["--remove"],["--restore",path.join(temporary,"unused-backup.json")]]){
+    const refused=spawnSync(process.execPath,[path.join(installedRoot,"dist","cli.js"),"--client","codex","--root",temporary,"--config",codexConfig,"--expected-sha256","a".repeat(64),...mutation],{cwd:temporary,env:getDefaultEnvironment(),encoding:"utf8",timeout:10000,windowsHide:true});
+    if(refused.error||refused.status!==1)throw new Error(`Installed Codex JSON mutation was not refused: ${mutation[0]}`);
+    if(await readFile(codexConfig,"utf8")!==codexOriginal)throw new Error("Installed setup modified Codex TOML through JSON lifecycle");
   }
   const transport = new StdioClientTransport({
     command: generatedEntry.command,
@@ -322,7 +342,7 @@ try {
       skills: skillNames.length,
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
-      clientSetup: "five installed CLI formats agree; generated command connected from foreign working directory",
+      clientSetup: "five JSON formats and Codex argv agree; server from installed Codex argv connected from foreign working directory; JSON mutations preserve Codex TOML",
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       faceNotices: "both packaged model licenses match pinned upstream bytes",
