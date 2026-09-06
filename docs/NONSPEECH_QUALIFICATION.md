@@ -1,5 +1,7 @@
 # Non-speech transcription probes
 
+`avid_speaker_analysis` now includes `speechPresence` for the selected machine/effective view. It reports the union of all spans over the analyzed PCM interval, covered/uncovered seconds and coverage fraction independently of pagination. Overlaps are counted once. `no_spans_in_analyzed_audio` describes missing model/review spans; it does not prove no speech. `verified` remains false. Existing source/audio checksum checks apply. Actual five-fixture MCP report checks passed in `speech-presence-b067aa02-ee7a-43b1-b2ea-509be29d629d`.
+
 Run `node scripts/research/qualify-nonspeech.mjs` after building with the cached multilingual Whisper tiny model and FFmpeg available. The harness generates eight seconds each of digital silence, a 440 Hz sine wave and seeded white noise, then invokes language detection and automatic transcription through real MCP. Source hashes are checked after processing.
 
 Evidence: `.avid-mcp-analysis/nonspeech-cbd88a25-bd6a-4798-b377-8159b3986baa/evidence.json`. Model revision: `onnx-community/whisper-tiny` at `ff4177021cc41f7db950912b73ea4fdf7d01d8e7`.

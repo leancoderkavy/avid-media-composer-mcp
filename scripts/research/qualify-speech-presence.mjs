@@ -31,6 +31,9 @@ try{
   const id=await sha256File(fixture.file),probe=await runProcess('ffprobe',['-v','error','-show_format','-of','json',fixture.file],{timeoutMs:10000});assert.equal(probe.exitCode,0);
   const end=Math.min(30,Number(JSON.parse(probe.stdout).format.duration));await call('avid_index_media',{files:[fixture.file]});
   const generated=await call('avid_diarize_audio',{id,start:0,end}),analysis=await call('avid_speaker_analysis',{analysisId:generated.analysisId,limit:100});
+  assert.equal(analysis.speechPresence.verified,false);assert.equal(analysis.speechPresence.start,0);
+  assert.ok(analysis.speechPresence.coveredSeconds>=0&&analysis.speechPresence.coveredSeconds<=analysis.analyzedSeconds);
+  assert.equal(analysis.speechPresence.status,analysis.totalSpans?'spans_present':'no_spans_in_analyzed_audio');
   assert.equal(await sha256File(fixture.file),id);
   results.push({...fixture,id,end,generated,analysis,detectedAnySpeech:analysis.totalSpans>0});
  }

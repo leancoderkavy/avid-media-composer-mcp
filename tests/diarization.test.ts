@@ -26,6 +26,9 @@ async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-sp
 it("persists source-time overlapping spans, paginates after reconnect and deletes only derived files",async()=>{
   const f=await fixture(),result=await f.speakers.generate(f.id,10,12,{speakers:2});expect(result).toMatchObject({speakerCount:2,audioRecipe:3,spans:[{spanId:"span-1",speaker:"speaker-1",start:10.1,end:10.8},{spanId:"span-2",speaker:"speaker-2",start:10.5,end:11.4}]});
   const reopened=new SpeakerAnalysis(f.config),first=await reopened.read(result.analysisId,0,1);expect(first.nextOffset).toBe(1);expect(first.spans).toHaveLength(1);expect((await reopened.read(result.analysisId,1,1)).spans[0]?.spanId).toBe("span-2");expect((await reopened.list(f.id)).analyses).toHaveLength(1);
+  expect(first.speechPresence).toMatchObject({view:"effective",status:"spans_present",start:10,end:12,verified:false});
+  expect(first.speechPresence.coveredSeconds).toBeCloseTo(1.3);expect(first.speechPresence.fraction).toBeCloseTo(0.65);
+  expect((await reopened.read(result.analysisId,1,1)).speechPresence).toEqual(first.speechPresence);
   await expect(reopened.remove(result.analysisId,"0".repeat(64))).rejects.toThrow("changed");await reopened.remove(result.analysisId,result.sha256);expect((await reopened.list(f.id)).analyses).toEqual([]);expect(await sha256File(f.source)).toBe(f.id);
 });
 it("rejects damaged audio and unauthorized sources and reports unavailable saved analyses",async()=>{
