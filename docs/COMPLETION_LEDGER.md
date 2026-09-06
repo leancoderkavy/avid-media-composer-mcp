@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Interrupted watch creation recovery
+
+Lock inspection previously required a published watch manifest, making a process crash during first-time configuration undiscoverable through watch listing and ineligible for recovery. Listing now includes orphan lock IDs, while inspection explicitly distinguishes missing configuration from malformed or inaccessible existing state. Only actual absence skips manifest validation; matching versioned owner ID, local host, configured-root scope, stopped PID and checksum remain required. Recovery does not invent a manifest or retry creation.
+
+The fresh installed-runtime crash harness now terminates two owned processes: one after real Sonoma indexing but before checkpoint publication, and one after initial lock creation but before any manifest save. Actual MCP live-owner refusal, reconnect, orphan discovery, recovery without manifest publication and new configuration creation passed. Original/copy media and installed entry hashes were unchanged; existing checkpoint bytes were preserved at recovery. Evidence: `.avid-mcp-analysis/watch-lock-recovery-e5d7377b-dd59-4b83-b016-e74bd73c44ad/evidence.json`.
+
+Full local check passed 715 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks, with 142 tools/five skills (`check-watch-create-recovery.log`). All CI/CodeQL checks for the preceding d35c652 passed; subsequent commit CI is separate. Full-plan acceptance, power-loss, remote identity and recovery-guard interruption remain open.
+
 ### Explicit stopped-owner watch recovery
 
 Added scoped lock inspection and checksum-bound recovery for versioned locks whose local owner PID is absent. Live/reused PIDs, uncertain liveness, foreign identities/scopes and legacy records are refused. An exclusive recovery guard blocks ordinary acquisition; owner/hash rechecks precede release, and a retained preparation archive preserves evidence. Checkpoints and media are not modified and scans are not retried automatically.
