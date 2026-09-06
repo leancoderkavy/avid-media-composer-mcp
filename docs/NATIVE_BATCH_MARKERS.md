@@ -4,6 +4,8 @@ Fresh corrected-code qualification passed in `.avid-mcp-analysis/native-batch-ma
 
 Preview an `add_markers` operation with `bin`, `mobId` and 1–100 marker records. Each record supplies a unique UUID `guid`, zero-based `offset`, picture/sound `track` (`type`, `number`), `name`, `comment` and `color`. Names and comments currently require printable ASCII. Apply requires edit authority and an unexpired single-use preview token.
 
+UUIDs are normalized to lowercase in the preview. Case-only duplicates and collisions with existing uppercase/lowercase UUIDs are refused. Readback matches UUIDs independently of letter case, and a final project check refuses verification after a project switch. This is not an atomic snapshot of concurrent editor changes.
+
 The preview binds current marker state, clip membership, saved bin hash, track inventory and duration metadata. It requires a 30 fps project/clip, existing target tracks and offsets below the frame count. GUIDs already present are refused. Apply dispatches one native `AddMarkers` request under the existing host lock and owner check.
 
 `markersVerified` reports whether readback contains every requested GUID, offset, track, name, comment, color, length (one frame) and user (`Avid MCP`), with existing marker records preserved and no extra additions. The omitted picture-track enum is interpreted using the qualified protobuf default. `applicationCompleted` alone does not establish that verification succeeded. Persistence is separate: save/reopen and read markers again when required.

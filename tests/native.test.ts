@@ -68,6 +68,28 @@ it('rejects invalid batch marker identity, range, track and text before writes',
  await expect(f.adapter.preview({...base,markers:[{...marker,track:{type:'TRACKTYPE_PICTURE',number:2}}]})).rejects.toThrow('track is unavailable');
  expect(f.calls.some(call=>call.method==='AddMarkers')).toBe(false);
 });
+it('canonicalizes batch UUIDs and detects existing IDs independently of letter case',async()=>{
+ const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',marker={guid,offset:1,track:{type:'TRACKTYPE_PICTURE' as const,number:1},name:'Review',comment:'Reviewed',color:'Green' as const},base={action:'add_markers' as const,bin:'fixture.avb',mobId:'clip'};
+ expect(nativeActionSchema.safeParse({...base,markers:[marker,{...marker,guid:guid.toUpperCase()}]}).success).toBe(false);
+ expect(nativeActionSchema.parse({...base,markers:[{...marker,guid:guid.toUpperCase()}]})).toMatchObject({markers:[{guid}]});
+ f.marker.guid=guid.toUpperCase();await expect(f.adapter.preview({...base,markers:[marker]})).rejects.toThrow('GUID already exists');
+});
+it.each(['project','existing-marker'])('does not verify a marker batch after %s changes',async changed=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client),project=await f.adapter.project(),other=await mkdtemp(path.join(os.tmpdir(),'avid-batch-project-'));
+ let dispatched=false;const markers:any[]=[structuredClone(f.marker)];
+ vi.spyOn(f.adapter,'project').mockImplementation(async()=>({...project,path:dispatched&&changed==='project'?other:project.path}));
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='GetOpenProjectInfo'&&dispatched&&changed==='project')return [{path:other,frame_rate:{num:30,den:1}}];
+  if(method==='GetListOfBinItems'&&dispatched&&changed==='project')return [{mob_id:'clip'}];
+  if(method==='GetMarkers')return [{info:structuredClone(markers)}];
+  if(method==='AddMarkers'){dispatched=true;markers.push(...structuredClone((body as any).info));if(changed==='existing-marker')markers[0].comment='outside edit';return [];}
+  return original(method,body);
+ });
+ await writeFile(path.join(other,'fixture.avb'),'other project bin');
+ const operation={action:'add_markers' as const,bin:'fixture.avb',mobId:'clip',markers:[{guid:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',offset:1,track:{type:'TRACKTYPE_PICTURE' as const,number:1},name:'Review',comment:'Reviewed',color:'Green' as const}]};
+ const plan=await f.adapter.preview(operation),result=await f.adapter.apply(plan.token);expect(result.markersVerified).toBe(false);expect(result.verificationError).toBeTruthy();
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');
+});
 it('refuses malformed, missing and outside-project native bin locations',async()=>{
  const f=await hostFixture('inspect'),original=f.client.call.bind(f.client),outside=await mkdtemp(path.join(os.tmpdir(),'avid-outside-')),file=path.join(outside,'other.avb');await writeFile(file,'preserve');
  let payload:unknown=[];vi.spyOn(f.client,'call').mockImplementation((method,body)=>method==='GetBinFromMob'?Promise.resolve(payload as any):original(method,body));

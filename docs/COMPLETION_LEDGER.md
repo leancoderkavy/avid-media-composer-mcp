@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Batch UUID identity and post-read project guards
+
+Negative tests reproduced case-only duplicate UUID acceptance and success after an authorized project change during batch readback. Marker UUIDs now normalize to lowercase during preview; collision/readback matching ignores letter case, while prior marker records remain subject to exact preservation checks. A final project check prevents verified success after a switch. Separate coverage confirms that changing an existing marker fails verification and consumes the token. These tests inject host state changes; no live editor project switch or extra marker write was performed for this patch.
+
+All 76 focused native tests and full check passed: 647 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-batch-marker-identity.log`). Pre-fix failures are retained in `batch-identity-before.log`. Earlier actual two-marker persistence/restoration evidence remains separate. This improves operation guards without claiming atomic concurrent-edit protection, larger-batch acceptance or full-plan completion.
+
 ### Guarded native batch markers
 
 Added `add_markers` preview/apply for 1–100 caller-identified markers on an existing 30 fps clip/sequence. Preflight checks unique GUIDs, existing markers, duration bounds, track inventory, source membership and printable ASCII text. One AddMarkers dispatch is owner-bound; post-read verifies every requested field, one-frame length, user, prior marker preservation and total count. Partial verification never reports markersVerified, and tokens cannot replay. Native allowlist now contains 15 reads and 16 writes.
