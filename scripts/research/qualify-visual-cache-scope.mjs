@@ -1,6 +1,6 @@
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
-import {mkdir,rename,writeFile} from 'node:fs/promises';
+import {mkdir,rename,writeFile,readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -25,6 +25,21 @@ try{
   await call('avid_index_media',{files:[moved]});
   const restored=await call('avid_visual_index_run',{runId:first.runId});assert.equal(restored.state,'completed');assert.equal(restored.indexId,first.indexId);
   assert.deepEqual((await call('avid_visual_index_runs',{})).runs.map(run=>run.runId),[first.runId]);assert.equal(await sha256File(moved),ids[0]);
-  await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,second,scoped,denied,restored,sourceContentUnchanged:true,scope:'Generated local MP4s; scoped discovery and content-identity reconnect without embedding recomputation'},null,2));
+  const query={indexId:first.indexId,query:{text:'red scene'},limit:1};
+  const baseline=await call('avid_search_visual',query);
+  const alias=path.join(allowed,'matching.mp4');await writeFile(alias,await readFile(moved),{flag:'wx'});
+  // Change only this run's generated fixtures; original user media is never used.
+  await writeFile(moved,'changed generated source');
+  for(const [name,args] of [['avid_search_visual',query],['avid_visual_samples',{indexId:first.indexId}],['avid_search_visual_frame',{indexId:first.indexId,id:ids[0],time:0.5,limit:1}]]){
+    const stale=await client.callTool({name,arguments:args});assert.equal(stale.isError,true);assert.match(JSON.stringify(stale),/Source changed/);
+  }
+  await call('avid_index_media',{files:[alias]});
+  const recovered=await call('avid_search_visual',query);assert.deepEqual(recovered,baseline);
+  assert.equal((await call('avid_visual_samples',{indexId:first.indexId})).samples.length,1);
+  await client.close();client=await connect(moved);
+  const narrow=await client.callTool({name:'avid_search_visual',arguments:query});assert.equal(narrow.isError,true);
+  await client.close();client=await connect(allowed);await writeFile(alias,'changed matching copy');
+  const changedBoth=await client.callTool({name:'avid_search_visual',arguments:query});assert.equal(changedBoth.isError,true);assert.match(JSON.stringify(changedBoth),/Source changed/);
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,second,scoped,denied,restored,baseline,recovered,narrow,changedBoth,staleReadsRefused:true,matchingAliasRecoveredIdenticalSearch:true,scope:'Generated local MP4s only; one moved source and matching alias deliberately changed to test refusal. No user media edited or embedding recomputation during recovery.'},null,2));
   console.log(JSON.stringify({passed:true,scopedDiscovery:true,movedSourceRestored:true,evidence:path.join(root,'evidence.json')}));
 }finally{await client.close();}

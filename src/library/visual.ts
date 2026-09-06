@@ -105,8 +105,9 @@ export class VisualSearch {
     const directory=await this.library.directory();
     const file=await resolveReadablePath(path.join(directory,`visual-${indexId}.json`),[directory],"file");
     const record=recordSchema.parse(await readBoundedJson(file,32*1024*1024));
-    // Enforce current source roots even when a prior index used wider access.
-    await this.library.metadata([...new Set(record.samples.map(sample=>sample.id))]);
+    // Cached embeddings belong to content, not whichever bytes now occupy a path.
+    // Check one source at a time to bound hashing work on multi-file indexes.
+    for(const id of new Set(record.samples.map(sample=>sample.id)))await this.library.validatedMetadata(id);
     return {record,directory};
   }
   async samples(indexId:string,scope:z.infer<typeof visualScope>={},after=-1,limit=50){

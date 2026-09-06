@@ -1,4 +1,4 @@
-import {mkdtemp,writeFile,readFile,unlink} from "node:fs/promises";
+import {mkdtemp,mkdir,writeFile,readFile,unlink} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,afterEach} from "vitest";
@@ -120,4 +120,21 @@ it("rejects invalid frame-search text and scope before creating reference artifa
   await expect(visual.searchFrame(index.indexId,id,1,2,{range:{start:2,end:1}})).rejects.toThrow();
   await expect(visual.searchFrame(index.indexId,id,-1,2)).rejects.toThrow();
   expect(artifact).not.toHaveBeenCalled();expect(model.text).not.toHaveBeenCalled();expect(model.vision).not.toHaveBeenCalled();
+});
+
+it("refuses stale visual reads and recovers only through an authorized matching alias",async()=>{
+  const {visual,id,source,root,directory,config}=await fixture(),index=await visual.index([id],1);
+  const original=await readFile(source),alias=path.join(root,'alias.mp4');await writeFile(alias,original);await writeFile(source,'replacement');
+  model.text.mockResolvedValue({text_embeds:{data:Array(512).fill(0.5)}});model.tokenizer.mockResolvedValue({input_ids:{dims:[1,3]}});
+  const artifact=vi.mocked(MediaLibrary.prototype.artifact);artifact.mockClear();
+  await expect(visual.samples(index.indexId)).rejects.toThrow('Source changed');
+  await expect(visual.search(index.indexId,{text:'scene'},2)).rejects.toThrow('Source changed');
+  await expect(visual.searchFrame(index.indexId,id,1,2)).rejects.toThrow('Source changed');
+  expect(artifact).not.toHaveBeenCalled();expect(model.text).not.toHaveBeenCalled();
+  const aliases=path.join(directory,`${id}.sources`);await mkdir(aliases);
+  await writeFile(path.join(aliases,`${'a'.repeat(64)}.json`),JSON.stringify({id,file:alias}));
+  expect((await visual.search(index.indexId,{text:'scene'},2)).results).toHaveLength(1);
+  expect((await visual.samples(index.indexId)).samples).toHaveLength(1);
+  await expect(new VisualSearch({...config,allowedRoots:[source]}).samples(index.indexId)).rejects.toThrow('Source changed');
+  await writeFile(alias,'also changed');await expect(visual.samples(index.indexId)).rejects.toThrow('Source changed');
 });

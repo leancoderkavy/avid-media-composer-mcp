@@ -5,6 +5,7 @@ import {randomUUID} from "node:crypto";
 import {it,expect} from "vitest";
 import {VisualSearch,sampleTimes,VISUAL_MODEL,VISUAL_REVISION} from "../src/library/visual.js";
 import {loadConfig} from "../src/config.js";
+import {sha256File} from "../src/analysis/file-inventory.js";
 it("samples bounded source ranges uniformly and rejects invalid coverage before inference",()=>{
   expect(sampleTimes(100,3,{start:20,end:50})).toEqual([25,35,45]);
   expect(sampleTimes(100,120)).toHaveLength(120);
@@ -13,7 +14,7 @@ it("samples bounded source ranges uniformly and rejects invalid coverage before 
 });
 it("paginates half-open sample scope without loading models or returning embeddings",async()=>{
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-visual-")),directory=path.join(root,"avid-mcp-library");await mkdir(directory);
-  const id="a".repeat(64),source=path.join(root,"source.mp4"),image=path.join(directory,"frame.jpg");await writeFile(source,"fixture");await writeFile(image,"image");
+  const source=path.join(root,"source.mp4"),image=path.join(directory,"frame.jpg");await writeFile(source,"fixture");await writeFile(image,"image");const id=await sha256File(source);
   await writeFile(path.join(directory,`${id}.json`),JSON.stringify({id,file:source,metadata:{format:{duration:10}},transcript:[]}));
   const indexId=randomUUID();await writeFile(path.join(directory,`visual-${indexId}.json`),JSON.stringify({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples:[1,2,3,4].map(time=>({id,time,image,shot:{start:time-0.5,end:time+0.5},vector:Array(512).fill(0)}))}));
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root}),visual=new VisualSearch(config);
