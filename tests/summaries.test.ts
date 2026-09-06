@@ -30,8 +30,14 @@ it("returns exact leaf input spans and preserves historical summaries without gu
  const leaf=await summaries.node(saved.revision,'n0');expect(leaf.sourceExcerpts!.map(e=>e.text).join(' ')).toBe(summaryChunks(root.sources)[0]!.text);
  expect(leaf.sourceExcerpts!.every(e=>e.leafNodeId==='n0')).toBe(true);
  const file=path.join(await new MediaLibrary(config).directory(),`summary-${saved.revision}.json`),record=JSON.parse(await readFile(file,'utf8'));
+ for(let i=0;i<record.nodes.length;i++){
+  const inspected=await summaries.node(saved.revision,record.nodes[i].nodeId),text=inference.mock.calls[i]![0];
+  expect(inspected.modelInput).toMatchObject({status:'reconstructed_recipe',text,sha256:createHash('sha256').update(text).digest('hex'),kind:record.nodes[i].children.length?'generated_children':'transcript_chunk',childNodeIds:record.nodes[i].children});
+ }
+ expect(root.modelInput.text).toBe(root.children.map(child=>child.summary).join(' '));
  delete record.chunkRecipe;await writeFile(file,JSON.stringify(record));
  const legacy=await summaries.node(saved.revision);expect(legacy.sourceExcerpts).toBeNull();expect(legacy.sourceExcerptsStatus).toBe('not_recorded');
+ expect(legacy.modelInput).toMatchObject({status:'not_recorded',text:null,sha256:null,kind:null});
 });
 it("refuses recipe-bearing records with reordered leaf provenance",async()=>{
  const {id,config,transcript,summaries}=await fixture(),saved=await summaries.generate(id,transcript.revision);

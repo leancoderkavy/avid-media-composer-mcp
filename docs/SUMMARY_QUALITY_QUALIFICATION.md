@@ -2,6 +2,12 @@
 
 The pinned local DistilBART model is implemented and runtime-tested. Its editorial quality is **not accepted as complete**. Tree/source-reference validation and successful resume establish structure and execution, not accurate or comprehensive prose.
 
+## Inspect the model input at each level
+
+`avid_summary_node` now includes `modelInput` for recipe-bearing records: reconstructed text, its UTF-8 SHA-256, and `kind: transcript_chunk` for leaves or `generated_children` for overviews. Overviews list their input child IDs in concatenation order. Compare this input with the generated node and then with original `sources`/`sourceExcerpts` to distinguish a new error from an inherited child error or omission. The response does not automatically classify those errors.
+
+The status is `reconstructed_recipe`: it reproduces the recorded algorithm from verified transcript and saved child text, not an independent execution log or proof of factual entailment. Older records without a recipe return `not_recorded` with null text/hash instead of guessing. Inspection does not load a model or modify saved records.
+
 ## Repetition and inherited minimum-length comparison
 
 `scripts/research/benchmark-summary-repetition.mjs` compares four generation settings across the eight existing editorial evidence fixtures plus one original single-sentence climbing observation. It retains requested/effective options, source review criteria and every output, with incremental progress. Evidence: `.avid-mcp-analysis/summary-repetition-84ad0dea-c09b-43a9-be16-4e32859c8d47/evidence.json` (36 generations). The initial two-setting experiment is retained separately at `summary-repetition-510b0f78-7c05-42ec-a352-24a09b054c34`.

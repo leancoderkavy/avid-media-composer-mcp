@@ -27,6 +27,8 @@ For interrupted visual indexing, use `avid_visual_index_runs` and `avid_visual_i
 
 When using transcript summaries for editorial context, review claims against the source transcript. Interrupted summary runs are available through `avid_summary_runs` and `avid_summary_run`; `avid_resume_summary` (or a `summary_resume` job) reuses verified nodes in a new run. Keep the transcript revision and parent run identity. Recovery checks provenance and structure, not factual accuracy or visual grounding.
 
+Use `avid_summary_node` to inspect `modelInput` alongside the generated node and original `sources`/`sourceExcerpts`. A leaf receives a transcript chunk; an overview receives generated child summaries and may inherit their errors or omissions. Follow `childNodeIds` when tracing an unsupported statement. `reconstructed_recipe` identifies reconstructed input, not independent execution evidence or factual support; `not_recorded` means the reader cannot establish that input for the older record. Do not treat agreement between an overview and its children as confirmation from the transcript.
+
 For handoff:
 
 When a separate source-clock editing copy is needed, inspect the source's stream indexes and checksum, then call `avid_prepare_source_clock_media` with explicit absolute video/audio indexes. It supports bounded local H.264 plus stereo inputs and writes copied video with normalized 48 kHz/24-bit PCM. Preserve its receipt and original source; additional media streams are omitted. Preparation does not link or relink Avid media. Use the resulting file explicitly in the native link/reference-export workflow, and verify stereo source ranges and rendered audio independently.

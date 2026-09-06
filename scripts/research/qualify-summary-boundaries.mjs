@@ -1,6 +1,6 @@
 import {mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -31,6 +31,11 @@ try{
  for(const excerpt of overview.sourceExcerpts){assert.equal(excerpt.index,0);assert.equal(text.slice(excerpt.charStart,excerpt.charEnd),excerpt.text);}
  const leaves=[];for(const child of overview.children)leaves.push(await call('avid_summary_node',{revision:generated.revision,nodeId:child.nodeId}));
  for(const leaf of leaves){assert.ok(leaf.sourceExcerpts.every(e=>e.leafNodeId===leaf.node.nodeId));assert.ok(leaf.sourceExcerpts.map(e=>e.text).join(' ').length<=2000);}
+ for(let i=0;i<leaves.length;i++){
+  const input=comparisons[1].outputs[i].input;
+  assert.equal(leaves[i].modelInput.kind,'transcript_chunk');assert.equal(leaves[i].modelInput.text,input);assert.equal(leaves[i].modelInput.sha256,createHash('sha256').update(input).digest('hex'));
+ }
+ assert.equal(overview.modelInput.kind,'generated_children');assert.equal(overview.modelInput.text,overview.children.map(child=>child.summary).join(' '));assert.deepEqual(overview.modelInput.childNodeIds,overview.node.children);
  assert.equal(await sha256File(source),id);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,text,decision,comparisons,generated,overview,leaves,sourceUnchanged:true,limitations:['Synthetic repeated editorial note attached to a real source; not a transcript of Sonoma speech','Exact input preservation and workflow qualification, not broad factual quality acceptance','Sentence/word boundary heuristics can still split long sentences and do not perform linguistic parsing']},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,comparisons:comparisons.map(c=>({recipe:c.recipe,intactDecisionInput:c.intactDecisionInput,outputs:c.outputs.map(o=>o.output)})),overview:overview.node.summary}));

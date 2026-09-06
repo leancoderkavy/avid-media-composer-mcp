@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Inspect transcript and generated-child model inputs
+
+Summary node reads now return recipe-reconstructed model input text, its UTF-8 SHA-256, input kind and ordered child IDs. Leaf inputs come from transcript chunks; overview inputs concatenate generated child summaries. Legacy records without a recipe return null input rather than guessing. This makes inherited omissions/errors reviewable without loading a model or modifying saved records. Unit tests compare every reconstructed input/hash against captured generation calls and verify legacy absence.
+
+Actual cached-model/MCP boundary qualification passed: `.avid-mcp-analysis/summary-boundaries-b91594cc-5065-4612-b691-99491865144b/evidence.json`. Every leaf input matched its independently retained direct-model input; overview input matched ordered child text. Original Sonoma MP4 hash remained unchanged. The source note is synthetic; the generated National Guard fabrication remains visible in a child and the overview input, not accepted as fact. Packaged selects guidance now distinguishes child agreement from original transcript support. Full check passed with 638 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-summary-model-input.log`). This improves review evidence, not automatic entailment/coverage scoring or overall summary-quality acceptance. Full-plan scope remains open.
+
 ### Summary repetition and inherited minimum length
 
 Ran a 36-generation comparison of baseline, stronger repetition controls, removed minimum length, and both changes over eight editorial fixtures plus a short observation. Effective model configuration exposed the inherited 56-token minimum; installed runtime source applies it separately from minimum new tokens. Removing it fixed short-input padding but lost important longer-input decisions. Repetition penalties introduced factual errors including a changed delivery time and unsupported report details. No candidate was adopted and no checkpoint recipe changed.
