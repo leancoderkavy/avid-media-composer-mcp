@@ -776,3 +776,8 @@ Guarded MCP close/reopen of the trimmed-then-undone disposable bin passed after 
 
 src/native/trim-verifier.ts now checks exact one-frame dual-roller transformations for explicitly selected picture/sound track ordinals against complete, warning-free decoded graphs. It preserves and compares every decoded mob field, rejects ambiguous identities/tracks, overlaps, opaque/combiner components, empty clips, unresolved or mixed-rate direct sources and unrelated edits. Five focused tests and build passed; the verifier also passed against the captured real Avid trim and inverse undo graphs. It does not execute commands, authenticate input files, prove available media handles or qualify general timeline editing. The UI adapter remains unfinished.
 
+
+### Full regression and installed trim verification
+
+Full npm run check passed after adding installed-package trim-verifier execution: 503 TypeScript tests, 32 Python tests, 136 tools, stdio/HTTP checks, dry packing and fresh-tarball installation. The installed verifier accepted synthetic forward/inverse transforms and refused an unrelated name change; exact tool definitions, collection discovery, five client formats and Python isolation/recovery also passed. Log: .avid-mcp-analysis/check-trim-verifier.log. Actual Avid trim/undo evidence remains separate; this package check does not execute editor commands or close the UI adapter requirement.
+

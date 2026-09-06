@@ -196,6 +196,15 @@ try {
   await mkdir(snapshotDirectory,{recursive:true});
   const baseline="00000000-0000-4000-8000-000000000001",candidate="00000000-0000-4000-8000-000000000002";
   const fixtureMob={mobId:"sequence",name:"Before",mobType:"CompositionMob",usageCode:0,rate:30,duration:60,sourceBounds:{start:0,end:60},tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:30,sourceMobId:"source",sourceStart:90},{kind:"SCLP",timelineStart:30,timelineEnd:60,sourceMobId:"source",sourceStart:120}]}]};
+  const {verifySavedDualRollerTrim}=await import(pathToFileURL(path.join(installedRoot,"dist/native/trim-verifier.js")).href);
+  const trimMob=structuredClone(fixtureMob);for(const node of trimMob.tracks[0].nodes)node.sourceTrackId=1;
+  const trimBefore={schema:1,complete:true,warnings:[],mobs:[trimMob,{...trimMob,mobId:"source",mobType:"MasterMob",duration:1000,sourceBounds:{start:0,end:1000},tracks:[]}]};
+  const trimAfter=structuredClone(trimBefore);trimAfter.mobs[0].tracks[0].nodes[0].timelineEnd=31;trimAfter.mobs[0].tracks[0].nodes[1].timelineStart=31;trimAfter.mobs[0].tracks[0].nodes[1].sourceStart=121;
+  const trimPlan={mobId:"sequence",cut:30,delta:1,trackOrdinals:[0]};
+  if(!verifySavedDualRollerTrim(trimBefore,trimAfter,trimPlan).verified||!verifySavedDualRollerTrim(trimAfter,trimBefore,{...trimPlan,cut:31,delta:-1}).verified)throw new Error("Installed trim verification failed");
+  trimAfter.mobs[0].name="Unexpected rename";let unrelatedRefused=false;
+  try{verifySavedDualRollerTrim(trimBefore,trimAfter,trimPlan);}catch(error){unrelatedRefused=error.message.includes("exact requested trim");}
+  if(!unrelatedRefused)throw new Error("Installed trim verifier accepted an unrelated edit");
   const record={revision:baseline,createdAt:"synthetic-package-fixture",bins:[{schema:1,file:path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),sha256:"a".repeat(64),mobs:[fixtureMob,{...fixtureMob,mobId:"second"}],warnings:[],complete:true,nodeCount:4,stateOrigin:"synthetic"}]};
   await writeFile(path.join(snapshotDirectory,`snapshot-${baseline}.json`),JSON.stringify(record));
   record.revision=candidate;for(const mob of record.bins[0].mobs)mob.name="After";
@@ -303,6 +312,7 @@ try {
       cachedNotices: "six model notice mappings create and reuse from installed package",
       inventoryReport: "installed stream/tag rendering and changed-source refusal preserve prior output",
       collectionDiscovery: "installed damaged-record continuation, saved-range readback and out-of-scope omission passed",
+      trimVerification: "installed forward/inverse decoded trim and unrelated-edit refusal passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
