@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Installed native bin-column reconnect qualification
+
+Extended the native column harness to bind execution to an installed entry checksum and compare a second MCP process with the first and direct native reads. Fresh managed-package qualification now includes this check alongside existing project/bin/track/viewer reads and independent saved timeline verification. Actual execution passed: 179 declarations matched, both server entry and bin hashes stayed unchanged, and package archive identity was preserved. Evidence: `.avid-mcp-analysis/installed-native-7e590d97-ebfe-402b-a94c-ee39ac9dfe00/evidence.json`; column evidence: `native-bin-columns-85d2bb18-9e3f-48b4-ab91-6487f5b301df` under the same analysis root. Both script syntax checks passed. No production code changed; the full unit suite was not rerun. This qualifies installed read/reconnect behavior on the existing host, not clean-machine prerequisites, named GUI clients, writes or general editor coverage.
+
+At this check a2cb853's macOS Node 20/24, landing and CodeQL passed; Windows CI was still running. The broader full-plan requirements remain open.
+
 ### Cross-platform bin-column assertion repair
 
 The edc063b Windows Node 20/24 jobs, landing and CodeQL passed, but both macOS jobs failed because a new non-disclosure assertion searched the entire result for `private`, which also occurs in macOS's legitimate `/private` temporary paths. The test now checks exact column-array equality and absence of the injected `unrequested` property. This still rejects leaked extra column fields without rejecting an authorized bin path. All 54 focused native tests passed locally; production code is unchanged. Remote verification of this correction remains pending, and the full-plan gaps below remain open.
