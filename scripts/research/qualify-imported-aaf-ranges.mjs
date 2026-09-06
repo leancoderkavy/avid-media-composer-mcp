@@ -25,6 +25,11 @@ try{
  }
  assert.ok(sources.every(item=>item.sourceMobId==='urn:smpte:umid:060a2b34.01010105.01010f10.13000000.a2fb387f.12888806.bab3d8bb.c16d18d9'));
  assert.equal(await sha256File(bin),evidence.savedBinSha256);
- const report=path.join(root,`ranges-${randomUUID()}.json`);await writeFile(report,JSON.stringify({result,binUnchanged:true,sourceRangesVerified:true},null,2),{flag:'wx'});
+ const complexity=await client.callTool({name:'avid_saved_sequence_complexity',arguments:{revision:evidence.snapshot.revision,mobId:sequence.mobId}});
+ assert.ok(!complexity.isError,JSON.stringify(complexity));
+ assert.equal(complexity.structuredContent.data.sourceReferences,6);
+ assert.equal(complexity.structuredContent.data.distinctSourceMobs,1);
+ assert.equal(complexity.structuredContent.data.durationSeconds,4);
+ const report=path.join(root,`ranges-${randomUUID()}.json`);await writeFile(report,JSON.stringify({result,complexity,binUnchanged:true,sourceRangesVerified:true},null,2),{flag:'wx'});
  console.log(JSON.stringify({evidence:report,sourceRangesVerified:true,binUnchanged:true}));
 }finally{await client.close();}

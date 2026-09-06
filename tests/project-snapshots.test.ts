@@ -16,6 +16,15 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("reports direct structural counts and preserves opaque completeness limits",async()=>{
+    const {record,save,snapshots}=await fixture();
+    const track=record.bins[0]!.mobs[0]!.tracks[0]!;
+    track.nodes.push({...track.nodes[0]!,kind:"EFFECT",...{opaque:true}});
+    const report=await snapshots.complexity(await save(),"sequence");
+    expect(report).toMatchObject({trackCount:1,nodes:2,sourceReferences:2,distinctSourceMobs:1,opaqueNodes:1,complete:false,durationSeconds:2});
+    expect(report.tracks[0]!.kinds).toEqual({SCLP:1,EFFECT:1});
+    await expect(snapshots.complexity(record.revision,"missing")).rejects.toThrow("one matching mob");
+  });
   it("retains stereo channel identity through range paging, usage and semantic diff",async()=>{
     const {record,save,snapshots}=await fixture();const track=record.bins[0]!.mobs[0]!.tracks[0]!;
     track.mediaKind="sound";
