@@ -28,8 +28,9 @@ async function fixture(){
   await writeFile(path.join(directory,`${id}.json`),JSON.stringify({id,file:source,metadata:{format:{duration:90}},transcript:[]}));return {config,id,source};
 }
 it("pins selected weights and disables implicit downloads",async()=>{
-  await loadSpeechModel("cache",false,"tiny");expect(mocks.pipeline).toHaveBeenCalledWith("automatic-speech-recognition",speechModels.tiny.model,expect.objectContaining({revision:speechModels.tiny.revision,local_files_only:true}));
-  await loadSpeechModel("cache",true,"tiny.en");expect(mocks.pipeline).toHaveBeenLastCalledWith("automatic-speech-recognition",speechModels["tiny.en"].model,expect.objectContaining({local_files_only:false}));
+  const cache=await mkdtemp(path.join(os.tmpdir(),"avid-speech-model-"));
+  await loadSpeechModel(cache,false,"tiny");expect(mocks.pipeline).toHaveBeenCalledWith("automatic-speech-recognition",speechModels.tiny.model,expect.objectContaining({revision:speechModels.tiny.revision,local_files_only:true}));
+  await loadSpeechModel(cache,true,"tiny.en");expect(mocks.pipeline).toHaveBeenLastCalledWith("automatic-speech-recognition",speechModels["tiny.en"].model,expect.objectContaining({local_files_only:false}));
 });
 it("retains source timing and language provenance for direct multilingual transcription",async()=>{
   const {config,id}=await fixture(),speech=new SpeechAnalysis(config);const result=await speech.transcribe(id,10,11,{model:"tiny",language:"fr"});
