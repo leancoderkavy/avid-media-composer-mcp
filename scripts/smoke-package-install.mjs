@@ -118,6 +118,7 @@ try {
       ...getDefaultEnvironment(),
       AVID_MCP_ALLOWED_ROOTS: path.resolve(root, "tests", "fixtures", "sample-project"),
       AVID_MCP_CAPABILITIES: "inspect",
+      AVID_MCP_OUTPUT_ROOT: temporary,
       ...(withPython ? {AVID_MCP_PYTHON:python} : {}),
     },
   });
@@ -146,6 +147,22 @@ try {
       throw new Error(`Installed tool definitions differ from checkout: ${changed.join(", ") || "tool inventory changed"}`);
     }
   } finally {await checkoutClient.close();}
+  const snapshotDirectory=path.join(temporary,"avid-mcp-library");
+  await mkdir(snapshotDirectory,{recursive:true});
+  const baseline="00000000-0000-4000-8000-000000000001",candidate="00000000-0000-4000-8000-000000000002";
+  const fixtureMob={mobId:"sequence",name:"Before",mobType:"CompositionMob",usageCode:0,rate:30,duration:60,sourceBounds:{start:0,end:60},tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:30,sourceMobId:"source",sourceStart:90},{kind:"SCLP",timelineStart:30,timelineEnd:60,sourceMobId:"source",sourceStart:120}]}]};
+  const record={revision:baseline,createdAt:"synthetic-package-fixture",bins:[{schema:1,file:path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),sha256:"a".repeat(64),mobs:[fixtureMob,{...fixtureMob,mobId:"second"}],warnings:[],complete:true,nodeCount:4,stateOrigin:"synthetic"}]};
+  await writeFile(path.join(snapshotDirectory,`snapshot-${baseline}.json`),JSON.stringify(record));
+  record.revision=candidate;for(const mob of record.bins[0].mobs)mob.name="After";
+  await writeFile(path.join(snapshotDirectory,`snapshot-${candidate}.json`),JSON.stringify(record));
+  const invoke=async(name,args)=>{const response=await client.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed pagination call failed: ${name}`);return response.structuredContent.data;};
+  const diff=await invoke("avid_diff_saved_snapshots",{baseline,candidate,limit:1});
+  const diffLast=await invoke("avid_diff_saved_snapshots",{baseline,candidate,limit:1,after:diff.nextAfter});
+  const usage=await invoke("avid_saved_source_usage",{revision:baseline,sourceMobId:"source",limit:3});
+  const usageLast=await invoke("avid_saved_source_usage",{revision:baseline,sourceMobId:"source",limit:3,after:usage.nextAfter});
+  const range=await invoke("avid_saved_timeline_range",{revision:baseline,mobId:"sequence",start:0,end:60,limit:1});
+  const rangeLast=await invoke("avid_saved_timeline_range",{revision:baseline,mobId:"sequence",start:0,end:60,limit:1,after:range.nextAfter});
+  if(diff.totalChanges!==2||diffLast.changes[0]?.index!==1||diffLast.nextAfter!==null||usage.totalReferences!==4||usageLast.usages[0]?.index!==3||usageLast.nextAfter!==null||rangeLast.results[0]?.overlapSourceStart!==120||rangeLast.nextAfter!==null)throw new Error("Installed snapshot pagination contract failed");
   if (withPython) {
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
@@ -186,6 +203,7 @@ try {
       skills: skillNames.length,
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
+      snapshotPagination: "synthetic diff, usage and range continuation passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
     }),
