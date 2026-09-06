@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Verified native batch marker removal
+
+Added `delete_markers` preview/apply for 1–100 explicit UUIDs. It normalizes caller IDs, requires exactly one current match per ID, binds the full marker list and dispatches the observed native spellings once under the existing owner/host lock. Post-read verifies exact remaining-record preservation and a stable project before reporting markersRemovedVerified. Missing/duplicate/stale requests are refused; partial deletion and unrelated changes fail verification without replay. Existing native DeleteMarkers allowlisting is reused; inventory remains 15 reads/16 writes and 139 MCP tools.
+
+Actual MCP testing on the retained 100-marker V1/stereo A1 fixture added one preservation marker, removed the original 100 in a single request, saved/reopened and verified only the unchanged preservation marker remained. Separate cleanup and save/reopen then verified an empty marker list. Original source-bin/media and prior scale evidence hashes were preserved: `.avid-mcp-analysis/native-batch-removal-58c97a86-ce53-42f7-b502-893cf2abd953/evidence.json`. The earlier scale fixture is now cleaned of its test markers; whole-bin graph/byte restoration is not claimed.
+
+All 80 focused native tests and full check passed: 651 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-batch-removal.log`). Packaged review guidance includes explicit batch removal and separate persistence checks. Atomicity, restart, other host versions and full-plan acceptance remain open.
+
 ### Native 100-marker mixed-track qualification
 
 Extended the owned-fixture harness with `--scale`: 100 markers across V1 and stereo A1, including offset zero, are saved/reopened and retained for follow-up. The initial V1/A1/A2 request was refused during preview; direct track readback confirmed one stereo sound track and no A2. No batch was dispatched in that attempt (`native-batch-markers-fa4a3eb5-f0bb-41b1-b55e-19afe1374398`). A unit case separately reproduced omitted frame-zero offset handling; the verifier now uses the native protobuf zero default.

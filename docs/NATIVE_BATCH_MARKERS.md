@@ -1,5 +1,13 @@
 # Native batch markers
 
+## Remove an explicit batch
+
+Preview `delete_markers` with `bin`, `mobId` and 1–100 UUIDs in `guids`. Every requested UUID must exist exactly once; case-only duplicates are refused. The preview binds the entire current marker list, so edits between preview and apply invalidate the plan. Apply sends the observed native GUID spellings in one `DeleteMarkers` request under the existing lock and owner check.
+
+`markersRemovedVerified` requires the resulting marker list to equal the original list minus exactly those IDs, including preservation of every remaining record. A project change, partial deletion or unrelated marker change refuses verified success. The token is consumed before dispatch; there is no automatic retry or compensating re-creation. Save/reopen remains a separate persistence check.
+
+Actual qualification removed the 100 retained scale markers in one request while preserving one newly added marker outside that request. Save/reopen retained exactly the preservation marker; a separate removal and save/reopen then left zero markers. Original source-bin/media and prior evidence hashes remained unchanged. Evidence: `.avid-mcp-analysis/native-batch-removal-58c97a86-ce53-42f7-b502-893cf2abd953/evidence.json`. The earlier scale evidence records the state before this explicit cleanup; `MCP_Batch_29084e01.avb` no longer contains those test markers. This proves marker-list restoration, not whole-bin graph or byte restoration.
+
 The `--scale` harness mode passed 100 markers alternating between V1 and stereo A1 on a fresh 120-frame, 30 fps sequence copy, including frame-zero readback. All requested fields survived save/reopen. Evidence: `.avid-mcp-analysis/native-batch-markers-9b534448-7a38-4dd6-b345-5c08f6455e92/evidence.json`; retained fixture: `MCP_Batch_29084e01.avb`. Its markers remain for follow-up; no cleanup or baseline restoration is claimed for this mode. An initial V1/A1/A2 proposal was refused before dispatch because the source has one stereo A1, not separate A1/A2 tracks. The unchanged-source assertion passed on the successful run.
 
 Frame-zero offsets may be absent in protobuf responses; verification applies the qualified numeric default of zero. A regression case failed before that fix and passed afterward. This does not authorize inferring an offset from arbitrary non-native records.

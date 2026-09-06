@@ -23,6 +23,7 @@ const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Blac
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("delete_markers"),bin:z.string().min(1),mobId:id,guids:z.array(z.string().uuid().transform(value=>value.toLowerCase())).min(1).max(100).refine(values=>new Set(values).size===values.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("add_markers"),bin:z.string().min(1),mobId:id,markers:z.array(z.object({guid:z.string().uuid().transform(value=>value.toLowerCase()),offset:z.number().int().nonnegative().max(2147483647),track,comment:z.string().max(1024).regex(/^[\x20-\x7e]*$/),name:z.string().max(120).regex(/^[\x20-\x7e]*$/),color}).strict()).min(1).max(100).refine(items=>new Set(items.map(item=>item.guid)).size===items.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("copy_clips"),bin:z.string().min(1),mobIds:selectionIds.refine(ids=>ids.length>0,"Copy at least one item"),destinationBin:z.string().min(1)}).strict(),
   z.object({action:z.literal("copy_clip"),bin:z.string().min(1),mobId:id,destinationBin:z.string().min(1)}).strict(),
@@ -177,6 +178,11 @@ export class NativeAdapter {
     if(action.action==="open_bin")return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),action};
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path:path.relative(project.path,bin),bin_flags:["AllTypes"] });
     if ("mobId" in action && !clips.some(clip => clip.mob_id === action.mobId)) throw new Error("Target clip is not in bin");
+    if(action.action==="delete_markers"){
+      const markers=await this.read("markers",action.bin,action.mobId) as Record<string,any>[];
+      if(action.guids.some(guid=>markers.filter(marker=>typeof marker.guid==="string"&&marker.guid.toLowerCase()===guid).length!==1))throw new Error("Each requested marker must exist exactly once; inspect before deletion");
+      return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),clips,markers,action};
+    }
     if(action.action==="add_markers"){
       const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value])),frames=Number(columns["Frame Count Duration"]);
       if(project.frame_rate?.num!==30||project.frame_rate?.den!==1||Number(columns.FPS)!==30||!Number.isSafeInteger(frames)||frames<1||action.markers.some(marker=>marker.offset>=frames))throw new Error("Batch markers require in-range offsets on a 30 fps clip");
@@ -414,6 +420,12 @@ export class NativeAdapter {
               comment: action.comment, color: action.color } }); break;
           }
           case "delete_marker": result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] }); break;
+          case "delete_markers": {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Marker host or project changed before dispatch");
+            if(!("markers" in observedState))throw new Error("Missing marker baseline");
+            const guids=(observedState.markers as Record<string,any>[]).filter(marker=>typeof marker.guid==="string"&&action.guids.includes(marker.guid.toLowerCase())).map(marker=>marker.guid);
+            result=await this.client.call("DeleteMarkers",{mob_id:action.mobId,guid:guids},observedState.owner);break;
+          }
           case "copy_clip": case "copy_clips": {
             if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner||!("destination" in observedState))throw new Error("Copy host or project changed before dispatch");
             result=await this.client.call("CopyBinItems",{source_bin_path:observedState.bin,destination_bin_path:observedState.destination,mob_id:action.action==="copy_clip"?[action.mobId]:action.mobIds},observedState.owner);break;
@@ -438,6 +450,13 @@ export class NativeAdapter {
         }
         let postState:unknown,verificationError:string|undefined;
         try {
+          if(action.action==="delete_markers"){
+            postState=await this.read("markers",action.bin,action.mobId);
+            if((await this.project()).path!==project.path)throw new Error("Project changed during marker removal verification");
+            if(!("markers" in observedState))throw new Error("Missing marker baseline");
+            const remaining=(observedState.markers as Record<string,any>[]).filter(marker=>typeof marker.guid!=="string"||!action.guids.includes(marker.guid.toLowerCase()));
+            if(digest(remaining.map(digest).sort())!==digest((postState as Record<string,any>[]).map(digest).sort()))throw new Error("Requested marker removal or remaining-marker preservation not verified; inspect before retrying");
+          }else
           if(action.action==="add_markers"){
             postState=await this.read("markers",action.bin,action.mobId);const after=postState as Record<string,any>[];
             if((await this.project()).path!==project.path)throw new Error("Project changed during batch marker verification");
@@ -485,7 +504,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false,...(action.action==="add_markers"?{markersVerified:!verificationError}:{}),...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
+          persistenceVerified: false,...(action.action==="delete_markers"?{markersRemovedVerified:!verificationError}:{}),...(action.action==="add_markers"?{markersVerified:!verificationError}:{}),...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;

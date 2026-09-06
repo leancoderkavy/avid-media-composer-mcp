@@ -74,6 +74,25 @@ it('canonicalizes batch UUIDs and detects existing IDs independently of letter c
  expect(nativeActionSchema.parse({...base,markers:[{...marker,guid:guid.toUpperCase()}]})).toMatchObject({markers:[{guid}]});
  f.marker.guid=guid.toUpperCase();await expect(f.adapter.preview({...base,markers:[marker]})).rejects.toThrow('GUID already exists');
 });
+it.each(['none','partial','unrelated'])('verifies explicit batch marker removal and preservation (%s)',async fault=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client),guids=['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'];
+ let markers=[structuredClone(f.marker),...guids.map(guid=>({...structuredClone(f.marker),guid:guid.toUpperCase()}))],writes=0;
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='GetMarkers')return [{info:structuredClone(markers)}];
+  if(method==='DeleteMarkers'){writes++;expect((body as any).guid).toEqual(guids.map(guid=>guid.toUpperCase()));markers=markers.filter(marker=>!(body as any).guid.slice(0,fault==='partial'?1:2).includes(marker.guid));if(fault==='unrelated')markers[0]!.comment='changed';return [];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:'delete_markers',bin:'fixture.avb',mobId:'clip',guids}),result=await f.adapter.apply(plan.token);
+ expect(result).toMatchObject({applicationCompleted:true,persistenceVerified:false,markersRemovedVerified:fault==='none'});expect(writes).toBe(1);
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
+});
+it('refuses missing, duplicate or stale deletion targets before dispatch',async()=>{
+ const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',base={action:'delete_markers' as const,bin:'fixture.avb',mobId:'clip'};
+ for(const guids of [[],[guid,guid.toUpperCase()],Array.from({length:101},()=>guid)])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);
+ await expect(f.adapter.preview({...base,guids:[guid]})).rejects.toThrow('exist exactly once');
+ f.marker.guid=guid;const plan=await f.adapter.preview({...base,guids:[guid]});f.marker.comment='edited since preview';
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow('state changed');expect(f.calls.some(call=>call.method==='DeleteMarkers')).toBe(false);
+});
 it.each(['project','existing-marker'])('does not verify a marker batch after %s changes',async changed=>{
  const f=await hostFixture(),original=f.client.call.bind(f.client),project=await f.adapter.project(),other=await mkdtemp(path.join(os.tmpdir(),'avid-batch-project-'));
  let dispatched=false;const markers:any[]=[structuredClone(f.marker)];
