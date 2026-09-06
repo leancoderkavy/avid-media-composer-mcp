@@ -13,6 +13,11 @@ MOB='060a2b340101010501010f1013-000000-3737af0e12888806-0e10d8bbc16d-18d9'
 ALLOWED={'GetOpenProjectInfo','GetListOfBinItems','CreateBin','CopyBinItems'}
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument("--both",action="store_true")
+    mode.add_argument("--master",action="store_true")
+    args=parser.parse_args()
     raw=BINARY.read_bytes()
     if hashlib.sha256(raw).hexdigest()!='3ca4d082a3afe00a120d6061d6ee94e20e6113238f0b016398700f3439ec9194':
         raise ValueError('Unqualified installed binary')
@@ -43,22 +48,27 @@ def main():
     source_hash=hashlib.sha256(source.read_bytes()).hexdigest()
     before=call('GetListOfBinItems',{'bin_relative_path':source.name,'bin_flags':['AllTypes']})
     if not any(v.get('mob_id')==MOB for v in before):raise ValueError('Fixture sequence missing')
+    requested=[MOB]
+    if args.both or args.master:
+        master='060a2b340101010501010f1013-000000-36b2e93612888806-a3b2d8bbc16d-18d9'
+        if not any(v.get('mob_id')==master for v in before):raise ValueError('Fixture master missing')
+        requested=[master] if args.master else [master,MOB]
     name='MCP_Copy_'+uuid.uuid4().hex[:12]
     destination=PROJECT/(name+'.avb')
     if destination.exists():raise ValueError('Destination exists')
-    (directory/'attempt.json').write_text(json.dumps({'source':str(source),'sourceSha256':source_hash,'destination':str(destination),'mobId':MOB}))
+    (directory/'attempt.json').write_text(json.dumps({'source':str(source),'sourceSha256':source_hash,'destination':str(destination),'mobIds':requested}))
     call('CreateBin',{'folder_path':'','bin_name':name,'option':'LastActiveBinContainer'})
     empty=call('GetListOfBinItems',{'bin_relative_path':destination.name,'bin_flags':['AllTypes']})
     if empty:raise ValueError('Destination not empty')
     current=call('GetOpenProjectInfo')
     if current[0]['path']!=project[0]['path']:raise ValueError('Project changed')
-    result=call('CopyBinItems',{'source_bin_path':str(source),'destination_bin_path':str(destination),'mob_id':[MOB]})
+    result=call('CopyBinItems',{'source_bin_path':str(source),'destination_bin_path':str(destination),'mob_id':requested})
     copied=call('GetListOfBinItems',{'bin_relative_path':destination.name,'bin_flags':['AllTypes']})
     after=call('GetListOfBinItems',{'bin_relative_path':source.name,'bin_flags':['AllTypes']})
     evidence_result={'directory':str(directory.resolve()),'destination':str(destination),'response':result,'copied':copied,'sourceMembershipUnchanged':sorted(v['mob_id'] for v in before)==sorted(v['mob_id'] for v in after),'sourceSavedBytesUnchanged':hashlib.sha256(source.read_bytes()).hexdigest()==source_hash}
     (directory/'result.json').write_text(json.dumps(evidence_result,indent=2))
     returned=[mob for body in result for mob in body.get('mob_id',[])]
-    if len(returned)!=1 or len(copied)!=1 or copied[0].get('mob_id')!=returned[0] or returned[0]==MOB:raise ValueError('Expected one new response-matched copy identity; inspect evidence')
+    if len(returned)!=len(requested) or len(set(returned))!=len(returned) or sorted(v.get('mob_id') for v in copied)!=sorted(returned):raise ValueError('Expected response-matched copy identities; inspect evidence')
     if not evidence_result['sourceMembershipUnchanged'] or not evidence_result['sourceSavedBytesUnchanged']:raise ValueError('Source changed; inspect evidence')
     print(json.dumps(evidence_result))
 

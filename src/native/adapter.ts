@@ -389,7 +389,7 @@ export class NativeAdapter {
             postState={copied,source};
             if((await this.project()).path!==project.path)throw new Error("Project changed during copy verification");
             const identities=(rows:Record<string,any>[])=>rows.map(row=>row.mob_id).sort();
-            if(reported===action.mobId||copied.length!==1||copied[0]!.mob_id!==reported||!("clips" in observedState)||digest(identities(source))!==digest(identities(observedState.clips)))throw new Error("Copy identity or source membership not verified; inspect both bins before another attempt");
+            if(copied.length!==1||copied[0]!.mob_id!==reported||!("clips" in observedState)||digest(identities(source))!==digest(identities(observedState.clips)))throw new Error("Copy identity or source membership not verified; inspect both bins before another attempt");
           }else if(action.action==="select_clips"){
 
             postState=await this.read("selected_clips",action.bin);

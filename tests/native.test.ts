@@ -351,3 +351,14 @@ it("does not replay a copy when its response is lost after destination populatio
  await expect(f.adapter.apply(plan.token)).rejects.toThrow("response lost");await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");
  expect(await f.adapter.read("clips","target.avb")).toEqual(target);await expect(f.adapter.preview(action)).rejects.toThrow("empty");expect(writes).toBe(1);
 });
+
+it("accepts a master copy retaining its source MOB identity in a different empty bin",async()=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);await writeFile(path.join(path.dirname(f.source),"target.avb"),"empty");let target:any[]=[];
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems"&&body?.bin_relative_path==="target.avb")return target;
+  if(method==="CopyBinItems"){target=[{mob_id:"clip"}];return [{mob_id:["clip"]}];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:"copy_clip",bin:"fixture.avb",mobId:"clip",destinationBin:"target.avb"});
+ expect(await f.adapter.apply(plan.token)).toMatchObject({copyIdentityVerified:true,persistenceVerified:false,sourceFidelityVerified:false});
+});
