@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Single-marker deletion postcondition
+
+Live MCP single UUID deletion, save/reopen and saved survivor inspection passed, followed by separate single deletion/cleanup that restored the empty decoded baseline. Original sources were unchanged. Evidence: `.avid-mcp-analysis/native-single-removal-39124259-a26f-4a7d-a26d-4f95bbe07725/evidence.json`. The owned fixture is marker-empty; general undo/restart and identifier coverage remain open.
+
+`delete_marker` now binds its dispatch to the observed host/project and compares the entire marker list against its captured baseline minus the one exact target. `markerRemovedVerified` distinguishes verified removal from call completion. Ignored deletion, extra deletions and changed survivor records fail verification, without replay. Existing exact-spelling single-ID inputs remain unchanged; duplicate targets are refused before writing. All 92 focused native tests and full check passed: 667 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-single-marker-removal.log`).
+
+The preceding CI Python dependency audit job passed on GitHub for `f003850`; Windows validation was still running at inspection. This does not establish the final CI state for subsequent commits or complete release acceptance.
+
 ### Python dependency audit gate and default-branch alert reconciliation
 
 Root and landing npm audits returned zero known vulnerabilities. Current development dependencies fast-uri 3.1.7 and qs 6.16.0 meet the patched thresholds of all five open GitHub default-branch alerts; the alerts remain open because no merge is claimed. Fresh isolated pip-audit 2.10.1 strict requirements audits passed for the shipped parser dependencies and the research dependencies including resolved hpack/hyperframe. Retained JSON reports and versions are documented in [security audit](SECURITY_AUDIT.md).

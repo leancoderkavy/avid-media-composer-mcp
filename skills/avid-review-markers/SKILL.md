@@ -16,6 +16,8 @@ For 1–100 reviewed notes on the same qualified 30 fps clip, `add_markers` can 
 
 For an explicitly requested removal of 1–100 known markers, preview `delete_markers` with their exact `guids` and apply its token. Check `markersRemovedVerified`, then reread markers and verify that notes outside the request remain unchanged. Do not broaden a removal to all markers merely because they share a color or author. An uncertain or partial deletion requires a fresh read; do not replay the consumed token or re-create deleted notes automatically.
 
+For the single-note `delete_marker` operation, require `markerRemovedVerified: true`. The adapter verifies exact removal of the one current identity and preservation of every remaining record. A returned native call or successful read alone is insufficient. Inspect after any verification failure before making a fresh plan; persistence remains a separate save/reopen check.
+
 If native execution is unavailable, use `avid_validate_marker_package` to validate a prepared package against the current schema and report that no host change occurred. Do not substitute an unqualified UI macro for native confirmation.
 
 For a requested whole-clip Comments edit, resolve the exact bin and MOB ID, then use `avid_native_read` with `bin_columns` and `clip_columns`. Require a writable String Comments declaration and a returned Comments row. The empty-inclusive read can report an empty value; an absent row is unavailable and must not be assumed empty. Preserve existing text unless its replacement or removal is within the user's request.

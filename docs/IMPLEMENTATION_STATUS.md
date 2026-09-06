@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+Single-note `delete_marker` now verifies removal and exact preservation of all remaining records with `markerRemovedVerified`. Actual UUID deletion/save/reopen preserved the outside-request note; separate cleanup restored the empty decoded baseline with source hashes unchanged. See [native removal qualification](NATIVE_BATCH_MARKERS.md).
+
 Native `change_marker` now verifies the entire captured marker list, allowing only the requested target comment/color differences. It refuses ambiguous targets and reports `markerChangedVerified` separately from application completion. Position and unrelated-note changes fail verification. See [marker update contract](NATIVE_MARKER_UPDATE.md).
 
 Following bin reload, native marker IDs changed to their saved non-UUID forms. Batch deletion now accepts that observed spelling as well as UUIDs. Real two-marker deletion preserved a third marker through save/reopen; separate cleanup left zero. Saved surviving markers and all decoded non-marker fields matched expectations with original sources unchanged. See [batch removal qualification](NATIVE_BATCH_MARKERS.md). The earlier marker-bearing trim fixture is now marker-empty; exact trim/undo identity restoration remains unsupported.
@@ -92,7 +94,7 @@ The optional licensed Jumper provider has a [bounded loopback health, text/image
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 663 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-marker-update.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 140 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 667 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP checks and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-single-marker-removal.log`. GitHub CI for the preceding `7663f26` passed Windows and macOS Node 20/24 validation and landing checks; CodeQL also passed, verified on 2026-09-06. This is not macOS Avid host qualification. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools, not 140 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
 

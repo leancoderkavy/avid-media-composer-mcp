@@ -121,6 +121,18 @@ it('refuses ambiguous marker updates before writing',async()=>{
  await expect(f.adapter.preview({action:'change_marker',bin:'fixture.avb',mobId:'clip',guid:'marker',comment:'after',color:'Blue'})).rejects.toThrow('exactly once');
  expect(f.calls.some(call=>call.method==='ChangeMarker')).toBe(false);
 });
+it.each(['none','ignored','unrelated','extra-deletion'])('verifies single-marker deletion and outside-note preservation (%s)',async fault=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let writes=0;
+ let markers=[structuredClone(f.marker),{...structuredClone(f.marker),guid:'keep'}];
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='GetMarkers')return [{info:structuredClone(markers)}];
+  if(method==='DeleteMarkers'){writes++;expect(body).toEqual({mob_id:'clip',guid:['marker']});if(fault!=='ignored')markers=markers.filter(marker=>marker.guid!=='marker');if(fault==='unrelated')markers[0]!.comment='changed';if(fault==='extra-deletion')markers=[];return [];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:'delete_marker',bin:'fixture.avb',mobId:'clip',guid:'marker'});
+ expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,markerRemovedVerified:fault==='none',persistenceVerified:false});
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
+});
 it('refuses missing, duplicate or stale deletion targets before dispatch',async()=>{
  const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',base={action:'delete_markers' as const,bin:'fixture.avb',mobId:'clip'};
  for(const guids of [[],[guid,guid.toUpperCase()],Array.from({length:101},()=>guid)])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);

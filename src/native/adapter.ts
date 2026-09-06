@@ -422,7 +422,10 @@ export class NativeAdapter {
               name:existing.name??"",user:existing.user??"Avid MCP",track_label:existing.track_label,
               comment: action.comment, color: action.color } },observedState.owner); break;
           }
-          case "delete_marker": result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] }); break;
+          case "delete_marker": {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Marker host or project changed before dispatch");
+            result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] },observedState.owner); break;
+          }
           case "delete_markers": {
             if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Marker host or project changed before dispatch");
             if(!("markers" in observedState))throw new Error("Missing marker baseline");
@@ -459,11 +462,11 @@ export class NativeAdapter {
             if(!("markers" in observedState))throw new Error("Missing marker baseline");
             const expected=(observedState.markers as Record<string,any>[]).map(marker=>marker.guid===action.guid?{...marker,comment:action.comment,color:action.color}:marker);
             if(digest(expected.map(digest).sort())!==digest((postState as Record<string,any>[]).map(digest).sort()))throw new Error("Marker update or unrelated-marker preservation not verified; inspect before retrying");
-          }else if(action.action==="delete_markers"){
+          }else if(action.action==="delete_markers"||action.action==="delete_marker"){
             postState=await this.read("markers",action.bin,action.mobId);
             if((await this.project()).path!==project.path)throw new Error("Project changed during marker removal verification");
             if(!("markers" in observedState))throw new Error("Missing marker baseline");
-            const remaining=(observedState.markers as Record<string,any>[]).filter(marker=>typeof marker.guid!=="string"||!action.guids.includes(marker.guid.toLowerCase()));
+            const remaining=(observedState.markers as Record<string,any>[]).filter(marker=>action.action==="delete_marker"?marker.guid!==action.guid:typeof marker.guid!=="string"||!action.guids.includes(marker.guid.toLowerCase()));
             if(digest(remaining.map(digest).sort())!==digest((postState as Record<string,any>[]).map(digest).sort()))throw new Error("Requested marker removal or remaining-marker preservation not verified; inspect before retrying");
           }else
           if(action.action==="add_markers"){
@@ -513,7 +516,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false,...(action.action==="change_marker"?{markerChangedVerified:!verificationError}:{}),...(action.action==="delete_markers"?{markersRemovedVerified:!verificationError}:{}),...(action.action==="add_markers"?{markersVerified:!verificationError}:{}),...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
+          persistenceVerified: false,...(action.action==="delete_marker"?{markerRemovedVerified:!verificationError}:{}),...(action.action==="change_marker"?{markerChangedVerified:!verificationError}:{}),...(action.action==="delete_markers"?{markersRemovedVerified:!verificationError}:{}),...(action.action==="add_markers"?{markersVerified:!verificationError}:{}),...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;
