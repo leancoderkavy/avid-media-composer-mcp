@@ -1,4 +1,4 @@
-import {mkdir,writeFile,lstat,realpath,rename,unlink,access,link,open} from "node:fs/promises";
+import {mkdir,writeFile,lstat,realpath,rename,unlink,access,link,open,opendir} from "node:fs/promises";
 import path from "node:path";
 import {pathToFileURL} from "node:url";
 import {randomUUID} from "node:crypto";
@@ -30,7 +30,18 @@ async function basic(directory:string){
  return resolveReadablePath(path.join(directory,"node_modules","@huggingface","transformers","dist","transformers.node.mjs"),[directory],"file");
 }
 export async function modelRuntimeStatus(cache:string){
- const root=await realpath(path.resolve(cache)),directory=path.join(root,"runtime"),entry=await basic(directory),receiptFile=path.join(directory,"installation.json");
+ const root=await realpath(path.resolve(cache)),directory=path.join(root,"runtime");
+ if(!await exists(directory)){
+  const lockPresent=await exists(path.join(root,".runtime-install.lock")),staging:string[]=[];let entriesExamined=0,truncated=false;
+  const entries=await opendir(root);
+  for await(const item of entries){
+   if(++entriesExamined>512){truncated=true;break;}
+   if(/^\.runtime-install-[a-f0-9-]{36}$/.test(item.name)&&item.isDirectory()&&!item.isSymbolicLink())staging.push(path.join(root,item.name));
+  }
+  const state=lockPresent?"setup_lock_present" as const:staging.length||truncated?"retained_setup_state" as const:"not_installed" as const;
+  return {directory,entry:null,managed:false as const,unchanged:null,receipt:null,setup:{lockPresent,staging:staging.sort(),entriesExamined:Math.min(entriesExamined,512),truncated,workerTerminationVerified:false},inferencePreflight:{state,passed:false,modelLoadVerified:false,nextStep:state==="not_installed"?"Explicitly run --install-model-runtime --model-dir PATH.":"Retain this cache for inspection and use a fresh model cache. A lock or staging directory does not establish worker termination; do not clear it based on PID or age."},note:"Read-only setup inventory. Retained staging is not a qualified runtime and is never imported or repaired by status."};
+ }
+ const entry=await basic(directory),receiptFile=path.join(directory,"installation.json");
  if(!await exists(receiptFile))return {directory,entry,managed:false as const,unchanged:null,receipt:null,inferencePreflight:{state:"adoption_required" as const,passed:false,modelLoadVerified:false,nextStep:"Explicitly run --install-model-runtime --model-dir PATH to audit and adopt this legacy runtime."},note:"Legacy runtime has no tree receipt. Explicit installation can audit and adopt it without reinstalling dependencies."};
  if((await lstat(receiptFile)).isSymbolicLink())throw new Error("Model runtime receipt cannot be a link");
  const receipt=receiptSchema.parse(await readBoundedJson(receiptFile,16384)),treeSha256=await packageTreeHash(directory);

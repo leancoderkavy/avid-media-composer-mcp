@@ -20,6 +20,19 @@ vi.mock("node:fs/promises",async importOriginal=>{
 vi.mock("../src/process.js",()=>({runProcess:(...args:unknown[])=>runner(...args)}));
 async function populate(directory:string){const module=path.join(directory,"node_modules","@huggingface","transformers");await mkdir(path.join(module,"dist"),{recursive:true});await writeFile(path.join(module,"package.json"),JSON.stringify({version:"4.2.0"}));await writeFile(path.join(module,"dist","transformers.node.mjs"),"export class Tensor {}");await writeFile(path.join(directory,"package-lock.json"),"fixture lock");for(const item of runtimeNoticePackages){const target=path.join(directory,"node_modules",item.name);await mkdir(target,{recursive:true});await writeFile(path.join(target,"package.json"),JSON.stringify({name:item.name,version:item.version}));}}
 async function fixture(){return realpath(await mkdtemp(path.join(os.tmpdir(),"avid-runtime-install-")));}
+it("reports absent and interrupted setup without parsing locks or executing retained code",async()=>{
+ const root=await fixture();expect(await modelRuntimeStatus(root)).toMatchObject({entry:null,inferencePreflight:{state:'not_installed',passed:false}});
+ const staged=path.join(root,'.runtime-install-00000000-0000-4000-8000-000000000001');await mkdir(staged);await writeFile(path.join(staged,'package.json'),'untrusted incomplete content');
+ expect(await modelRuntimeStatus(root)).toMatchObject({setup:{staging:[staged],workerTerminationVerified:false},inferencePreflight:{state:'retained_setup_state'}});
+ const lock=path.join(root,'.runtime-install.lock');await writeFile(lock,'PRIVATE_UNKNOWN_OWNER');
+ const status=await modelRuntimeStatus(root);expect(status).toMatchObject({setup:{lockPresent:true},inferencePreflight:{state:'setup_lock_present',passed:false}});
+ expect(JSON.stringify(status)).not.toContain('PRIVATE_UNKNOWN_OWNER');expect(await readFile(lock,'utf8')).toBe('PRIVATE_UNKNOWN_OWNER');expect(runner).not.toHaveBeenCalled();
+});
+it("bounds interrupted setup directory enumeration",async()=>{
+ const root=await fixture();await Promise.all(Array.from({length:514},(_,i)=>writeFile(path.join(root,`unrelated-${i}`),'')));
+ expect(await modelRuntimeStatus(root)).toMatchObject({setup:{entriesExamined:512,truncated:true},inferencePreflight:{state:'retained_setup_state'}});
+ expect(runner).not.toHaveBeenCalled();
+});
 beforeEach(()=>{receiptFault.fail=false;receiptFault.collision=false;receiptFault.collisionPath='';runner.mockReset();runner.mockImplementation(async(_command,args,options)=>{if(args[1]==="install")await populate(options.cwd);return {exitCode:0,stdout:"",stderr:""};});});
 it("preserves a temporary file when exclusive creation fails",async()=>{
  const root=await fixture();receiptFault.collision=true;

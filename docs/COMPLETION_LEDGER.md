@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Diagnose unpublished model runtime setup
+
+Runtime status now reports absent, locked or retained setup state for an existing cache without a published runtime. It enumerates at most 512 entries, returns only direct matching staging directories, marks truncated inventory, and never parses unknown lock contents or imports staged code. It explicitly does not establish worker termination or authorize lock removal. Existing published-runtime validation remains unchanged. Tests cover empty cache, retained staging, unreadable-as-content lock diagnostics and bounded enumeration without worker execution.
+
+The actual installer crash harness passed at completed lock and staging-manifest writes before npm started. Live and stopped status reports matched, contenders/restarts remained refused, and lock/staging bytes were preserved. Evidence: `.avid-mcp-analysis/runtime-setup-crash-9b0ed3b5-0241-4727-9148-ad3e5e2e42d0/evidence.json`; actual CLI read: `.avid-mcp-analysis/runtime-setup-status-cli.json`. Full check passed with 638 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-runtime-setup-status.log`). This closes missing-runtime diagnostics, not automatic recovery, orphaned npm termination, rollback/uninstall or clean-machine acceptance. Full-plan scope remains open.
+
 ### Preserve the installation-to-recovery harness chain
 
 The preceding lifecycle extension removed the first installation by default, breaking the existing `qualify-package-removal.mjs` consumer. Package deletion is now selected explicitly with `--remove-packages`; the default again retains both installations after configuration rollback/removal. Unknown arguments are rejected before creating fixtures. Local setup documentation describes both paths.

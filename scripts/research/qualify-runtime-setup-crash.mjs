@@ -22,7 +22,7 @@ if(process.argv[2]==='child'){
  const {installModelRuntime}=await import('../../dist/library/model-runtime-install.js');
  await installModelRuntime(cache);throw new Error('Installer escaped crash barrier');
 }else{
- const {installModelRuntime,runtimeManifest}=await import('../../dist/library/model-runtime-install.js');
+ const {installModelRuntime,modelRuntimeStatus,runtimeManifest}=await import('../../dist/library/model-runtime-install.js');
  const root=path.resolve('.avid-mcp-analysis',`runtime-setup-crash-${randomUUID()}`);await mkdir(root);
  const results=[];
  for(const phase of ['lock','staging']){
@@ -40,10 +40,12 @@ if(process.argv[2]==='child'){
    // A contender must fail while the observed owner is still alive.
    await assert.rejects(installModelRuntime(cache),/setup lock exists/);
    assert.equal(await readFile(lock,'utf8'),bytes);
+   const liveStatus=await modelRuntimeStatus(cache);assert.equal(liveStatus.inferencePreflight.state,'setup_lock_present');assert.equal(liveStatus.setup.workerTerminationVerified,false);
    assert.equal(child.kill('SIGKILL'),true);const termination=await closed;
    // Confirmed process termination alone does not authorize automatic lock removal.
    await assert.rejects(installModelRuntime(cache),/setup lock exists/);
    assert.equal(await readFile(lock,'utf8'),bytes);
+   const stoppedStatus=await modelRuntimeStatus(cache);assert.deepEqual(stoppedStatus,liveStatus);
    await assert.rejects(access(path.join(cache,'runtime')),{code:'ENOENT'});
    const staged=(await readdir(cache)).filter(name=>name.startsWith('.runtime-install-'));
    assert.equal(staged.length,phase==='staging'?1:0);
@@ -52,7 +54,7 @@ if(process.argv[2]==='child'){
     assert.deepEqual(await readdir(directory),['package.json']);
     assert.deepEqual(JSON.parse(await readFile(path.join(directory,'package.json'),'utf8')),runtimeManifest);
    }
-   results.push({phase,termination,liveContenderRefused:true,restartRefused:true,lockPreserved:true,publishedRuntime:false,stagingRetained:staged});
+   results.push({phase,termination,liveContenderRefused:true,restartRefused:true,lockPreserved:true,publishedRuntime:false,stagingRetained:staged,liveStatus,stoppedStatus});
   }finally{clearTimeout(timer);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await closed;}
  }
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({results,scope:'Production installer killed at instrumented completed lock and staging-manifest writes, before npm starts. Establishes refusal and retained state, not recovery or orphaned npm handling.'},null,2),{flag:'wx'});

@@ -342,6 +342,8 @@ Use `avid-mcp --install-model-runtime --model-dir PATH` to prepare the optional 
 
 An older matching runtime can be audited and adopted without reinstalling dependencies. Its receipt does not establish whether its original installation disabled scripts. A setup lock or retained staging directory may remain after interruption; a lock's age is not proof of worker termination. Automatic lock recovery and runtime update/rollback/uninstall remain open.
 
+For an existing cache with no published runtime, `--model-runtime-status --model-dir PATH` now returns `not_installed`, `setup_lock_present` or `retained_setup_state` instead of a missing-runtime error. It lists direct retained staging directories and reports `workerTerminationVerified: false`; it does not read lock contents or execute staged code. Enumeration examines at most 512 cache entries and reports `truncated` when incomplete. A truncated inventory cannot establish a clean cache. Existing qualified runtime receipt checks remain unchanged. Actual installer termination at the lock and staging-manifest checkpoints preserved both state reports and retained files; orphaned npm workers and automatic recovery remain unqualified.
+
 Cached inference now uses absolute pinned model directories and disables remote model access. This avoids Transformers.js 4.2.0 discovery requests that did not respect the earlier per-call local-only flags. See [runtime qualification and the correction to earlier offline claims](MODEL_RUNTIME_QUALIFICATION.md) for actual fetch-blocked model tests, setup evidence and limitations. Explicit model downloads still require network access.
 
 ## Carrying analysis settings into an AI client
