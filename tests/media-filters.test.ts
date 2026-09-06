@@ -8,6 +8,20 @@ const metadata={format:{duration:'10'},streams:[
  {codec_type:'audio',codec_name:'pcm_s24le',channels:6,sample_rate:'96000'},
 ]};
 describe('recorded media filters',()=>{
+ it('matches color declarations on the same video stream without inferring HDR',()=>{
+  const streams=[{codec_type:'video',codec_name:'h264',pix_fmt:'yuv420p',color_range:'tv',color_space:'bt709',color_transfer:'bt709',color_primaries:'bt709'},{codec_type:'video',codec_name:'hevc',pix_fmt:'yuv420p10le',color_range:'tv',color_space:'bt2020nc',color_transfer:'smpte2084',color_primaries:'bt2020'}];
+  expect(matches({streams},{video:{codec:'HEVC',pixelFormat:'YUV420P10LE',colorRange:'tv',colorSpace:'bt2020nc',colorTransfer:' SMPTE2084 ',colorPrimaries:'bt2020'}})).toBe(true);
+  expect(matches({streams},{video:{codec:'h264',colorTransfer:'smpte2084'}})).toBe(false);
+  expect(matches({streams},{video:{pixelFormat:'yuv420p',colorPrimaries:'bt2020'}})).toBe(false);
+  expect(matches({streams:[{codec_type:'video',pix_fmt:'yuv420p10le'}]},{video:{colorTransfer:'smpte2084'}})).toBe(false);
+ });
+ it('requires explicit declarations including unknown and rejects empty color constraints',()=>{
+  for(const [key,field] of Object.entries({pixelFormat:'pix_fmt',colorRange:'color_range',colorSpace:'color_space',colorTransfer:'color_transfer',colorPrimaries:'color_primaries'})){
+   expect(matches({streams:[{codec_type:'video',[field]:'unknown'}]},{video:{[key]:'unknown'}})).toBe(true);
+   expect(matches({streams:[{codec_type:'video'}]},{video:{[key]:'unknown'}})).toBe(false);
+   expect(mediaFilters.safeParse({video:{[key]:' '}}).success).toBe(false);
+  }
+ });
  it('requires video constraints to match one stream',()=>{
   expect(matches(metadata,{video:{codec:' H264 ',width:1280,height:720,frameRate:'60000/2002'}})).toBe(true);
   expect(matches(metadata,{video:{codec:'h264',width:3840}})).toBe(false);

@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Color-declaration media filtering
+
+Full local check passed: 576 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks including Codex argv (`.avid-mcp-analysis/check-color-filters.log`).
+
+avid_media_facets video filters now accept pixelFormat, colorRange, colorSpace, colorTransfer and colorPrimaries. All constraints must match one recorded video stream; absent declarations do not satisfy an explicit unknown query, and bit depth alone never implies HDR. Unit tests cover normalization, cross-stream false positives, missing values and invalid constraints. Actual MCP indexing/filtering on three one-second Sonoma derivatives tagged SDR/PQ/HLG matched each expected file and rejected conflicting transfer/primaries, with original/derivative hashes unchanged. Evidence: `.avid-mcp-analysis/color-filters-ec0baec1-f77c-4f0d-9788-91a7c58cea20/evidence.json`. Initial fixture generation retained input transfer/primaries despite encoder flags; explicit setparams frame properties corrected the fixture. These are synthetic declarations, not HDR conversion/mastering or visual fidelity proof.
+
 ### Model-driven native edit approval boundary
 
 Attempted an authorized temporary rename/restoration of owned Copy.05 through Codex. Native preview succeeded, but Codex refused avid_native_apply with "MCP tool call requires approval, but approval policy is never". The model did not replay the token and read the exact original name afterward. Direct before/after clip metadata, saved-bin hash and original MP4 hash stayed equal. The ordinary edit acceptance failed; a separate explicit --expect-approval-refusal run passed the exact refusal/no-change assertions: `.avid-mcp-analysis/codex-native-rename-407dbc3e-08ee-4d8f-a1df-3fbd1a724578/evidence.json`. Initial failed edit evidence: `codex-native-rename-2ba43262-92f7-4be4-b75b-55cc6c0c57b2`. Script: `qualify-codex-native-rename.mjs`. No approval controls were relaxed. Model-driven editing still requires a client workflow that can obtain approval; this is not an editing or persistence pass.

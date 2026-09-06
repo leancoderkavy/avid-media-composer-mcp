@@ -1,5 +1,11 @@
 # Unreleased local setup
 
+## Filter media by recorded color properties
+
+Use avid_media_facets with `filters.video` fields `pixelFormat`, `colorRange`, `colorSpace`, `colorTransfer` and `colorPrimaries`, alongside existing codec/size/frame-rate constraints. For example, `{"video":{"colorTransfer":"smpte2084","colorPrimaries":"bt2020"}}` finds streams carrying both PQ and BT.2020 declarations. HLG uses `arib-std-b67`; ordinary BT.709 transfer uses `bt709`. Queries are normalized to lowercase and must match one stream. A missing field does not match the literal value `unknown`.
+
+These filters inspect cached probe declarations. They do not verify mastering, actual pixel transfer, HDR display behavior or color fidelity. `scripts/research/qualify-color-filters.mjs` tests synthetic SDR/PQ/HLG tags on owned short Sonoma derivatives without modifying the original media.
+
 ## Qualified model-driven native read
 
 Native write acceptance has a separate client approval boundary: this Codex non-interactive configuration rejects avid_native_apply because its approval policy is never. An attempted preview/apply rename on owned Copy.05 was refused; the model verified the original name without token replay. The explicit `--expect-approval-refusal` mode of `qualify-codex-native-rename.mjs` verifies this refusal and unchanged clip/bin/source evidence. Its default mode requires an actual rename/restoration and currently fails at this gate. Use an approval-capable client workflow to qualify writes; do not weaken tool annotations or treat preview success as execution. No model-driven editing pass is claimed.
