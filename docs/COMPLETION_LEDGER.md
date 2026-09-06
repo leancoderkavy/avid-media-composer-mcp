@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Locator absence and recovery through MCP
+
+A real parsed copied-AVB fixture now exercises one unchanged snapshot across file presence, owned-file absence, file restoration, configured-root absence and root restoration. Fresh MCP connections observe `file_present → not_found → file_present → unavailable → file_present`, proving results are current filesystem observations rather than cached availability. Only the owned fixture paths are moved, all moves are checked inside their experiment directory, and original/fixture hashes are verified afterward.
+
+Evidence: `.avid-mcp-analysis/locator-recovery-f743beda-7412-43a2-ac44-c3119b1af4a3/evidence.json`, from `qualify-locator-recovery.mjs`. The copied bin has two deliberately edited locator fields and is not loaded into Avid; no native relink/online or essence correspondence is claimed. This research/docs-only increment uses the existing runtime validation; network-share disconnection and managed-MXF recovery remain separate gaps.
+
 ### Saved locator availability for turnover review
 
 Added `avid_saved_locator_availability`: bounded pages of saved descriptor/locator declarations with metadata-only file checks under configured roots. It distinguishes absent/unrecorded declarations, unsupported paths, volume hints, out-of-scope paths, symlinks, missing files and unavailable roots, preserving snapshot omissions on every page. Explicit opt-in Windows `D//...` interpretation retains raw declarations and still enforces scope. File presence does not claim content identity, Avid online status or relink success.
