@@ -14,3 +14,11 @@ Evidence beneath `.avid-mcp-analysis/`:
 - `native-duplicate-saved-f51d5686-5a3c-438d-918a-6dba81847acd`: parsed saved graphs and passing comparison.
 
 The retained owned bin has SHA-256 `8395e0435ad36a5197f431df7262e297e7c4815f942329cdd9d57993e4a95df1`. It remains available for follow-up reopen and recovery qualification. This is not yet a production MCP duplicate action: preview/state binding, batch/master behavior, failure/partial outcomes, reopen, undo and rendered fidelity remain to be qualified. Production native allowlists and tool counts are unchanged.
+
+## Saved duplication after bin close/reopen
+
+`qualify-native-duplicate-reopen.mjs` required the owned bin to match the saved experiment's hash before acting. Through the existing guarded MCP preview/apply operations, it closed and reopened only `MCP_Copy_322e7c6bfa2f.avb`. Both operations returned verified bin state. The two current native identities and names then matched their pre-close values exactly.
+
+Independent AVB parsing found every decoded MOB and warning unchanged from the saved duplicate baseline, with the same bin SHA-256 `8395e0435ad36a5197f431df7262e297e7c4815f942329cdd9d57993e4a95df1`. Protected original bin/media hashes were unchanged. Evidence: `.avid-mcp-analysis/native-duplicate-reopen-d64b1c88-bf99-4929-829d-51f7eda3cf4b/evidence.json`, with recorded MCP calls and the reopened graph.
+
+This qualifies bin-reopen persistence for this saved sequence duplicate. It does not prove that duplication undo history survives closure, qualify an application restart, or ship a general duplicate action. Guarded duplication preview/apply, stale-state/partial-failure tests, batches/master clips and rendering remain open. Harness syntax, diff checks and actual execution passed; production code is unchanged.

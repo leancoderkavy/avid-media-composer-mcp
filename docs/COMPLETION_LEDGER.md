@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Saved duplicate bin close/reopen
+
+The owned duplicate bin passed guarded MCP close/reopen after an exact saved-hash preflight. Both native identities/names, every independently decoded MOB/warning and the saved bin SHA-256 were unchanged. Protected original bin/media hashes were preserved. Evidence: `.avid-mcp-analysis/native-duplicate-reopen-d64b1c88-bf99-4929-829d-51f7eda3cf4b/evidence.json`; repeatable harness: `qualify-native-duplicate-reopen.mjs`.
+
+Actual execution and syntax/diff checks passed; production code is unchanged. This closes bin-reopen persistence for that fixture only. Undo-history survival, application restart, guarded duplication, failure/batch/master and rendering qualification remain open; see [duplication research](NATIVE_DUPLICATION_RESEARCH.md#saved-duplication-after-bin-closereopen).
+
 ### Actual native duplication in an owned bin
 
 Qualified a single `DuplicateBinItems` call after creating/populating a new owned bin with the protected Sonoma sequence. The returned new identity matched the only added item; the copied original ID/name and protected original membership/bytes remained unchanged. Selection moved to the new duplicate. Computer use observed both four-second rows and saved only the owned bin.
