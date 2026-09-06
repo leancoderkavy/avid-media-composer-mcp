@@ -1,5 +1,9 @@
 # Native marker updates
 
+Single-marker creation names/comments and comment updates require printable ASCII before contacting Avid. Empty text remains supported, and reads preserve existing text. In an owned fixture on Avid 2024.12.58720, Japanese and emoji became question marks in both native readback and independently decoded saved AVB files. The adapter correctly reported failed postconditions, but rejection before mutation is safer. Latin accents survived these samples; this conservative write boundary does not claim every non-ASCII character fails.
+
+The controlled probe deleted both test markers and restored the empty decoded baseline with protected sources unchanged (`native-marker-unicode-5afcb1ea-7ae3-4f6b-afab-248e63b137d0`). A subsequent actual MCP run rejected all three unsupported-text previews without apply requests or saved-bin changes (`native-marker-unicode-672da6c4-68bb-4d71-a8bc-18049ad50d49`). Both evidence directories are under `.avid-mcp-analysis`.
+
 The same create/clear/color/restore/cleanup workflow now has [fresh managed-package qualification](INSTALLED_NATIVE_MARKERS.md), including save/reopen, independent saved checks and unchanged protected sources. AI-client approval and general undo/restart remain separate.
 
 Preview `change_marker` with an observed `bin`, `mobId`, exact current `guid`, replacement `comment` and `color`. Apply its single-use token within the authorized project. Preflight requires exactly one target and captures the complete marker list. The dispatch uses the captured target's name, user and track declaration and binds the editor owner. Do not reuse a marker ID from before a bin reload.

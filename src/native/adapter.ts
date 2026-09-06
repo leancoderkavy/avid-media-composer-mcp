@@ -18,6 +18,7 @@ import {verifyNativeAafMaster} from "./aaf-verifier.js";
 
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
 const clipName=z.string().min(1).max(120).refine(value=>value.trim().length>0,"Clip name cannot be blank").refine(value=>/^[\x20-\x7e]+$/.test(value),"Qualified native rename supports printable ASCII only; this host can replace other characters");
+const markerText=(maximum:number)=>z.string().max(maximum).regex(/^[\x20-\x7e]*$/,"Qualified native marker writes support printable ASCII only; this host can replace other characters");
 const id = z.string().min(1).max(256);
 const nativeStringDefault=(value:unknown)=>value===undefined?"":value;
 // Avid can replace marker UUIDs with this native UMID spelling after UI edits and reload.
@@ -40,8 +41,8 @@ export const nativeActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("close_bin"), bin: z.string().min(1) }).strict(),
   z.object({ action: z.literal("link_media"), bin: z.string().min(1), media: z.string().min(1) }).strict(),
   z.object({ action: z.literal("add_marker"), bin: z.string().min(1), mobId: id, offset: z.number().int().min(0).max(2147483647), track,
-    comment: z.string().max(4000), color, name: z.string().max(120) }).strict(),
-  z.object({ action: z.literal("change_marker"), bin: z.string().min(1), mobId: id, guid: id, comment: z.string().max(4000), color }).strict(),
+    comment: markerText(4000), color, name: markerText(120) }).strict(),
+  z.object({ action: z.literal("change_marker"), bin: z.string().min(1), mobId: id, guid: id, comment: markerText(4000), color }).strict(),
   z.object({ action: z.literal("delete_marker"), bin: z.string().min(1), mobId: id, guid: id }).strict(),
   z.object({ action: z.literal("show_clip"), bin: z.string().min(1), mobId: id }).strict(),
   z.object({action:z.literal("rename_clip"),bin:z.string().min(1),mobId:id,expectedName:z.string().min(1).max(1024),name:clipName}).strict(),
