@@ -6,6 +6,8 @@ Original [workflow skills](docs/WORKFLOW_SKILLS.md) are included for ingest/QC, 
 
 The development adapter now includes [guarded AAF selects import](docs/NATIVE_AAF_IMPORT.md): inspect source ranges and local media, preview an import into an empty bin, apply once, and verify native composition metadata. Save/reopen, source-graph and render evidence remain separately reported.
 
+Native inspection also exposes bin-scoped track counts/flags and viewer positions. Clip renaming checks the expected current name before applying and verifies name readback; the disposable Sonoma sequence passed rename, restoration and save/reopen checks. [Source-viewer loading](docs/NATIVE_VIEWER_QUALIFICATION.md) verifies the requested MOB ID: the sequence case passed, while source-master identity mapping remains unresolved. These operations do not establish full timeline editing or atomic undo.
+
 An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
 
 [Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
