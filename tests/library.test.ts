@@ -19,6 +19,14 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it("uses a matching indexed alias when the original path contains changed media",async()=>{
+  const {library,id,file,root}=await fixture(),alias=path.join(root,"reconnected.wav");await writeFile(alias,"fixture");
+  const aliases=path.join(root,"avid-mcp-library",`${id}.sources`);await mkdir(aliases);
+  await writeFile(path.join(aliases,`${"a".repeat(64)}.json`),JSON.stringify({id,file:alias}));await writeFile(file,"changed");
+  const report=await library.report([id]),html=await readFile(report.output,"utf8");expect(html).toContain("reconnected.wav");expect(html).not.toContain("test.wav");
+  expect(await readFile(file,"utf8")).toBe("changed");expect(await readFile(alias,"utf8")).toBe("fixture");
+  await writeFile(alias,"also changed");await expect(library.report([id])).rejects.toThrow("Source changed since indexing");
+ });
  it("refuses stale inventory metadata before publishing another report",async()=>{
   const {library,id,file,root}=await fixture();const first=await library.report([id]);const bytes=await readFile(first.output);
   const directory=path.join(root,"avid-mcp-library"),before=(await readdir(directory)).sort();

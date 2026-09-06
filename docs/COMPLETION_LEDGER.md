@@ -658,3 +658,9 @@ Gap, overlap and affected-component stopping diagnostics now identify their clip
 ### Source coordinate interpretation on reference steps
 
 Reference records now include origin/target rates and sourceRangeBasis directly alongside numeric offsets. Mixed-rate and unknown-target offsets are labeled unconverted-offsets; a unique equal-rate target uses equal-rate-offsets. This prevents requiring callers to infer coordinate interpretation from a later stopping diagnostic. Existing fields remain available; no mixed-rate conversion or terminal-media qualification is claimed. Build, 13 focused tests and the real 24-step Sonoma MCP trace passed (`source-resolution-mcp-5574b140-8579-4968-a70e-0704b2d33318`).
+
+### Validated alias fallback for media operations
+
+Shared source validation used by library artifacts, inventory reports and thumbnail strips now tries authorized indexed aliases when an existing original path fails the indexed checksum. It selects only a matching copy and updates the operation's source path; if all readable copies differ, it preserves the source-changed refusal. This fixes valid reconnected media being ignored merely because stale content still occupies the original path. Ordinary cached metadata inspection remains unchanged.
+
+Build, eight focused library tests and all 488 TypeScript tests across 83 files passed (`.avid-mcp-analysis/test-source-alias-fallback.log`). The new synthetic alias test preserves both files, reports the matching alias, and rejects after that copy also changes. The normal Sonoma MCP report/capability workflow passed again with source unchanged (`inventory-report-edee143f-4ebb-4883-ab7e-7fd474ddb8b5/evidence.json`). This does not extend alias fallback to every other analysis subsystem or prove arbitrary concurrent relinking.

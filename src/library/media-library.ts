@@ -32,7 +32,7 @@ export class MediaLibrary {
     await resolveReadablePath(directory, [root], "directory");
     return directory;
   }
-  private async entry(id: string): Promise<Entry> {
+  private async entry(id: string,verifyContent=false): Promise<Entry> {
     idSchema.parse(id);
     const directory = await this.directory();
     const file = await resolveReadablePath(path.join(directory, `${id}.json`), [directory], "file");
@@ -51,20 +51,24 @@ export class MediaLibrary {
         candidates.push(value.file);
       }
     }catch(error){if(!["ENOENT","PATH_NOT_FOUND"].includes((error as NodeJS.ErrnoException).code??""))throw error;}
-    let available:string|undefined;
+    let available:string|undefined,changed=false;
     for(const candidate of candidates){
-      try {available=await resolveReadablePath(candidate,this.config.allowedRoots,"file");break;}
+      try {
+        const resolved=await resolveReadablePath(candidate,this.config.allowedRoots,"file");
+        if(verifyContent&&await sha256File(resolved)!==id){changed=true;continue;}
+        available=resolved;break;
+      }
       catch { /* A cache can be shared across different allowed roots or disconnected disks. */ }
     }
-    if(!available)throw new AvidMcpError("INDEXED_SOURCE_UNAVAILABLE","Indexed source is missing or outside current allowed roots; index its new location to reconnect");
+    if(!available){if(changed)throw new Error("Source changed since indexing; index it again");throw new AvidMcpError("INDEXED_SOURCE_UNAVAILABLE","Indexed source is missing or outside current allowed roots; index its new location to reconnect");}
     entry.file=available;
     entry.transcript = transcriptSchema.parse(entry.transcript);
     return entry;
   }
   private async source(entry: Entry) {
-    const source = await resolveReadablePath(entry.file, this.config.allowedRoots, "file");
-    if (await sha256File(source) !== entry.id) throw new Error("Source changed since indexing; index it again");
-    return source;
+    const verified=await this.entry(entry.id,true);
+    entry.file=verified.file;
+    return verified.file;
   }
   async index(files: string[]) {
     if (!files.length || files.length > Math.min(this.config.maxMediaFiles, 100)) throw new Error("Index batch is outside the configured limit");
