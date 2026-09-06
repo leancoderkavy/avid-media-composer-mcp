@@ -1,0 +1,6 @@
+import {NativeAdapter} from '../../dist/native/adapter.js';import {loadConfig} from '../../dist/config.js';import {mkdir,writeFile} from 'node:fs/promises';import path from 'node:path';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const root=path.resolve('.avid-mcp-analysis',`copy-save-${randomUUID()}`);await mkdir(root);
+const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:'D:/Avid Projects/MCP_Sonoma_30p_20260905',AVID_MCP_CAPABILITIES:'inspect,edit'}));
+const bin='MCP_Copy_969f92a0264a.avb',evidence=[];
+for(const action of ['close_bin','open_bin']){const plan=await adapter.preview({action,bin});await writeFile(path.join(root,action+'-preview.json'),JSON.stringify(plan,null,2));const result=await adapter.apply(plan.token);evidence.push(result);await writeFile(path.join(root,'results.json'),JSON.stringify(evidence,null,2));assert.equal(result.binStateVerified,true);}
+const clips=await adapter.read('clips',bin);await writeFile(path.join(root,'clips.json'),JSON.stringify(clips,null,2));assert.equal(clips.length,1);assert.equal(clips[0].mob_id,'060a2b340101010501010f1013-000000-fcc9496f12898806-8c9bd8bbc16d-18d9');console.log(JSON.stringify({root,clips}));
