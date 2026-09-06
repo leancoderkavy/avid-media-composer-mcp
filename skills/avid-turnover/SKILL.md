@@ -7,6 +7,8 @@ Start with `avid_get_capabilities`. Analyze the requested saved project/bin with
 
 After reconnecting, use `avid_saved_snapshots` to discover historical revision IDs in the configured output library. Follow `nextAfter` even when a page is empty and report unavailable entries as missing evidence. Discovery does not verify current bin hashes; capture a fresh snapshot for current saved state.
 
+Use `avid_saved_snapshot_mobs` for a recovered revision to find mob IDs, names, bin identities and structural metadata. Follow its continuation cursor. If a mob ID occurs in multiple bins, capture only the target bin before requesting a single-mob range or complexity report.
+
 For sequence source mapping, create `avid_snapshot_saved_bins` over the relevant saved AVBs. Retain its revision and warnings. Query `avid_saved_timeline_range` with integer edit-unit bounds, and `avid_saved_source_usage` for direct source references. These are saved-file facts; unsaved editor changes are excluded. Nested effects, retimes and opaque graph nodes can make usage incomplete.
 
 Source-usage results are paginated. Pass `nextAfter` as `after` with the same snapshot revision and source mob ID until it is null. `totalReferences` counts direct matching references across the snapshot, including separate stereo channel references; it does not count unique editorial cuts. A truncated page is not the complete turnover inventory.

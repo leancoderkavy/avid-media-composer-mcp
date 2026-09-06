@@ -39,6 +39,16 @@ export async function publishSnapshot(file:string,serialized:string){
 export class ProjectSnapshots {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  async mobs(revision:string,after=-1,limit=100){
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>100)throw new Error("Invalid snapshot mob page");
+    const snapshot=await this.read(revision),mobs=[];let index=0;
+    for(const bin of snapshot.bins)for(const mob of bin.mobs){
+      const current=index++;
+      if(current>after&&mobs.length<=limit)mobs.push({index:current,bin:bin.file,binSha256:bin.sha256,mobId:mob.mobId,name:mob.name,mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration,trackCount:mob.tracks.length,complete:bin.complete});
+    }
+    const page=mobs.slice(0,limit);
+    return {revision,mobs:page,totalMobs:index,nextAfter:mobs.length>limit?page.at(-1)!.index:null,origin:"historical saved snapshot; repeated mob IDs in different bins remain distinct entries"};
+  }
   async list(after?:string,limit=20){
     if(after!==undefined)z.string().uuid().parse(after);
     if(!Number.isInteger(limit)||limit<1||limit>50)throw new Error("Invalid snapshot discovery page");

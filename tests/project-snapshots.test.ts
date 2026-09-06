@@ -16,6 +16,14 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("pages mob identities needed to query recovered snapshots",async()=>{
+    const {record,save,snapshots,config}=await fixture(),template=record.bins[0]!.mobs[0]!;
+    record.bins[0]!.mobs=Array.from({length:102},(_,i)=>({...template,mobId:`mob-${i}`}));
+    const revision=await save(),first=await snapshots.mobs(revision);
+    expect(first.mobs).toHaveLength(100);expect(first.nextAfter).toBe(99);expect(first.totalMobs).toBe(102);
+    const last=await snapshots.mobs(revision,first.nextAfter!);expect(last.mobs.map(mob=>mob.mobId)).toEqual(['mob-100','mob-101']);expect(last.nextAfter).toBeNull();
+    await expect(new ProjectSnapshots({...config,allowedRoots:[]}).mobs(revision)).rejects.toThrow('outside');
+  });
   it("allows exactly one concurrent publisher per revision without mixing bytes",async()=>{
     const directory=await mkdtemp(path.join(os.tmpdir(),'avid-snapshot-race-')),file=path.join(directory,'snapshot.json');
     const contents=['first '.repeat(10000),'second '.repeat(10000)];

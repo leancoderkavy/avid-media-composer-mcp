@@ -128,7 +128,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 131 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 132 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
   // Tool count alone cannot detect schema changes from newly resolved dependencies.

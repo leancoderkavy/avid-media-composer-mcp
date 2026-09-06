@@ -29,12 +29,15 @@ let client=await connect();
 try{
  const before=await discover(client);await client.close();client=await connect();
  const after=await discover(client);assert.deepEqual(after,before);
- const sequence=original.snapshot.bins[0].mobs.find(mob=>mob.name==='MCP_PCM_AAF_Selects');
+ const mobs=[];let cursor=-1;
+ do{const page=await call(client,'avid_saved_snapshot_mobs',{revision:after.last.snapshots[0].revision,after:cursor,limit:1});mobs.push(...page.mobs);cursor=page.nextAfter;}while(cursor!==null);
+ assert.equal(mobs.length,original.snapshot.bins[0].mobs.length);
+ const sequence=mobs.find(mob=>mob.name==='MCP_PCM_AAF_Selects');assert.ok(sequence);
  const report=await call(client,'avid_saved_sequence_complexity',{revision:after.last.snapshots[0].revision,mobId:sequence.mobId});assert.equal(report.sourceReferences,6);
  await client.close();client=await connect(root);
  const denied=await call(client,'avid_saved_snapshots',{});assert.deepEqual(denied.snapshots,[]);assert.equal(denied.unavailable,2);
  assert.equal(await sha256File(source),sourceHash);assert.equal(await sha256File(copied),sourceHash);
  assert.equal(await readFile(abandoned,'utf8'),'{unfinished temporary fixture');
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,before,after,report,denied,sourceHash,snapshotsUnchanged:true,scope:'Copied historical Sonoma snapshot, real MCP reconnect and restricted-root discovery; no current-bin equality claim'},null,2));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,before,after,mobs,report,denied,sourceHash,snapshotsUnchanged:true,scope:'Copied historical Sonoma snapshot, real MCP reconnect and restricted-root discovery; no current-bin equality claim'},null,2));
  console.log(JSON.stringify({ok:true,root,revision}));
 }finally{await client.close();}
