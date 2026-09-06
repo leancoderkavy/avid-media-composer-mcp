@@ -223,6 +223,14 @@ try {
   const baseline="00000000-0000-4000-8000-000000000001",candidate="00000000-0000-4000-8000-000000000002";
   const fixtureMob={mobId:"sequence",name:"Before",mobType:"CompositionMob",usageCode:0,rate:30,duration:60,sourceBounds:{start:0,end:60},tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:30,sourceMobId:"source",sourceStart:90},{kind:"SCLP",timelineStart:30,timelineEnd:60,sourceMobId:"source",sourceStart:120}]}]};
   const {verifySavedDualRollerTrim}=await import(pathToFileURL(path.join(installedRoot,"dist/native/trim-verifier.js")).href);
+  const {nativeRpcRejection}=await import(pathToFileURL(path.join(installedRoot,"dist/native/client.js")).href);
+  const {errorDetails}=await import(pathToFileURL(path.join(installedRoot,"dist/errors.js")).href);
+  const hostError=errorDetails(nativeRpcRejection({":status":200,"grpc-status":"2","grpc-message":encodeURIComponent(JSON.stringify({ErrorMessage:"Column is not modifiable.",ErrorType:55,extra:"PRIVATE_DIAGNOSTIC"}))}));
+  if(hostError.code!=="NATIVE_RPC_REJECTED"||hostError.details?.nativeErrorType!==55||hostError.details?.operationOutcome!=="not_verified"||!hostError.message.includes("Column is not modifiable.")||JSON.stringify(hostError).includes("PRIVATE_DIAGNOSTIC"))throw new Error("Installed native diagnostic serialization mismatch");
+  for(const malformed of [JSON.stringify({extra:"PRIVATE_DIAGNOSTIC",padding:"x".repeat(6000)}),"%ZZPRIVATE_DIAGNOSTIC"]){
+    const error=errorDetails(nativeRpcRejection({"grpc-message":malformed}));
+    if(error.code!=="NATIVE_RPC_REJECTED"||error.details?.nextStep!=="inspect_state_before_retrying_write"||JSON.stringify(error).includes("PRIVATE_DIAGNOSTIC"))throw new Error("Installed native diagnostic filtering failed");
+  }
   const trimMob=structuredClone(fixtureMob);for(const node of trimMob.tracks[0].nodes)node.sourceTrackId=1;
   const trimBefore={schema:1,complete:true,warnings:[],mobs:[trimMob,{...trimMob,mobId:"source",mobType:"MasterMob",duration:1000,sourceBounds:{start:0,end:1000},tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:1000}]}]}]};
   const trimAfter=structuredClone(trimBefore);trimAfter.mobs[0].tracks[0].nodes[0].timelineEnd=31;trimAfter.mobs[0].tracks[0].nodes[1].timelineStart=31;trimAfter.mobs[0].tracks[0].nodes[1].sourceStart=121;
@@ -431,6 +439,7 @@ try {
       collectionDiscovery: "installed damaged-record continuation, saved-range readback and out-of-scope omission passed",
       preparationRecovery: "installed synthetic damaged-page reconnect, unresolved status, receipt/file matching and changed-output refusal passed; not media conversion",
       trimVerification: "installed forward/inverse decoded trim and unrelated-edit refusal passed",
+      nativeErrors: "installed structured rejection codes and malformed/oversized diagnostic filtering passed",
       savedTrimMcp: "installed snapshot-pair verification and wrong-direction refusal passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",

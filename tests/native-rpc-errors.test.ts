@@ -23,3 +23,14 @@ it('retains plain text and decodes Unicode once',()=>{
  expect(nativeRpcRejection({'grpc-message':encodeURIComponent('Café unavailable')}).message).toContain('Café unavailable');
  expect(nativeRpcRejection({'grpc-message':'Busy'}).message).toContain('Busy');
 });
+it.each([
+ JSON.stringify({private:'PRIVATE_PAYLOAD',padding:'x'.repeat(6000)}),
+ encodeURIComponent(JSON.stringify({private:'PRIVATE_PAYLOAD',padding:'x'.repeat(6000)})),
+ '{"private":"PRIVATE_PAYLOAD",',
+ 'malformed%ZZPRIVATE_PAYLOAD',
+])('does not expose unknown fields through malformed or truncated diagnostics',message=>{
+ const error=nativeRpcRejection({':status':200,'grpc-status':'2','grpc-message':message});
+ expect(errorDetails(error).code).toBe('NATIVE_RPC_REJECTED');
+ expect(error.message).not.toContain('PRIVATE_PAYLOAD');
+ expect(error.details?.operationOutcome).toBe('not_verified');
+});

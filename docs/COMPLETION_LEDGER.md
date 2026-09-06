@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Malformed native diagnostic filtering
+
+Four negative cases reproduced unknown-field disclosure when oversized or malformed structured diagnostics fell back to raw text. The fallback now replaces malformed encoded or structured content with a bounded generic diagnostic while preserving ordinary plain-text errors and known fields from valid objects. The cases failed before the fix and passed afterward; 78 focused native tests passed. Installed-package smoke additionally checks known type-55 serialization and malformed/oversized field omission.
+
+Full local check completed with 636 TypeScript tests, 41 Python tests, 139 tools, five skills, both transports and fresh-package/Python/AAF checks: `.avid-mcp-analysis/check-native-rpc-diagnostic-filter.log`. An actual read-only native GetBinColumnInfo probe still returned type 9 for a unique nonexistent bin, created no bin and preserved source-bin/media hashes: `.avid-mcp-analysis/native-rpc-error-4112c9d2-815b-4a05-b710-5a132c77f8fe/observation.json`. This probe covers NativeClient and common error serialization, not a live MCP tool dispatch. No failed write was replayed. Prior head 7663f26 CI and CodeQL passed; remote checks for this fix remain separate. Full-plan acceptance remains open.
+
 ### Observed Source navigation and offset-format correction
 
 Computer use navigated the disposable loaded Source sequence from frame 0 to 60 and 119, with read-only MCP verification of exact viewer/MOB/frame after each completed move. An attempted -119 return reached frame 70, exposing interpretation as 1 second 19 frames rather than 119 frames. The explicit -210 correction returned to frame zero. All successful checkpoint bin/source-bin/media hashes matched, and the failed response remains retained. See NATIVE_UI_SEEK_QUALIFICATION.md for exact inputs, evidence directories, source-counter differences and scope.

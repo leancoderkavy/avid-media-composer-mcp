@@ -65,7 +65,7 @@ export function nativeRpcRejection(headers: Record<string, unknown>): AvidMcpErr
   const httpStatus=typeof headers[":status"]==="number"&&Number.isInteger(headers[":status"])?headers[":status"]:null;
   const grpcStatus=typeof headers["grpc-status"]==="string"?headers["grpc-status"].slice(0,32):null;
   let diagnostic=typeof headers["grpc-message"]==="string"?headers["grpc-message"].slice(0,4096):"";
-  try { diagnostic=decodeURIComponent(diagnostic); } catch { /* Retain bounded malformed diagnostics. */ }
+  try { diagnostic=decodeURIComponent(diagnostic); } catch { diagnostic="Host returned a malformed encoded diagnostic"; }
   let nativeErrorType:number|undefined;
   try {
     const parsed:unknown=JSON.parse(diagnostic);
@@ -75,7 +75,11 @@ export function nativeRpcRejection(headers: Record<string, unknown>): AvidMcpErr
       diagnostic=typeof value.ErrorMessage==="string"?value.ErrorMessage:"Host returned a structured rejection without a message";
       if(typeof value.ErrorType==="number"&&Number.isSafeInteger(value.ErrorType))nativeErrorType=value.ErrorType;
     }else diagnostic="Host returned an unsupported diagnostic value";
-  }catch { /* Plain-text gRPC diagnostics are also valid. */ }
+  }catch {
+    // A truncated/malformed object must not bypass the known-field filter as plain text.
+    if(/^[\s]*[\[{\"]/.test(diagnostic))diagnostic="Host returned a malformed or oversized structured diagnostic";
+    // Other plain-text gRPC diagnostics remain useful within the output bound.
+  }
   diagnostic=diagnostic.slice(0,1024);
   return new AvidMcpError("NATIVE_RPC_REJECTED",
     `Native RPC rejected: HTTP ${httpStatus??"unknown"}, gRPC ${grpcStatus??"unknown"}${diagnostic?`: ${diagnostic}`:""}. Inspect state before retrying a write.`,
