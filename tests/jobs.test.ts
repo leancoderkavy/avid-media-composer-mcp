@@ -14,6 +14,15 @@ vi.mock("node:child_process",()=>({spawn:vi.fn((command:string)=>{
 })}));
 beforeEach(()=>{state.workers=[];state.terminate.mockReset().mockResolvedValue({method:"windows-taskkill",succeeded:true});});
 async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-worker-"));return new AnalysisJobs(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"}));}
+it.each([[9,null],[null,'SIGKILL']] as const)('persists unexpected worker exit %s/%s and advances the queue',async(code,signal)=>{
+ const jobs=await fixture(),first=await jobs.start({kind:'index',files:['first.mp4']}),next=await jobs.start({kind:'index',files:['next.mp4']});
+ state.workers[0].stdout.emit('data',Buffer.from('{"partial":true}'));state.workers[0].emit('close',code,signal);
+ const failed=await jobs.readStatus(first.id);expect(failed).toMatchObject({status:'failed',workerExit:{code,signal}});expect(failed.result).toBeUndefined();
+ expect(await jobs.journal.read(first.id)).toMatchObject({status:'failed',workerExit:{code,signal},automaticReplay:false});
+ expect(state.workers).toHaveLength(2);expect(jobs.status(next.id).status).toBe('running');
+ state.workers[1].stdout.emit('data',Buffer.from('{"entries":[]}'));state.workers[1].emit('close',0,null);
+ expect(await jobs.readStatus(next.id)).toMatchObject({status:'completed',workerExit:{code:0,signal:null}});jobs.close();
+});
 it.skipIf(process.platform!=="win32")("retains failed tree termination and waits for worker closure",async()=>{
  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
  state.terminate.mockResolvedValueOnce({method:"windows-taskkill",succeeded:false,reason:"Tree termination timed out"});

@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Worker exit diagnostics and queue continuation
+
+Analysis job status/journals now retain direct worker exit code/signal. Unexpected exits fail the job without accepting partial JSON as a result; the queue advances only on closure. Numeric and signal exit tests verify persisted diagnostics and subsequent job completion. Old records remain readable without inventing an exit outcome.
+
+Actual owned-worker-tree termination while the MCP parent stayed alive failed a 180-second Sonoma QC with code 1/no result; the queued one-second QC completed with code 0. Both terminal records retained exit details after reconnect, with no replay or source changes: `.avid-mcp-analysis/job-worker-exit-7c47cf99-40a7-4579-936b-9782539ccba5/evidence.json`. Separate parent-only crash recovery again passed unresolved/no-replay records and later direct-worker absence: `job-crash-4ffb2960-bd88-4fe7-9019-269bc352fc10`. Neither proves all descendant containment or power-loss durability. See [job recovery](ANALYSIS_JOB_RECOVERY.md).
+
+Full check passed: 681 TypeScript tests, 46 Python tests, 140 tools, five skills, transports and fresh-package/Python/AAF checks (`check-worker-exit.log`). CI and CodeQL for preceding commit `ee2aaa0` completed successfully; subsequent-head CI is separate. Full-plan acceptance remains open.
+
 ### Empty native marker text defaults
 
 Actual native non-UUID marker clearing/color change, save/reopen, explicit restoration and final cleanup passed. Independent hash-bound saved AVB comparison allowed only target comment/color/observed RGB changes and verified exact decoded restoration with outside-note/source preservation. Evidence: `.avid-mcp-analysis/native-marker-clear-f4587e21-5479-43d9-94d3-42c5b1b9a3db/evidence.json` and `saved-clear-verification.json`. The fixture is marker-empty. This adds observed non-UUID update qualification, not arbitrary identity or atomic-undo support.

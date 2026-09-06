@@ -38,7 +38,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination}
+interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null}}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
@@ -125,7 +125,10 @@ export class AnalysisJobs {
       if(!child.pid)finish(e.message);
       else {job.error=e.message;this.checkpoint(job);}
     });
-    child.on("close",code=>finish(code===0?undefined:error||`Worker exited ${code}`));
+    child.on("close",(code,signal)=>{
+      job.workerExit={code,signal:signal??null};
+      finish(code===0?undefined:error||(signal?`Worker terminated by ${signal}`:`Worker exited ${code}`));
+    });
     child.stdin.on("error",()=>{});
     child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec}));
   }
