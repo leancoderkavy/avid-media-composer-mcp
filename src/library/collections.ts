@@ -1,4 +1,4 @@
-import {readFile, writeFile, stat} from "node:fs/promises";
+import {writeFile, opendir} from "node:fs/promises";
 import path from "node:path";
 import {pathToFileURL} from "node:url";
 import {randomUUID} from "node:crypto";
@@ -47,6 +47,24 @@ export class Collections {
     const collection=collectionSchema.parse(await readBoundedJson(file,8*1024*1024));
     await this.validate(collection);
     return {revision,...collection};
+  }
+  async list(after?:string,limit=50){
+    if(after)z.string().uuid().parse(after);
+    z.number().int().min(1).max(200).parse(limit);
+    const directory=await this.library.directory(),names:string[]=[];let scanned=0;
+    for await(const entry of await opendir(directory)){
+      if(++scanned>10000)throw new Error("Collection discovery limit exceeded");
+      const match=/^collection-([a-f0-9-]{36})\.json$/.exec(entry.name);
+      if(entry.isFile()&&match&&z.string().uuid().safeParse(match[1]).success&&(!after||match[1]!>after))names.push(match[1]!);
+    }
+    names.sort();const page=names.slice(0,limit),results=[];let omitted=0;
+    for(const revision of page){
+      try{
+        const collection=await this.read(revision);
+        results.push({revision,name:collection.name,selects:collection.selects.length,sources:new Set(collection.selects.map(select=>select.id)).size,duration:collection.selects.reduce((total,select)=>total+select.end-select.start,0)});
+      }catch{omitted++;}
+    }
+    return {results,omitted,nextAfter:names.length>page.length?page.at(-1)!:null,order:"revision UUID ascending; not creation time",scope:"Saved local collections with currently accessible indexed media; content checksums are verified on export"};
   }
   async range(revision:string,start:number,end:number,after=-1,limit=50){
     if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start)throw new Error("Invalid timeline range");

@@ -20,6 +20,7 @@ try{
  await call('avid_index_media',{files:[original,alias]});
  const collection=await call('avid_save_collection',{collection:{name:'Alias recovery selects',selects:[{id,start:0,end:0.5,label:'',tags:[],note:''}]}});
  await client.close();await writeFile(original,'changed disposable source');client=await connect();
+ const discovered=await call('avid_list_collections',{limit:1});assert.equal(discovered.results.length,1);assert.equal(discovered.results[0].revision,collection.revision);assert.equal(discovered.results[0].duration,0.5);assert.equal(discovered.nextAfter,null);
  const exported=await call('avid_export_collection_otio',{revision:collection.revision,rate:30});
  const bytes=await readFile(exported.output),document=JSON.parse(bytes.toString()),clip=document.tracks.children[0].children[0];
  assert.equal(clip.media_references.DEFAULT_MEDIA.target_url,pathToFileURL(await realpath(alias)).href);
@@ -29,6 +30,6 @@ try{
  const refused=await client.callTool({name:'avid_export_collection_otio',arguments:{revision:collection.revision,rate:30}});
  assert.equal(refused.isError,true);assert.ok(JSON.stringify(refused).includes('Source changed since indexing'));
  assert.deepEqual((await readdir(directory)).sort(),before);assert.deepEqual(await readFile(exported.output),bytes);assert.equal(await sha256File(source),sourceHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({exported,collection,id,refused,originalSourceUnchanged:true,scope:'Actual MCP export after reconnect using verified alias; exact OTIO reference and range, stale-source refusal without publication. No native OTIO import qualification.'},null,2));
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({discovered,exported,collection,id,refused,originalSourceUnchanged:true,scope:'Actual MCP collection discovery and export after reconnect using verified alias; exact OTIO reference and range, stale-source refusal without publication. No native OTIO import qualification.'},null,2));
  console.log(JSON.stringify({passed:true,root}));
 }finally{await client.close();}

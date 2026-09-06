@@ -20,6 +20,17 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it("rediscovers scoped collections across invalid records with stable continuation",async()=>{
+  const {config,id,root}=await fixture(),collections=new Collections(config);
+  const collection={name:"Private selects",selects:[{id,start:2,end:5,label:"",tags:[],note:""}]};
+  const first="00000000-0000-4000-8000-000000000001",second="00000000-0000-4000-8000-000000000002",directory=path.join(root,"avid-mcp-library");
+  await writeFile(path.join(directory,`collection-${first}.json`),"invalid");await writeFile(path.join(directory,`collection-${second}.json`),JSON.stringify(collection));
+  const page=await new Collections(config).list(undefined,1);expect(page.results).toEqual([]);expect(page.omitted).toBe(1);expect(page.nextAfter).toBe(first);
+  const next=await new Collections(config).list(page.nextAfter!,1);expect(next.results).toEqual([{revision:second,name:"Private selects",selects:1,sources:1,duration:3}]);expect(next.nextAfter).toBeNull();
+  const outside=await mkdtemp(path.join(os.tmpdir(),"avid-narrow-"));
+  const denied=await new Collections({...config,allowedRoots:[outside]}).list();expect(denied.results).toEqual([]);expect(denied.omitted).toBe(2);expect(JSON.stringify(denied)).not.toContain("Private selects");expect(JSON.stringify(denied)).not.toContain(id);
+  await expect(collections.list(undefined,0)).rejects.toThrow();await expect(collections.list("bad")).rejects.toThrow();
+ });
  it("exports collection references through verified aliases and refuses stale copies",async()=>{
   const {config,id,file,root}=await fixture(),collections=new Collections(config);
   const saved=await collections.save({name:"Recovered",selects:[{id,start:2,end:5,label:"",tags:[],note:""}]});

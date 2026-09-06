@@ -731,3 +731,13 @@ Source 272c056 passed npm run check: 492 TypeScript tests across 83 files, 32 Py
 
 CI run 34018448921 for 34c36f3 completed successfully across Windows/macOS and Node 20/24 plus landing, confirming the canonical-path test correction. CI for 272c056 was still running at this checkpoint; local validation is not substituted for that result. Native/client/quality and remaining full-scope acceptance stay open.
 
+
+### Saved collection discovery
+
+avid_list_collections now rediscovers saved local selects after reconnecting with UUID-ordered pagination, bounded scanning and current media-scope validation. Invalid or inaccessible records contribute only an omitted count; a page can be empty with a continuation cursor. Cached discovery does not assert source-byte identity; export retains checksum verification. Tests cover damaged-record continuation, fresh-instance recovery, scope omission and invalid pagination. Actual stdio MCP rediscovered the Sonoma derivative collection and then exported it through the verified alias; evidence: .avid-mcp-analysis/collection-alias-7381cfa2-efea-400e-8203-c9467e44a492/evidence.json. The selects workflow skill documents continuation. Tool inventory is now 136.
+
+CI run 34018539471 for 272c056 completed successfully. The first discovery package probe stopped on the stale 135-tool assertion; smoke/server expectations were updated for the added tool before rerunning the full check.
+
+
+Full check for collection discovery passed: 493 TypeScript tests, 32 Python tests, 136-tool transport checks and fresh-package installation with exact tool definitions and Python isolation/recovery. Log: .avid-mcp-analysis/check-collection-discovery.log. This proves package compatibility and the bounded collection workflow, not general native editing or AI-client model invocation.
+

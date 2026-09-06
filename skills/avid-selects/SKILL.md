@@ -41,3 +41,6 @@ For a native AAF selects workflow on the qualified Windows host:
 Each native token is single-use. On an uncertain import/export, inspect the attempt and native lock before further writes; never automatically resubmit. `avid_native_lock_status` provides scoped evidence. With Avid stopped, export recovery uses its lock checksum; `avid_recover_native_import_lock` additionally requires the reviewed evidence checksum. Recovery releases only the lock and does not undo the operation. Do not promise atomic undo or complete live/unsaved timeline coverage.
 
 Return collection revision, source ranges, artifact paths and the exact level of host verification completed. Do not describe an interchange file as an edited live timeline.
+
+After reconnecting, use avid_list_collections to rediscover saved revisions. Follow nextAfter until null, including empty pages: inaccessible or invalid records are counted as omitted. Discovery checks current media scope; export additionally verifies content hashes.
+
