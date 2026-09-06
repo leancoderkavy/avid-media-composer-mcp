@@ -24,9 +24,17 @@ it('cancels queued preparation without dispatching it and retains the request in
  const jobs=await fixture(),first=await jobs.start({kind:'index',files:['fixture.mp4']});
  const spec={kind:'source_clock' as const,options:{file:'fixture.mp4',expectedSha256:'a'.repeat(64),videoStream:0,audioStream:1}};
  const queued=await jobs.start(spec);expect(queued.status).toBe('queued');
+ expect(queued.preparationRunId).toMatch(/^[a-f0-9-]{36}$/);
  expect(await jobs.cancelAndReadStatus(queued.id)).toMatchObject({status:'cancelled',spec});
  state.workers[0].stdout.emit('data',Buffer.from('{}'));state.workers[0].emit('close',0,null);await jobs.readStatus(first.id);
  expect(state.workers).toHaveLength(1);expect(await jobs.journal.read(queued.id)).toMatchObject({status:'cancelled',spec,automaticReplay:false});jobs.close();
+});
+it('passes the recorded preparation identity to its worker and retains it after failure',async()=>{
+ const jobs=await fixture(),started=await jobs.start({kind:'source_clock',options:{file:'fixture.mp4',expectedSha256:'a'.repeat(64),videoStream:0,audioStream:1}});
+ const payload=JSON.parse(state.workers[0].stdin.read().toString());expect(payload.preparationRunId).toBe(started.preparationRunId);
+ state.workers[0].emit('close',1,null);
+ expect(await jobs.readStatus(started.id)).toMatchObject({status:'failed',preparationRunId:started.preparationRunId});
+ expect(await jobs.journal.read(started.id)).toMatchObject({preparationRunId:started.preparationRunId});jobs.close();
 });
 it('preserves Unicode result text split across every UTF-8 byte',async()=>{
  const jobs=await fixture(),job=await jobs.start({kind:'index',files:['fixture.mp4']}),result={name:'Café 東京 🎬',text:'naïve résumé'};

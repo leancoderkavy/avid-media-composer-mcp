@@ -34,6 +34,14 @@ async function fixture(mode="pass"){
  });
  return {root,source,config,options:{file:source,expectedSha256,videoStream:2,audioStream:3}};
 }
+it("binds an internal preparation ID and refuses collisions without overwriting output",async()=>{
+ const f=await fixture(),media=new SourceClockMedia(f.config),runId="12345678-1234-4234-8234-123456789abc";
+ await expect(media.prepare(f.options,"../../outside")).rejects.toThrow();expect(mock.run).not.toHaveBeenCalled();
+ const result=await media.prepare(f.options,runId);expect(path.basename(path.dirname(result.output))).toBe(`source-clock-${runId}`);
+ const before=await sha256File(result.output),writes=mock.run.mock.calls.filter(([,args])=>args.includes("-n")).length;
+ await expect(media.prepare(f.options,runId)).rejects.toMatchObject({code:"EEXIST"});
+ expect(await sha256File(result.output)).toBe(before);expect(mock.run.mock.calls.filter(([,args])=>args.includes("-n"))).toHaveLength(writes);
+});
 it("writes a new verified receipt with explicit maps and preserves the source",async()=>{
  const f=await fixture(),result=await new SourceClockMedia(f.config).prepare(f.options);
  expect(result).toMatchObject({verified:true,sourceUnchanged:true,hostImportVerified:false,sourceClockPcmSha256:"b".repeat(64)});

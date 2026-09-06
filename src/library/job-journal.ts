@@ -8,7 +8,7 @@ import {readBoundedJson} from "../security/bounded-read.js";
 import * as z from "zod/v4";
 
 const uuid=z.string().uuid();
-const recordSchema=z.object({id:uuid,session:uuid,scope:z.string(),status:z.enum(["queued","running","cancelling","completed","failed","cancelled"]),createdAt:z.string(),updatedAt:z.string(),spec:z.unknown(),result:z.unknown().optional(),error:z.string().optional(),cancellationReason:z.enum(["user","timeout","output_limit","shutdown"]).optional(),workerExit:z.object({code:z.number().int().nullable(),signal:z.string().max(64).nullable()}).optional(),treeTermination:z.object({method:z.literal("windows-taskkill"),succeeded:z.boolean(),reason:z.string().optional(),exitCode:z.number().int().nullable().optional()}).optional()});
+const recordSchema=z.object({id:uuid,preparationRunId:uuid.optional(),session:uuid,scope:z.string(),status:z.enum(["queued","running","cancelling","completed","failed","cancelled"]),createdAt:z.string(),updatedAt:z.string(),spec:z.unknown(),result:z.unknown().optional(),error:z.string().optional(),cancellationReason:z.enum(["user","timeout","output_limit","shutdown"]).optional(),workerExit:z.object({code:z.number().int().nullable(),signal:z.string().max(64).nullable()}).optional(),treeTermination:z.object({method:z.literal("windows-taskkill"),succeeded:z.boolean(),reason:z.string().optional(),exitCode:z.number().int().nullable().optional()}).optional()});
 export type JobRecord=z.infer<typeof recordSchema>;
 
 /** One writer per random job ID. Credentials and runtime configuration are never persisted. */

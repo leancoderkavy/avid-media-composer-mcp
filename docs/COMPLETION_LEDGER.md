@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Direct job-to-preparation recovery identity
+
+Source-clock jobs now allocate and journal `preparationRunId` before dispatch, pass it to the worker and retain it through terminal status/reconnect. The preparation verifier validates the UUID and refuses directory collisions without changing existing outputs. Historical records do not gain guessed IDs. Tests cover worker payload binding, failed-job history, invalid IDs and collision preservation.
+
+Actual Sonoma MCP execution followed completed and interrupted preparations from job status to `avid_source_clock_status`, with ID equality across reconnect and absent attempts for queued cancellation/early checksum refusal. Evidence: `.avid-mcp-analysis/source-clock-jobs-1533fa2a-8615-4bfb-ac55-d8952f8ccef0/evidence.json`. Full local check passed 802 TypeScript and 46 Python tests plus transport/fresh-package/Python/AAF checks (`check-preparation-job-identity.log` in the analysis directory). Cross-session process recovery and general cancellation reliability remain open.
+
 ### Fresh installed source-clock jobs
 
 Extended the research harness to accept an absolute installed entrypoint, use its directory as the server working directory and checksum six relevant runtime files before and after execution. A fresh development tarball installation matched the checkout build, then passed real Sonoma queued preparation, queued/active cancellation, bad-checksum refusal, receipt verification and fresh-session status. A separate installed fault-injection run verified scheduling pause, new-start refusal and queued cancellation.

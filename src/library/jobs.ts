@@ -43,7 +43,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
 type CancellationReason="user"|"timeout"|"output_limit"|"shutdown";
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null};cancellationReason?:CancellationReason}
+interface Job {id:string;preparationRunId?:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null};cancellationReason?:CancellationReason}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
@@ -64,6 +64,7 @@ export class AnalysisJobs {
     if([...this.jobs.values()].filter(job=>["queued","running","cancelling"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
     if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished){this.jobs.delete(finished.id);this.checkpoints.delete(finished.id);}}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};
+    if(spec.kind==="source_clock")job.preparationRunId=randomUUID();
     this.jobs.set(job.id,job);
     try{await this.persist(job);}catch(error){this.jobs.delete(job.id);throw error;}
     this.pump();return this.status(job.id);
@@ -156,6 +157,6 @@ export class AnalysisJobs {
       else finish(failure);
     });
     child.stdin.on("error",()=>{});
-    child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec}));
+    child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec,preparationRunId:job.preparationRunId}));
   }
 }

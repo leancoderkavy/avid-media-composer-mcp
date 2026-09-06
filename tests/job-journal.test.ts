@@ -7,6 +7,12 @@ import {JobJournal} from "../src/library/job-journal.js";
 import {loadConfig} from "../src/config.js";
 async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-jobs-"));const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"});return {root,config,journal:new JobJournal(config)};}
 const job=()=>({id:randomUUID(),status:"queued" as const,createdAt:new Date().toISOString(),spec:{kind:"index",files:["fixture.mp4"]}});
+it("preserves an explicit preparation run ID across reconnect without inventing one for historical jobs",async()=>{
+ const {config,journal}=await fixture(),current={...job(),preparationRunId:randomUUID()},historical=job();
+ await journal.save(current);await journal.save(historical);const restored=new JobJournal(config);
+ expect(await restored.read(current.id)).toMatchObject({preparationRunId:current.preparationRunId,status:"unresolved"});
+ expect((await restored.read(historical.id)).preparationRunId).toBeUndefined();
+});
 it.each([0,1,128,null])("retains termination helper exit code %s after reconnect",async exitCode=>{
  const {config,journal}=await fixture(),value=job();
  await journal.save({...value,status:"cancelled",treeTermination:{method:"windows-taskkill",succeeded:exitCode===0,exitCode}});

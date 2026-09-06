@@ -1,4 +1,4 @@
-import {mkdir,writeFile,readdir,stat} from 'node:fs/promises';
+import {mkdir,writeFile,stat} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {parseArgs} from 'node:util';
@@ -47,18 +47,23 @@ try{
  const cancelled=await call(client,'avid_cancel_analysis_job',{jobId:queued.id});
  assert.equal(cancelled.status,'cancelled');
  const complete=await terminal(client,first.id);assert.equal(complete.status,'completed',JSON.stringify(complete));
+ assert.equal(complete.preparationRunId,first.preparationRunId);
+ assert.equal(path.basename(path.dirname(complete.result.output)),`source-clock-${first.preparationRunId}`);
  assert.equal(complete.result.verified,true);assert.equal(await sha256File(complete.result.output),complete.result.outputSha256);
  const bad=await call(client,'avid_start_analysis_job',{job:{...job,options:{...job.options,expectedSha256:'0'.repeat(64)}}});
  const failure=await terminal(client,bad.id);assert.equal(failure.status,'failed');assert.match(failure.error,/checksum changed/);
+ for(const record of [cancelled,failure]){
+  assert.match(record.preparationRunId,/^[a-f0-9-]{36}$/);
+  await assert.rejects(stat(path.join(root,'avid-mcp-library',`source-clock-${record.preparationRunId}`)),{code:'ENOENT'});
+ }
  let stopped,interruptedRun,held;
  if(testCancellation){
- const library=path.join(root,'avid-mcp-library'),before=new Set(await readdir(library));
+ const library=path.join(root,'avid-mcp-library');
  const active=await call(client,'avid_start_analysis_job',{job});
+ assert.match(active.preparationRunId,/^[a-f0-9-]{36}$/);
  const deadline=Date.now()+30000;
  while(Date.now()<deadline&&!interruptedRun){
-  for(const name of await readdir(library))if(name.startsWith('source-clock-')&&!before.has(name)){
-   try{if((await stat(path.join(library,name,'attempt.json'))).size>0)interruptedRun=name.slice(13);}catch(error){if(error.code!=='ENOENT')throw error;}
-  }
+  try{if((await stat(path.join(library,`source-clock-${active.preparationRunId}`,'attempt.json'))).size>0)interruptedRun=active.preparationRunId;}catch(error){if(error.code!=='ENOENT')throw error;}
   if(!interruptedRun)await new Promise(resolve=>setTimeout(resolve,50));
  }
  assert.ok(interruptedRun,'Preparation attempt must exist before cancellation');
@@ -79,8 +84,9 @@ try{
   const restored=await call(client,'avid_analysis_job_status',{jobId:record.id});
   assert.equal(restored.status,record.status);assert.deepEqual(restored.result,record.result);assert.equal(restored.automaticReplay,false);
   assert.deepEqual(restored.treeTermination,record.treeTermination);
+  assert.equal(restored.preparationRunId,record.preparationRunId);
  }
- const runId=path.basename(path.dirname(complete.result.output)).slice('source-clock-'.length);
+ const runId=complete.preparationRunId;
  const status=await call(client,'avid_source_clock_status',{runId});assert.equal(status.state,'receipt_matches_files');
  const interrupted=interruptedRun?await call(client,'avid_source_clock_status',{runId:interruptedRun}):undefined;
  if(interrupted)assert.equal(interrupted.state,'unresolved');
