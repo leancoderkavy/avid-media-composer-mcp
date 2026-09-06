@@ -11,6 +11,28 @@ it("refuses remote, named-host, credential-bearing and altered-path endpoints",(
   }
 });
 
+it("times out stalled bodies and rejects malformed protocol responses without echoing them",async()=>{
+  let mode="stall";
+  const server=createServer((_req,res)=>{
+    res.setHeader("content-type",mode==="type"?"text/application/json-spoof":"application/json; charset=utf-8");
+    if(mode==="stall"){res.write('{"status":');return;}
+    res.end(mode==="json"?'secret-invalid-json':mode==="schema"?'{"status":"secret-unexpected"}':'{"status":"ok"}');
+  });
+  await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const address=server.address();if(!address||typeof address==="string")throw new Error("No test address");
+  const options={baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"test",allowedRoots:[],timeoutMs:100,maxResponseBytes:1024};
+  const client=new JumperReadClient(options);
+  // Changing the caller's object after construction must not remove validated bounds.
+  options.timeoutMs=120000;options.maxResponseBytes=Infinity;
+  try{
+    await expect(client.health()).rejects.toMatchObject({code:"JUMPER_REQUEST",message:"Provider request failed or returned invalid JSON"});
+    mode="type";await expect(client.health()).rejects.toMatchObject({code:"JUMPER_CONTENT_TYPE"});
+    mode="json";await expect(client.health()).rejects.toMatchObject({code:"JUMPER_REQUEST",message:"Provider request failed or returned invalid JSON"});
+    mode="schema";await expect(client.health()).rejects.toMatchObject({code:"JUMPER_SCHEMA"});
+    mode="normal";expect(await client.health()).toMatchObject({status:"ok"});
+  }finally{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
+});
+
 it("enforces scope, suppresses images and secrets, and bounds real loopback responses",async()=>{
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-jumper-")),file=path.join(root,"clip.mp4"),other=path.join(root,"other.mp4");
   await writeFile(file,"fixture");await writeFile(other,"other");

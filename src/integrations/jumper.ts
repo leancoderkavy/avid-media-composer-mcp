@@ -9,11 +9,13 @@ const matchSchema=z.object({
 });
 const responseSchema=z.object({matches:z.array(matchSchema).max(100)});
 const fail=(code:string,message:string)=>new AvidMcpError(`JUMPER_${code}`,message);
+interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number}
 
 /** Optional licensed provider. No SDK, model downloads, analysis writes or image output. */
 export class JumperReadClient {
   private readonly base:string;
-  constructor(private readonly options:{baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number}){
+  private readonly options:Readonly<JumperOptions>;
+  constructor(options:JumperOptions){
     const base=new URL(options.baseUrl??"http://127.0.0.1:6699/api/v1");
     if(base.protocol!=="http:"||!["127.0.0.1","[::1]"].includes(base.hostname)||base.username||base.password||base.search||base.hash||base.pathname!=="/api/v1")throw fail("ENDPOINT","Provider must use a literal loopback HTTP address and /api/v1 path");
     if(!options.licenseKey.trim()||/[\r\n]/.test(options.licenseKey))throw fail("LICENSE","A local provider license key is required");
@@ -21,6 +23,7 @@ export class JumperReadClient {
       if(!Number.isSafeInteger(value)||value<min||value>max)throw fail("LIMIT",`Invalid ${name}`);
     }
     this.base=base.href;
+    this.options=Object.freeze({...options,allowedRoots:Object.freeze([...options.allowedRoots])});
   }
   private async request(endpoint:"/health"|"/search/text",body?:unknown):Promise<unknown>{
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),this.options.timeoutMs??10000);
@@ -29,7 +32,7 @@ export class JumperReadClient {
         headers:{accept:"application/json",...(body===undefined?{}:{"content-type":"application/json","X-License-Key":this.options.licenseKey})},
         ...(body===undefined?{}:{body:JSON.stringify(body)})});
       if(!response.ok){await response.body?.cancel();throw fail("HTTP",`Provider returned HTTP ${response.status}`);}
-      if(!response.headers.get("content-type")?.toLowerCase().includes("application/json")){await response.body?.cancel();throw fail("CONTENT_TYPE","Provider did not return JSON");}
+      if(response.headers.get("content-type")?.split(";",1)[0]?.trim().toLowerCase()!=="application/json"){await response.body?.cancel();throw fail("CONTENT_TYPE","Provider did not return JSON");}
       if(!response.body)throw fail("BODY","Provider response is empty");
       const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0;
       try{while(true){const item=await reader.read();if(item.done)break;size+=item.value.byteLength;
