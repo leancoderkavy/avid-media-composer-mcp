@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Installed summary review after reconnect
+
+Added `qualify-installed-summary-review.mjs`, which installs a fresh checksum-selected branch archive and starts its MCP entry from a foreign working directory with inspect-only capability and no model configuration. Two independent processes read the overview and both leaves from the existing Sonoma synthetic-note boundary evidence. Reconstructed input text/hash/kind, original sources and exact excerpts matched the prior checkout results on every node and after reconnect. Evidence, summary, transcript, original MP4, archive and installed entry hashes were preserved.
+
+Actual run passed: `.avid-mcp-analysis/installed-summary-review-2f6cd477-c4de-4422-98b6-e255d3a6f83e/evidence.json`; log: `.avid-mcp-analysis/installed-summary-review.log`. Per-pass responses are retained. This establishes installed read/reconnect behavior on the existing Windows/Node host, not model quality, clean-machine dependencies or named-client GUI acceptance. Production code is unchanged; syntax/diff checks passed without repeating the full unit suite. Full-plan scope remains open.
+
 ### Inspect transcript and generated-child model inputs
 
 Summary node reads now return recipe-reconstructed model input text, its UTF-8 SHA-256, input kind and ordered child IDs. Leaf inputs come from transcript chunks; overview inputs concatenate generated child summaries. Legacy records without a recipe return null input rather than guessing. This makes inherited omissions/errors reviewable without loading a model or modifying saved records. Unit tests compare every reconstructed input/hash against captured generation calls and verify legacy absence.

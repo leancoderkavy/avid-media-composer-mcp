@@ -8,6 +8,8 @@ The pinned local DistilBART model is implemented and runtime-tested. Its editori
 
 The status is `reconstructed_recipe`: it reproduces the recorded algorithm from verified transcript and saved child text, not an independent execution log or proof of factual entailment. Older records without a recipe return `not_recorded` with null text/hash instead of guessing. Inspection does not load a model or modify saved records.
 
+Fresh-package verification reads an existing boundary-qualification evidence file through two installed stdio MCP processes from a foreign working directory, without model configuration. Run `node scripts/research/qualify-installed-summary-review.mjs ABSOLUTE_BOUNDARY_EVIDENCE_JSON` after building. Overview/leaf inputs and source excerpts matched across reconnect with unchanged saved summary, transcript and original MP4. Evidence: `.avid-mcp-analysis/installed-summary-review-2f6cd477-c4de-4422-98b6-e255d3a6f83e/evidence.json`. This checks installed review behavior, not generation accuracy or a named-client GUI.
+
 ## Repetition and inherited minimum-length comparison
 
 `scripts/research/benchmark-summary-repetition.mjs` compares four generation settings across the eight existing editorial evidence fixtures plus one original single-sentence climbing observation. It retains requested/effective options, source review criteria and every output, with incremental progress. Evidence: `.avid-mcp-analysis/summary-repetition-84ad0dea-c09b-43a9-be16-4e32859c8d47/evidence.json` (36 generations). The initial two-setting experiment is retained separately at `summary-repetition-510b0f78-7c05-42ec-a352-24a09b054c34`.
