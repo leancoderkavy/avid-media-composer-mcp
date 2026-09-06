@@ -751,3 +751,8 @@ Fresh-tarball smoke now invokes collection discovery through the installed stdio
 
 Collection save and OTIO export now stage bytes before exclusive hard-link publication, matching the existing local immutable-output pattern. Paused-write tests confirm discovery cannot see partial collection files and no final OTIO exists before completion. Injected write failures leave prior directory entries unchanged; a competing final file is preserved and the caller's stage removed. Seventeen focused tests and typecheck passed. Actual Sonoma derivative MCP discovery/reconnect/export and changed-source refusal passed again: .avid-mcp-analysis/collection-alias-54fb2aa3-28b6-4b46-8a93-432953c36ab6/evidence.json. These checks do not establish power-loss durability or termination at every publication phase. CI for discovery commit a2d90c7 completed successfully.
 
+
+### Native UI edit fixture preparation
+
+Reacquired the live Avid UI and recorded accessibility/menu constraints; created a distinct disposable sequence through MCP, saved/reopened it and preserved its baseline AVB. See NATIVE_UI_EDIT_BASELINE.md for exact identity and evidence. Trimming/undo remain untested. CI 34018970601 for 902e3d2 failed in the existing Windows listener-ownership test when PowerShell exceeded 30 seconds; CodeQL passed. This failure remains unresolved and is not replaced by native fixture success.
+

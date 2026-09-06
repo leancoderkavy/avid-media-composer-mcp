@@ -1,0 +1,12 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';import {mkdir,readFile,writeFile} from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const root=path.resolve('.avid-mcp-analysis',`native-ui-baseline-${randomUUID()}`);await mkdir(root);
+const client=new Client({name:'native-ui-baseline-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:'D:/Avid Projects/MCP_Sonoma_30p_20260905',AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
+try{
+ const bin='MCP_CopyMCP_93108dc0c7b8.avb',mobId='060a2b340101010501010f1013-000000-184e5ee212898806-7c27d8bbc16d-18d9';
+ const invoke=async(name,args)=>{const value=await client.callTool({name,arguments:args},undefined,{timeout:120000});assert.ok(!value.isError,JSON.stringify(value));return value.structuredContent.data;};
+ const before=await invoke('avid_native_read',{query:'clips',bin});assert.equal(before.length,1);assert.equal(before[0].mob_id,mobId);
+ for(const action of ['close_bin','open_bin']){const plan=await invoke('avid_native_preview',{operation:{action,bin}});const result=await invoke('avid_native_apply',{token:plan.token});assert.equal(result.binStateVerified,true);}
+ const clips=await invoke('avid_native_read',{query:'clips',bin}),tracks=await invoke('avid_native_read',{query:'tracks',bin,mobId});assert.equal(clips.length,1);assert.equal(clips[0].mob_id,mobId);
+ const projectRoot='D:/Avid Projects/MCP_Sonoma_30p_20260905',bytes=await readFile(path.join(projectRoot,bin));await writeFile(path.join(root,'baseline.avb'),bytes,{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({bin,mobId,clips,tracks,baseline:'baseline.avb',scope:'Owned disposable copy saved/reopened and captured before any UI trim; no trim or undo proof yet'},null,2));console.log(JSON.stringify({root,bin,mobId,baselineBytes:bytes.length}));
+}finally{await client.close();}
