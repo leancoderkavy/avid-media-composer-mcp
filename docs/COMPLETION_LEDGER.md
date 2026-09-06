@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Installed preparation reconnect acceptance
+
+Fresh-tarball package checks now exercise source-clock discovery/status through installed MCP with synthetic saved records. A second client continues the first client's damaged-record cursor, finds the valid attempt, reads unresolved state, matches receipt/output bytes and rejects changed output. Source and attempt records stay unchanged; no FFmpeg/conversion evidence is inferred from this fixture. Actual `npm run smoke:package -- --with-python` passed with 139 tools, five skills, exact checkout definitions, client configuration, Python isolation and AAF checks. Log: `.avid-mcp-analysis/check-installed-preparation-recovery.log`. Script syntax passed; no production code changed and the full unit suite was not rerun. Real conversion/interruption evidence remains separately recorded.
+
 ### Reconnect discovery for source-clock attempts
 
 Full local check passed: 592 TypeScript tests, 36 Python tests, 139 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-source-clock-discovery.log`). At the preceding remote head 94a43a9, CodeQL, macOS and landing checks had passed; Windows jobs were still running. These remain separate from current local evidence.

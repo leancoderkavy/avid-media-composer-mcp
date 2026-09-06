@@ -237,6 +237,37 @@ try {
   await writeFile(path.join(snapshotDirectory,`snapshot-${candidate}.json`),JSON.stringify(record));
   const invoke=async(name,args)=>{const response=await client.callTool({name,arguments:args});if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed pagination call failed: ${name}`);return response.structuredContent.data;};
   const collectionSource=path.resolve(root,"tests","fixtures","sample-project","Editorial.avb"),collectionBytes=await readFile(collectionSource),collectionId=createHash("sha256").update(collectionBytes).digest("hex");
+  // Synthetic saved preparation records exercise installed recovery, not media conversion.
+  const clockBad=path.join(snapshotDirectory,`source-clock-${baseline}`),clockGood=path.join(snapshotDirectory,`source-clock-${candidate}`);
+  await mkdir(clockBad);await mkdir(clockGood);
+  const clockDamaged=path.join(clockBad,"attempt.json"),clockAttempt=path.join(clockGood,"attempt.json"),clockOutput=path.join(clockGood,"prepared.mov");
+  await writeFile(clockDamaged,"damaged preparation record");
+  const clockRecord={source:await realpath(collectionSource),sourceSha256:collectionId,videoStream:0,audioStream:1,output:clockOutput,recipe:"aresample=48000:async=1:first_pts=0",startedAt:"2026-09-06T00:00:00.000Z"};
+  const clockRecordBytes=JSON.stringify(clockRecord);await writeFile(clockAttempt,clockRecordBytes);
+  const clockPage=await invoke("avid_list_source_clock_attempts",{file:collectionSource,expectedSha256:collectionId,limit:1});
+  if(clockPage.attempts.length||clockPage.unreadable!==1||clockPage.nextAfter!==baseline)throw new Error("Installed preparation discovery lost damaged-record continuation");
+  const recoveredClockClient=new Client({name:"avid-installed-preparation-reconnect",version:"1.0"});
+  try{
+    await recoveredClockClient.connect(new StdioClientTransport({command:generatedEntry.command,args:generatedEntry.args,cwd:temporary,stderr:"pipe",env:{...getDefaultEnvironment(),...generatedEntry.env}}));
+    const clockCall=async(name,args)=>{
+      const response=await recoveredClockClient.callTool({name,arguments:args});
+      if(response.isError||!response.structuredContent?.ok)throw new Error(`Installed preparation call failed: ${name}`);
+      return response.structuredContent.data;
+    };
+    const next=await clockCall("avid_list_source_clock_attempts",{file:collectionSource,expectedSha256:collectionId,after:clockPage.nextAfter,limit:1});
+    if(next.attempts[0]?.runId!==candidate||next.nextAfter!==null)throw new Error("Installed preparation reconnect lost attempt");
+    const unresolved=await clockCall("avid_source_clock_status",{runId:candidate});
+    if(unresolved.state!=="unresolved"||unresolved.workerState!=="unknown"||unresolved.outputSha256!==null)throw new Error("Installed unresolved attempt inferred completion");
+    const outputBytes=Buffer.from("synthetic prepared bytes"),outputSha256=createHash("sha256").update(outputBytes).digest("hex");await writeFile(clockOutput,outputBytes);
+    const {startedAt,...identity}=clockRecord;
+    await writeFile(path.join(clockGood,"receipt.json"),JSON.stringify({...identity,outputSha256,verified:true,sourceUnchanged:true,hostImportVerified:false}));
+    const completed=await clockCall("avid_source_clock_status",{runId:candidate});
+    if(completed.state!=="receipt_matches_files"||completed.outputSha256!==outputSha256||completed.workerState!=="unknown")throw new Error("Installed preparation receipt binding failed");
+    await writeFile(clockOutput,"changed synthetic output");
+    const changed=await recoveredClockClient.callTool({name:"avid_source_clock_status",arguments:{runId:candidate}});
+    if(!changed.isError||!JSON.stringify(changed).includes("Prepared output changed"))throw new Error("Installed preparation accepted changed output");
+    if(await readFile(clockAttempt,"utf8")!==clockRecordBytes||await readFile(clockDamaged,"utf8")!=="damaged preparation record"||!isDeepStrictEqual(await readFile(collectionSource),collectionBytes))throw new Error("Installed preparation reads changed source or attempt records");
+  }finally{await recoveredClockClient.close();}
   await writeFile(path.join(snapshotDirectory,`${collectionId}.json`),JSON.stringify({id:collectionId,file:collectionSource,bytes:collectionBytes.length,metadata:{format:{duration:"10"}},transcript:[]}));
   const collectionRecord={name:"Installed collection",selects:[{id:collectionId,start:2,end:5,label:"",tags:[],note:""}]};
   await writeFile(path.join(snapshotDirectory,`collection-${baseline}.json`),"damaged record");
@@ -351,6 +382,7 @@ try {
       runtimeNotices: "two exact ONNX version mappings retain four verified notice files from installed package",
       inventoryReport: "installed stream/tag rendering and changed-source refusal preserve prior output",
       collectionDiscovery: "installed damaged-record continuation, saved-range readback and out-of-scope omission passed",
+      preparationRecovery: "installed synthetic damaged-page reconnect, unresolved status, receipt/file matching and changed-output refusal passed; not media conversion",
       trimVerification: "installed forward/inverse decoded trim and unrelated-edit refusal passed",
       savedTrimMcp: "installed snapshot-pair verification and wrong-direction refusal passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
