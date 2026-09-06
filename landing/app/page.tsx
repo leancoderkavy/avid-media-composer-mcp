@@ -1,6 +1,6 @@
 import {
   ArrowRight, Binary, Boxes, CircleCheck, ClipboardCheck, Code2,
-  FileSearch, Film, FolderLock, Github, HardDrive, Network, ShieldCheck, Sparkles
+  FileSearch, Film, FolderLock, GitFork, HardDrive, Network, ShieldCheck, Sparkles
 } from "lucide-react"
 import { HeroDemo } from "@/components/hero-demo"
 
@@ -114,7 +114,7 @@ export default function Home() {
           <div><FileSearch /><span><strong>Read-only analysis</strong><small>Source-safe by default</small></span></div>
           <div><HardDrive /><span><strong>Windows + macOS</strong><small>Qualified Avid releases</small></span></div>
           <div><ShieldCheck /><span><strong>Fail-closed editing</strong><small>Exact confirmation tokens</small></span></div>
-          <div><Github /><span><strong>MIT licensed</strong><small>Independent open source</small></span></div>
+          <div><GitFork /><span><strong>MIT licensed</strong><small>Independent open source</small></span></div>
         </div>
       </section>
 
@@ -168,7 +168,7 @@ export default function Home() {
 
       <section className="cta shell">
         <div><p>Build a safer AI-assisted post workflow.</p><h2>Start with the project evidence.</h2></div>
-        <a className="button primary" href={repo} target="_blank" rel="noreferrer"><Github /> Explore on GitHub</a>
+        <a className="button primary" href={repo} target="_blank" rel="noreferrer"><GitFork /> Explore on GitHub</a>
       </section>
 
       <footer className="shell">
