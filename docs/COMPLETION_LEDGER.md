@@ -1,5 +1,15 @@
 # Completion ledger
 
+### Stdio disconnect drains analysis cancellation
+
+The stdio entrypoint had no EOF shutdown handler, while its signal handler forced process exit after telemetry shutdown without closing the server. Stdin EOF and supported process signals now share an idempotent server-close/telemetry path. Server closure triggers analysis cancellation and runtime disposal; referenced worker handles and pending journal writes drain naturally instead of being cut off by `process.exit`. Abrupt parent termination remains a separate, unresolved containment requirement.
+
+The real Sonoma MCP harness now supports `--inspect-descendants` with cancellation or `--disconnect`. It requires an observed FFmpeg descendant before acting, records worker/descendant PID and creation identities, and checks their disappearance after terminal cancellation. Explicit cancellation passed with the worker, FFmpeg and two observed console helpers absent (`job-worker-exit-b63fe40d-1f5b-45d5-be04-023ab6952d0d`). Disconnect also passed natural MCP server exit code 0/no signal, active job cancellation with reason `shutdown`, queued cancellation without worker dispatch, observed process disappearance, preserved terminal journals after reconnect and unchanged source hash (`job-worker-exit-624a0978-8d33-4037-a69e-01a416f3d571`). Evidence directories are under `.avid-mcp-analysis/`.
+
+An earlier disconnect run passed job/process checks without observing the MCP exit mode (`job-worker-exit-3838078c-b92a-4d13-b71f-7bb9b4c21e91`); the later run adds that missing distinction from client force-kill. Research observes the exact child handle owned by its SDK transport. Snapshot evidence covers those observed identities, not atomic containment of every possible descendant. OS-signal delivery, slow optional-model disposal, abrupt parent loss and power loss remain unqualified; the full plan remains open.
+
+Full local check passed 719 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF verification with 142 tool definitions/five skills (`check-stdio-job-shutdown.log`). Preceding commit fbe1bd0 passed all GitHub CI/CodeQL checks; these shutdown changes require their own remote checks.
+
 ### Cancellation waits for the tree-termination result
 
 Analysis-job cancellation previously advanced the queue as soon as the worker closed, even when Windows taskkill was still pending. The active slot now remains occupied and status remains `cancelling` until both worker closure and the tree-termination attempt settle. The closed worker handle is removed immediately, preventing a late failed tree attempt from sending a fallback kill to a closed PID. Failed tree attempts remain explicit uncertainty; this change does not prove every descendant stopped.

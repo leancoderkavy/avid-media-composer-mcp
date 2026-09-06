@@ -10,6 +10,20 @@ async function main(): Promise<void> {
   const server = createServer(config);
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  let shutdown: Promise<void> | undefined;
+  const close = () => {
+    shutdown ??= (async () => {
+      try { await server.close(); }
+      finally { await telemetry.shutdown(); }
+      // Worker handles keep the loop alive until their cancellation/exit journals
+      // settle. A forced process.exit here would abandon that cleanup.
+    })().catch((error: unknown) => {
+      console.error(JSON.stringify({type:"avid-media-composer-mcp-shutdown-error",error:error instanceof Error?error.message:String(error)}));
+      process.exitCode = 1;
+    });
+  };
+  process.stdin.once("end", close);
+  for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, close);
   telemetry.capture("avid_mcp_server_started", {
     transport: "stdio",
     telemetry_enabled: telemetry.enabled,
@@ -34,9 +48,3 @@ main().catch((error: unknown) => {
   );
   process.exitCode = 1;
 });
-
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.once(signal, () => {
-    void telemetry.shutdown().finally(() => process.exit(0));
-  });
-}
