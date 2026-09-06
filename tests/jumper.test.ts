@@ -1,6 +1,6 @@
 import {expect,it} from "vitest";
 import {createServer} from "node:http";
-import {mkdtemp,writeFile,unlink,rmdir} from "node:fs/promises";
+import {mkdtemp,writeFile,unlink,rmdir,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {JumperReadClient} from "../src/integrations/jumper.js";
@@ -54,7 +54,7 @@ it("enforces scope, suppresses images and secrets, and bounds real loopback resp
   try{
     expect(await client.health()).toMatchObject({status:"ok",runtimeVersionVerified:false});expect(healthKey).toBeUndefined();
     const result=await search();expect(result.matches).toHaveLength(1);expect(JSON.stringify(result)).not.toMatch(/private-image|test-license-secret/);
-    expect(posted).toMatchObject({search_all:false,max_results:1,media_paths:[file]});
+    expect(posted).toMatchObject({search_all:false,max_results:1,media_paths:[await realpath(file)]});
     const before=requests;await expect(client.searchText({query:"scene",cacheDirectory:root,mediaPaths:[],limit:1})).rejects.toThrow();expect(requests).toBe(before);
     mode="scope";await expect(search()).rejects.toMatchObject({code:"JUMPER_SCOPE"});
     mode="large";await expect(search()).rejects.toMatchObject({code:"JUMPER_SIZE"});

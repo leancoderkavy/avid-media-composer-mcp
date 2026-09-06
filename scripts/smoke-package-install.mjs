@@ -123,7 +123,7 @@ try {
       if(entry?.type!=="stdio")throw new Error("Installed VS Code setup omitted stdio type");
       delete entry.type;
     }
-    if(!entry||entry.command!==process.execPath||!isDeepStrictEqual(entry.args,[path.join(installedRoot,"dist","index.js")])||entry.env?.AVID_MCP_CAPABILITIES!=="inspect")throw new Error(`Installed ${format} setup selected an unexpected server or authority`);
+    if(!entry||entry.command!==process.execPath||!Array.isArray(entry.args)||entry.args.length!==1||!path.isAbsolute(entry.args[0])||await realpath(entry.args[0])!==await realpath(path.join(installedRoot,"dist","index.js"))||entry.env?.AVID_MCP_CAPABILITIES!=="inspect")throw new Error(`Installed ${format} setup selected an unexpected server or authority`);
     if(generatedEntry&&!isDeepStrictEqual(entry,generatedEntry))throw new Error(`Installed ${format} setup differs from generic configuration`);
     generatedEntry=entry;
   }
