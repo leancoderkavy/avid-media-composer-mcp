@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Ship explicit core Python installation and status
+
+Added `--install-python-runtime NEW_ABSOLUTE_DIRECTORY --python ABSOLUTE_BASE_PYTHON` and read-only `--python-runtime-status`. Installation exclusively claims a new directory, creates an isolated copied venv, bootstraps checksum-verified pip, installs exact binary-only core packages, checks dependencies/imports and records the environment tree. Existing/partial destinations are not overwritten; status checks files without executing Python. Tests cover path refusal, failed-attempt retention, changed trees, receipt relocation and no execution during status.
+
+Actual CLI setup passed, then doctor and two MCP sessions read real Sonoma AVB/AAF data identically. The environment tree and original files stayed unchanged. Core inspection now uses isolated Python with bytecode writes disabled; a working-directory/PYTHONPATH conflict test passed. Evidence: `.avid-mcp-analysis/core-cli-install.json` and `python-runtime-cli-fb980ead-cae5-49c3-8a1c-5c3e3493feff/evidence.json` beneath the analysis root. This adds an install/status path; upgrades/removal, all other Python workflows, clean OS and abrupt-install recovery remain open.
+
+Full local check passed 807 TypeScript and 46 Python tests, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-core-python-runtime.log`). The production install/status CLI was exercised from the checkout; the generic package check does not yet establish fresh-installed execution of these new lifecycle commands.
+
 ### Fresh isolated core Python setup
 
 Added a repeatable research harness for a new core-inspection venv from an explicit base interpreter. It uses the existing hash-verified pip bootstrap, verifies agreement with the shipped core requirements, installs binary-only exact pyavb/pyaaf2 versions and runs dependency checks. Two actual MCP sessions read the Sonoma AVB and AAF fixtures identically. Original file hashes and base-interpreter package inventory remained unchanged.

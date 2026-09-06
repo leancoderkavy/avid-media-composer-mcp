@@ -1,5 +1,15 @@
 # Unreleased local setup
 
+## Install core Python dependencies
+
+Use `avid-mcp --install-python-runtime ABSOLUTE_NEW_DIRECTORY --python ABSOLUTE_BASE_PYTHON` to create an isolated environment for AVB/AAF inspection. Choose an existing parent directory and an unused destination. Setup never installs into system Python or replaces an existing destination. Internet access is required for the verified pip bootstrap and the exact binary-only pyavb/pyaaf2 packages. Failed attempts remain for inspection; use a new destination rather than retrying into partial files.
+
+The result includes `executable`. Supply that absolute path to `--doctor --python` and client configuration's `--python`. `avid-mcp --python-runtime-status ABSOLUTE_DIRECTORY` checks the recorded environment tree without running Python or using the network. `unchanged` describes file consistency and `bootstrapCurrent` compares the recorded pip version with this package's bootstrap pin. These checks are not publisher authentication or a current vulnerability audit. Keep the base Python installation available: a venv still depends on base/OS components.
+
+Core inspector processes run with Python's isolated mode and bytecode writing disabled, so working-directory/PYTHONPATH modules cannot replace the installed AVB/AAF libraries and inspection does not write caches into the recorded environment. Other Python workflows, runtime upgrades/removal and abrupt-install recovery need separate qualification.
+
+Actual production CLI setup and status passed with system Python 3.12, followed by doctor and Sonoma AVB/AAF reads through fresh MCP sessions. Existing-destination installation was refused. Conflicting working-directory/PYTHONPATH modules were ignored, and runtime/source hashes stayed unchanged. Evidence: `.avid-mcp-analysis/core-cli-install.json` and `.avid-mcp-analysis/python-runtime-cli-fb980ead-cae5-49c3-8a1c-5c3e3493feff/evidence.json`. This is existing-Windows-machine evidence, not a clean-OS installer claim.
+
 ## Diagnose explicit project paths
 
 ### Fresh core Python environment evidence
