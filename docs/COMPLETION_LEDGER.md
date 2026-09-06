@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Audio content offset foundation and Sonoma experiment
+
+Added bounded 10 ms RMS envelope comparison with explicit comparison-minus-reference offset convention, overlap normalization, competing peaks and insufficient/weak/ambiguous/boundary outcomes. The protected Sonoma preview's decoded first-channel audio, deliberately delayed 1.23 seconds with polarity inversion and reduced gain, recovered +1.23 seconds and -1.23 seconds in reverse; silence and repeated-content controls refused an unambiguous candidate. The source SHA remained unchanged. Evidence: `.avid-mcp-analysis/audio-sync-468cd53f-bc2e-4696-8f44-83a9d263acef/evidence.json`.
+
+The first duration-based decode failed its exact sample-count assertion (241,365 versus 240,000). The revised sample-bounded recipe and its scope are documented in `AUDIO_SYNC_RESEARCH.md`. This establishes a tested estimator foundation, not an exposed MCP sync tool, source-clock correction, independent-recording accuracy, or native editing. MCP integration and broader qualification remain open.
+
+Full local `npm run check` passed: 752 TypeScript tests, 46 Python tests, both MCP transports, package contents, and fresh installation/Python/AAF validation. Tool count remains 142 and skill count five. Log: `.avid-mcp-analysis/check-audio-sync-foundation.log`.
+
 ### Forced stdio client deadline preserves caption resume
 
 Real Windows SDK stdio closure was exercised during a 12-frame direct Florence batch after a partial checkpoint appeared. The harness observed only the exact child handle owned by its SDK transport, recorded the SDK's kill requests, and confirmed that child's closure before resuming. Close took about 2.1 seconds; the recorded exit signal was SIGTERM, and the original RPC reported `Connection closed`. Kill requests are recorded separately from the observed exit; they are not all claimed as effective terminations.
