@@ -8,9 +8,9 @@ Pass the observed `sha256` as `expectedSha256` to `avid_recover_watch_lock`. Thi
 
 Actual Windows qualification terminated an owned Node process after real Sonoma indexing but before its checkpoint update. Through stdio MCP, live-owner recovery was refused, a new session confirmed the stopped owner, a wrong checksum was refused, and correct recovery preserved checkpoint bytes. A resumed scan indexed the MP4, and a further scan avoided duplicate indexing. Original/copy hashes stayed unchanged. Evidence: `.avid-mcp-analysis/watch-lock-recovery-3385f073-61c1-47b7-aa2f-faaed8bb0c79/evidence.json`; harness: `scripts/research/qualify-watch-lock-recovery.mjs`. This does not qualify power loss, remote filesystems, container identity, arbitrary descendant processes or legacy-lock recovery.
 
-## Readable checkpoint publication
-
 The same crash/reconnect/recovery workflow also passed from a freshly packed, managed installation. Both the owned worker and MCP server imported installed runtime files, whose entry hash stayed unchanged. Evidence: `.avid-mcp-analysis/watch-lock-recovery-c8a18acc-7ade-4fc9-8f31-a45d586ca93c/evidence.json`. Run the qualification harness with `--installed` to repeat this on the existing configured host; this is not clean-machine qualification.
+
+## Readable checkpoint publication
 
 Manifest writes validate the same schema and 4 MiB UTF-8 byte limit used by reads before creating a temporary file. If accumulated observations exceed that limit, `avid_scan_watch_folder` returns `WATCH_MANIFEST_LIMIT_EXCEEDED` with actual/maximum byte counts and leaves the last successfully published manifest intact. This prevents a scan from replacing a readable checkpoint with an unreadable one. It does not increase the supported manifest capacity or undo earlier successful indexing/cache writes from that scan.
 
