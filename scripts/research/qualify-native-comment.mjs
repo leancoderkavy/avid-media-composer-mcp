@@ -6,7 +6,9 @@ import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {sha256File} from '../../dist/analysis/file-inventory.js';
 import {runProcess} from '../../dist/process.js';
-assert.equal(process.argv.length,2,'This harness uses only the fixed disposable fixture');
+assert.ok([2,4].includes(process.argv.length),'Optional arguments: absolute installed server entry and SHA-256');
+const serverEntry=process.argv[2]??path.resolve('dist/index.js');assert.ok(path.isAbsolute(serverEntry));
+const serverEntrySha256=await sha256File(serverEntry);if(process.argv.length===4)assert.equal(serverEntrySha256,process.argv[3]);
 const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',sourceBin='MCP_Color_ac0a950e18ee.avb',sourceFile=path.join(project,sourceBin);
 const sourceMobId='060a2b340101010501010f1013-000000-4db8fc4012898806-9c3dd8bbc16d-18d9';
 const sourceHash=await sha256File(sourceFile);assert.equal(sourceHash,'8dabb465c84239d5d13ae0715500f0173f9946c171295da2a51cb09c584fd329');
@@ -14,7 +16,7 @@ const media='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',mediaH
 const root=path.resolve('.avid-mcp-analysis',`native-comment-${randomUUID()}`);await mkdir(root);
 const name=`MCP_Comment_${randomUUID().replaceAll('-','').slice(0,12)}`,bin=name+'.avb',file=path.join(project,bin),events=[];
 const client=new Client({name:'native-comment-qualification',version:'1.0'});
-await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
+await client.connect(new StdioClientTransport({command:process.execPath,args:[serverEntry],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
 const call=async(tool,args)=>{const result=await client.callTool({name:tool,arguments:args},undefined,{timeout:120000});events.push({tool,args,result});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));assert.ok(!result.isError,JSON.stringify(result));return result.structuredContent.data;};
 const apply=async operation=>call('avid_native_apply',{token:(await call('avid_native_preview',{operation})).token});
 const reopen=async()=>{for(const action of ['close_bin','open_bin'])assert.equal((await apply({action,bin})).binStateVerified,true);};
@@ -34,6 +36,7 @@ try{
   assert.deepEqual(await graph(),expected);await copyFile(file,path.join(root,`${label}.avb`));
  }
  assert.equal(await sha256File(sourceFile),sourceHash);assert.equal(await sha256File(media),mediaHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({project,bin,mobId,sourceBin,sourceHash,mediaHash,sourceUnchanged:true,setAndClearReopened:true,decodedMobsMatchExpectedComments:true,events,scope:'Temporary ASCII Comments set and clear on a new owned copy, each saved/reopened with native value readback and decoded mobs matching only the expected comment change. Not atomic undo, application restart, arbitrary metadata fields or Unicode support.'},null,2),{flag:'wx'});
+ assert.equal(await sha256File(serverEntry),serverEntrySha256);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({serverEntry,serverEntrySha256,project,bin,mobId,sourceBin,sourceHash,mediaHash,sourceUnchanged:true,setAndClearReopened:true,decodedMobsMatchExpectedComments:true,events,scope:'Temporary ASCII Comments set and clear on a new owned copy, each saved/reopened with native value readback and decoded mobs matching only the expected comment change. Not atomic undo, application restart, arbitrary metadata fields or Unicode support.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,bin,mobId,passed:true}));
 }finally{await client.close();}

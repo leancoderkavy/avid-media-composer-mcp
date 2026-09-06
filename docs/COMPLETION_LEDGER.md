@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Fresh installed-package native comment workflow
+
+The native comment harness accepts an absolute installed entry and expected checksum, records that identity and rechecks it after execution. Added a separate installed-comments qualifier that packs, creates a managed installation, runs live set/clear on a new owned copy, and independently reads retained AVB attributes. The ordinary installed-native read qualifier remains read-only.
+
+Actual execution passed on MCP_Comment_70ef2dbe8bb6.avb: set and clear each survived save/reopen; decoded mobs matched only the expected comment field change; independent baseline/set/clear attribute reads passed. Package/archive, installed entry, original bin and original media hashes were unchanged. Evidence: `.avid-mcp-analysis/installed-comments-cfe65622-e3e5-4af7-a366-c57f4c5e9a82/evidence.json`; native evidence: `native-comment-7099fec5-6ea3-426c-ac85-73ceb9061982` under the analysis root.
+
+Both script syntax checks and actual execution passed. No production code changed; the full unit suite was not rerun. Prior 42e023a CI and CodeQL passed. This qualifies fresh-package writes on the existing licensed Windows host, not clean-machine dependencies, model approval flows, atomic undo or broad native editing. Full goal remains open.
+
 ### Saved Comments capture, discovery and semantic diffs
 
 Full local `npm run check` passed: 615 TypeScript tests, Python checks, 139 tools, five matching skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-saved-comments.log`). Native harness syntax also passed after updating its expected graph. Prior bb897c3 CodeQL passed while CI remained running at the last check. Current remote checks and broader plan qualification remain open.
