@@ -18,9 +18,11 @@ export async function loadCaptionModel(cache:string,download=false){if(download)
 export class FrameCaptions{
   private model:ReturnType<typeof loadCaptionModel>|undefined;
   private tail:Promise<unknown>=Promise.resolve();
+  private closing=false;
+  private disposing:Promise<void>|undefined;
   constructor(private config:ServerConfig){}
-  private serialize<T>(fn:()=>Promise<T>){const operation=this.tail.then(fn);this.tail=operation.catch(()=>{});return operation;}
-  async dispose(){await this.tail;if(this.model)await(await this.model).model.dispose();}
+  private serialize<T>(fn:()=>Promise<T>){if(this.closing)return Promise.reject(new Error("Caption service is closing"));const operation=this.tail.then(fn);this.tail=operation.catch(()=>{});return operation;}
+  dispose(){this.closing=true;return this.disposing??=(async()=>{await this.tail;const model=this.model;this.model=undefined;if(model)await(await model).model.dispose();})();}
   private async source(id:string){sha.parse(id);const entry=await new MediaLibrary(this.config).validatedMetadata(id);if(!entry)throw new Error("Unknown caption media");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Caption source changed; reindex");return {source,entry};}
   private async directory(captionId:string){uuid.parse(captionId);const root=await new MediaLibrary(this.config).directory();return resolveReadablePath(path.join(root,`caption-${captionId}`),[root],"directory");}
   async read(captionId:string){

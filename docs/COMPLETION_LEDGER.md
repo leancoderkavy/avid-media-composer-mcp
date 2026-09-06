@@ -1,5 +1,15 @@
 # Completion ledger
 
+### Speech and caption queues close admission before disposal
+
+Speech and frame-caption services previously waited for a snapshot of their queue without preventing later admission, allowing new inference to race model disposal. Both now close admission synchronously, retain one disposal promise, drain already-admitted work and clear model references before disposal. Speech resume includes checkpoint reading inside its admitted operation. Repeated disposal retains a cleanup failure rather than invoking model disposal again.
+
+Tests cover queued success after an earlier inference failure, delayed generation, new-work refusal, repeated disposal and retained cleanup errors. Real cached Whisper tiny.en and Florence runs each admitted two Sonoma operations then immediately disposed the service: both queued results completed before disposal resolved, a third request was refused, output records remained inspectable, and the source hash was unchanged. Evidence: `.avid-mcp-analysis/speech-shutdown-838ece84-d7af-4b4e-b217-05c8adb656cd/evidence.json` and `.avid-mcp-analysis/caption-shutdown-d686be73-0fbf-402a-91da-91b37908f9ab/evidence.json`, via `scripts/research/qualify-queued-model-shutdown.mjs`.
+
+These are direct service queue/disposal tests, not factual transcript/caption quality, whole batch-workflow shutdown, allocator-leak measurements or OS process-loss qualification. Summary service lifetimes and the full feature/host plan remain incomplete.
+
+Full local check passed 736 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation with 142 tool definitions and five skills (`check-speech-caption-shutdown.log`). Preceding d05cf9c passed all CI/CodeQL checks; the new runtime changes have separate remote validation.
+
 ### Visual-model shutdown drains admitted work
 
 VisualSearch previously disposed its CLIP text/vision models without waiting for active indexing or searches. Model-using public operations now register before asynchronous work begins; shutdown rejects new operations, waits for admitted operations (including failures), then disposes the models once. Internal combined frame search remains inside its admitted operation. A failed vision-model load now cleans up the already-loaded text model and retains both errors if that cleanup also fails. Both model disposals are attempted even if one throws synchronously.
