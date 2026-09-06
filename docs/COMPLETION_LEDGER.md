@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Retain helper termination diagnostics across reconnect
+
+Windows taskkill closure now preserves its exit code in both process errors and job history. Nonzero/null remains failure, absent closure remains unknown, and late closure cannot rewrite a timeout. Focused process/job/journal checks passed 43 tests, with typecheck/build. A real Sonoma MCP injected-failure test preserved exit code 1 across a fresh connection at `source-clock-jobs-8b7ef637-158e-4afe-8f4d-a4697bf9bdd2` beneath `.avid-mcp-analysis`.
+
+The full TypeScript suite then passed all 799 tests (`.avid-mcp-analysis/test-tree-exit-code.log`). This does not replace fresh installed-runtime or hosted checks for the updated commit.
+
+Five additional traced cancellation attempts succeeded but did not reproduce the original intermittent failure. The existing scheduling pause still protects only the current session; persisted recovery guards, orphan containment and root-cause diagnosis remain open. See [preparation cancellation evidence](SOURCE_CLOCK_PREPARATION.md#queued-preparation).
+
 ### Pause analysis scheduling after uncertain worker-tree termination
 
 Investigating the retained source-clock cancellation failure found that the queue could start another worker after a failed tree-termination result. The session now exposes `schedulingPaused`, preserves queued jobs without dispatch and refuses new starts; queued cancellation remains available. A late successful termination still advances the queue. Focused job/journal/process tests passed (34 tests).

@@ -73,6 +73,7 @@ try{
  for(const record of [complete,cancelled,failure,...(stopped?[stopped]:[])]){
   const restored=await call(client,'avid_analysis_job_status',{jobId:record.id});
   assert.equal(restored.status,record.status);assert.deepEqual(restored.result,record.result);assert.equal(restored.automaticReplay,false);
+  assert.deepEqual(restored.treeTermination,record.treeTermination);
  }
  const runId=path.basename(path.dirname(complete.result.output)).slice('source-clock-'.length);
  const status=await call(client,'avid_source_clock_status',{runId});assert.equal(status.state,'receipt_matches_files');
