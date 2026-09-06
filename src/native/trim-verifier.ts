@@ -17,6 +17,7 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
  };
  const expected=structuredClone(ordered(before));ordered(after);
  const target=expected.find(m=>m.mobId===plan.mobId);if(!target||target.mobType!=="CompositionMob")throw new Error("Expected one composition");
+ const declaredSourceBounds:{trackOrdinal:number;side:"outgoing"|"incoming";sourceMobId:string;sourceDuration:number;before:{start:number;end:number};after:{start:number;end:number}}[]=[];
  if(new Set(plan.trackOrdinals).size!==plan.trackOrdinals.length||new Set(target.tracks.map(t=>t.ordinal)).size!==target.tracks.length)throw new Error("Ambiguous trim track selection");
  for(const ordinal of plan.trackOrdinals){
   const selected=target.tracks.find(t=>t.ordinal===ordinal);if(!selected||!["picture","sound"].includes(selected.mediaKind))throw new Error("Unsupported trim track");
@@ -26,11 +27,17 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
   if(left.length!==1||right.length!==1)throw new Error("Expected adjacent clips at trim cut");
   const a=left[0]!,b=right[0]!;
   for(const n of [a,b])if(n.kind!=="SCLP"||n.opaque||n.channelCombiner!==undefined||n.sourceStart===undefined||!n.sourceMobId||n.sourceTrackId===undefined)throw new Error("Unsupported trim component");
-  for(const n of [a,b]){const source=before.mobs.find(m=>m.mobId===n.sourceMobId);if(!source||source.rate!==target.rate)throw new Error("Unresolved or mixed-rate trim source");}
+  const sources=[a,b].map(n=>{const source=before.mobs.find(m=>m.mobId===n.sourceMobId);if(!source||source.rate!==target.rate)throw new Error("Unresolved or mixed-rate trim source");return source;});
   const cut=plan.cut+plan.delta,source=b.sourceStart!+plan.delta;
   if(!Number.isSafeInteger(cut)||!Number.isSafeInteger(source)||source<0||cut<=a.timelineStart||cut>=b.timelineEnd)throw new Error("Trim would empty a clip or exceed numeric bounds");
+  for(const [index,n] of [a,b].entries()){
+   const sourceMob=sources[index]!,beforeStart=n.sourceStart!,beforeEnd=beforeStart+(n.timelineEnd-n.timelineStart);
+   const afterStart=index===0?beforeStart:source,afterEnd=index===0?beforeEnd+plan.delta:beforeEnd;
+   if(![beforeEnd,afterStart,afterEnd].every(Number.isSafeInteger)||beforeStart<0||afterStart<0||beforeEnd>sourceMob.duration||afterEnd>sourceMob.duration||beforeEnd<=beforeStart||afterEnd<=afterStart)throw new Error("Trim source range exceeds declared source bounds or numeric limits");
+   declaredSourceBounds.push({trackOrdinal:ordinal,side:index===0?"outgoing":"incoming",sourceMobId:sourceMob.mobId,sourceDuration:sourceMob.duration,before:{start:beforeStart,end:beforeEnd},after:{start:afterStart,end:afterEnd}});
+  }
   a.timelineEnd=cut;b.timelineStart=cut;b.sourceStart=source;
  }
  if(!isDeepStrictEqual(expected,ordered(after)))throw new Error("Saved graph differs from the exact requested trim");
- return {verified:true as const,mobId:plan.mobId,cutBefore:plan.cut,cutAfter:plan.cut+plan.delta,trackOrdinals:plan.trackOrdinals,scope:"Complete decoded mob records only; file metadata, unknown binary fields, media handles and playback are not verified"};
+ return {verified:true as const,mobId:plan.mobId,cutBefore:plan.cut,cutAfter:plan.cut+plan.delta,trackOrdinals:plan.trackOrdinals,declaredSourceBounds,scope:"Complete decoded mob records and declared same-rate source-mob duration bounds only; per-track physical media handles, online availability, unknown binary fields and playback are not verified"};
 }

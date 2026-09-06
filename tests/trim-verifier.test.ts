@@ -26,3 +26,21 @@ it("rejects wrong incoming source offsets and empty results",()=>{
  before.mobs[0]!.tracks[0]!.nodes[1]!.timelineEnd=61;expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("empty a clip");
 });
 it("refuses mixed-rate source offsets",()=>{const {before,after,plan}=fixture();before.mobs[1]!.rate=24;expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("mixed-rate");});
+it("reports exact declared source intervals in both directions",()=>{
+ const {before,after,plan}=fixture();const result=verifySavedDualRollerTrim(before,after,plan);
+ expect(result.declaredSourceBounds.slice(0,2)).toEqual([
+  {trackOrdinal:0,side:"outgoing",sourceMobId:"source",sourceDuration:10000,before:{start:2850,end:2910},after:{start:2850,end:2911}},
+  {trackOrdinal:0,side:"incoming",sourceMobId:"source",sourceDuration:10000,before:{start:3300,end:3360},after:{start:3301,end:3360}},
+ ]);
+ const inverse=verifySavedDualRollerTrim(after,before,{...plan,cut:61,delta:-1});expect(inverse.declaredSourceBounds[0]!.after).toEqual(result.declaredSourceBounds[0]!.before);
+});
+it("refuses exhausted outgoing declared duration even when the graph is the requested edit",()=>{
+ const {before,after,plan}=fixture();for(const value of [before,after])for(const track of value.mobs[0]!.tracks)track.nodes[0]!.sourceStart=9940;
+ expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("declared source bounds");
+});
+it("refuses invalid baseline source ends and unsafe interval arithmetic",()=>{
+ for(const offset of [9990,Number.MAX_SAFE_INTEGER-20]){
+  const {before,after,plan}=fixture();for(const value of [before,after])for(const track of value.mobs[0]!.tracks)track.nodes[1]!.sourceStart=offset+(value===after?1:0);
+  expect(()=>verifySavedDualRollerTrim(before,after,plan)).toThrow("declared source bounds");
+ }
+});

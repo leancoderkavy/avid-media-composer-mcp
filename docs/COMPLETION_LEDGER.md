@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Saved trim declared-source bounds
+
+The existing trim verifier now checks outgoing/incoming baseline and result ranges against referenced same-rate source-mob durations, rejects exhausted bounds and unsafe interval arithmetic, and returns per-track declaredSourceBounds. Actual MCP verification passed retained Avid forward, inverse and backward captures, preserving all four input hashes and rejecting an incomplete track expectation: `.avid-mcp-analysis/saved-trim-mcp-a2593a8b-b4da-4b58-a39f-ce8d90d78e7f/evidence.json`. Full check passed: 540 TypeScript tests, 34 Python tests, 137 tools, five skills, transports and fresh-package checks (`check-trim-source-bounds.log`). See NATIVE_UI_TRIM_QUALIFICATION.md. This validates declared mob duration, not per-track physical handles, online media, UI execution or playback; the shipping edit adapter remains unfinished. Previous research commit a7b5609 passed CI and CodeQL.
+
 ### Eight-case local evidence-summary evaluation
 
 Expanded the Qwen3-1.7B q4 candidate evaluation to eight committed synthetic editorial fixtures with predeclared review criteria, raw retained outputs and exact-quote checks. Four outputs matched the requested object shape; four returned arrays. Source facts were generally retained, but repeated notes produced 21 repeated entries, one time-bearing statement had incomplete quote support, and one quoted slate excerpt contained extra backslashes. Sampled peak RSS was 4.73 GiB; generation took 10.897–100.218 seconds per case. See SUMMARY_QUALITY_QUALIFICATION.md and summary-evidence-benchmark.json. The benchmark ran locally with existing weights, all eight results completed, syntax checks passed, and committed fixtures were verified identical to executed inputs. No production model or generation behavior changed; candidate remains research-only. This provides quality/resource counterexamples, not factual acceptance or full completion.

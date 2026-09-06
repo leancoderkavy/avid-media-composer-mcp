@@ -1,5 +1,13 @@
 # One-frame native UI trim and undo qualification
 
+## Declared source-duration checks
+
+The saved trim verifier now rejects outgoing or incoming clip intervals that exceed the referenced same-rate source mob's declared duration, including invalid baseline intervals and unsafe integer arithmetic. It returns `declaredSourceBounds` for every selected track, identifying outgoing/incoming source IDs, declared duration, and half-open before/after source intervals. A forward roll lengthens the outgoing source interval and moves the incoming start while preserving its end; the reverse transformation is checked likewise.
+
+This is a declared graph-bound check, not proof of per-track physical media handles, online availability, nested source conformance, UI selection or playback. It does not execute an edit or repair a graph whose baseline already exceeds its declared bounds.
+
+The updated `scripts/research/qualify-saved-trim-mcp.mjs` passed actual MCP snapshot/verification for the retained forward trim, inverse undo and backward trim, returning six bounds records for each three-track edit and rejecting a one-track expectation. All four captured input-bin hashes stayed unchanged. Evidence: `.avid-mcp-analysis/saved-trim-mcp-a2593a8b-b4da-4b58-a39f-ce8d90d78e7f/evidence.json`. Focused tests also reject a mathematically exact edit that extends an outgoing clip past its source's declared end.
+
 On 2026-09-06, computer use loaded the owned MCP_Sonoma_AAF_Selects.Copy.05 sequence from MCP_CopyMCP_93108dc0c7b8.avb into the record viewer. Its baseline is documented in NATIVE_UI_EDIT_BASELINE.md. A screenshot confirmed the copy name before editing.
 
 With the position near the 60-frame cut, U entered dual-roller trim mode at 01:00:02:00 across V1/A1/A2. One period key moved both trim counters to 1. Ctrl+S saved the bin. Independent AVB decoding verified the exact edit: the first segment ends at frame 61, the second begins at 61 and its source start changes from 3300 to 3301; all three media tracks change identically. Duration remains 120 frames at 30 fps. The entire decoded sequence equals that expected transformation, including unchanged nonmedia tracks, identity, source references and other fields.
