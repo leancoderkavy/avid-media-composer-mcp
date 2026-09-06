@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Actual AI interpretation of unknown QC endpoints
+
+Codex read the saved short-video QC report through avid_read_qc_report and correctly returned unknown freeze end/duration, 30 processed video frames and four requested seconds. Its explanation rejected a four-second-freeze inference. The harness checked the exact MCP payload against a direct source-verified report read, final structured values, absence of other tool types and unchanged server/report evidence. Actual execution and syntax passed; evidence: `.avid-mcp-analysis/codex-qc-read-c7502fe6-6bd2-4df5-b93f-b6bc8867b764/evidence.json`. See QC_OPEN_INTERVALS.md. No production code changed; broad model/report acceptance remains open.
+
 ### Stop inventing open freeze/silence endpoints
 
 Full local check passed: 581 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-open-qc-intervals.log`). Actual short-stream cases also passed after stored-report validation was added: `.avid-mcp-analysis/qc-open-streams-e8290802-7c1e-4366-96b1-9b1392e874b5/evidence.json`.
