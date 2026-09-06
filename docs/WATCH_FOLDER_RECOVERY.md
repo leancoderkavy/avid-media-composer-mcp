@@ -1,5 +1,13 @@
 # Watch folder relocation
 
+## Readable checkpoint publication
+
+Manifest writes validate the same schema and 4 MiB UTF-8 byte limit used by reads before creating a temporary file. If accumulated observations exceed that limit, `avid_scan_watch_folder` returns `WATCH_MANIFEST_LIMIT_EXCEEDED` with actual/maximum byte counts and leaves the last successfully published manifest intact. This prevents a scan from replacing a readable checkpoint with an unreadable one. It does not increase the supported manifest capacity or undo earlier successful indexing/cache writes from that scan.
+
+An explicit configuration replacement can reset observations while retaining the watch ID; narrowing the watched scope can reduce future growth. The server does not silently discard observations or raise its read limit. Larger observation storage remains unfinished.
+
+Actual MCP qualification used a synthetic near-limit manifest containing multibyte text alongside a Sonoma copy. Oversized publication was refused with the old manifest hash unchanged and no temporary/lock files left from the refusal. A fresh MCP process listed the watch, explicit reconfiguration reset checkpoints, and two scans indexed the unchanged Sonoma copy. Evidence: `.avid-mcp-analysis/watch-manifest-limit-d657f676-39c9-46b3-bb6b-9525789f56e2/evidence.json`. This is bounded publication/recovery evidence, not broad large-library or power-loss durability proof.
+
 ## Cooperative polling stop
 
 `avid_watch_service` stop clears future timer ticks and cancels further work in the active polling cycle. A file already being processed can finish and save its successful checkpoint; the next file and subsequent watches are not started. Directory selection checks cancellation while iterating and closes its iterator without returning a partial lexical page. Cancellation does not advance the traversal cursor or prune unseen observations. A later start can revisit the interrupted batch while reusing successful checkpoints.

@@ -16,6 +16,13 @@ vi.mock("../src/native/aaf-verifier.js",()=>({verifyNativeAafMaster:vi.fn()}));
 beforeEach(async()=>{vi.spyOn(os,"homedir").mockReturnValue(await mkdtemp(path.join(os.tmpdir(),"avid-native-lock-test-")));vi.mocked(verifyNativeRender).mockReset();});
 afterEach(()=>vi.restoreAllMocks());
 
+it.each(['add-comment','add-name','change-comment'])('refuses unsupported single-marker text before contacting Avid (%s)',async mode=>{
+ const f=await hostFixture(),add={action:'add_marker',bin:'fixture.avb',mobId:'clip',offset:1,track:{type:'TRACKTYPE_PICTURE',number:1},name:'Review',comment:'Reviewed',color:'Green'};
+ const operation=mode==='change-comment'?{action:'change_marker',bin:'fixture.avb',mobId:'clip',guid:'marker',comment:'Tokyo 東京',color:'Blue'}:{...add,...(mode==='add-name'?{name:'Tokyo 東京'}:{comment:'Tokyo 東京'})};
+ await expect(f.adapter.preview(operation)).rejects.toThrow(/printable ASCII/);expect(f.calls).toEqual([]);
+ expect(nativeActionSchema.safeParse({...add,name:'',comment:'Review: take 2 - OK!'}).success).toBe(true);
+});
+
 async function hostFixture(capabilities="inspect,edit,project-write,export"){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));
   await writeFile(path.join(root,"fixture.avb"),"saved bin");

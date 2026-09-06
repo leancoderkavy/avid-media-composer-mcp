@@ -14,6 +14,7 @@ export const watchOptions=z.object({folder:z.string().min(1),depth:z.number().in
 const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.string().optional(),error:z.string().optional(),cycle:z.string().uuid().optional()});
 const watchRecord=z.object({id:z.string().uuid(),options:watchOptions,observations:z.record(z.string(),observation),scannedAt:z.string().optional(),scope:z.string().regex(/^[a-f0-9]{64}$/).optional(),cursor:z.array(z.string().min(1).max(255)).max(9).optional(),cycle:z.string().uuid().optional()});
 type Watch=z.infer<typeof watchRecord>;
+const maxWatchManifestBytes=4*1024*1024;
 const extensions=new Set([".mp4",".mov",".mxf",".wav",".mp3",".mkv",".avi",".aiff",".flac"]);
 
 /** Persistent polling manifests; no file is indexed before two matching stat observations. */
@@ -30,7 +31,7 @@ export class WatchFolders {
   private async read(id:string,allowUnavailable=false){
     z.string().uuid().parse(id);const directory=await this.directory();
     const file=await resolveReadablePath(path.join(directory,`${id}.json`),[directory],"file");
-    const record=watchRecord.parse(await readBoundedJson(file,4*1024*1024));
+    const record=watchRecord.parse(await readBoundedJson(file,maxWatchManifestBytes));
     if(record.id!==id)throw new Error("Watch identity mismatch");
     try{await resolveReadablePath(record.options.folder,this.config.allowedRoots,"directory");}
     catch(error){if(!allowUnavailable||record.scope!==this.scope||!(error instanceof AvidMcpError)||error.code!=="PATH_NOT_FOUND")throw error;}
@@ -44,8 +45,10 @@ export class WatchFolders {
     finally{await handle.close();await unlink(lock);}
   }
   private async save(record:Watch){
+    const serialized=JSON.stringify(watchRecord.parse(record)),bytes=Buffer.byteLength(serialized,"utf8");
+    if(bytes>maxWatchManifestBytes)throw new AvidMcpError("WATCH_MANIFEST_LIMIT_EXCEEDED","Watch checkpoint exceeds its 4 MiB limit. The previous manifest is preserved; reduce the watched scope or explicitly reconfigure to reset checkpoints.",{bytes,maxBytes:maxWatchManifestBytes});
     const directory=await this.directory(),temporary=path.join(directory,`${record.id}.${randomUUID()}.tmp`);
-    await writeFile(temporary,JSON.stringify(record),{flag:"wx"});
+    await writeFile(temporary,serialized,{flag:"wx"});
     await rename(temporary,path.join(directory,`${record.id}.json`));
   }
   async configure(options:z.input<typeof watchOptions>,id?:string){
