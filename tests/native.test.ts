@@ -296,3 +296,32 @@ it.each([false,true])("verifies clear-selection completion against a fresh read 
  const plan=await f.adapter.preview({action:"select_clips",bin:"fixture.avb",mobIds:[],expectedSelectedMobIds:["clip"]});
  expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,selectionVerified:!mismatch});
 });
+
+it("does not replay uncertain selection writes even when the host applied the change",async()=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let selected=["clip"],writes=0;
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetListOfBinItems")return body?.only_selected_flag?selected.map(mob_id=>({mob_id,mob_selected:true})):[{mob_id:"clip"}];
+  if(method==="SelectMobsInBin"){writes++;selected=[];throw new Error("Response lost after dispatch");}
+  return original(method,body);
+ });
+ const operation={action:"select_clips" as const,bin:"fixture.avb",mobIds:[],expectedSelectedMobIds:["clip"]};
+ const plan=await f.adapter.preview(operation);
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow("Response lost");
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
+ expect(await f.adapter.read("selected_clips","fixture.avb")).toMatchObject({clips:[]});
+ await expect(f.adapter.preview(operation)).rejects.toThrow("expected selection");expect(writes).toBe(1);
+});
+it("requires edit authority before preparing a selection mutation",async()=>{
+ const f=await hostFixture("inspect");
+ await expect(f.adapter.preview({action:"select_clips",bin:"fixture.avb",mobIds:[],expectedSelectedMobIds:[]})).rejects.toThrow();
+ expect(f.calls.some(call=>call.method==="SelectMobsInBin")).toBe(false);
+});
+it("rejects a selection post-read whose project changed",async()=>{
+ const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);let projects=0;
+ vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+  if(method==="GetOpenProjectInfo"&&++projects===2)return [{path:os.tmpdir()}];
+  if(method==="GetListOfBinItems")return body?.only_selected_flag?[{mob_id:"clip",mob_selected:true}]:[{mob_id:"clip"}];
+  return original(method,body);
+ });
+ await expect(f.adapter.read("selected_clips","fixture.avb")).rejects.toThrow();
+});

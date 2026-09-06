@@ -477,3 +477,5 @@ Multi-bin capture checks cumulative serialized bin bytes while collecting result
 `avid_saved_snapshot_mobs` lists identities and structural metadata for a recovered revision, with `after`/`limit` (1–100), `totalMobs` and `nextAfter`. Entries retain their bin path, captured bin hash, mob ID/name/type, duration/rate and track count. Repeated IDs across bins remain separate entries; single-mob queries still require an unambiguous capture. This is historical metadata, not current host state.
 
 Snapshot discovery summaries include `missingBins`; mob inventory entries include `binPresent`. These reflect path resolution at read time, not matching captured hashes or media-online status. A missing bin remains queryable historically only if its parent directory is still authorized. Structural `complete` describes the capture, independently of current path presence.
+
+For reading current bin selection, highlighting search-result MOBs, clearing selection, and explicit restoration, see [native selection](NATIVE_SELECTION.md). This development workflow uses `avid_native_read`, `avid_native_preview`, and `avid_native_apply` on the qualified Windows build.
