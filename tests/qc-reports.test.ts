@@ -20,6 +20,7 @@ it("discovers and reads reports in a fresh service using inspect-only authority"
  expect(page.reports).toHaveLength(1);expect(page.next).toBeNull();
  const read=await new QcReports(f.config).read(f.id,first,page.reports[0]!.sha256);
  expect(read.audioCoverageStatus).toBe("not_recorded");
+ expect(read.videoCoverageStatus).toBe("not_recorded");
  expect(read.sourceCurrent).toBe(true);expect(read.report.id).toBe(f.id);
   await expect(f.service.read(f.id,first,"0".repeat(64))).rejects.toThrow("checksum mismatch");
   await writeFile(f.reportPath,JSON.stringify({...f.report,range:{start:0,end:5}}));
@@ -27,6 +28,15 @@ it("discovers and reads reports in a fresh service using inspect-only authority"
  await expect(f.service.read(f.id,"../outside")).rejects.toThrow();
 });
 
+it("validates stored video coverage and preserves explicit unselected versus legacy status",async()=>{
+ const f=await fixture(),videoCoverage={decodedFrames:120,requestedSeconds:4,meaning:"fixture"};
+ await writeFile(f.reportPath,JSON.stringify({...f.report,videoCoverage}));expect((await f.service.read(f.id,first)).videoCoverageStatus).toBe("recorded");
+ for(const patch of [{videoCoverage:null},{videoCoverage:{...videoCoverage,requestedSeconds:3}},{videoCoverage,streams:{video:null,audio:1}},{videoCoverage:{...videoCoverage,decodedFrames:0}}]){
+  await writeFile(f.reportPath,JSON.stringify({...f.report,...patch}));await expect(f.service.read(f.id,first)).rejects.toThrow();
+  expect((await f.service.list(f.id)).unreadable).toBe(1);
+ }
+ await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:null,audio:1},videoCoverage:null}));expect((await f.service.read(f.id,first)).videoCoverageStatus).toBe("video_not_selected");
+});
 it("validates stored sample amount arithmetic and stream selection without inventing legacy coverage",async()=>{
  const f=await fixture(),coverage={samplesPerChannel:48000,sampleRate:48000,decodedSeconds:1,requestedSeconds:4,amountMatchesRequestedDuration:false,meaning:"fixture"};
  const current={...f.report,findings:{...f.report.findings,audioSamplesPerChannel:48000},audioCoverage:coverage};

@@ -19,7 +19,11 @@ try{
  for(const source of sources){
   assert.equal(await sha256File(source.file),source.sha256);
   await call('avid_index_media',{files:[source.file]});
-  const report=await call('avid_media_qc',{id:source.sha256,options:{start:60,end:90,videoStream:null}});
+  const report=await call('avid_media_qc',{id:source.sha256,options:{start:60,end:90}});
+  const frameProbe=await runProcess('ffprobe',['-v','error','-select_streams','v:0','-show_frames','-show_entries','frame=best_effort_timestamp_time:format=start_time','-of','json',source.file],{timeoutMs:120000,maxOutputBytes:8*1024*1024});assert.equal(frameProbe.exitCode,0,frameProbe.stderr);
+  const probe=JSON.parse(frameProbe.stdout),origin=Number(probe.format.start_time);assert.ok(Number.isFinite(origin));
+  const videoFrames=probe.frames.filter(frame=>{const time=Number(frame.best_effort_timestamp_time)-origin;return time>=60&&time<90;}).length;
+  assert.ok(videoFrames>0);assert.equal(report.videoCoverage.decodedFrames,videoFrames);
   assert.equal(report.streamDetails.audio.sample_rate,'48000');assert.equal(report.streamDetails.audio.channels,2);
   const pcm=path.join(root,`${source.name}.s16le`);
   const decoded=await runProcess('ffmpeg',['-hide_banner','-nostdin','-v','error','-n','-i',source.file,'-map','0:a:0','-vn','-af','atrim=start=60:end=90','-ar','48000','-ac','2','-c:a','pcm_s16le','-f','s16le',pcm],{timeoutMs:120000,maxOutputBytes:1048576});
@@ -29,7 +33,7 @@ try{
   assert.equal(samplesPerChannel,source.samples);assert.equal(report.audioCoverage.samplesPerChannel,samplesPerChannel);
   assert.equal(report.audioCoverage.amountMatchesRequestedDuration,samplesPerChannel===1440000);
   assert.equal(await sha256File(source.file),source.sha256);
-  results.push({source,report,pcm,pcmSha256:await sha256File(pcm),samplesPerChannel,sourceUnchanged:true});
+  results.push({source,report,pcm,pcmSha256:await sha256File(pcm),samplesPerChannel,videoFrames,sourceUnchanged:true});
  }
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({ok:true,range:[60,90],results,limitations:['One fixed Sonoma range','Sample amount does not identify timestamp overlaps/gaps or establish perceptual sync','Existing prepared source-clock artifact used']},null,2));
  console.log(JSON.stringify({ok:true,root,counts:results.map(r=>({name:r.source.name,samples:r.samplesPerChannel}))}));

@@ -16,10 +16,13 @@ try{
  await call('avid_index_media',{files:[file]});
  const first=await call('avid_media_qc',{id,options:{end:4,freezeSeconds:0.5}});
  assert.deepEqual(first.streams,{video:0,audio:2});assert.ok(first.findings.freeze.length);assert.ok(first.findings.silence.length);
+ assert.equal(first.videoCoverage.decodedFrames,120);
  assert.equal(first.audioCoverage.samplesPerChannel,192000);assert.equal(first.audioCoverage.amountMatchesRequestedDuration,true);
  const alternate=await call('avid_media_qc',{id,options:{end:4,videoStream:1,audioStream:3,freezeSeconds:0.5}});
  assert.deepEqual(alternate.streams,{video:1,audio:3});assert.equal(alternate.findings.freeze.length,0);assert.equal(alternate.findings.silence.length,0);assert.equal(alternate.findings.black.length,0);assert.ok(Number.isFinite(alternate.findings.loudness.integratedLufs));
+ assert.equal(alternate.videoCoverage.decodedFrames,120);
  const audioOnly=await call('avid_media_qc',{id,options:{end:4,videoStream:null,audioStream:3}});assert.deepEqual(audioOnly.streams,{video:null,audio:3});assert.equal(audioOnly.findings.frameTiming,null);
+ assert.equal(audioOnly.videoCoverage,null);
  const invalid=await client.callTool({name:'avid_media_qc',arguments:{id,options:{end:4,audioStream:1}}});assert.equal(invalid.isError,true);
  assert.equal(await sha256File(file),id);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({first,alternate,audioOnly,wrongTypeRejected:true,sourceUnchanged:true},null,2));console.log(JSON.stringify({passed:true,evidence:path.join(root,'evidence.json')}));

@@ -1,5 +1,9 @@
 import {it,expect} from "vitest";
-import {parseQcLog,qcOptions} from "../src/library/qc.js";
+import {parseQcLog,qcOptions,qcVideoFrames} from "../src/library/qc.js";
+it("requires a positive frame count in the terminal progress block, never an earlier count",()=>{
+  expect(qcVideoFrames('frame=1\nprogress=continue\nframe= 120\nfps=30\nprogress=end\n')).toBe(120);
+  for(const progress of ['frame=120\nprogress=continue\nprogress=end','frame=120\nprogress=continue','frame=0\nprogress=end','frame=1.5\nprogress=end','frame=99999999999999999\nprogress=end','frame=10\nframe=11\nprogress=end','frame=10\nprogress=end\nframe=11'])expect(()=>qcVideoFrames(progress)).toThrow(/incomplete/);
+});
 it("maps detector timestamps into source ranges and closes an unfinished freeze at the range boundary",()=>{
   const result=parseQcLog('black_start:0 black_end:1.966667\nfreeze_start: 0\nfreeze_end: 2\nfreeze_start: 4\nsilence_start: 0\nsilence_end: 2 | silence_duration: 2\nVFR:nan (0/0)\nVFR:0.000000 (0/179)',10,16);
   expect(result.black[0]).toEqual({start:10,end:11.966667});expect(result.freeze).toEqual([{start:10,end:12},{start:14,end:16,openAtRangeEnd:true}]);

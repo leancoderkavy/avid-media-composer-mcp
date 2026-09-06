@@ -17,6 +17,16 @@ export const qcOptions=z.object({
   silenceSeconds:z.number().min(0.1).max(60).default(0.5),silenceDb:z.number().min(-100).max(0).default(-50),
 }).strict().refine(value=>value.end>value.start&&value.end-value.start<=600,"QC range must be at most 600 seconds");
 type Interval={start:number;end:number;openAtRangeEnd?:boolean};
+export function qcVideoFrames(progress:string){
+  const lines=progress.trim().split(/\r?\n/);
+  if(lines.at(-1)!=="progress=end")throw new Error("Video QC final progress is missing; result is incomplete");
+  const previous=lines.findLastIndex(line=>line==="progress=continue");
+  const frames=lines.slice(previous+1,-1).filter(line=>line.startsWith("frame="));
+  const raw=frames.length===1?frames[0]!.slice(6).trim():"";
+  const count=/^\d+$/.test(raw)?Number(raw):NaN;
+  if(!Number.isSafeInteger(count)||count<1)throw new Error("Video QC decoded no frames or frame coverage is missing; result is incomplete");
+  return count;
+}
 export function qcStreamDetails(stream:Record<string,unknown>|undefined){
   if(!stream)return null;
   const fields=["index","codec_type","codec_name","profile","width","height","pix_fmt","color_range","color_space","color_transfer","color_primaries","chroma_location","field_order","bits_per_raw_sample","bits_per_sample","sample_fmt","sample_rate","channels","channel_layout","time_base","r_frame_rate","avg_frame_rate","start_time","duration"];
@@ -77,12 +87,12 @@ export class MediaQc {
     if(audio&&(!Number.isSafeInteger(audioRate)||audioRate<=0||audioRate>768000))throw new Error("Selected audio sample rate is unavailable or unsupported");
     const executable=this.config.ffmpegExecutable??"ffmpeg";
     const base=["-hide_banner","-nostdin","-nostats","-xerror","-v","info","-protocol_whitelist","file,pipe","-t",String(options.end),"-i",source];
-    let log="";
+    let log="",decodedFrames:number|null=null;
     const run=async(args:string[])=>{
       const result=await runProcess(executable,[...base,...args,"-f","null","-"],{timeoutMs:Math.max(this.config.commandTimeoutMs,120000),maxOutputBytes:4*1024*1024});
-      if(result.exitCode!==0)throw new Error(`QC decoding failed: ${result.stderr.slice(-1000)}`);log+=result.stderr;
+      if(result.exitCode!==0)throw new Error(`QC decoding failed: ${result.stderr.slice(-1000)}`);log+=result.stderr;return result.stdout;
     };
-    if(video)await run(["-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`]);
+    if(video)decodedFrames=qcVideoFrames(await run(["-progress","pipe:1","-map",`0:${video.index}`,"-an","-vf",`trim=start=${options.start}:end=${options.end},setpts=PTS-${options.start}/TB,blackdetect=d=${options.blackSeconds}:pix_th=${options.blackPixelThreshold}:pic_th=${options.blackPictureRatio},freezedetect=n=${options.freezeNoise}:d=${options.freezeSeconds},vfrdet`,"-fps_mode","passthrough"]));
     if(audio)await run(["-map",`0:${audio.index}`,"-vn","-af",`atrim=start=${options.start}:end=${options.end},asetpts=PTS-${options.start}/TB,silencedetect=n=${options.silenceDb}dB:d=${options.silenceSeconds},aformat=sample_rates=${audioRate},astats=metadata=0:reset=0:measure_perchannel=none:measure_overall=Number_of_samples,loudnorm=print_format=json`]);
     if(await sha256File(source)!==id)throw new Error("Source changed during QC");
     const findings=parseQcLog(log,options.start,options.end);
@@ -92,6 +102,7 @@ export class MediaQc {
     const optionalNumber=(value:unknown)=>value!==undefined&&Number.isFinite(Number(value))?Number(value):null;
     const videoStart=optionalNumber(video?.start_time),audioStart=optionalNumber(audio?.start_time);
     const report={schema:1,id,range:{start:options.start,end:options.end},options,streams:{video:video?.index??null,audio:audio?.index??null},findings,
+      videoCoverage:video?{decodedFrames,requestedSeconds:options.end-options.start,meaning:"Frames processed by the selected video QC filter chain with passthrough frame timing. Count does not prove continuous coverage, constant frame rate, or image fidelity."}:null,
       audioCoverage:audio?{samplesPerChannel:findings.audioSamplesPerChannel,sampleRate:audioRate,decodedSeconds:findings.audioSamplesPerChannel!/audioRate!,requestedSeconds:options.end-options.start,amountMatchesRequestedDuration:Math.abs(findings.audioSamplesPerChannel!-(options.end-options.start)*audioRate!)<=1,meaning:"Sample amount at the declared rate before loudness normalization. Does not prove continuous timestamp coverage or perceptual synchronization."}:null,
       streamDetails:{video:qcStreamDetails(video),audio:qcStreamDetails(audio),meaning:"Source probe metadata declarations; absent fields are null, not inferred. Tags do not verify mastering, actual transfer behavior, or delivery compliance."},
       timing:{videoStart,audioStart,audioMinusVideoStart:videoStart!==null&&audioStart!==null?audioStart-videoStart:null,meaning:"Container stream offsets only; perceptual audio/video synchronization is not tested"},
