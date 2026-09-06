@@ -1,14 +1,11 @@
-import {mkdtemp, unlink, rmdir} from "node:fs/promises";
-import path from "node:path";
 import {createHash} from "node:crypto";
 import * as z from "zod/v4";
 import type {ServerConfig} from "../config.js";
 import {MediaLibrary} from "./media-library.js";
 import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
-import {readBoundedFile} from "../security/bounded-read.js";
 import {sha256File} from "../analysis/file-inventory.js";
-import {runProcess} from "../process.js";
+import {runBinaryProcess} from "../process.js";
 import {parseAudioTiming} from "./audio-timing.js";
 import {audioEnvelope, estimateAudioOffset} from "./audio-sync.js";
 
@@ -42,23 +39,16 @@ export class AudioSyncAnalysis {
     const options = audioSyncOptions.parse(value);
     // Validate both sources before decoding either one.
     const reference = await this.source(options.reference), comparison = await this.source(options.comparison);
-    const libraryRoot = await new MediaLibrary(this.config).directory();
-    const directory = await mkdtemp(path.join(libraryRoot, "audio-sync-"));
-    await resolveReadablePath(directory, [libraryRoot], "directory");
-    const outputs: string[] = [];
-    try {
-      const decode = async (source: typeof reference, name: string) => {
-        const output = path.join(directory, name + ".f32le"); outputs.push(output);
+      const decode = async (source: typeof reference) => {
         const filter = `atrim=start_sample=${source.startSample}:end_sample=${source.startSample + source.samples},pan=mono|c0=c${source.input.channel},asettb=1/${source.sampleRate},ashowinfo`;
         const args = ["-hide_banner", "-nostdin", "-nostats", "-xerror", "-v", "info", "-protocol_whitelist", "file,pipe",
-          "-i", source.file, "-map", `0:${source.input.stream}`, "-vn", "-af", filter, "-c:a", "pcm_f32le", "-f", "f32le", "-n", output];
-        const decoded = await runProcess(this.config.ffmpegExecutable ?? "ffmpeg", args,
-          {timeoutMs: Math.min(Math.max(this.config.commandTimeoutMs, 30000), 120000), maxOutputBytes: 4 * 1024 * 1024});
+          "-i", source.file, "-map", `0:${source.input.stream}`, "-vn", "-af", filter, "-c:a", "pcm_f32le", "-f", "f32le", "pipe:1"];
+        const decoded = await runBinaryProcess(this.config.ffmpegExecutable ?? "ffmpeg", args,
+          {timeoutMs: Math.min(Math.max(this.config.commandTimeoutMs, 30000), 120000), maxOutputBytes: source.samples * 4 + 4 * 1024 * 1024});
         if (decoded.exitCode !== 0) throw new Error(`Audio sync decode failed: ${decoded.stderr.slice(-1000)}`);
         const timing = parseAudioTiming(decoded.stderr, source.sampleRate);
         if (timing.samples !== source.samples) throw new Error("Audio sync decoded sample count does not cover the requested window");
-        const file = await resolveReadablePath(output, [directory], "file");
-        const bytes = await readBoundedFile(file, source.samples * 4);
+        const bytes = decoded.stdout;
         if (bytes.length !== source.samples * 4) throw new Error("Audio sync PCM and timing sample counts disagree");
         const pcm = Float32Array.from({length: source.samples}, (_, i) => bytes.readFloatLE(i * 4));
         return {envelope: audioEnvelope(pcm, source.sampleRate), provenance: {
@@ -68,16 +58,12 @@ export class AudioSyncAnalysis {
           timing, filter, timestampContinuityObserved: timing.discontinuities === 0,
         }};
       };
-      const a = await decode(reference, "reference"), b = await decode(comparison, "comparison");
+      const a = await decode(reference), b = await decode(comparison);
       if (await sha256File(reference.file) !== reference.input.id || await sha256File(comparison.file) !== comparison.input.id)
         throw new Error("Audio sync source changed during analysis; result discarded");
       const estimate = estimateAudioOffset(a.envelope, b.envelope, options.maxOffsetSeconds);
       return {schema: 1, kind: "audio_sync", reference: a.provenance, comparison: b.provenance, estimate,
-        sourceUnchanged: true, reviewRequired: true, sourceClockOffset: null, mediaModified: false,
-        meaning: "Content offsets use decoded sample windows. startSeconds selects samples from decoded stream beginning, not container PTS. Timestamp gaps/overlaps are reported separately and never converted into a source-clock sync or edit offset. Results persist in the analysis job journal; temporary PCM is removed after normal completion."};
-    } finally {
-      for (const output of outputs) await unlink(output).catch(error => { if (error.code !== "ENOENT") throw error; });
-      await rmdir(directory);
-    }
+        sourceUnchanged: true, reviewRequired: true, sourceClockOffset: null, mediaModified: false, pcmStorage: "bounded-memory",
+        meaning: "Content offsets use decoded sample windows. startSeconds selects samples from decoded stream beginning, not container PTS. Timestamp gaps/overlaps are reported separately and never converted into a source-clock sync or edit offset. Results persist in the analysis job journal; this decoder writes no PCM scratch files."};
   }
 }

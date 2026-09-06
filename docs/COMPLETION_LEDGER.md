@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Audio decoding no longer leaves PCM scratch
+
+Replaced audio-sync temporary PCM files with bounded binary stdout capture. `runBinaryProcess` preserves arbitrary bytes while sharing the existing text process runner's timeout, combined-output and tree-termination logic. The decoder verifies exact byte/sample counts, retains hashes/timing provenance, and returns `pcmStorage: bounded-memory`. It no longer creates scratch directories; this removes the new-file cleanup problem instead of guessing ownership of old files.
+
+The real Windows cancellation harness passed again with an observed FFmpeg descendant, cancelled terminal journal, queued follow-on completion, reconnected status and no retained PCM scratch (`audio-sync-cancel-37911020-2084-4530-a2c9-a272cc2be904`). The normal real MCP analysis/reconnect test passed (`audio-sync-mcp-2cef15ce-0a54-48c2-bc10-1c9f48f8ad77`). Both are under `.avid-mcp-analysis/`; source hashes remained unchanged. Earlier experiment artifacts remain as evidence. Binary-byte fidelity and combined stdout/stderr limits have regression coverage; allocator ceilings, abrupt parent-loss containment and Mac runtime remain separate gaps.
+
+Full local `npm run check` passed 765 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation after the shared process-runner change. Log: `.avid-mcp-analysis/check-audio-sync-memory.log`. Tool and skill counts remain 142/five.
+
 ### Real audio-sync decoder cancellation
 
 The HTTP MCP cancellation harness observed an actual FFmpeg descendant of the owned 60-second audio-sync worker, cancelled through `avid_cancel_analysis_job`, verified the terminal cancellation/worker-exit/tree-attempt record and successful queued follow-on analysis, then read the cancelled result through a fresh connection without replay. Post-action process inventory confirmed the observed worker/descendant identities disappeared. Original Sonoma source hash stayed unchanged. Evidence: `.avid-mcp-analysis/audio-sync-cancel-62ef2db2-4a45-4912-bb39-a124436ef050/evidence.json`.

@@ -80,11 +80,12 @@ try {
   const after = inventory(), processChecks = observedTree.map(before => ({before, current: after.find(row => row.ProcessId === before.ProcessId) ?? null}));
   assert.ok(processChecks.every(row => !row.current || row.current.CreationDate !== row.before.CreationDate));
   const retained = await scratch();
+  assert.deepEqual(retained, [], 'Audio-sync cancellation left PCM scratch despite in-memory decoding');
   const next = await connect(), recovered = await call(next, 'avid_analysis_job_status', {jobId: running.id});
   assert.equal(recovered.status, 'cancelled'); assert.equal(recovered.automaticReplay, false);
   assert.deepEqual(await scratch(), retained); assert.equal(await sha256File(source), id);
   await writeFile(path.join(root, 'evidence.json'), JSON.stringify({passed: true, sourceUnchanged: true, cancelled, queued: completed,
-    processChecks, retainedScratch: retained, scratchStableAcrossReconnect: true, scope: 'Actual Windows audio-sync worker with an observed FFmpeg descendant, explicit MCP cancellation, queued follow-on completion and reconnected terminal journal. Scratch is inspected and retained, not automatically recovered/deleted. Not abrupt server death, atomic descendant containment or Mac qualification.'}, null, 2), {flag: 'wx'});
+    processChecks, retainedScratch: retained, scratchStableAcrossReconnect: true, scope: 'Actual Windows audio-sync worker with an observed FFmpeg descendant, explicit MCP cancellation, queued follow-on completion and reconnected terminal journal. In-memory decoding leaves no PCM scratch in this owned library. Not abrupt server death, atomic descendant containment, cleanup of older artifacts or Mac qualification.'}, null, 2), {flag: 'wx'});
   console.log(JSON.stringify({root, passed: true, retainedScratch: retained}));
 } finally {
   for (const {client, transport} of connections) {await transport.terminateSession().catch(() => {}); await client.close().catch(() => {});}
