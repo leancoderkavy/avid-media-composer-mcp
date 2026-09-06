@@ -1,4 +1,4 @@
-import {access,readFile} from "node:fs/promises";
+import {access} from "node:fs/promises";
 import path from "node:path";
 import {pathToFileURL} from "node:url";
 import {installModelRuntime,modelRuntimeStatus} from "./model-runtime-install.js";
@@ -10,12 +10,10 @@ export async function modelRuntime(cache:string,install=false):Promise<typeof im
   if(install)await installModelRuntime(cache);
   const entry=path.join(runtime,"node_modules","@huggingface","transformers","dist","transformers.node.mjs");
   try{await access(entry);}catch{throw new Error("Optional model runtime is missing; run avid-mcp --download-models --model-dir PATH explicitly");}
-  const installed=JSON.parse(await readFile(path.join(runtime,"node_modules","@huggingface","transformers","package.json"),"utf8"));
-  if(installed.version!=="4.2.0")throw new Error("Unsupported model runtime version; use the pinned 4.2.0 installation");
   const status=await modelRuntimeStatus(cache);
   if(!status.managed)throw new Error("Model runtime has no installation receipt; explicitly run --install-model-runtime --model-dir PATH to audit and adopt it");
   if(!status.unchanged)throw new Error("Model runtime tree changed; refusing dependency import. Use a fresh model directory");
-  const loaded=await import(pathToFileURL(entry).href) as typeof import("@huggingface/transformers");
+  const loaded=await import(pathToFileURL(status.entry).href) as typeof import("@huggingface/transformers");
   loaded.env.cacheDir=path.resolve(cache);
   loaded.env.allowRemoteModels=install;
   // 4.2.0 pipeline() preflight drops revision/cache/local-only options. Build

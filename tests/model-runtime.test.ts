@@ -12,6 +12,8 @@ it("rejects a changed runtime before executing its entry module",async()=>{
  const entry=path.join(directory,"dist","transformers.node.mjs");await writeFile(entry,'throw new Error("UNVERIFIED_MODULE_EXECUTED");');
  await writeFile(path.join(runtime,"installation.json"),JSON.stringify({schema:1,kind:"avid-model-runtime",transformers:"4.2.0",treeSha256:"0".repeat(64),checkedAt:new Date().toISOString(),nodeVersion:process.versions.node,checks:{scriptsDisabled:true,auditHighPassed:true,importPassed:true},adoptedLegacy:false}));
  await expect(modelRuntime(root)).rejects.toThrow("tree changed");
+ await writeFile(path.join(directory,"package.json")," ".repeat(1024*1024+1));
+ await expect(modelRuntime(root)).rejects.toThrow(/limit|large|size/i);
 });
 it("bypasses pipeline preflight and enforces local pinned component options",async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),"avid-pinned-runtime-")),directory=path.join(root,"runtime","node_modules","@huggingface","transformers"),entry=path.join(directory,"dist","transformers.node.mjs");
