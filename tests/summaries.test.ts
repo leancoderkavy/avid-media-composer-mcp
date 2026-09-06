@@ -6,15 +6,28 @@ import {it,expect,vi,beforeEach} from "vitest";
 import {MediaSummaries,summaryChunks} from "../src/library/summaries.js";
 import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
-const inference=vi.hoisted(()=>vi.fn());
-beforeEach(()=>{inference.mockReset();inference.mockResolvedValue([{summary_text:"Generated test summary"}]);});
-vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:async()=>Object.assign(inference,{tokenizer:async()=>({input_ids:{dims:[1,100]}}),dispose:async()=>{}})})}));
+const {inference,dispose}=vi.hoisted(()=>({inference:vi.fn(),dispose:vi.fn()}));
+beforeEach(()=>{inference.mockReset();dispose.mockReset();inference.mockResolvedValue([{summary_text:"Generated test summary"}]);});
+vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:async()=>Object.assign(inference,{tokenizer:async()=>({input_ids:{dims:[1,100]}}),dispose})})}));
 async function fixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-summary-")),source=path.join(root,"source.mp4"),id="a".repeat(64);await writeFile(source,"fixture");
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:root,AVID_MCP_CAPABILITIES:"inspect,project-write"}),library=new MediaLibrary(config),directory=await library.directory();
   await writeFile(path.join(directory,`${id}.json`),JSON.stringify({id,file:source,metadata:{format:{duration:20}},transcript:[]}));
   const transcript=await library.importTranscript(id,[{start:0,end:10,text:"source words ".repeat(250)},{start:10,end:20,text:"other words ".repeat(200)}]);return {id,config,transcript,summaries:new MediaSummaries(config)};
 }
+it.each([false,true])("drains a queued summary tree before disposal (first failure=%s)",async fail=>{
+ const f=await fixture();let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+ inference.mockImplementationOnce(async()=>{enter();await gate;if(fail)throw new Error('inference failed');return [{summary_text:'Delayed leaf.'}];});
+ const first=f.summaries.generate(f.id,f.transcript.revision).then(result=>({result}),error=>({error}));await entered;
+ const queued=f.summaries.generate(f.id,f.transcript.revision),closing=f.summaries.dispose();expect(f.summaries.dispose()).toBe(closing);
+ await expect(f.summaries.generate(f.id,f.transcript.revision)).rejects.toThrow('closing');await expect(f.summaries.resume('new')).rejects.toThrow('closing');expect(dispose).not.toHaveBeenCalled();
+ release();expect('error' in await first).toBe(fail);const completed=await queued;expect(completed.nodes).toBeGreaterThan(1);await closing;expect(dispose).toHaveBeenCalledOnce();expect(await f.summaries.node(completed.revision)).toMatchObject({revision:completed.revision});
+});
+it("retains summary cleanup errors without double disposal",async()=>{
+ const f=await fixture();await f.summaries.generate(f.id,f.transcript.revision);dispose.mockRejectedValueOnce(new Error('cleanup failed'));
+ await expect(f.summaries.dispose()).rejects.toThrow('cleanup failed');await expect(f.summaries.dispose()).rejects.toThrow('cleanup failed');expect(dispose).toHaveBeenCalledOnce();
+});
 it("bounds summary chunks without silently dropping long source segments",()=>{
   const text="a".repeat(5001),chunks=summaryChunks([{start:0,end:1,index:0,text}]);expect(chunks.map(c=>c.text).join("")).toBe(text);expect(chunks).toHaveLength(3);
   expect(()=>summaryChunks([])).toThrow();expect(()=>summaryChunks([{start:0,end:1,index:0,text:"a".repeat(130000)}])).toThrow();

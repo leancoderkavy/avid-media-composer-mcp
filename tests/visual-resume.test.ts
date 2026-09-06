@@ -2,14 +2,14 @@ import {mkdtemp,mkdir,writeFile,readFile,unlink} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,afterEach} from "vitest";
-import {VisualSearch,VISUAL_MODEL,VISUAL_REVISION} from "../src/library/visual.js";
+import {VisualSearch,loadVisualModels,VISUAL_MODEL,VISUAL_REVISION} from "../src/library/visual.js";
 import {VisualCheckpoints} from "../src/library/visual-checkpoints.js";
 import {MediaLibrary} from "../src/library/media-library.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 import {loadConfig} from "../src/config.js";
-const model=vi.hoisted(()=>({vision:vi.fn(),text:vi.fn(),tokenizer:vi.fn()}));
-vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({AutoTokenizer:{from_pretrained:async()=>model.tokenizer},AutoProcessor:{from_pretrained:async()=>async(image:unknown)=>image},CLIPTextModelWithProjection:{from_pretrained:async()=>Object.assign(model.text,{dispose:async()=>{}})},CLIPVisionModelWithProjection:{from_pretrained:async()=>Object.assign(model.vision,{dispose:async()=>{}})},RawImage:{read:async(image:unknown)=>image,fromBlob:async(image:unknown)=>image}})}));
-afterEach(()=>{vi.restoreAllMocks();model.vision.mockReset();model.text.mockReset();model.tokenizer.mockReset();});
+const model=vi.hoisted(()=>({vision:vi.fn(),text:vi.fn(),tokenizer:vi.fn(),visionLoad:vi.fn(),textDispose:vi.fn(),visionDispose:vi.fn()}));
+vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({AutoTokenizer:{from_pretrained:async()=>model.tokenizer},AutoProcessor:{from_pretrained:async()=>async(image:unknown)=>image},CLIPTextModelWithProjection:{from_pretrained:async()=>Object.assign(model.text,{dispose:model.textDispose})},CLIPVisionModelWithProjection:{from_pretrained:async()=>{await model.visionLoad();return Object.assign(model.vision,{dispose:model.visionDispose});}},RawImage:{read:async(image:unknown)=>image,fromBlob:async(image:unknown)=>image}})}));
+afterEach(()=>{vi.restoreAllMocks();for(const mock of Object.values(model))mock.mockReset();});
 async function fixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-visual-resume-")),source=path.join(root,"source.mp4");await writeFile(source,"source");const id=await sha256File(source);
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:root,AVID_MCP_CAPABILITIES:"inspect,export"});
@@ -18,6 +18,37 @@ async function fixture(){
   model.vision.mockResolvedValue({image_embeds:{data:Array(512).fill(0.5)}});
   return {root,source,id,config,directory,visual:new VisualSearch(config)};
 }
+it.each([false,true])("drains admitted visual inference before disposing (failure=%s)",async fail=>{
+ const {visual,id}=await fixture();let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+ model.vision.mockImplementationOnce(async()=>{enter();await gate;if(fail)throw new Error('inference failure');return {image_embeds:{data:Array(512).fill(0.5)}};});
+ const outcome=visual.index([id],1).then(value=>({value}),error=>({error}));await entered;
+ const disposal=visual.dispose();expect(visual.dispose()).toBe(disposal);
+ await expect(visual.index([id],1)).rejects.toThrow('closing');expect(model.textDispose).not.toHaveBeenCalled();expect(model.visionDispose).not.toHaveBeenCalled();
+ release();const result=await outcome;expect('error' in result).toBe(fail);await disposal;
+ expect(model.textDispose).toHaveBeenCalledOnce();expect(model.visionDispose).toHaveBeenCalledOnce();
+});
+it("drains text search and refuses new searches after shutdown begins",async()=>{
+ const {visual,id}=await fixture(),index=await visual.index([id],1);let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+ model.tokenizer.mockResolvedValue({input_ids:{dims:[1,3]}});
+ model.text.mockImplementationOnce(async()=>{enter();await gate;return {text_embeds:{data:Array(512).fill(0.5)}};});
+ const search=visual.search(index.indexId,{text:'scene'},1);await entered;const disposal=visual.dispose();
+ await expect(visual.search(index.indexId,{text:'new'},1)).rejects.toThrow('closing');expect(model.textDispose).not.toHaveBeenCalled();
+ release();expect((await search).results).toHaveLength(1);await disposal;expect(model.textDispose).toHaveBeenCalledOnce();expect(model.visionDispose).toHaveBeenCalledOnce();
+});
+it("releases the loaded text model if vision loading fails",async()=>{
+ model.visionLoad.mockRejectedValueOnce(new Error('vision load failed'));
+ await expect(loadVisualModels('unused-cache')).rejects.toThrow('vision load failed');expect(model.textDispose).toHaveBeenCalledOnce();expect(model.visionDispose).not.toHaveBeenCalled();
+});
+it("retains both load and cleanup failures",async()=>{
+ const loading=new Error('load failed'),cleanup=new Error('cleanup failed');model.visionLoad.mockRejectedValueOnce(loading);model.textDispose.mockRejectedValueOnce(cleanup);
+ await expect(loadVisualModels('unused-cache')).rejects.toMatchObject({errors:[loading,cleanup]});
+});
+it("attempts both model disposals even when one throws synchronously",async()=>{
+ const {visual,id}=await fixture();await visual.index([id],1);model.textDispose.mockImplementationOnce(()=>{throw new Error('cleanup failed');});
+ await expect(visual.dispose()).rejects.toThrow('cleanup failed');expect(model.visionDispose).toHaveBeenCalledOnce();
+});
 it("resumes persisted embeddings after failure without recomputing the prefix",async()=>{
   const {config,id,visual,directory}=await fixture();model.vision.mockResolvedValueOnce({image_embeds:{data:Array(512).fill(0.5)}}).mockRejectedValueOnce(new Error("interrupted"));
   await expect(visual.index([id],3)).rejects.toMatchObject({code:"VISUAL_INDEX_INCOMPLETE"});

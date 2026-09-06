@@ -27,6 +27,21 @@ async function fixture(){
   const library=new MediaLibrary(config),directory=await library.directory();
   await writeFile(path.join(directory,`${id}.json`),JSON.stringify({id,file:source,metadata:{format:{duration:90}},transcript:[]}));return {config,id,source};
 }
+it.each([false,true])("drains admitted speech work before disposal (first failure=%s)",async fail=>{
+ const {config,id}=await fixture(),speech=new SpeechAnalysis(config);let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+ const infer=mocks.infer.getMockImplementation()!;
+ mocks.infer.mockImplementationOnce(async(...args)=>{enter();await gate;if(fail)throw new Error('inference failed');return infer(...args);});
+ const first=speech.transcribe(id,0,1,{model:'tiny.en',language:'en'}).then(result=>({result}),error=>({error}));await entered;
+ const queued=speech.transcribe(id,1,2,{model:'tiny.en',language:'en'}),disposal=speech.dispose();expect(speech.dispose()).toBe(disposal);
+ await expect(speech.transcribe(id,2,3)).rejects.toThrow('closing');await expect(speech.detectLanguage(id,0,1)).rejects.toThrow('closing');await expect(speech.resume('new')).rejects.toThrow('closing');
+ expect(mocks.dispose).not.toHaveBeenCalled();release();expect('error' in await first).toBe(fail);await queued;await disposal;
+ expect(mocks.infer).toHaveBeenCalledTimes(2);expect(mocks.dispose).toHaveBeenCalledOnce();
+});
+it("preserves disposal failure without disposing the same speech model twice",async()=>{
+ const {config,id}=await fixture(),speech=new SpeechAnalysis(config);await speech.transcribe(id,0,1,{model:'tiny.en',language:'en'});
+ mocks.dispose.mockRejectedValueOnce(new Error('disposal failed'));await expect(speech.dispose()).rejects.toThrow('disposal failed');await expect(speech.dispose()).rejects.toThrow('disposal failed');expect(mocks.dispose).toHaveBeenCalledOnce();
+});
 it("pins selected weights and disables implicit downloads",async()=>{
   const cache=await mkdtemp(path.join(os.tmpdir(),"avid-speech-model-"));
   await loadSpeechModel(cache,false,"tiny");expect(mocks.pipeline).toHaveBeenCalledWith("automatic-speech-recognition",speechModels.tiny.model,expect.objectContaining({revision:speechModels.tiny.revision,local_files_only:true}));

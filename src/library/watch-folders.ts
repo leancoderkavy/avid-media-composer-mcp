@@ -219,5 +219,6 @@ export class WatchFolders {
     this.timer.unref();return this.status();
   }
   stop(){if(this.timer)clearInterval(this.timer);this.timer=undefined;this.pollingAbort?.abort();return this.status();}
+  async stopAndWait(){this.stop();await this.pending;}
   status(){return {running:Boolean(this.timer),scanInProgress:Boolean(this.pending),lastError:this.lastError??null,watchErrors:this.watchErrors.map(error=>({...error})),automaticRestart:false,staleLockPolicy:"Inspect with avid_watch_lock_status; explicitly recover eligible stopped local owners with avid_recover_watch_lock. Legacy and uncertain locks remain guarded."};}
 }

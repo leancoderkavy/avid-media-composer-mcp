@@ -28,9 +28,15 @@ export class SpeechAnalysis {
   readonly checkpoints:SpeechCheckpoints;
   private models=new Map<string,ReturnType<typeof loadSpeechModel>>();
   private tail:Promise<unknown>=Promise.resolve();
+  private closing=false;
+  private disposing:Promise<void>|undefined;
   constructor(private readonly config:ServerConfig){this.checkpoints=new SpeechCheckpoints(config);}
-  async dispose(){await this.tail;await Promise.all([...this.models.values()].map(async pending=>(await pending).dispose()));this.models.clear();}
-  detectLanguage(id:string,start:number,end:number){const operation=this.tail.then(()=>this.detect(id,start,end));this.tail=operation.catch(()=>{});return operation;}
+  private serialize<T>(fn:()=>Promise<T>){
+    if(this.closing)return Promise.reject(new Error("Speech service is closing"));
+    const operation=this.tail.then(fn);this.tail=operation.catch(()=>{});return operation;
+  }
+  dispose(){this.closing=true;return this.disposing??=(async()=>{await this.tail;const models=[...this.models.values()];this.models.clear();await Promise.all(models.map(async pending=>(await pending).dispose()));})();}
+  detectLanguage(id:string,start:number,end:number){return this.serialize(()=>this.detect(id,start,end));}
   private async candidates(samples:Float32Array,selection:"tiny"|"base"="tiny"){
     if(samples.some(value=>!Number.isFinite(value)))throw new Error("Nonfinite audio sample");
     if(samples.every(value=>value===0))return [];
@@ -58,10 +64,9 @@ export class SpeechAnalysis {
     return {id,start,end,analyzedSeconds:samples.length/16000,model:speechModels.tiny.model,modelRevision:speechModels.tiny.revision,status:silent?"digital_silence":"candidate",language:candidates[0]?.language??null,candidates,reviewRequired:true,languageVerified:false,transcriptCreated:false,note:"Model probabilities are not calibrated confidence. Music, noise and mixed languages may produce misleading candidates. Only exact digital silence is excluded. Select an explicit language for transcription after review."};
   }
   transcribe(id:string,start:number,end:number,options:SpeechOptions={},parentRunId?:string){
-    const operation=this.tail.then(()=>this.run(id,start,end,options,parentRunId));
-    this.tail=operation.catch(()=>{});return operation;
+    return this.serialize(()=>this.run(id,start,end,options,parentRunId));
   }
-  async resume(runId:string){const saved=await this.checkpoints.read(runId);if(saved.complete)throw new Error("Speech run is already completed");return this.transcribe(saved.record.id,saved.record.start,saved.record.end,saved.record.options,runId);}
+  resume(runId:string){return this.serialize(async()=>{const saved=await this.checkpoints.read(runId);if(saved.complete)throw new Error("Speech run is already completed");return this.run(saved.record.id,saved.record.start,saved.record.end,saved.record.options,runId);});}
   private async run(id:string,start:number,end:number,input:SpeechOptions,parentRunId?:string){
     const options=speechOptions.parse(input),selected=speechModels[options.model];
     requireCapability(this.config.capabilities,"export");
