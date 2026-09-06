@@ -59,10 +59,15 @@ httpServer.listen(port, "0.0.0.0", () => {
   });
 });
 
+let closing=false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => {
+  process.once(signal, () => {
+    if(closing)return;closing=true;
     httpServer.close(() => {
-      void telemetry.shutdown().finally(() => process.exit(0));
+      void telemetry.shutdown().catch(error=>{console.error("Telemetry shutdown failed",error);process.exitCode=1;});
     });
+    // End open SSE/request connections so server closure can dispose MCP sessions.
+    // Worker handles and journals then drain naturally instead of forced exit.
+    httpServer.closeAllConnections();
   });
 }

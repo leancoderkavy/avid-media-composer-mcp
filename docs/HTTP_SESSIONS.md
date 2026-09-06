@@ -1,0 +1,11 @@
+# Streamable HTTP sessions
+
+The development server retains one MCP server per initialized Streamable HTTP session. Clients must preserve the returned `Mcp-Session-Id` header on subsequent requests. Every request still requires the configured bearer token. Session IDs are not authentication credentials or independent user accounts; sessions on one deployment share its configured file permissions.
+
+This lifetime lets background analysis jobs, watch services and preview state survive an individual HTTP response. The earlier per-request lifetime closed these services immediately: a real Sonoma QC job returned an ID, but a subsequent request saw unresolved state and could not cancel it.
+
+By default, a deployment permits 32 sessions. A session expires after 30 minutes without an active HTTP request; requests refresh its idle time. Open streaming requests prevent idle expiry. The embedding API accepts positive `maxSessions` and `sessionIdleTimeoutMs` options. At capacity, new initialization receives 503. Unknown or expired IDs receive 404 and require fresh initialization.
+
+Clients should send MCP session DELETE when finished. Closing an individual HTTP connection does not delete a session. Explicit deletion, idle expiry or HTTP server closure closes the associated MCP server, requests job cancellation, stops watch polling and disposes optional runtimes. The HTTP entrypoint ends open connections during signal-driven shutdown and allows worker handles/journal writes to drain naturally. Forced process termination, per-client resource fairness and slow-disposal behavior remain separate qualification work.
+
+Regression tests cover cross-request live watch state, session isolation, authentication, DELETE, stale IDs, capacity release, idle expiry and malformed initialization. The real media harness `node scripts/research/qualify-http-job-lifecycle.mjs` checks background QC start, status and cancellation across HTTP requests with unchanged source hashes. It expects the local Sonoma fixture and records evidence under `.avid-mcp-analysis/`; a returned job ID alone is insufficient proof. Active-worker DELETE/expiry and OS-signal shutdown need separate runtime qualification.

@@ -1,5 +1,13 @@
 # Completion ledger
 
+### HTTP job lifetime across requests
+
+Real HTTP Sonoma QC exposed that each response closed its MCP server: the next status was unresolved and explicit cancellation failed (`http-job-lifecycle-ada347f0-4e82-4ea5-ad9d-d1adc33d7bfa`). Persistent authenticated MCP sessions now preserve job and service state across responses, with bounded capacity, explicit DELETE, idle expiry and server-close disposal. The same real-media start/status/cancel harness passed with status running and successful cancellation (`http-job-lifecycle-ef89c9a1-af37-4672-a6db-fb42c317ea13`), preserving the source hash. Both evidence directories are under `.avid-mcp-analysis/`.
+
+HTTP tests cover live cross-request watch state, isolation, bearer enforcement, DELETE, stale IDs, capacity and expiry. Signal shutdown no longer forces exit before cleanup drains. See `HTTP_SESSIONS.md` for lifetime and limits. Active-worker DELETE/expiry, HTTP OS-signal delivery, slow disposal and abrupt parent-loss containment remain unqualified. Full-plan completion remains open.
+
+Full check passed 724 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks (`check-http-session-lifecycle.log`). A final aborted-response guard was separately typechecked and passed all 16 HTTP tests; the full check's subsequent builds/package checks included it. Final built-runtime HTTP media qualification also passed (`http-job-lifecycle-aa633e4e-2b35-4ee4-809f-5ebf7bcedaba`).
+
 ### Stdio disconnect drains analysis cancellation
 
 The stdio entrypoint had no EOF shutdown handler, while its signal handler forced process exit after telemetry shutdown without closing the server. Stdin EOF and supported process signals now share an idempotent server-close/telemetry path. Server closure triggers analysis cancellation and runtime disposal; referenced worker handles and pending journal writes drain naturally instead of being cut off by `process.exit`. Abrupt parent termination remains a separate, unresolved containment requirement.

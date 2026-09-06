@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
@@ -19,6 +19,8 @@ export interface HttpServerOptions {
   unauthorizedRateLimitPerMinute?: number;
   authenticatedRateLimitPerMinute?: number;
   requestBodyTimeoutMs?: number;
+  maxSessions?: number;
+  sessionIdleTimeoutMs?: number;
 }
 
 const MIN_AUTH_TOKEN_BYTES = 32;
@@ -181,6 +183,17 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
   const rateWindows = new Map<string, RateWindow>();
   const authFingerprint = createHash("sha256").update(options.authToken).digest("hex").slice(0, 16);
   let activeRequests = 0;
+  const maxSessions=positiveLimit(options.maxSessions,32,"maxSessions");
+  const sessionIdleTimeoutMs=positiveLimit(options.sessionIdleTimeoutMs,30*60_000,"sessionIdleTimeoutMs");
+  type Session={server:ReturnType<typeof createServer>;transport:StreamableHTTPServerTransport;lastUsed:number;active:number};
+  const sessions=new Map<string,Session>(),contexts=new Set<Session>();
+  const closeSession=async(session:Session)=>{
+    if(!contexts.delete(session))return;
+    if(session.transport.sessionId)sessions.delete(session.transport.sessionId);
+    await session.server.close();
+  };
+  const expire=()=>{for(const session of contexts)if(session.active===0&&Date.now()-session.lastUsed>=sessionIdleTimeoutMs)void closeSession(session).catch(error=>console.error("MCP session cleanup failed",error));};
+  const expiryTimer=setInterval(expire,Math.min(sessionIdleTimeoutMs,60_000));expiryTimer.unref();
 
   const httpServer = http.createServer(async (request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -300,22 +313,42 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     response.once("close", release);
     response.once("finish", release);
 
-    const server = createServer(options.config ?? loadConfig());
-    const transport = new StreamableHTTPServerTransport();
-    response.on("close", () => {
-      void transport.close();
-      void server.close();
-    });
-
     try {
       const parsedBody =
         request.method === "POST"
           ? await readJsonBody(request, maxRequestBytes, requestBodyTimeoutMs)
           : undefined;
+      if(response.destroyed||response.writableEnded)return;
+      expire();
+      const sessionId=request.headers["mcp-session-id"];
+      if(sessionId!==undefined&&(typeof sessionId!=="string"||sessionId.length>128))throw new HttpInputError(400,"Invalid MCP session ID");
+      let session=sessionId?sessions.get(sessionId):undefined;
+      if(sessionId&&!session)throw new HttpInputError(404,"MCP session not found; initialize a new session");
+      if(!session){
+        if(contexts.size>=maxSessions)throw new HttpInputError(503,"MCP session capacity reached");
+        const server=createServer(options.config??loadConfig());
+        const created:Session={server,transport:new StreamableHTTPServerTransport({
+          sessionIdGenerator:()=>randomUUID(),
+          onsessioninitialized:id=>{sessions.set(id,created);},
+          onsessionclosed:()=>closeSession(created),
+        }),lastUsed:Date.now(),active:0};
+        session=created;contexts.add(created);
+        try{await server.connect(created.transport as unknown as Transport);}
+        catch(error){await closeSession(created);throw error;}
+      }
+      const current=session;
+      if(response.destroyed||response.writableEnded){if(!current.transport.sessionId)await closeSession(current);return;}
+      current.active++;current.lastUsed=Date.now();
+      let requestFinished=false;
+      const finishSessionRequest=()=>{
+        if(requestFinished)return;requestFinished=true;current.active--;current.lastUsed=Date.now();
+        // Invalid initialization has no durable session to retain.
+        if(!current.transport.sessionId)void closeSession(current).catch(error=>console.error("MCP request cleanup failed",error));
+      };
+      response.once("finish",finishSessionRequest);response.once("close",finishSessionRequest);
       // SDK 1.29's Node transport declaration is structurally compatible at runtime but conflicts
       // with exactOptionalPropertyTypes because its optional callback getters include undefined.
-      await server.connect(transport as unknown as Transport);
-      await transport.handleRequest(request, response, parsedBody);
+      await current.transport.handleRequest(request, response, parsedBody);
     } catch (error) {
       if (error instanceof HttpInputError && !response.headersSent) {
         sendJson(response, error.status, { error: error.publicMessage });
@@ -334,5 +367,6 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
   httpServer.headersTimeout = 10_000;
   httpServer.requestTimeout = 30_000;
   httpServer.keepAliveTimeout = 5_000;
+  httpServer.once("close",()=>{clearInterval(expiryTimer);for(const session of contexts)void closeSession(session).catch(error=>console.error("MCP shutdown cleanup failed",error));});
   return httpServer;
 }
