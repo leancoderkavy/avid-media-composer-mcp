@@ -24,7 +24,7 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
     const options={baseUrl:`http://127.0.0.1:${address.port}/api/v1`,licenseKey:"fixture-license",allowedRoots:[process.cwd()],owner:{binary:process.execPath,sha256:args.sha256,identity:owner.identity}};
     const client=new JumperReadClient(options);
     // Mutation of pairing configuration after construction must not affect dispatch.
-    options.owner.identity="changed";
+    options.owner.identity="1:2000-01-01T00:00:00.000Z";
     const search={query:"fixture",cacheDirectory:process.cwd(),mediaPaths:[path.resolve("package.json")]};
     expect(await client.searchText(search)).toMatchObject({matches:[]});
     expect(requests).toBe(1);expect(license).toBe("fixture-license");

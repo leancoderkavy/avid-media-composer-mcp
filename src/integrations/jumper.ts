@@ -2,6 +2,7 @@ import {z} from "zod";
 import {AvidMcpError} from "../errors.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {verifyWindowsLoopbackOwner} from "./loopback-owner.js";
+import path from "node:path";
 
 const matchSchema=z.object({
   frame_idx:z.string().regex(/^\d+$/).max(20),timestamp:z.string().max(32),
@@ -11,12 +12,23 @@ const matchSchema=z.object({
 const responseSchema=z.object({matches:z.array(matchSchema).max(100)});
 const fail=(code:string,message:string)=>new AvidMcpError(`JUMPER_${code}`,message);
 interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number;owner?:{binary:string;sha256:string;identity:string}}
+const pairingSchema=z.object({binary:z.string().refine(path.isAbsolute),sha256:z.string().regex(/^[a-f0-9]{64}$/),identity:z.string().regex(/^[1-9]\d*:.+$/).max(128)}).strict();
+
+/** Environment-only credentials; a partially configured provider is never enabled. */
+export function configuredJumperClient(env:NodeJS.ProcessEnv,allowedRoots:readonly string[]){
+  const names=["AVID_MCP_JUMPER_URL","AVID_MCP_JUMPER_LICENSE_KEY","AVID_MCP_JUMPER_BINARY","AVID_MCP_JUMPER_SHA256","AVID_MCP_JUMPER_IDENTITY"] as const;
+  if(names.every(name=>env[name]===undefined))return undefined;
+  if(names.slice(1).some(name=>!env[name]?.trim()))throw fail("CONFIG","Provider configuration requires license, executable, checksum and process identity");
+  return new JumperReadClient({...(env.AVID_MCP_JUMPER_URL!==undefined?{baseUrl:env.AVID_MCP_JUMPER_URL}:{}),licenseKey:env.AVID_MCP_JUMPER_LICENSE_KEY!,allowedRoots,
+    owner:{binary:env.AVID_MCP_JUMPER_BINARY!,sha256:env.AVID_MCP_JUMPER_SHA256!,identity:env.AVID_MCP_JUMPER_IDENTITY!}});
+}
 
 /** Optional licensed provider. No SDK, model downloads, analysis writes or image output. */
 export class JumperReadClient {
   private readonly base:string;
   private readonly options:Readonly<JumperOptions>;
   constructor(options:JumperOptions){
+    if(options.owner!==undefined&&!pairingSchema.safeParse(options.owner).success)throw fail("PAIRING","Provider pairing requires an absolute executable, checksum and process identity");
     const base=new URL(options.baseUrl??"http://127.0.0.1:6699/api/v1");
     if(base.protocol!=="http:"||!["127.0.0.1","[::1]"].includes(base.hostname)||base.username||base.password||base.search||base.hash||base.pathname!=="/api/v1")throw fail("ENDPOINT","Provider must use a literal loopback HTTP address and /api/v1 path");
     if(!options.licenseKey.trim()||/[\r\n]/.test(options.licenseKey))throw fail("LICENSE","A local provider license key is required");
