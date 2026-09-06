@@ -53,6 +53,13 @@ it("accepts empty media-volume declarations and refuses missing inspection autho
   expect(await f.adapter.read("media_volumes")).toMatchObject({volumes:[],mediaOnlineVerified:false});
   const denied=await hostFixture("export"); await expect(denied.adapter.read("media_volumes")).rejects.toThrow(); expect(denied.calls).toEqual([]);
 });
+it("refuses an out-of-scope project before requesting host-wide media volumes",async()=>{
+  const f=await hostFixture("inspect"), outside=await mkdtemp(path.join(os.tmpdir(),"avid-volume-scope-"));
+  const adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:"fixture",AVID_MCP_ALLOWED_ROOTS:outside,
+    AVID_MCP_OUTPUT_ROOT:outside,AVID_MCP_CAPABILITIES:"inspect"}),f.client as unknown as NativeClient);
+  await expect(adapter.read("media_volumes")).rejects.toThrow();
+  expect(f.calls.map(call=>call.method)).toEqual(["GetOpenProjectInfo"]);
+});
 
 async function hostFixture(capabilities="inspect,edit,project-write,export"){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-native-"));

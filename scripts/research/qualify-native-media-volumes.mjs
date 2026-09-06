@@ -10,13 +10,19 @@ const protectedFiles=[path.join(project,'MCP_Load_7006b4d8.avb'),'D:/Sonoma Esca
 const hashes=await Promise.all(protectedFiles.map(sha256File));
 const root=path.resolve('.avid-mcp-analysis',`native-media-volumes-${randomUUID()}`);await mkdir(root);
 const responses=[];
-for(let n=0;n<2;n++){
+for(let n=0;n<3;n++){
   const client=new Client({name:'native-media-volume-qualification',version:'1'});
   try{
     await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),
-      AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect'}}));
+      AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:n===2?root:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect'}}));
     const response=await client.callTool({name:'avid_native_read',arguments:{query:'media_volumes'}},undefined,{timeout:120000});
     responses.push(response);await writeFile(path.join(root,'responses.json'),JSON.stringify(responses,null,2));
+    if(n===2){
+      assert.equal(response.isError,true,'Out-of-scope project must refuse volume inventory');
+      assert.ok(!response.structuredContent?.data);
+      for(const name of ['Games (E:)','Luqi (C:)','Mili (D:)'])assert.ok(!JSON.stringify(response).includes(name));
+      continue;
+    }
     assert.ok(!response.isError,JSON.stringify(response));const data=response.structuredContent.data;
     assert.equal(data.freeSpaceUnit,null);assert.equal(data.pathsResolved,false);assert.equal(data.mediaOnlineVerified,false);
     assert.deepEqual(data.volumes.map(v=>v.name).sort(),['Games (E:)','Luqi (C:)','Mili (D:)']);
@@ -25,5 +31,5 @@ for(let n=0;n<2;n++){
 }
 assert.deepEqual(await Promise.all(protectedFiles.map(sha256File)),hashes);
 await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed:true,protectedFiles,hashes,responses,
-  sourceUnchanged:true,scope:'Two fresh inspect-only stdio MCP sessions against the existing qualified Windows Avid host. Volume display names matched observed fixture expectations. Free-space values may change and are not interpreted as bytes, capacity or relink status.'},null,2),{flag:'wx'});
-console.log(JSON.stringify({root,passed:true,connections:2}));
+  sourceUnchanged:true,outOfScopeRefused:true,scope:'Two fresh authorized inspect-only stdio MCP sessions plus a third with roots excluding the current project. The third refuses without volume data. Volume display names matched observed fixture expectations in authorized sessions. Free-space values may change and are not interpreted as bytes, capacity or relink status.'},null,2),{flag:'wx'});
+console.log(JSON.stringify({root,passed:true,connections:3,outOfScopeRefused:true}));

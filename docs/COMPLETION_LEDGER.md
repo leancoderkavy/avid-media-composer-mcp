@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Media-volume project-scope refusal
+
+Extended real-host MCP qualification with a third fresh session whose allowed roots exclude the current project. It refused the media-volume query without volume data/names; two authorized sessions continued to return declarations and all protected hashes stayed unchanged. Evidence: `.avid-mcp-analysis/native-media-volumes-45a61e33-0046-4954-9b11-b8bae996114a/evidence.json`. A new regression confirms refusal before the volume RPC is invoked. All 117 focused native tests passed; production code is unchanged and the prior full implementation/package checks remain applicable.
+
 ### Shipped native media-volume diagnostic
 
 Extended `avid_native_read` with `media_volumes`, requiring inspection authority and a scoped current project. It preserves host-wide display names and uint64 strings, bounds aggregate responses, omits unknown fields and retains absent defaults. Project and listener-owner changes refuse the result. Explicit unknown units/path/online flags prevent storage declarations from being presented as relink evidence.
