@@ -453,3 +453,9 @@ Production `select_clips` now accepts an empty target list. Only an empty reques
 MCP restoration from empty to the original sequence passed separately: `.avid-mcp-analysis/native-select-mcp-5ab05ef4-04d7-4c1a-af47-840bad1dba1c`.
 
 Selection failure acceptance: 40 native tests passed, adding an applied-change/lost-response simulation, edit-authority refusal, and project-change rejection. Token reuse and stale expected-selection reuse both fail after the injected lost response. These are simulated failures; no live transport disruption was induced. Client workflow and limits are documented in `docs/NATIVE_SELECTION.md`. CI `34012113076` for replacement-selection commit `f2868fc` passed.
+
+### Sonoma transport advancement experiment
+
+Computer-use inspection started with the four-second selects sequence at `01:00:00:00`. Clicking the Record viewer Play control advanced the UI timecode/playhead to `01:00:03:29`. The production `viewers` MCP read independently reported the exact sequence MOB in Record at frame 119/timecode `01:00:03:29`; Center remained at frame 0. Clicking the timeline start returned Record to frame 0, confirmed by another MCP read. Reproduction read harness: `scripts/research/qualify-native-playback-position.mjs`; evidence: `.avid-mcp-analysis/native-playback-position-7d58d027-fa0b-42eb-a46b-a524c866a811` and `native-playback-position-14f1a367-c756-4046-abb8-a7b8003ddf7c`.
+
+The captured monitor remained black. This demonstrates transport advancement and position reporting only; it does not establish visible decoded video, audible output, perceptual sync, or playback fidelity. The cause of the black capture remains unresolved and must not be assumed to be either missing media or a capture limitation. The playhead was restored to the sequence start.
