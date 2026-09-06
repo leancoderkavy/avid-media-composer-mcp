@@ -54,11 +54,27 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
     if (query === "project") return project;
+    if (query === "open_bins") {
+      const bodies = z.array(z.object({absolute_path:z.string().min(1).max(32768)})).max(4096).parse(
+        await this.client.call("GetBins", {request_flag:["AllTypes", "OnlyOpen"]}));
+      const bins: {absolute_path:string}[] = [];
+      const seen = new Set<string>();
+      for (const body of bodies) {
+        if (!path.isAbsolute(body.absolute_path)) throw new Error("Native open-bin path must be absolute");
+        const target = await resolveReadablePath(body.absolute_path, [project.path], "file");
+        const key = process.platform === "win32" ? target.toLowerCase() : target;
+        if (seen.has(key)) throw new Error("Native open-bin inventory contains duplicate paths");
+        seen.add(key);
+        bins.push({absolute_path:target});
+      }
+      if ((await this.project()).path !== project.path) throw new Error("Native project changed during open-bin inspection");
+      return {bins, scope:"Open entries within the current authorized project, reported by Avid. Project checks bracket enumeration; this is not an atomic snapshot."};
+    }
     if (query === "bins") return this.client.call("GetBins", { project_path: project.path, request_flag: ["AllTypes"] });
     if (query === "link_settings") return this.client.call("GetListOfLinkSettings");
     if (query === "export_settings") return this.client.call("GetListOfExportSettings");

@@ -43,6 +43,31 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it("scopes open-bin inventories and strips unqualified metadata",async()=>{
+    const f=await hostFixture("inspect"),original=f.client.call.bind(f.client),file=path.join(path.dirname(f.source),"fixture.avb");
+    vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
+      if(method==="GetBins"){expect(body).toEqual({request_flag:["AllTypes","OnlyOpen"]});return [{absolute_path:file,private_metadata:"PRIVATE"}];}
+      return original(method,body);
+    });
+    const canonical=await import("node:fs/promises").then(fs=>fs.realpath(file));
+    const result=await f.adapter.read("open_bins");expect(result).toMatchObject({bins:[{absolute_path:canonical}]});
+    expect(JSON.stringify(result)).not.toContain("PRIVATE");expect(f.calls.filter(call=>call.method==="GetOpenProjectInfo")).toHaveLength(2);
+  });
+  it("refuses malformed, duplicate, outside-project and excessive open-bin inventories",async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client),file=path.join(path.dirname(f.source),"fixture.avb"),outside=await mkdtemp(path.join(os.tmpdir(),"avid-other-project-"));
+    const other=path.join(outside,"other.avb");await writeFile(other,"other bin");let payload:any[]=[];
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetBins"?Promise.resolve(payload):original(method,body));
+    for(payload of [[{}],[{absolute_path:"fixture.avb"}],[{absolute_path:other}],[{absolute_path:file},{absolute_path:file}],Array.from({length:4097},()=>({absolute_path:file}))])await expect(f.adapter.read("open_bins")).rejects.toThrow();
+    payload=[];expect(await f.adapter.read("open_bins")).toMatchObject({bins:[]});
+  });
+  it("refuses open-bin data if the project changes before return",async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);let projects=0;
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>{
+      if(method==="GetOpenProjectInfo"&&++projects===2)return Promise.resolve([{path:os.tmpdir()}]);
+      return original(method,body);
+    });
+    await expect(f.adapter.read("open_bins")).rejects.toThrow();
+  });
   it("checks target bin info after open and close",async()=>{
     for(const action of ["open_bin","close_bin"] as const)for(const present of [true,false]){
       const f=await hostFixture(),original=f.client.call.bind(f.client),target=path.join(path.dirname(f.source),"fixture.avb");
