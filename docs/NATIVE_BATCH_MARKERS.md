@@ -24,6 +24,8 @@ Run `.venv/Scripts/python.exe scripts/research/verify-saved-marker-snapshots.py 
 
 ## Native readback contract
 
+The newer `MCP_Batch_fe73fd13.avb` scale fixture also passed explicit 100-marker removal with an outside-request marker preserved, followed by separate cleanup. New saved snapshots cover 100/101/1/0 records; independent comparison to its original pre-marker AVB proved raw marker preservation and restoration of every field emitted by the bounded timeline decoder. Snapshot hashes were bound to the capture manifests. See [saved cleanup evidence](SAVED_MARKERS.md#saved-cleanup-and-baseline-comparison). This strengthens saved-state evidence without establishing atomic undo or complete AVB equivalence.
+
 The research inspector now follows same-rate sequence component paths to declared marker locations. It refuses transition overlap, inconsistent lengths, invalid offsets and unknown effects. Recognized equal-length color-adapter inputs retain `status: declared_effect_input`; they are not treated as fully verified output mappings. On the retained two-marker fixture, both declared frames (15 and 75), picture track index 1 and marker identities match the native evidence. Run the saved-snapshot verifier with `--compare-positions` to write the separate exclusive `saved-marker-position-verification.json`. Direct sequence, frame-zero/subclip bounds and refusal cases have unit coverage. Broader audio/effect/rate structures and production MCP exposure remain open.
 
 Frame-zero offsets may be absent in protobuf responses; verification applies the qualified numeric default of zero. A regression case failed before that fix and passed afterward. This does not authorize inferring an offset from arbitrary non-native records.

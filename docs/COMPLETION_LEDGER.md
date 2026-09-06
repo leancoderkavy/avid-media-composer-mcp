@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Independent batch cleanup and decoded baseline restoration
+
+Extended the native removal harness with exclusive hash-checked snapshots at initial 100 markers, after adding/saving one unrelated marker, after deleting/saving the 100, and after separate final cleanup/save. Actual run passed on owned `MCP_Batch_fe73fd13.avb`: `native-batch-removal-830c95f9-e387-4f0e-8b24-14db79244b61`. The fixture is now marker-empty. Original source-bin/media and prior scale evidence hashes were unchanged.
+
+Added `verify-saved-batch-removal.py`. The independent saved-file run verified counts 0/100/101/1/0, every marker's native/saved text/track/declared position, unchanged original raw records after adding the unrelated marker, and unchanged unrelated raw marker after deleting the 100 (excluding only binary object indices). All decoded MOBs, markers, warnings and structural counts in the cleaned snapshot matched the original pre-marker snapshot exactly. Other decoded timeline fields matched at every stage. Raw and decoded checks remain separate from opaque effects and byte equivalence.
+
+The strengthened verifier also binds all five AVBs to capture-manifest checksums and preserves evidence/manifest/input hashes. Reports: `saved-removal-verification.json` and `saved-removal-manifest-verification.json` in the removal evidence directory. A read-only negative probe with a substituted manifest checksum was refused before publication. Actual native cleanup, independent verifier and JavaScript syntax/diff checks passed. Production code is unchanged, so the full suite was not repeated; the preceding 653 TypeScript/46 Python/full-package check remains the latest. Atomic undo, restart, broader edit recovery and full-plan acceptance remain open.
+
 ### Stereo saved-marker input mapping and 100-marker capture
 
 Created owned `MCP_Batch_fe73fd13.avb` and applied 100 native markers alternating V1/stereo A1. Native save/reopen verified every requested field; source bin/MP4 hashes remained unchanged. Before/persisted snapshots and events are retained in `native-batch-markers-91656937-1c10-4d04-b644-0c455d3363b5`. The fixture retains its 100 markers for follow-up.

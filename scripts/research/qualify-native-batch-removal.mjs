@@ -1,4 +1,4 @@
-import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -16,16 +16,23 @@ const call=async(tool,args)=>{const response=await client.callTool({name:tool,ar
 const apply=async operation=>call('avid_native_apply',{token:(await call('avid_native_preview',{operation})).token});
 const reopen=async()=>{for(const action of ['close_bin','open_bin'])assert.equal((await apply({action,bin})).binStateVerified,true);};
 const digest=items=>items.map(item=>createHash('sha256').update(JSON.stringify(item)).digest('hex')).sort();
+const snapshots=[];
+const snapshot=async label=>{const source=path.join(project,bin),file=path.join(root,label+'.avb'),sha256=await sha256File(source);await copyFile(source,file,1);assert.equal(await sha256File(file),sha256);assert.equal(await sha256File(source),sha256);snapshots.push({label,file,sha256});await writeFile(path.join(root,'snapshots.json'),JSON.stringify(snapshots,null,2));};
 try{
  const initial=await call('avid_native_read',{query:'markers',bin,mobId});assert.deepEqual(digest(initial),digest(prior.persisted));
+ await snapshot('initial-100');
  const sentinel={guid:randomUUID(),offset:110,track:{type:'TRACKTYPE_PICTURE',number:1},name:'Preserve this marker',comment:'Outside the requested 100-marker removal',color:'Blue'};
  assert.equal((await apply({action:'add_markers',bin,mobId,markers:[sentinel]})).markersVerified,true);
+ await reopen();
  const baseline=await call('avid_native_read',{query:'markers',bin,mobId}),preserved=baseline.filter(marker=>marker.guid===sentinel.guid);assert.equal(preserved.length,1);
+ await snapshot('with-sentinel');
  const removed=await apply({action:'delete_markers',bin,mobId,guids:prior.markers.map(marker=>marker.guid)});assert.equal(removed.markersRemovedVerified,true,JSON.stringify(removed));
  await reopen();const after=await call('avid_native_read',{query:'markers',bin,mobId});assert.deepEqual(after,preserved);
+ await snapshot('sentinel-only');
  const cleanup=await apply({action:'delete_markers',bin,mobId,guids:[sentinel.guid]});assert.equal(cleanup.markersRemovedVerified,true);
  await reopen();const final=await call('avid_native_read',{query:'markers',bin,mobId});assert.deepEqual(final,[]);
+ await snapshot('cleaned');
  assert.deepEqual(await Promise.all(protectedFiles.map(sha256File)),before);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({input,bin,mobId,removedCount:100,unrequestedMarkerPreserved:true,persisted:true,finalMarkerCount:0,sourceAndPriorEvidenceUnchanged:true,removed,after,cleanup,scope:'Explicit 100-marker deletion preserves one outside-request marker across save/reopen, followed by separate sentinel cleanup. No atomicity, restart, cross-build or whole-bin graph restoration claim.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({input,bin,mobId,snapshots,initial,baseline,sentinel,final,removedCount:100,unrequestedMarkerPreserved:true,persisted:true,finalMarkerCount:0,sourceAndPriorEvidenceUnchanged:true,removed,after,cleanup,scope:'Explicit 100-marker deletion preserves one outside-request marker across save/reopen, followed by separate sentinel cleanup. No atomicity, restart, cross-build or whole-bin graph restoration claim.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,removedCount:100,unrequestedMarkerPreserved:true,finalMarkerCount:0,sourceAndPriorEvidenceUnchanged:true}));
 }finally{await client.close();}
