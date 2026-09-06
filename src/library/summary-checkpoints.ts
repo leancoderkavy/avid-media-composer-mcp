@@ -10,14 +10,14 @@ const uuid=z.string().uuid(),sha=z.string().regex(/^[a-f0-9]{64}$/);
 export const summaryNodeSchema=z.object({nodeId:z.string(),start:z.number().nonnegative(),end:z.number().positive(),summary:z.string().max(4000),mayBeTruncated:z.boolean().default(false),children:z.array(z.string()).max(4),sourceIndices:z.array(z.number().int().nonnegative()).max(100000)});
 export type SummaryNode=z.infer<typeof summaryNodeSchema>;
 const checkpoint=z.object({inputHash:sha,node:summaryNodeSchema});
-const header=z.object({recipe:z.literal(1),runId:uuid,parentRunId:uuid.optional(),id:sha,transcriptRevision:uuid,sourceHash:sha,model:z.string(),modelRevision:z.string(),plannedNodes:z.number().int().min(1).max(100),createdAt:z.string()});
+const header=z.object({recipe:z.union([z.literal(1),z.literal(2)]),runId:uuid,parentRunId:uuid.optional(),id:sha,transcriptRevision:uuid,sourceHash:sha,model:z.string(),modelRevision:z.string(),plannedNodes:z.number().int().min(1).max(100),createdAt:z.string()});
 type Header=z.infer<typeof header>;
 async function publish(file:string,value:unknown){const temp=`${file}.${randomUUID()}.tmp`;try{await writeFile(temp,JSON.stringify(value),{flag:"wx",mode:0o600});await link(temp,file);}finally{await unlink(temp).catch(error=>{if(error.code!=="ENOENT")throw error;});}}
 export class SummaryCheckpoints{
   constructor(private config:ServerConfig,private model:string,private modelRevision:string){}
   private async directory(runId:string){uuid.parse(runId);const root=await new MediaLibrary(this.config).directory();return resolveReadablePath(path.join(root,`summary-run-${runId}`),[root],"directory");}
-  async create(input:Pick<Header,"id"|"transcriptRevision"|"sourceHash"|"plannedNodes"|"parentRunId">){
-    const runId=randomUUID(),record=header.parse({...input,recipe:1,runId,model:this.model,modelRevision:this.modelRevision,createdAt:new Date().toISOString()});
+  async create(input:Pick<Header,"id"|"transcriptRevision"|"sourceHash"|"plannedNodes"|"parentRunId">,recipe:1|2=2){
+    const runId=randomUUID(),record=header.parse({...input,recipe,runId,model:this.model,modelRevision:this.modelRevision,createdAt:new Date().toISOString()});
     const root=await new MediaLibrary(this.config).directory(),directory=path.join(root,`summary-run-${runId}.creating`);await mkdir(directory);
     await writeFile(path.join(directory,"manifest.json"),JSON.stringify(record),{flag:"wx",mode:0o600});await rename(directory,path.join(root,`summary-run-${runId}`));return runId;
   }

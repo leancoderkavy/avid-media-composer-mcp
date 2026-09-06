@@ -1,4 +1,5 @@
 import {mkdtemp,writeFile,unlink,readFile} from "node:fs/promises";
+import {createHash} from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,beforeEach} from "vitest";
@@ -17,6 +18,28 @@ async function fixture(){
 it("bounds summary chunks without silently dropping long source segments",()=>{
   const text="a".repeat(5001),chunks=summaryChunks([{start:0,end:1,index:0,text}]);expect(chunks.map(c=>c.text).join("")).toBe(text);expect(chunks).toHaveLength(3);
   expect(()=>summaryChunks([])).toThrow();expect(()=>summaryChunks([{start:0,end:1,index:0,text:"a".repeat(130000)}])).toThrow();
+});
+it("keeps a boundary-crossing decision intact and preserves exact single-segment text",()=>{
+ const prefix='The approved footage remains unchanged. '.repeat(49),decision='Alexandra must remove the roadside interview before the Friday delivery.',text=prefix+decision;
+ const source={start:0,end:10,index:0,text},chunks=summaryChunks([source]);expect(chunks.map(c=>c.text).join('')).toBe(text);expect(chunks.every(c=>c.text.length<=2000)).toBe(true);
+ expect(chunks.some(c=>c.text.includes(decision))).toBe(true);
+ const legacy=summaryChunks([source],1);expect(legacy[0]!.text).toBe(text.slice(0,2000));expect(legacy.some(c=>c.text.includes(decision))).toBe(false);
+});
+it("uses Unicode sentence boundaries and whitespace without splitting surrogate pairs",()=>{
+ for(const text of ['保留原始画面。'.repeat(400),'word '.repeat(1001),'a'.repeat(1999)+'😀'+'b'.repeat(2010)]){
+  const chunks=summaryChunks([{start:0,end:1,index:0,text}]);expect(chunks.map(c=>c.text).join('')).toBe(text);expect(chunks.every(c=>c.text.length<=2000)).toBe(true);
+  expect(chunks.every(c=>!/[\uD800-\uDBFF]$/.test(c.text)&&! /^[\uDC00-\uDFFF]/.test(c.text))).toBe(true);
+ }
+});
+it("resumes a recipe-one checkpoint using the original character boundaries",async()=>{
+ const {id,config,transcript,summaries}=await fixture(),library=new MediaLibrary(config);
+ const {segments}=await library.transcriptRange(id,0,20,-1,100000,transcript.revision),chunks=summaryChunks(segments,1),hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+ let plannedNodes=chunks.length;for(let count=chunks.length;count>1;){count=Math.ceil(count/4);plannedNodes+=count;}
+ const runId=await summaries.checkpoints.create({id,transcriptRevision:transcript.revision,sourceHash:hash(segments),plannedNodes},1);
+ const chunk=chunks[0]!,base={nodeId:'n0',start:Math.min(...chunk.sources.map(s=>s.start)),end:Math.max(...chunk.sources.map(s=>s.end)),children:[],sourceIndices:[...new Set(chunk.sources.map(s=>s.index))]};
+ await summaries.checkpoints.append(runId,0,{inputHash:hash({base,text:chunk.text}),node:{...base,summary:'Retained old summary.',mayBeTruncated:false}});
+ const resumed=await new MediaSummaries(config).resume(runId);expect(resumed.reusedNodes).toBe(1);expect((await summaries.checkpoints.read(resumed.runId)).record.recipe).toBe(1);
+ const fresh=await summaries.generate(id,transcript.revision);expect((await summaries.checkpoints.read(fresh.runId)).record.recipe).toBe(2);
 });
 it("builds a hierarchy with leaf references and refuses changed transcript provenance",async()=>{
   const {id,transcript,summaries}=await fixture();const saved=await summaries.generate(id,transcript.revision),root=await summaries.node(saved.revision);

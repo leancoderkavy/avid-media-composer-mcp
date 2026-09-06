@@ -20,12 +20,24 @@ const hash=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).d
 const nodeSchema=summaryNodeSchema;
 type Node=SummaryNode;
 const recordSchema=z.object({schema:z.literal(1),id:z.string().regex(/^[a-f0-9]{64}$/),transcriptRevision:z.string().uuid(),sourceHash:z.string().regex(/^[a-f0-9]{64}$/),model:z.literal(SUMMARY_MODEL),modelRevision:z.literal(SUMMARY_REVISION),root:z.string(),nodes:z.array(nodeSchema).max(100)});
-export function summaryChunks(segments:Source[]){
+export function summaryChunks(segments:Source[],recipe:1|2=2){
   const chunks:{text:string;sources:Source[]}[]=[];let current={text:"",sources:[] as Source[]};
   for(const segment of segments){
     if(!segment.text.trim())continue;
-    for(let offset=0;offset<segment.text.length;offset+=2000){
-      const text=segment.text.slice(offset,offset+2000);
+    for(let offset=0;offset<segment.text.length;){
+      let end=Math.min(offset+2000,segment.text.length);
+      if(recipe===2&&end<segment.text.length){
+        const candidate=segment.text.slice(offset,end);
+        // Prefer a complete sentence, then whitespace. Preserve every source
+        // character; boundary detection is a heuristic, not a language parser.
+        const sentences=[...candidate.matchAll(/(?:[.!?]["'”’)]*\s+|[。！？]["'”’」)]*\s*)/gu)];
+        const sentence=sentences.at(-1),space=[...candidate.matchAll(/\s+/gu)].at(-1);
+        const boundary=sentence??space;
+        if(boundary)end=offset+boundary.index!+boundary[0].length;
+        // A long unbroken token must still be bounded, but never split UTF-16 pairs.
+        if(end>offset&&/[\uD800-\uDBFF]/.test(segment.text[end-1]!)&&/[\uDC00-\uDFFF]/.test(segment.text[end]!))end--;
+      }
+      const text=segment.text.slice(offset,end);offset=end;
       if(current.text.length+text.length+1>2000&&current.text){chunks.push(current);current={text:"",sources:[]};}
       current.text+=(current.text?" ":"")+text;current.sources.push(segment);
     }
@@ -62,12 +74,13 @@ export class MediaSummaries{
   }
   async generate(id:string,transcriptRevision:string,parentRunId?:string){
     requireCapability(this.config.capabilities,"project-write");
-    const source=await this.source(id,transcriptRevision),chunks=summaryChunks(source.segments);
+    const source=await this.source(id,transcriptRevision);
     const previous=parentRunId?await this.checkpoints.read(parentRunId):undefined;
+    const recipe=previous?.record.recipe??2,chunks=summaryChunks(source.segments,recipe);
     let plannedNodes=chunks.length;for(let count=chunks.length;count>1;){count=Math.ceil(count/4);plannedNodes+=count;}
     if(previous&&(previous.record.id!==id||previous.record.transcriptRevision!==transcriptRevision||previous.record.sourceHash!==source.sourceHash||previous.record.plannedNodes!==plannedNodes))throw new Error("Summary checkpoint transcript or plan changed");
     if(!this.config.modelDirectory)throw new Error("Explicitly download summary models and set AVID_MCP_MODEL_DIR");
-    const runId=await this.checkpoints.create({id,transcriptRevision,sourceHash:source.sourceHash,plannedNodes,parentRunId});
+    const runId=await this.checkpoints.create({id,transcriptRevision,sourceHash:source.sourceHash,plannedNodes,parentRunId},recipe);
     try{
     this.model??=loadSummaryModel(this.config.modelDirectory).catch(error=>{this.model=undefined;throw error;});const model=await this.model;
     const generate=async(text:string)=>{
