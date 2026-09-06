@@ -761,3 +761,8 @@ Reacquired the live Avid UI and recorded accessibility/menu constraints; created
 
 The UI-test copy now has independent AVB graph comparison evidence: sequence semantics and four reachable source records equal the original, with one shared unresolved anchor. Current saved-bin bytes equal the preserved baseline. See NATIVE_UI_EDIT_BASELINE.md. The focused Windows loopback-owner test passed unchanged locally in 14.51 seconds (log: .avid-mcp-analysis/loopback-owner-recheck.log). One failed-job rerun of CI 34018970601 was started on the same 902e3d2 commit; attempt 2 remained running at this checkpoint. No timeout increase or ownership-verification bypass was introduced; the cause of the earlier 30-second PowerShell timeout remains unproven.
 
+
+### Observed UI trim and undo
+
+One dual-roller one-frame trim was performed on the owned copy through computer use, saved, independently decoded, undone and saved again. All three media tracks changed from cut 60 to 61 and incoming source start 3300 to 3301; complete decoded sequence semantics returned to baseline after undo, with other decoded mobs unchanged. See NATIVE_UI_TRIM_QUALIFICATION.md and scripts/research/verify-native-ui-trim.mjs. No shipping UI adapter, post-edit close/reopen or general trim/undo support is claimed. CI 34018970601 attempt 2 passed on unchanged 902e3d2; the first PowerShell ownership-query timeout remains unexplained.
+
