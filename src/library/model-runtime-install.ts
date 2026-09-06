@@ -4,6 +4,7 @@ import {pathToFileURL} from "node:url";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
 import {runProcess} from "../process.js";
+import {AvidMcpError} from "../errors.js";
 import {packageTreeHash} from "../package-lifecycle.js";
 import {readBoundedJson,readBoundedFile} from "../security/bounded-read.js";
 import {resolveReadablePath} from "../security/path-policy.js";
@@ -40,16 +41,25 @@ export async function installModelRuntime(cache:string){
  await mkdir(path.resolve(cache),{recursive:true});const root=await realpath(path.resolve(cache)),runtime=path.join(root,"runtime"),lock=path.join(root,".runtime-install.lock");
  const lockRecord=JSON.stringify({pid:process.pid,operation:randomUUID(),createdAt:new Date().toISOString()});
  try{await writeFile(lock,lockRecord,{flag:"wx",mode:0o600});}catch(error){if((error as NodeJS.ErrnoException).code==="EEXIST")throw new Error("Model runtime setup lock exists; do not infer worker termination from its age. Finish the other setup or use a new cache.");throw error;}
- let staging:string|undefined;
+ let staging:string|undefined,retainLock=false;
+ const setupProcess:typeof runProcess=async(...args)=>{
+  try{return await runProcess(...args);}catch(error){
+   const neverStarted=error instanceof AvidMcpError&&["EXECUTABLE_NOT_FOUND","PROCESS_START_FAILED"].includes(error.code);
+   const tree=error instanceof AvidMcpError?error.details?.treeTermination:undefined;
+   const stopped=typeof tree==="object"&&tree!==null&&"succeeded" in tree&&tree.succeeded===true;
+   if(!neverStarted&&!stopped)retainLock=true;
+   throw error;
+  }
+ };
  try{
   const npmCli=path.join(path.dirname(process.execPath),"node_modules","npm","bin","npm-cli.js");
-  const npm=async(directory:string,args:string[])=>{await access(npmCli);const result=await runProcess(process.execPath,[npmCli,...args],{cwd:directory,timeoutMs:300000,maxOutputBytes:1024*1024});if(result.exitCode!==0)throw new Error(`Model runtime ${args[0]} failed; files retained at ${directory}`);};
+  const npm=async(directory:string,args:string[])=>{await access(npmCli);const result=await setupProcess(process.execPath,[npmCli,...args],{cwd:directory,timeoutMs:300000,maxOutputBytes:1024*1024});if(result.exitCode!==0)throw new Error(`Model runtime ${args[0]} failed; files retained at ${directory}`);};
   const qualify=async(directory:string,legacy:boolean)=>{
    const entry=await basic(directory),before=await packageTreeHash(directory);
    await npm(directory,["audit","--omit=dev","--audit-level=high"]);
    // Import in a child so native DLL handles are closed before directory publication.
    const code=`const m=await import(${JSON.stringify(pathToFileURL(entry).href)}); const t=new m.Tensor("float32",new Float32Array([1,2]),[2]); if(t.dims[0]!==2)throw Error("Runtime tensor check failed");`;
-   const imported=await runProcess(process.execPath,["--input-type=module","-e",code],{cwd:directory,timeoutMs:60000,maxOutputBytes:1024*1024});
+   const imported=await setupProcess(process.execPath,["--input-type=module","-e",code],{cwd:directory,timeoutMs:60000,maxOutputBytes:1024*1024});
    if(imported.exitCode!==0)throw new Error(`Model runtime import failed; files retained at ${directory}`);
    if(await packageTreeHash(directory)!==before)throw new Error("Model runtime changed during qualification; no receipt saved");
    const receipt=receiptSchema.parse({schema:1,kind:"avid-model-runtime",transformers:"4.2.0",treeSha256:before,checkedAt:new Date().toISOString(),nodeVersion:process.versions.node,checks:{scriptsDisabled:!legacy,auditHighPassed:true,importPassed:true},adoptedLegacy:legacy});
@@ -68,6 +78,6 @@ export async function installModelRuntime(cache:string){
   if(await exists(runtime))throw new Error("Runtime destination appeared during installation; staged files retained");
   await rename(staging,runtime);staging=undefined;
   return {...await modelRuntimeStatus(root),reused:false,notices};
- }catch(error){throw new Error(`${(error as Error).message}${staging?"; staging retained at "+staging:""}`);}
- finally{if((await readBoundedFile(lock,16384)).toString("utf8")!==lockRecord)throw new Error("Model runtime setup lock changed; replacement retained");await unlink(lock);}
+ }catch(error){throw new Error(`${(error as Error).message}${staging?"; staging retained at "+staging:""}${retainLock?"; setup lock retained because worker termination is unverified. Use a fresh model cache; do not remove the lock based only on PID or age.":""}`,{cause:error});}
+ finally{if((await readBoundedFile(lock,16384)).toString("utf8")!==lockRecord)throw new Error("Model runtime setup lock changed; replacement retained");if(!retainLock)await unlink(lock);}
 }

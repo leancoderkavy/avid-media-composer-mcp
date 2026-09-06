@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Retain installer locks when subprocess closure is uncertain
+
+Full local check passed: 573 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-runtime-uncertain-lock.log`). Real pre-npm lock/staging crash tests also passed against the new build: `.avid-mcp-analysis/runtime-setup-crash-9af9d1e7-faa8-4dfc-9f0d-73f27ed0662b/evidence.json`.
+
+Install/audit/import exceptions without successful tree-termination evidence now retain the cache lock and explain the recovery boundary. Errors preserve their cause. Tests cover each stage, missing/failed evidence, contender refusal, and release after no-start or successful-termination outcomes. This addresses lock release after reported termination uncertainty; abrupt-owner containment and normal-exit descendants remain open. See MODEL_RUNTIME_QUALIFICATION.md.
+
 ### Runner-owner crash and detached writers
 
 Actual owner-SIGKILL research found a detached Node worker continued heartbeat writes after the production runner's owner closed; a direct worker did not. Both workers stopped cooperatively and PID absence was verified. See PROCESS_TREE_QUALIFICATION.md and `qualify-process-owner-crash.mjs`. This demonstrates that dead installer PID alone cannot authorize stale-lock/staging recovery. Timeout tree termination remains distinct from abrupt-owner containment; automatic recovery and actual npm-child qualification remain open. No production code changed.

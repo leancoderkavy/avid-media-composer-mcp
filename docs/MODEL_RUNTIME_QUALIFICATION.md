@@ -1,5 +1,11 @@
 # Optional runtime installation and offline inference qualification
 
+## Uncertain subprocess termination
+
+Setup retains its exclusive cache lock if an install, audit or import subprocess throws without successful tree-termination evidence. The error retains its original cause and explains that another cache is required; lock age or owner PID alone does not authorize removal. Missing-executable/start failures and explicit successful tree termination allow the ordinary ownership-checked lock release. Returned nonzero exit statuses keep their existing behavior; this change does not establish descendant closure for normal process exits.
+
+Regression tests inject uncertain failures at all three subprocess stages, verify lock preservation and refusal of a second installer, and cover absent/failed tree evidence, successful termination and failures before launch. These are controlled error-path tests, distinct from the real detached-worker counterexample in PROCESS_TREE_QUALIFICATION.md. Abrupt-owner containment, automatic recovery and arbitrary surviving writers remain open.
+
 ## Setup owner interruption before npm
 
 `scripts/research/qualify-runtime-setup-crash.mjs` invokes the production installer in child processes and pauses after completed exclusive lock creation or completed staging-manifest creation. The parent confirms that the recorded PID is the child, observes a competing install refusal while it is alive, kills that exact process, awaits its close event, and checks another install refusal. Both barriers retained identical lock bytes, published no runtime, and preserved the expected staging contents. Evidence: `.avid-mcp-analysis/runtime-setup-crash-6c34cb1d-0695-47dc-b112-4369cfd45364/evidence.json`; both children closed with SIGKILL.

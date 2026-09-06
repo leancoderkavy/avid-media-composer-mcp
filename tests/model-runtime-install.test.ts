@@ -4,6 +4,7 @@ import os from "node:os";
 import {it,expect,vi,beforeEach} from "vitest";
 import {installModelRuntime,modelRuntimeStatus,runtimeManifest,publishRuntimeReceipt} from "../src/library/model-runtime-install.js";
 import {runtimeNoticePackages} from "../src/library/runtime-notices.js";
+import {AvidMcpError} from "../src/errors.js";
 const runner=vi.hoisted(()=>vi.fn());
 const receiptFault=vi.hoisted(()=>({fail:false,collision:false,collisionPath:''}));
 vi.mock("node:fs/promises",async importOriginal=>{
@@ -66,4 +67,25 @@ it("preserves an existing setup lock and rejects unexpected runtime manifests",a
 it("retains a replacement setup lock if an outside writer changes it",async()=>{
  const root=await fixture();runner.mockImplementation(async()=>{await writeFile(path.join(root,".runtime-install.lock"),"replacement owner");return {exitCode:1,stdout:"",stderr:"stop"};});
  await expect(installModelRuntime(root)).rejects.toThrow("lock changed");expect(await readFile(path.join(root,".runtime-install.lock"),"utf8")).toBe("replacement owner");
+});
+
+it.each(['install','audit','import'])("retains the lock after uncertain %s worker termination",async phase=>{
+ const root=await fixture();
+ runner.mockImplementation(async(_command,args,options)=>{
+  if(args[1]==='install')await populate(options.cwd);
+  if((phase==='import'&&args[0]==='--input-type=module')||args[1]===phase)throw new AvidMcpError('PROCESS_TIMEOUT','fixture timeout',{treeTermination:{succeeded:false}});
+  return {exitCode:0,stdout:'',stderr:''};
+ });
+ await expect(installModelRuntime(root)).rejects.toThrow('setup lock retained');
+ const file=path.join(root,'.runtime-install.lock'),bytes=await readFile(file,'utf8');expect(JSON.parse(bytes).pid).toBe(process.pid);
+ const calls=runner.mock.calls.length;await expect(installModelRuntime(root)).rejects.toThrow('lock exists');expect(runner).toHaveBeenCalledTimes(calls);expect(await readFile(file,'utf8')).toBe(bytes);
+ await expect(access(path.join(root,'runtime'))).rejects.toThrow();
+});
+it.each([undefined,{succeeded:false}])('retains locks when tree closure evidence is missing or unsuccessful (%j)',async treeTermination=>{
+ const root=await fixture();runner.mockRejectedValue(new AvidMcpError('PROCESS_OUTPUT_LIMIT','fixture overflow',{treeTermination}));
+ await expect(installModelRuntime(root)).rejects.toThrow('setup lock retained');await access(path.join(root,'.runtime-install.lock'));
+});
+it.each(['EXECUTABLE_NOT_FOUND','PROCESS_START_FAILED','terminated'])('releases locks when the process never started or tree termination succeeded (%s)',async kind=>{
+ const root=await fixture();runner.mockRejectedValue(new AvidMcpError(kind==='terminated'?'PROCESS_TIMEOUT':kind,'fixture failure',kind==='terminated'?{treeTermination:{succeeded:true}}:undefined));
+ await expect(installModelRuntime(root)).rejects.toThrow('fixture failure');await expect(access(path.join(root,'.runtime-install.lock'))).rejects.toThrow();
 });
