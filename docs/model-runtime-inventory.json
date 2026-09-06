@@ -1,0 +1,1702 @@
+{
+  "checkedAt": "2026-09-06T08:58:41.825Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "treeSha256": "d5a5b75a002b5394092af3a6b95078b81e31721295e825e9b1b0c9c285a18553",
+  "lockSha256": "5552eb570890f344b231e5407df5de351ac01300402bd93fe620c139d9433c26",
+  "packages": [
+    {
+      "location": "node_modules/@huggingface/jinja",
+      "name": "@huggingface/jinja",
+      "version": "0.5.10",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/huggingface/huggingface.js.git",
+      "manifestSha256": "56e8711f84653dc2c42baeefda647fd2d15e71f9af859f635517c84749cc121c",
+      "integrity": "sha512-SgS1D1bglQ94ceD4ZCL6eayUDy9uV1xuyk61OjgSxU5GJh7upqZCKII0JoTYMc6wWsg3JUgaPRX0ElQzXPk3Cw==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1069,
+          "sha256": "d6e7b19451c1b3d1d66353bb4b1274138953b3bfd9ae60c56e77b1f548796982"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2844,
+          "sha256": "b29fc242299a8564edba1f93c27382ca6580d662b5d4473d866e9047a3afedc2"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@huggingface/tokenizers",
+      "name": "@huggingface/tokenizers",
+      "version": "0.1.3",
+      "declaredLicense": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/huggingface/tokenizers.js.git"
+      },
+      "manifestSha256": "2e5425540a964ccbc721566f0e066772c4be7339a4663d9f33c3b04be4d2daaf",
+      "integrity": "sha512-8rF/RRT10u+kn7YuUbUg0OF30K8rjTc78aHpxT+qJ1uWSqxT1MHi8+9ltwYfkFYJzT/oS+qw3JVfHtNMGAdqyA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 3271,
+          "sha256": "7ba0ba226d1f5118c8b1fff1d477112a623bcf19532d87572f802d73e0e1eb92"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@huggingface/transformers",
+      "name": "@huggingface/transformers",
+      "version": "4.2.0",
+      "declaredLicense": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/huggingface/transformers.js.git"
+      },
+      "manifestSha256": "9cf12901d934e5a0628c6f163484abade392ab2d3b369d458ed3dfdeaa7f9a39",
+      "integrity": "sha512-8BRCoBMH0XsWaEIamuR0LrJGAfftgHAfb2Vrffy0VKlSAE/MnUJ5/h/zTfEP3fDIft+nk7TqB8xXEyABGitBjQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 108789,
+          "sha256": "229e67426dd3ba38e96dbbd21326d3c2d8a764a265c1cb3dbf884dce4bf0c657"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@img/colour",
+      "name": "@img/colour",
+      "version": "1.1.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/lovell/colour.git"
+      },
+      "manifestSha256": "bc38c5097693ed53b91c32f35fb0a52569736c7854ba2eb6d080f3252071f75c",
+      "integrity": "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==",
+      "notices": [
+        {
+          "file": "LICENSE.md",
+          "bytes": 4433,
+          "sha256": "e2eaa4603c14cb26f301e88648c12a853fa3f0f5da6d4b0972958c666e7f2ab8"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 562,
+          "sha256": "be7edf3bc6467f761168cef3bb2b9b3def2532c98a86249848376ea00338ad1d"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@img/sharp-win32-x64",
+      "name": "@img/sharp-win32-x64",
+      "version": "0.35.4",
+      "declaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/lovell/sharp.git",
+        "directory": "npm/win32-x64"
+      },
+      "manifestSha256": "b4fc98ec709b31a80e8450259c3d5ed2fc1e2b8f8355ced4bfd4d75db45f8a87",
+      "integrity": "sha512-XtmnYhBcrORsJ4XJngyzr/EWP0hRZLAZRFaApdKuviyqF78+ylxh2y06ZmtULAMOnObJ3ucpN0AcwSWnMowTRg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 10464,
+          "sha256": "dc1f5d2d43c5531dfe0acaf4e950ea5dbe3e61e1850cf0e983bda7efc10d6693"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 4913,
+          "sha256": "280e7d164420cfc1a1b192a582bf53e3dba97b86a5c3575f878b674ad1d41e13"
+        }
+      ],
+      "nativeFiles": [
+        {
+          "file": "lib/libvips-42.dll",
+          "bytes": 18614784,
+          "sha256": "e6cc51bbc763e7deda536c6f56ce96b4c51ea769690ce4f4ed07607527b81dae"
+        },
+        {
+          "file": "lib/libvips-cpp-8.18.6.dll",
+          "bytes": 333312,
+          "sha256": "4f458afdb7b8a4290dbda3f287d7db037b239b8a9d21f0b87333f92192cdee76"
+        },
+        {
+          "file": "lib/sharp-win32-x64-0.35.4.node",
+          "bytes": 442368,
+          "sha256": "d5347c1c88194ea56164e5e420de4628da5f07ce0f220795c875147630e0657c"
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@protobufjs/aspromise",
+      "name": "@protobufjs/aspromise",
+      "version": "1.1.2",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "4a39ee1c94f6ee038d2944196aa6167785d3429a91727f828a1274262919e2d8",
+      "integrity": "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 464,
+          "sha256": "d80d899f76457f3cc2894a90ec4561048700b18db7f49309506f383c2ef473b4"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/base64",
+      "name": "@protobufjs/base64",
+      "version": "1.1.2",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "7ff6a89f566b95c0f21a5a9cb12df5718f0b06ef96d4186a92d650c0849fa2c5",
+      "integrity": "sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 705,
+          "sha256": "c915511101994f0c6eb0e31a1d545cf67f634e4c9bc9954ab6e4f1482bf5d325"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/codegen",
+      "name": "@protobufjs/codegen",
+      "version": "2.0.5",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "818bf10387c19ab09b3814004ec672ab8d975302cdaf2dd65466bdb604764d65",
+      "integrity": "sha512-zgXFLzW3Ap33e6d0Wlj4MGIm6Ce8O89n/apUaGNB/jx+hw+ruWEp7EwGUshdLKVRCxZW12fp9r40E1mQrf/34g==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 1872,
+          "sha256": "92c3783b6b643305a6076ddc3028627a2bc05956cd1299bc6501c8629f919b14"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/eventemitter",
+      "name": "@protobufjs/eventemitter",
+      "version": "1.1.1",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "d157d364fe4aee21cfd517abff35bca312ff51e6e6e90abdbec16225057e5914",
+      "integrity": "sha512-vW1GmwMZNnL+gMRaovlh9yZX74kc+TTU3FObkkurpMaRtBfLP3ldjS9KQWlwZgraRE0+dheEEoAxdzcJQ8eXZg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 822,
+          "sha256": "6970520ffb8ecfef897d175b3ce7d4e910d79f2ea477f86593ada4c4957a7cea"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/fetch",
+      "name": "@protobufjs/fetch",
+      "version": "1.1.1",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "52f997898a745acce5d68751883aad6296bcc2f152468ced0ed30e3c3c5a1c72",
+      "integrity": "sha512-GpptLrs57adMSuHi3VNj0mAF8dwh36LMaYF6XyJ6JMWlVsc+t42tm1HSEDmOs3A8fC9yyeisgLhsTVQokOZ0zw==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 505,
+          "sha256": "a3c2f831df56887178f90e0515570379eea141932b8c127e8ef6e99a5f908be5"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/float",
+      "name": "@protobufjs/float",
+      "version": "1.0.2",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "1cae4ded1bc97375a67fe4608f87ee59990734ea738fabb98e9061ab23669cdf",
+      "integrity": "sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 4144,
+          "sha256": "75d230cbc4c17ccf835f0df74d1b45898386934d8d2dcec4c4724cdacaf8e615"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/path",
+      "name": "@protobufjs/path",
+      "version": "1.1.2",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "b19802dd696ceb8a4aa4839f35ab1c8312e97693d93485ff3c3e4f19cca183c4",
+      "integrity": "sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 700,
+          "sha256": "ee41806ba92022a937acbe2f4849b6edc74ebd686013152348e369d88bd29b07"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/pool",
+      "name": "@protobufjs/pool",
+      "version": "1.1.0",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/protobuf.js.git"
+      },
+      "manifestSha256": "7a33b609e770020fe1e09690cfebc23bbdd6e1306e3f0dd98ba5048966cb7fec",
+      "integrity": "sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 510,
+          "sha256": "304727d5b3effd64b7d19f7cfe6ca80e2aa78b885e0a794e1a15bc2754e3615f"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@protobufjs/utf8",
+      "name": "@protobufjs/utf8",
+      "version": "1.1.2",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/protobufjs/protobuf.js.git"
+      },
+      "manifestSha256": "80fdb6b9f633023846b6cdf352ea795523abcf27affd4d54afd4b50a90a87411",
+      "integrity": "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1505,
+          "sha256": "a67b34a24a5daddcce46aea68c5004e4442bbfb63690329fa607bf4de4269794"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 649,
+          "sha256": "a7641106dcda7adcb1e5210486837b21d58f09fc472480da920c95e1ce576d7e"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/@types/node",
+      "name": "@types/node",
+      "version": "26.4.1",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/node"
+      },
+      "manifestSha256": "b64e68cb9b516667bd7cc8fa37a8cb296e4dbcded9e1776636b31b616bfe8b4f",
+      "integrity": "sha512-k97ENvZWtvA6yqz5/FS6a7duDgOPEeOQOc2iKS/nY6mX6qJUKtLnWzQS+Xj6tXweyj6ZcTAK2Qecetnvi9nCLA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1141,
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 1582,
+          "sha256": "4ab3d0fdb134c9b14f787caff22e8bbf6a20b8d6362f50bc3813020731c62f96"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/adm-zip",
+      "name": "adm-zip",
+      "version": "0.6.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/cthackers/adm-zip.git"
+      },
+      "manifestSha256": "76a6fc3e9bf811c9ada1173b7a7c0621d36329c29c221428f46f75762d3aeb5a",
+      "integrity": "sha512-XleryMhbuksdKtofnWZ9Sk+4CUTbms4Mb/EU32SZwToAyZ5RgVos/ki8n+yr0LWHOGKuakbXTuuYNHLQjhddgg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1106,
+          "sha256": "6bb5b2d4c07d793ca928daa63a8899c6914fafb5ac3aa04ec10cae07f3d57dca"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2894,
+          "sha256": "9d05e156889b1475cdee97a13ed84a4abee0d752b2aaa28ded5359fcf45df901"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/boolean",
+      "name": "boolean",
+      "version": "3.2.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/thenativeweb/boolean.git"
+      },
+      "manifestSha256": "f26aa6de8c4a97ae841e579868cf9541b2d49ea043882c8020db9bb69550ec85",
+      "integrity": "sha512-d0II/GO9uf9lfUHH2BQsjxzRJZBdsjgsBiW4BvhWk/3qoKwQFjIDVN19PfX8F2D/r9PCMTtLWjYVCFrpeYUzsw==",
+      "notices": [
+        {
+          "file": "LICENSE.txt",
+          "bytes": 1086,
+          "sha256": "8e4aa1aef825c37d6f74d4b867dccb7b059b66c75ecdedc74834e2f403568a27"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 3450,
+          "sha256": "15aae6695a8b94c2f1af883672852017a69b3efa54018c26f82c813f1bf16c20"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/define-data-property",
+      "name": "define-data-property",
+      "version": "1.1.4",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/define-data-property.git"
+      },
+      "manifestSha256": "bde7f1465b344a24da2b10d2ee99f87edf8e0ecd177c28370b60ad9595de730e",
+      "integrity": "sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1071,
+          "sha256": "b41d08bc3624d8c436fc80237d73ebb361985a67f4504bbcd703e5ca2b27254c"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2431,
+          "sha256": "72ddfa32f732f61479cfb34852cb0f57162bc3037a97bf812c4e42679b3ff0b9"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/define-properties",
+      "name": "define-properties",
+      "version": "1.2.1",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/ljharb/define-properties.git"
+      },
+      "manifestSha256": "b61b15058833610f17197bfb60847926703e077b180de684ccc50866906f6fb1",
+      "integrity": "sha512-8QmQKqEASLd5nx0U1B1okLElbUuuttJ/AnYmRXbbbGDWh6uS208EjD4Xqq/I9wK7u0v6O08XhTWnt5XtEbR6Dg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1080,
+          "sha256": "00d402c2bbe7c67369bd01ce2c16b8ed46ccc949a1ee2d6bb8f9606afa8c7434"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2824,
+          "sha256": "c815695443811b1d5265a37e9415a62f120c2cfe12609afe5ceb5982a9a3ea13"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/detect-libc",
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "declaredLicense": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/lovell/detect-libc.git"
+      },
+      "manifestSha256": "ee88e5b954fdf3a8480b1d01ef767d68d8ca2c6da269f58c5cf1c5550e9aa2a7",
+      "integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 11357,
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 3215,
+          "sha256": "51a97449c443889155bc872522e6de5a91a5fa73edeffa03d749e186bf0eebca"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/detect-node",
+      "name": "detect-node",
+      "version": "2.1.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/iliakan/detect-node"
+      },
+      "manifestSha256": "5e6042de425ce3c1057543ea5dd449d83b87736ba39a2b265376b9b85b2423a7",
+      "integrity": "sha512-T0NIuQpnTvFDATNuHN5roPwSBG83rFsuO+MXXH9/3N1eFbn4wcPjttvjMLEPWJ0RGUYgQE7cGgS3tNxbqCGM7g==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1068,
+          "sha256": "54b32293ea560d22cd9b62af9b2cda1a030d910a48c6601d227c5ff2338d95f8"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "Readme.md",
+          "bytes": 691,
+          "sha256": "7a6c7862ecbd1eacc3bca388d4aaa93a6fe03deeaf2acf4522eaff0405e96e0c"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/es-define-property",
+      "name": "es-define-property",
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/es-define-property.git"
+      },
+      "manifestSha256": "3a2cb30dae30a96705dcd9aa2d5fb190cf8200f27badccfa5a81a4374e5708b4",
+      "integrity": "sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1071,
+          "sha256": "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2056,
+          "sha256": "5ce564bb53fafd87b543f144e04955d128199205cf07bff442f3b875ca90d422"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/es-errors",
+      "name": "es-errors",
+      "version": "1.3.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/es-errors.git"
+      },
+      "manifestSha256": "1a0a0bcccc76b915cb64073317312840cf6363e9144b96f406d0059774dd5278",
+      "integrity": "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1071,
+          "sha256": "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2114,
+          "sha256": "176ec91db928c929508abf9917ebc35dd66e5ea1a989ac3e7ab290496d32c0d6"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/es6-error",
+      "name": "es6-error",
+      "version": "4.1.1",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/bjyoungblood/es6-error.git"
+      },
+      "manifestSha256": "981c98231b3af16d67de31cbbe0e9910d8a5bd01ce57ff5c9662937fdac9af88",
+      "integrity": "sha512-Um/+FxMr9CISWh0bi5Zv0iOD+4cFh5qLeks1qhAopKVAJw3drgKbKySikp7wGhDL0HPeaja0P5ULZrxLkniUVg==",
+      "notices": [
+        {
+          "file": "LICENSE.md",
+          "bytes": 1081,
+          "sha256": "9f655c5baa5a6f254d1e87f27e14d04acaff4bd0b489ea3c2f33723919da2f44"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 1463,
+          "sha256": "1d6bff2e2808f013980920fb283e190d0966016aa373492f286eb59220892686"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/escape-string-regexp",
+      "name": "escape-string-regexp",
+      "version": "4.0.0",
+      "declaredLicense": "MIT",
+      "repository": "sindresorhus/escape-string-regexp",
+      "manifestSha256": "63763f28aefa6c49e6e6599e44b7c9aa5afd6518ae04bcfa534ff3759ad428e8",
+      "integrity": "sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==",
+      "notices": [
+        {
+          "file": "license",
+          "bytes": 1117,
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "readme.md",
+          "bytes": 1059,
+          "sha256": "6c8f2d8a0936f0ec24fb52d64ae2eb7a7037a06ed7d957232d00f022d596812b"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/flatbuffers",
+      "name": "flatbuffers",
+      "version": "25.9.23",
+      "declaredLicense": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/google/flatbuffers.git"
+      },
+      "manifestSha256": "dfdf01a6e56de4400a5722b8e98719cee60f55f7ff306e48fe92487ac51022ae",
+      "integrity": "sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 4869,
+          "sha256": "d115f4f7b2bf994d8195a24206ddfab86bc1fc0ede813a9683a0818befd9a11c"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/global-agent",
+      "name": "global-agent",
+      "version": "3.0.0",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/gajus/global-agent"
+      },
+      "manifestSha256": "38c6974657d21f089ba9b9f36a7fe39f0cac3409a6e86c08959b370e40ae9cb1",
+      "integrity": "sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1529,
+          "sha256": "ba98e94118579117505f6f11fd9a4354c5e65ece03b4898d8b8f7785efcd25c1"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 10710,
+          "sha256": "f07381ec4c0763fa955ed4292239b38f36e7017a9f7d1d92bc7637f70108d4e2"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/globalthis",
+      "name": "globalthis",
+      "version": "1.0.4",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/ljharb/System.global.git"
+      },
+      "manifestSha256": "b0417292023b26946ddbfef45cba32974b744fd65297d37367a97649210493cb",
+      "integrity": "sha512-DpLKbNU4WylpxJykQujfCcwYWiV/Jhm50Goo0wrVILAv5jOr9d+H+UR3PhSCD2rCCEIg0uc+G+muBTwD54JhDQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1081,
+          "sha256": "acfaf437865d82f0fa9b9cdcae8b550bed8d011adaa5b42d973191caf99f62a8"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2716,
+          "sha256": "6eba9e109a6a14b36352a33adaf8eeaa037a836650c7649414d8f6edc1d7840a"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/gopd",
+      "name": "gopd",
+      "version": "1.2.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/gopd.git"
+      },
+      "manifestSha256": "33ace32dc861f6da9d1fd9d0a44c66e8c6ff3b13358d070683c1c2978ff5f19f",
+      "integrity": "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1071,
+          "sha256": "d90bf0a089da4cf43d644ed240a0b3825dcdb705e64e38371d56995a4cc9e4c5"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 1562,
+          "sha256": "a5adda11eb1b5c4a225289ccc2e1f01bdc27e1635b85039ad327ec37082ad3d4"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/guid-typescript",
+      "name": "guid-typescript",
+      "version": "1.0.9",
+      "declaredLicense": "ISC",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/NicolasDeveloper/guid-typescript"
+      },
+      "manifestSha256": "ed86856ee95fe87eadd8552b6803a85b7fb4f6cce08603bf9c8385972b5badb6",
+      "integrity": "sha512-Y8T4vYhEfwJOTbouREvG+3XDsjr8E3kIr7uf+JZ0BYloFsttiHU0WfvANVsR7TxNUJa/WpCnw/Ino/p+DeBhBQ==",
+      "notices": [],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 1195,
+          "sha256": "6d9ba5789364c666984b657f56dc2343ad9ab8c93d0894b66be7a8ba4f51b8d8"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/has-property-descriptors",
+      "name": "has-property-descriptors",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/inspect-js/has-property-descriptors.git"
+      },
+      "manifestSha256": "59a91e2cf32e4303d248708999a9ec3afd8e3649a87ba7abcf2177dc1984e3d5",
+      "integrity": "sha512-55JNKuIW+vq4Ke1BjOTjM2YctQIvCT7GFzHwmfZPGo5wnrgkid0YQtnAleFSqumZm4az3n2BS+erby5ipJdgrg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1067,
+          "sha256": "0f0ca96f50793990031ebc488a38f7292ff70bce8ab6a8e5eeda674abc32ccdf"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2206,
+          "sha256": "948751362d23b03b9a2fcefc39f6b6f379f7a2b79b25deaf21cbe0512131cff0"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/json-stringify-safe",
+      "name": "json-stringify-safe",
+      "version": "5.0.1",
+      "declaredLicense": "ISC",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/isaacs/json-stringify-safe"
+      },
+      "manifestSha256": "6622222846385e97eccb23d565553009037ee5e185392361f9677b58cdf29bf3",
+      "integrity": "sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 765,
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 1261,
+          "sha256": "5155feb3756676087a364203a3a64d6118598f875482732c94077f3b55dd2324"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/long",
+      "name": "long",
+      "version": "5.3.2",
+      "declaredLicense": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/dcodeIO/long.js.git"
+      },
+      "manifestSha256": "982e554a35d140981c7962fbba77855563e5890de200f8dc0a249135e4d9acb8",
+      "integrity": "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 11124,
+          "sha256": "0f8d18d81099b6d07cf2b533b682827d8c4334c91ec76241adba0dd6fd5da2a8"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/matcher",
+      "name": "matcher",
+      "version": "3.0.0",
+      "declaredLicense": "MIT",
+      "repository": "sindresorhus/matcher",
+      "manifestSha256": "6f835fb6d2fb8e50356ee604d2fb2eda6d7227575d7d172d8bf2636fd7176cf3",
+      "integrity": "sha512-OkeDaAZ/bQCxeFAozM55PKcKU0yJMPGifLwV4Qgjitu+5MoAfSQN4lsLJeXZ1b8w0x+/Emda6MZgXS1jvsapng==",
+      "notices": [
+        {
+          "file": "license",
+          "bytes": 1117,
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "readme.md",
+          "bytes": 2814,
+          "sha256": "dd7549b120b7d92f9cc12e4c6e068f6fba06dc9bea48e2e45206d8ad39963691"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/object-keys",
+      "name": "object-keys",
+      "version": "1.1.1",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/ljharb/object-keys.git"
+      },
+      "manifestSha256": "60128330481888bf0e83a713699bee6668c5948821ef06106d8c9613b6081b45",
+      "integrity": "sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1080,
+          "sha256": "5640e5cbe2e9f57f6ccfdd8dbfbeadb875495bdbcb69d2666ce3177ccd0942e4"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2460,
+          "sha256": "fc894570536f2623e395fd319e3df738837323649ea2e2d430f8e6b96431e6a1"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/onnxruntime-common",
+      "name": "onnxruntime-common",
+      "version": "1.24.3",
+      "declaredLicense": "MIT",
+      "repository": {
+        "url": "https://github.com/Microsoft/onnxruntime.git",
+        "type": "git"
+      },
+      "manifestSha256": "03cd7020d914b59c0a4fef7e9d566565cca8f77f80392418aa08b02903151745",
+      "integrity": "sha512-GeuPZO6U/LBJXvwdaqHbuUmoXiEdeCjWi/EG7Y1HNnDwJYuk6WUbNXpF6luSUY8yASul3cmUlLGrCCL1ZgVXqA==",
+      "notices": [],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 497,
+          "sha256": "3081e0b29169cf9b34f94bae12302d659fca817d7eae3bdcac4261d7301853ff"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/onnxruntime-node",
+      "name": "onnxruntime-node",
+      "version": "1.24.3",
+      "declaredLicense": "MIT",
+      "repository": {
+        "url": "https://github.com/Microsoft/onnxruntime.git",
+        "type": "git"
+      },
+      "manifestSha256": "30510b52b3ba218598fd66d9e958ee1540a259ab474de5fc85365be25767094c",
+      "integrity": "sha512-JH7+czbc8ALA819vlTgcV+Q214/+VjGeBHDjX81+ZCD0PCVCIFGFNtT0V4sXG/1JXypKPgScQcB3ij/hk3YnTg==",
+      "notices": [],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 3030,
+          "sha256": "c2b487948c9aed0a5ca8ef7717d78cbc81cfb65e5697d2ad6e2b7bd6fa8bc91b"
+        }
+      ],
+      "nativeFiles": [
+        {
+          "file": "bin/napi-v6/darwin/arm64/libonnxruntime.1.24.3.dylib",
+          "bytes": 35937208,
+          "sha256": "76831409ce6eded92b4cb343cf422c458a60c1ea1d5f3cfa69692ab7fcc67f0f"
+        },
+        {
+          "file": "bin/napi-v6/darwin/arm64/onnxruntime_binding.node",
+          "bytes": 266152,
+          "sha256": "ffa33e57e56799a89ff4986ae579ca0de0be81867c5e3219ac9fdb0f7d1bbd89"
+        },
+        {
+          "file": "bin/napi-v6/linux/arm64/libonnxruntime.so.1",
+          "bytes": 18625376,
+          "sha256": "33032cb5b91c12edbf028d7c69fa40a31848d66c0095448758af237d5e0b07db"
+        },
+        {
+          "file": "bin/napi-v6/linux/arm64/onnxruntime_binding.node",
+          "bytes": 394600,
+          "sha256": "39c8f903505611115a62d8527b2c2df4bb5e27a35cfd81d1f2082eeb59518a4e"
+        },
+        {
+          "file": "bin/napi-v6/linux/x64/libonnxruntime.so.1",
+          "bytes": 35164376,
+          "sha256": "92ba8e44d31b80a34f5e805076a044122c3be1fffe0d88ed790de7267b0b2682"
+        },
+        {
+          "file": "bin/napi-v6/linux/x64/onnxruntime_binding.node",
+          "bytes": 384040,
+          "sha256": "a7191fbfe8045d4d5d312e5ecd8f5dd6970e804dd340c98be8a0af8daf7908cc"
+        },
+        {
+          "file": "bin/napi-v6/win32/arm64/DirectML.dll",
+          "bytes": 18444824,
+          "sha256": "0faa19e9cfa7cbbf2bb679ba5313d81ebbcd4c96d1c78200efd7752c7d01503e"
+        },
+        {
+          "file": "bin/napi-v6/win32/arm64/dxcompiler.dll",
+          "bytes": 22285856,
+          "sha256": "8a45654cd1314c5f98c3657f567088ee77dc9cc89e402147843885028fde3748"
+        },
+        {
+          "file": "bin/napi-v6/win32/arm64/dxil.dll",
+          "bytes": 1770056,
+          "sha256": "cc8a8b8b87e3bbdeaa3a04148e83447df5f4750749261c4566fab34a63333f40"
+        },
+        {
+          "file": "bin/napi-v6/win32/arm64/onnxruntime.dll",
+          "bytes": 24420896,
+          "sha256": "65dd5f706f8dd42ce96f6358ef3180c3c30f390022de00b75ada6f498ba4cce1"
+        },
+        {
+          "file": "bin/napi-v6/win32/arm64/onnxruntime_binding.node",
+          "bytes": 420384,
+          "sha256": "be69cf9fd7ffe90da4543bd2078ef2f2d4ba7f62273948095fbf5b98ba4b240b"
+        },
+        {
+          "file": "bin/napi-v6/win32/x64/DirectML.dll",
+          "bytes": 18527776,
+          "sha256": "aba1999d6f7af246fc032105a6498722eb4af8a70f04c7441b7608e17deec72f"
+        },
+        {
+          "file": "bin/napi-v6/win32/x64/dxcompiler.dll",
+          "bytes": 17986624,
+          "sha256": "2ba00fb846bf7be9df3fbe38cfadbf2d9556a7f505ec68daad522056b97fcae0"
+        },
+        {
+          "file": "bin/napi-v6/win32/x64/dxil.dll",
+          "bytes": 1508888,
+          "sha256": "75fdc30995155ba5ea8383fee0d7d3d39577f27da61f53bf4eb9aa4e3e212640"
+        },
+        {
+          "file": "bin/napi-v6/win32/x64/onnxruntime.dll",
+          "bytes": 23850016,
+          "sha256": "4bc168111012971ae1ffef36c1f29c06b026d17e9063bd17f6390359fbe32a84"
+        },
+        {
+          "file": "bin/napi-v6/win32/x64/onnxruntime_binding.node",
+          "bytes": 298016,
+          "sha256": "32a61411861578b3e0988e669e9d9a474cc1436369269df0a4e23765cbe9e75a"
+        }
+      ]
+    },
+    {
+      "location": "node_modules/onnxruntime-web",
+      "name": "onnxruntime-web",
+      "version": "1.26.0-dev.20260416-b7804b056c",
+      "declaredLicense": "MIT",
+      "repository": {
+        "url": "https://github.com/Microsoft/onnxruntime.git",
+        "type": "git"
+      },
+      "manifestSha256": "b3b0454e7d814894a8bd341b97a3753b9557332e75f8346dc449a643ce47ac46",
+      "integrity": "sha512-MD6Ss4GSpQBo6zqoJzyT9LRbKYs7x/JVN23FT24EcEvlqF4VuzPOeH6X38orZPKHQDbprn7K+SBpu0/mj2CQiw==",
+      "notices": [],
+      "readmes": [
+        {
+          "file": "lib/onnxjs/ort-schema/flatbuffers/README.md",
+          "bytes": 1175,
+          "sha256": "174f619a8539de086f31f8547fb26a6b0b25c495f5bae80540f94d36372d7ee6"
+        },
+        {
+          "file": "lib/onnxjs/ort-schema/protobuf/README.md",
+          "bytes": 749,
+          "sha256": "354bcfc19fe43e06de2c51b94a409fe94e5226b35fd68fc3a3d6214c2935e1f1"
+        },
+        {
+          "file": "README.md",
+          "bytes": 5284,
+          "sha256": "3089f92ffb02d63365f05d870df5c6ac9bbaed096943b5b4fe55afd9b7a624f8"
+        }
+      ],
+      "nativeFiles": [
+        {
+          "file": "dist/ort-wasm-simd-threaded.asyncify.wasm",
+          "bytes": 23567050,
+          "sha256": "e0c0c6d3e73d43b8a249972f8358f845b08cc16fec3c80efafdf8bed40366786"
+        },
+        {
+          "file": "dist/ort-wasm-simd-threaded.jsep.wasm",
+          "bytes": 26101073,
+          "sha256": "ae61141f8fbf0a4e43fd7b4f4d40a1a115627f6facc4f33ddf84074a655e33ea"
+        },
+        {
+          "file": "dist/ort-wasm-simd-threaded.jspi.wasm",
+          "bytes": 14555814,
+          "sha256": "61ee6e49e16e8989a7b889524c4403aa1ed79bcf3e04d5af2318477558d598f4"
+        },
+        {
+          "file": "dist/ort-wasm-simd-threaded.wasm",
+          "bytes": 12942611,
+          "sha256": "f4f290847a4df02d0b93cdbf39b4b0e71acefbe80573e7e6b9342a7abd7b290a"
+        }
+      ]
+    },
+    {
+      "location": "node_modules/onnxruntime-web/node_modules/onnxruntime-common",
+      "name": "onnxruntime-common",
+      "version": "1.24.0-dev.20251116-b39e144322",
+      "declaredLicense": "MIT",
+      "repository": {
+        "url": "https://github.com/Microsoft/onnxruntime.git",
+        "type": "git"
+      },
+      "manifestSha256": "0b2e5d9ae190f993bb898c752ca0168a97124d980fa66e77738944bc37989106",
+      "integrity": "sha512-BOoomdHYmNRL5r4iQ4bMvsl2t0/hzVQ3OM3PHD0gxeXu1PmggqBv3puZicEUVOA3AtHHYmqZtjMj9FOfGrATTw==",
+      "notices": [],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 497,
+          "sha256": "3081e0b29169cf9b34f94bae12302d659fca817d7eae3bdcac4261d7301853ff"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/platform",
+      "name": "platform",
+      "version": "1.3.6",
+      "declaredLicense": "MIT",
+      "repository": "bestiejs/platform.js",
+      "manifestSha256": "ecc6885e62cf6165cc61e7f7b67e344508b6126fbbd87e4a44d918de5b9b0a1a",
+      "integrity": "sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1095,
+          "sha256": "4a161ebed4f1ef933e16ccfa00d86c718703f5d015a9987ea7ce1bb72a43cd22"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 2249,
+          "sha256": "7f1588204aa2116784bd841c2087873a1679c0e935e86221c40cb11d1fc96139"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/protobufjs",
+      "name": "protobufjs",
+      "version": "7.6.6",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": "protobufjs/protobuf.js",
+      "manifestSha256": "0e56b70de03bffc143e74311b42ae22b557370a4a1f4b5066568fbc77857639a",
+      "integrity": "sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==",
+      "notices": [
+        {
+          "file": "google/LICENSE",
+          "bytes": 1476,
+          "sha256": "4ab87e6e3c0c0b78e47c77d49ec10c048f8a519fb8062e6e3217e3e6e9b0c6e9"
+        },
+        {
+          "file": "LICENSE",
+          "bytes": 1937,
+          "sha256": "49d6a1c9a623784c61c6cb70f773f3457faceb1914a13c8560a9823b7631950c"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "ext/debug/README.md",
+          "bytes": 82,
+          "sha256": "991de065aa40a1bc4c34812896f778c877331023f4d77f7318ec9d4cfd7200b7"
+        },
+        {
+          "file": "ext/descriptor/README.md",
+          "bytes": 3470,
+          "sha256": "1bd17cdfc87e5308ca954a2ebbce04d5600b00a1e567742a45e649b0c6102df6"
+        },
+        {
+          "file": "google/README.md",
+          "bytes": 190,
+          "sha256": "470d7d43f17fc49efae7f9b8a984e063a0f957e89cab702efe26079bd0ba3531"
+        },
+        {
+          "file": "README.md",
+          "bytes": 29657,
+          "sha256": "1f107d36334467d986cf98b9cc3c2bd1eb13100d4483bcb87170d77f7c49874c"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/roarr",
+      "name": "roarr",
+      "version": "2.15.4",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "git@github.com:gajus/roarr.git"
+      },
+      "manifestSha256": "bfd5e2b456ec3a764a4536c672b99f640a5c9f7837fa25d082b4db1014bfd979",
+      "integrity": "sha512-CHhPh+UNHD2GTXNYhPWLnU8ONHdI+5DI+4EYIAOaiD63rHeYlZvyh8P+in5999TTSFgUYuKUAjzRI4mdh/p+2A==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1529,
+          "sha256": "ba98e94118579117505f6f11fd9a4354c5e65ece03b4898d8b8f7785efcd25c1"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 21289,
+          "sha256": "84c1c113084db5c5c64d3e9e26350ab1c5868caa5c048e1a80b955fe245514e0"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/semver",
+      "name": "semver",
+      "version": "7.8.5",
+      "declaredLicense": "ISC",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/npm/node-semver.git"
+      },
+      "manifestSha256": "7c94cb7f2a53c27b20d76386ec144c062894dbcc909cfabd0f728c37874b1776",
+      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 765,
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 25669,
+          "sha256": "f1a789dcec285150be24db2ea04dd3175031554fa9834ec92fab83fb5e025a57"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/semver-compare",
+      "name": "semver-compare",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/substack/semver-compare.git"
+      },
+      "manifestSha256": "d7086cbb819f98d9b553786a4f1497147a9baa03b8f94d3dabbfdd5955b07b97",
+      "integrity": "sha512-YM3/ITh2MJ5MtzaM429anh+x2jiLVjqILF4m4oyQB18W7Ggea7BfqdH/wGMK7dDiMghv/6WG7znWMwUDzJiXow==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1073,
+          "sha256": "435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "readme.markdown",
+          "bytes": 1025,
+          "sha256": "3a94344f63a07c09b482ec3358d7dce002e467cadfe002db8c07ba9b8db83149"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/serialize-error",
+      "name": "serialize-error",
+      "version": "7.0.1",
+      "declaredLicense": "MIT",
+      "repository": "sindresorhus/serialize-error",
+      "manifestSha256": "e133c1181679208ef8238554f09c57e37bf31b808d57ab9be8b8673d87978417",
+      "integrity": "sha512-8I8TjW5KMOKsZQTvoxjuSIa7foAwPWGOts+6o7sgjz41/qMD9VQHEDxi6PBvK2l0MXUmqZyNpUK+T2tQaaElvw==",
+      "notices": [
+        {
+          "file": "license",
+          "bytes": 1117,
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "readme.md",
+          "bytes": 1417,
+          "sha256": "f2a1246b4e1578d0b72d6a1e8b0d864599e24a987bba9109279a5679d82931b9"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/sharp",
+      "name": "sharp",
+      "version": "0.35.4",
+      "declaredLicense": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/lovell/sharp.git"
+      },
+      "manifestSha256": "27b5a6c6e1e1f27c527b09a963c932979403837d0f5f013ab5bdfb4a0ef2269a",
+      "integrity": "sha512-n++8XWcj+jCOr2IOl7h8LbKnGBDY4aPbmprMONBNFdn0ImXqpGVv5zliDs0V9HbmbCQLpbuo2ej9rAoOQTvMDA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 10273,
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 3162,
+          "sha256": "89772961fcf195b976573874555f2902bfe04a3e57be61af261ac65ce9348735"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/sprintf-js",
+      "name": "sprintf-js",
+      "version": "1.1.3",
+      "declaredLicense": "BSD-3-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/alexei/sprintf.js.git"
+      },
+      "manifestSha256": "c97349295cae4e40a6f16a26096330997257c00be67bd8fd0ac3391719e4ee5f",
+      "integrity": "sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1513,
+          "sha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 6340,
+          "sha256": "7ad0f2cd7d75197c892c08dfa0321d7340197e5b6d090aafef791db3dc2f275b"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/type-fest",
+      "name": "type-fest",
+      "version": "0.13.1",
+      "declaredLicense": "(MIT OR CC0-1.0)",
+      "repository": "sindresorhus/type-fest",
+      "manifestSha256": "a674cfb9da871e044b5287394b5245d6d2f26d5f0d6e5f7dc375fcbb20bc9cfb",
+      "integrity": "sha512-34R7HTnG0XIJcBSn5XhDd7nNFPRcXYRZrBB2O2jdKqYODldSzBAqzsWoZYYvduky73toYS/ESqxPvkDf/F0XMg==",
+      "notices": [
+        {
+          "file": "license",
+          "bytes": 1116,
+          "sha256": "64a93ffc0a06a2266dbb57ed7ebe3b56ba66ab337b6347fabdbf86c76819fbae"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "readme.md",
+          "bytes": 29282,
+          "sha256": "ec274a82eb8c4695b61bb17e93e1960358b4113eb79ce5572c198ed663574c24"
+        }
+      ],
+      "nativeFiles": []
+    },
+    {
+      "location": "node_modules/undici-types",
+      "name": "undici-types",
+      "version": "8.3.0",
+      "declaredLicense": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nodejs/undici.git"
+      },
+      "manifestSha256": "fe5de6d50b3e426af5bbe08b9d83b6b3c5106d639ec28e5b90c79bfb1d7cddab",
+      "integrity": "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==",
+      "notices": [
+        {
+          "file": "LICENSE",
+          "bytes": 1090,
+          "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+        }
+      ],
+      "readmes": [
+        {
+          "file": "README.md",
+          "bytes": 455,
+          "sha256": "c8cced6ec588c55b07e35733258cb7d6b63e3426ee7490aa9267aab4bda0fb20"
+        }
+      ],
+      "nativeFiles": []
+    }
+  ],
+  "absentOptional": [
+    {
+      "location": "node_modules/@emnapi/runtime",
+      "version": "1.11.3",
+      "os": null,
+      "cpu": null
+    },
+    {
+      "location": "node_modules/@img/sharp-darwin-arm64",
+      "version": "0.35.4",
+      "os": [
+        "darwin"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-darwin-x64",
+      "version": "0.35.4",
+      "os": [
+        "darwin"
+      ],
+      "cpu": [
+        "x64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-freebsd-wasm32",
+      "version": "0.35.4",
+      "os": [
+        "freebsd"
+      ],
+      "cpu": null
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-darwin-arm64",
+      "version": "1.3.3",
+      "os": [
+        "darwin"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-darwin-x64",
+      "version": "1.3.3",
+      "os": [
+        "darwin"
+      ],
+      "cpu": [
+        "x64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-arm",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "arm"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-arm64",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-ppc64",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "ppc64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-riscv64",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "riscv64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-s390x",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "s390x"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-x64",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "x64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linuxmusl-arm64",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linuxmusl-x64",
+      "version": "1.3.3",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "x64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-arm",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "arm"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-arm64",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-ppc64",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "ppc64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-riscv64",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "riscv64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-s390x",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "s390x"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-x64",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "x64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linuxmusl-arm64",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linuxmusl-x64",
+      "version": "0.35.4",
+      "os": [
+        "linux"
+      ],
+      "cpu": [
+        "x64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-wasm32",
+      "version": "0.35.4",
+      "os": null,
+      "cpu": null
+    },
+    {
+      "location": "node_modules/@img/sharp-webcontainers-wasm32",
+      "version": "0.35.4",
+      "os": null,
+      "cpu": [
+        "wasm32"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-win32-arm64",
+      "version": "0.35.4",
+      "os": [
+        "win32"
+      ],
+      "cpu": [
+        "arm64"
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-win32-ia32",
+      "version": "0.35.4",
+      "os": [
+        "win32"
+      ],
+      "cpu": [
+        "ia32"
+      ]
+    },
+    {
+      "location": "node_modules/tslib",
+      "version": "2.8.1",
+      "os": null,
+      "cpu": null
+    }
+  ],
+  "missingDeclarations": [],
+  "missingNotices": [
+    "guid-typescript",
+    "onnxruntime-common",
+    "onnxruntime-node",
+    "onnxruntime-web",
+    "onnxruntime-common"
+  ],
+  "treeUnchanged": true,
+  "limitations": [
+    "Installed package metadata and local notice hashes only; no legal compatibility conclusion",
+    "Registry integrity strings are recorded, not independently verified against archive downloads",
+    "Native files can embed third-party components not enumerated by npm; notice discovery is not an exhaustive component or license audit",
+    "Other platform optional packages, model weights, Python runtimes and FFmpeg are outside this inventory"
+  ]
+}
