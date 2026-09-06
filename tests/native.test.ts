@@ -30,6 +30,7 @@ async function hostFixture(){
     if(method==="GetListOfExportSettings")return [{setting_names:["Fixture"]}];
     if(method==="GetListOfBinItems")return [{mob_id:"clip"}];
     if(method==="GetMobTrackInfo")return [{track_info_list:{track_info:[{label:{type:"TRACKTYPE_PICTURE",number:1},num_segments:2}]}}];
+    if(method==="GetViewerMobs")return [{mobs:[{mob_id:"clip",view_type:"Record",current_frame:0,current_timecode:"01:00:00:00"},{mob_id:"other",view_type:"Source",current_frame:3,current_timecode:"PRIVATE"}]}];
     if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"},{column_name:"Frame Count Duration",column_value:"5726"},{column_name:"Source File",column_value:"source.mov"},{column_name:"Source Path",column_value:root}];
     if(method==="GetMarkers"){if(failPost)throw new Error("post-read unavailable");return [{info:[marker]}];}
     if(method==="ChangeMarker")Object.assign(marker,body.info);
@@ -41,6 +42,10 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("returns only viewer entries belonging to the requested bin",async()=>{
+    const f=await hostFixture(),result=await f.adapter.read("viewers","fixture.avb");expect(result).toMatchObject({viewers:[{mob_id:"clip",current_frame:0}],outOfBinOmitted:1});expect(JSON.stringify(result)).not.toContain("PRIVATE");
+    f.calls.length=0;await expect(f.adapter.read("viewers","missing.avb")).rejects.toThrow();expect(f.calls.some(call=>call.method==="GetViewerMobs")).toBe(false);
+  });
   it("requires bin membership before native track inspection",async()=>{
     const f=await hostFixture();await expect(f.adapter.read("tracks","fixture.avb","outside")).rejects.toThrow("specified bin");expect(f.calls.some(call=>call.method==="GetMobTrackInfo")).toBe(false);
     await f.adapter.read("tracks","fixture.avb","clip");expect(f.calls.at(-1)).toEqual({method:"GetMobTrackInfo",body:{mob_id:"clip"}});

@@ -52,7 +52,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -66,6 +66,12 @@ export class NativeAdapter {
     if (query === "bin") return this.client.call("GetBinInfo", { relative_bin_path: relative });
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path: relative, bin_flags: ["AllTypes"] });
     if (query === "clips") return clips;
+    if(query==="viewers"){
+      const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:z.string().min(1).max(256),view_type:z.string().min(1),current_frame:z.number().int(),current_timecode:z.string().max(64)})).max(16)})).min(1).max(16).parse(await this.client.call("GetViewerMobs"));
+      const all=bodies.flatMap(body=>body.mobs);if(all.length>16)throw new Error("Native viewer inventory exceeds 16 entries");
+      const members=new Set(clips.map(clip=>clip.mob_id)),viewers=all.filter(viewer=>members.has(viewer.mob_id));
+      return {viewers,outOfBinOmitted:all.length-viewers.length,scope:"Current viewer entries whose MOB IDs belong to the requested bin. Position is reported by Avid; no playback, source mapping or atomic editor snapshot is verified."};
+    }
     if (!mobId || !clips.some(clip => clip.mob_id === mobId)) throw new Error("Clip is not in the specified bin");
     const response = await this.client.call(query === "tracks" ? "GetMobTrackInfo" : query === "clip" ? "GetMobInfo" : "GetMarkers", { mob_id: mobId });
     if(query==="tracks"){
