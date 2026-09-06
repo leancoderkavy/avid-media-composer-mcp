@@ -42,13 +42,15 @@ export class VisualSummaries{
   private captions:FrameCaptions;
   private model:ReturnType<typeof loadSummaryModel>|undefined;
   private tail:Promise<unknown>=Promise.resolve();
+  private closing=false;
+  private disposing:Promise<void>|undefined;
   constructor(private config:ServerConfig){this.captions=new FrameCaptions(config);}
-  async dispose(){await this.tail;const model=this.model;this.model=undefined;if(model)await(await model).dispose();await this.captions.dispose();}
+  dispose(){this.closing=true;return this.disposing??=(async()=>{await this.tail;const model=this.model;this.model=undefined;await Promise.all([(async()=>{if(model)await(await model).dispose();})(),this.captions.dispose()]);})();}
   private async sources(id:string,references:z.infer<typeof visualSummaryReferences>){
     sha.parse(id);visualSummaryReferences.parse(references);const captions=[];
     for(const ref of references){const caption=await this.captions.read(ref.captionId);if(caption.id!==id||caption.sha256!==ref.sha256)throw new Error("Visual summary caption provenance changed");if(captions.length&&caption.time<=captions.at(-1)!.time)throw new Error("Caption times must be strictly increasing");captions.push(caption);}return captions;
   }
-  generate(id:string,references:z.infer<typeof visualSummaryReferences>){const work=this.tail.then(()=>this.generateInner(id,references));this.tail=work.catch(()=>{});return work;}
+  generate(id:string,references:z.infer<typeof visualSummaryReferences>){if(this.closing)return Promise.reject(new Error("Visual summary service is closing"));const work=this.tail.then(()=>this.generateInner(id,references));this.tail=work.catch(()=>{});return work;}
   private async generateInner(id:string,references:z.infer<typeof visualSummaryReferences>){
     requireCapability(this.config.capabilities,"project-write");const captions=await this.sources(id,references);
     const nodes:Node[]=captions.map((caption,index)=>nodeSchema.parse({...base(`n${index}`,[],index,caption),text:caption.text,mayBeTruncated:caption.mayBeTruncated}));let level=[...nodes];

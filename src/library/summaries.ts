@@ -50,15 +50,19 @@ export function summaryChunks(segments:Source[],recipe:1|2=2){
 export class MediaSummaries{
   readonly checkpoints:SummaryCheckpoints;
   private model:ReturnType<typeof loadSummaryModel>|undefined;
+  private tail:Promise<unknown>=Promise.resolve();
+  private closing=false;
+  private disposing:Promise<void>|undefined;
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);this.checkpoints=new SummaryCheckpoints(config,SUMMARY_MODEL,SUMMARY_REVISION);}
-  async dispose(){const model=this.model;this.model=undefined;if(model)await(await model).dispose();}
+  private serialize<T>(fn:()=>Promise<T>){if(this.closing)return Promise.reject(new Error("Summary service is closing"));const work=this.tail.then(fn);this.tail=work.catch(()=>{});return work;}
+  dispose(){this.closing=true;return this.disposing??=(async()=>{await this.tail;const model=this.model;this.model=undefined;if(model)await(await model).dispose();})();}
   private async source(id:string,revision:string){
     const [entry]=await this.library.metadata([id]);if(!entry)throw new Error("Unknown media");
     const {segments}=await this.library.transcriptRange(id,0,Number(entry.metadata.format?.duration),-1,100000,revision);
     return {segments,sourceHash:hash(segments)};
   }
-  async resume(runId:string){const previous=await this.checkpoints.read(runId);if(previous.revision)throw new Error("Summary run is already completed");return this.generate(previous.record.id,previous.record.transcriptRevision,runId);}
+  resume(runId:string){return this.serialize(async()=>{const previous=await this.checkpoints.read(runId);if(previous.revision)throw new Error("Summary run is already completed");return this.generateInner(previous.record.id,previous.record.transcriptRevision,runId);});}
   async runStatus(runId:string){
     const saved=await this.checkpoints.read(runId),source=await this.source(saved.record.id,saved.record.transcriptRevision);
     if(source.sourceHash!==saved.record.sourceHash)throw new Error("Summary checkpoint transcript changed");
@@ -74,6 +78,9 @@ export class MediaSummaries{
     return {runs,nextAfter:names.length>limit?names[limit-1]:null};
   }
   async generate(id:string,transcriptRevision:string,parentRunId?:string){
+    return this.serialize(()=>this.generateInner(id,transcriptRevision,parentRunId));
+  }
+  private async generateInner(id:string,transcriptRevision:string,parentRunId?:string){
     requireCapability(this.config.capabilities,"project-write");
     const source=await this.source(id,transcriptRevision);
     const previous=parentRunId?await this.checkpoints.read(parentRunId):undefined;

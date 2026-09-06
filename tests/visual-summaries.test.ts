@@ -8,9 +8,9 @@ import {FrameCaptions,CAPTION_MODEL,CAPTION_REVISION,CAPTION_TASK} from "../src/
 import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
-const inference=vi.hoisted(()=>vi.fn());
-vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:async()=>Object.assign(inference,{tokenizer:async()=>({input_ids:{dims:[1,100]}}),dispose:async()=>{}})})}));
-beforeEach(()=>{inference.mockReset();inference.mockResolvedValue([{summary_text:"Generated overview."}]);});
+const {inference,dispose}=vi.hoisted(()=>({inference:vi.fn(),dispose:vi.fn()}));
+vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({pipeline:async()=>Object.assign(inference,{tokenizer:async()=>({input_ids:{dims:[1,100]}}),dispose})})}));
+beforeEach(()=>{vi.restoreAllMocks();inference.mockReset();dispose.mockReset();inference.mockResolvedValue([{summary_text:"Generated overview."}]);});
 async function fixture(){
  const root=await mkdtemp(path.join(os.tmpdir(),"avid-visual-summary-")),source=path.join(root,"source.mp4");await writeFile(source,"source");const id=await sha256File(source);
  const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:root,AVID_MCP_CAPABILITIES:"inspect,project-write"}),directory=await new MediaLibrary(config).directory(),captions=new FrameCaptions(config);
@@ -18,6 +18,19 @@ async function fixture(){
  const references=[];for(let i=0;i<5;i++){const captionId=randomUUID(),dir=path.join(directory,`caption-${captionId}`);await mkdir(dir);await writeFile(path.join(dir,"frame.jpg"),"image");await writeFile(path.join(dir,"caption.json"),JSON.stringify({schema:1,captionId,revision:randomUUID(),id,time:i+1,imageSha256:await sha256File(path.join(dir,"frame.jpg")),model:CAPTION_MODEL,modelRevision:CAPTION_REVISION,task:CAPTION_TASK,runtime:"4.2.0",dtype:"q4",machineText:`Caption ${i}.`,text:`Caption ${i}.`,edited:false,mayBeTruncated:false,createdAt:new Date().toISOString()}));references.push({captionId,sha256:(await captions.read(captionId)).sha256});}
  return {id,config,source,directory,captions,references,summaries:new VisualSummaries(config)};
 }
+it.each([false,true])("drains queued visual summary trees (first failure=%s)",async fail=>{
+ const f=await fixture();let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+ inference.mockImplementationOnce(async()=>{enter();await gate;if(fail)throw new Error('generation failed');return [{summary_text:'Delayed overview.'}];});
+ const first=f.summaries.generate(f.id,f.references).then(result=>({result}),error=>({error}));await entered;
+ const queued=f.summaries.generate(f.id,f.references),closing=f.summaries.dispose();expect(f.summaries.dispose()).toBe(closing);
+ await expect(f.summaries.generate(f.id,f.references)).rejects.toThrow('closing');expect(dispose).not.toHaveBeenCalled();release();expect('error' in await first).toBe(fail);
+ expect((await queued).nodes).toBe(8);await closing;expect(dispose).toHaveBeenCalledOnce();
+});
+it("closes the owned caption service even when summary-model cleanup fails",async()=>{
+ const f=await fixture();await f.summaries.generate(f.id,f.references);const captions=vi.spyOn(FrameCaptions.prototype,'dispose');dispose.mockRejectedValueOnce(new Error('cleanup failed'));
+ await expect(f.summaries.dispose()).rejects.toThrow('cleanup failed');expect(captions).toHaveBeenCalledOnce();await expect(f.summaries.dispose()).rejects.toThrow('cleanup failed');expect(dispose).toHaveBeenCalledOnce();
+});
 it("builds a deterministic hierarchy preserving caption leaves and all descendant sources",async()=>{
  const f=await fixture(),saved=await f.summaries.generate(f.id,f.references),overview=await f.summaries.node(saved.revision);
  expect(saved.nodes).toBe(8);expect(inference).toHaveBeenCalledTimes(3);expect(overview.sources.map(source=>source.captionId)).toEqual(f.references.map(ref=>ref.captionId));expect(overview.node).toMatchObject({firstSampleTime:1,lastSampleTime:5,children:["n5","n6"],generated:true});expect(overview.factualEntailmentVerified).toBe(false);

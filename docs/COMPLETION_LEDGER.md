@@ -1,5 +1,17 @@
 # Completion ledger
 
+### Summary trees drain before model disposal
+
+Transcript summaries previously disposed their shared model without waiting for generation. They now serialize complete generation/resume trees, stop admission at shutdown, drain accepted work and retain one disposal outcome. Visual summaries now stop admission before draining their existing queue and attempt owned-caption cleanup even when summary-model cleanup fails. Reading completed summary evidence remains available after model shutdown.
+
+Delayed-inference tests cover both successful and failed first trees followed by queued work, new-work refusal, repeated disposal, readable completed results and cleanup failure. The first targeted test invocation exposed a Vitest hoisting error in the new mock declaration; grouping the mocks into one hoisted object fixed collection, and all 27 summary tests then passed.
+
+Real cached-model runs admitted two trees before immediate disposal and verified both trees completed before disposal resolved, new generation was refused, completed nodes remained readable and source media was unchanged. Transcript mode used explicitly synthetic editorial notes (`transcript-summary-shutdown-155baad8-6777-492d-a11a-7d7b55f53987`); visual mode reused hash-verified prior Florence caption artifacts (`visual-summary-shutdown-9d53ed36-e31c-40b7-8ef3-2547c1ee7ed0`). Evidence files are under `.avid-mcp-analysis/`, produced by `scripts/research/qualify-summary-shutdown.mjs`.
+
+This proves direct service queue/disposal behavior, not factual summary quality, allocator reclamation, complete multi-service batch shutdown or abrupt process-loss containment. Those and the broader feature/host plan remain open.
+
+Full local check passed 742 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF checks with 142 tool definitions and five skills (`check-summary-shutdown.log`).
+
 ### Speech and caption queues close admission before disposal
 
 Speech and frame-caption services previously waited for a snapshot of their queue without preventing later admission, allowing new inference to race model disposal. Both now close admission synchronously, retain one disposal promise, drain already-admitted work and clear model references before disposal. Speech resume includes checkpoint reading inside its admitted operation. Repeated disposal retains a cleanup failure rather than invoking model disposal again.
