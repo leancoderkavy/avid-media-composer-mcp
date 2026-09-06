@@ -1,0 +1,41 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {runProcess} from '../../dist/process.js';
+const input=process.argv[2];assert.ok(input&&path.isAbsolute(input)&&process.argv.length===3);
+const previous=JSON.parse(await readFile(path.join(input,'evidence.json'),'utf8')),fixture=JSON.parse(await readFile(path.join(previous.input,'fixture.json'),'utf8'));
+assert.match(fixture.bin,/^MCP_TrimMarkers_[a-f0-9]{8}\.avb$/);assert.equal(fixture.file,path.join(fixture.project,fixture.bin));assert.equal(await sha256File(fixture.file),previous.sha256);
+assert.equal(previous.after.length,3);assert.ok(previous.after.every(marker=>/^060a2b340101010501010f1013-000000-[0-9a-f]{16}-[0-9a-f]{12}-[0-9a-f]{4}$/.test(marker.guid)));
+assert.deepEqual(await Promise.all(fixture.protectedFiles.map(sha256File)),fixture.hashes);
+const root=path.resolve('.avid-mcp-analysis',`native-nonuuid-removal-${randomUUID()}`);await mkdir(root);
+const client=new Client({name:'native-nonuuid-removal',version:'1.0'}),events=[];
+await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:fixture.project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
+const call=async(name,args)=>{const response=await client.callTool({name,arguments:args},undefined,{timeout:120000});events.push({name,args,response});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+const apply=async operation=>call('avid_native_apply',{token:(await call('avid_native_preview',{operation})).token});
+const read=()=>call('avid_native_read',{query:'markers',bin:fixture.bin,mobId:fixture.mobId});
+const baseline=JSON.parse(await readFile(path.join(input,'reopened.json'),'utf8'));
+const canonical=id=>id.replace(/^urn:smpte:umid:/,'').replaceAll('.','').replaceAll('-','');
+const target=graph=>graph.mobs.find(mob=>canonical(mob.mobId)===canonical(fixture.mobId));
+const withoutMarkers=graph=>graph.mobs.map(mob=>{const copy=structuredClone(mob);delete copy.markers;return copy;});
+const capture=async(stage,expected)=>{
+ for(const action of ['close_bin','open_bin'])assert.equal((await apply({action,bin:fixture.bin})).binStateVerified,true);
+ assert.deepEqual(await read(),expected);
+ const file=path.join(root,stage+'.avb'),sha256=await sha256File(fixture.file);await copyFile(fixture.file,file,1);assert.equal(await sha256File(file),sha256);
+ const parsed=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',file],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(parsed.exitCode,0,parsed.stderr);const graph=JSON.parse(parsed.stdout);assert.equal(graph.sha256,sha256);await writeFile(path.join(root,stage+'.json'),JSON.stringify(graph,null,2),{flag:'wx'});
+ assert.deepEqual(withoutMarkers(graph),withoutMarkers(baseline));assert.deepEqual(graph.warnings,baseline.warnings);
+ assert.deepEqual(target(graph).markers,target(baseline).markers.filter(marker=>expected.some(item=>item.guid===marker.id)));
+ assert.deepEqual(await Promise.all(fixture.protectedFiles.map(sha256File)),fixture.hashes);assert.equal(await sha256File(fixture.file),sha256);return {stage,sha256,count:expected.length};
+};
+try{
+ assert.deepEqual(await read(),previous.after);
+ assert.equal((await apply({action:'delete_markers',bin:fixture.bin,mobId:fixture.mobId,guids:previous.after.slice(0,2).map(marker=>marker.guid)})).markersRemovedVerified,true);
+ const preserved=await capture('one-preserved',previous.after.slice(2));
+ assert.equal((await apply({action:'delete_markers',bin:fixture.bin,mobId:fixture.mobId,guids:[previous.after[2].guid]})).markersRemovedVerified,true);
+ const cleaned=await capture('cleaned',[]);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({input,preserved,cleaned,sourceFilesUnchanged:true,remainingMarkerPreserved:true,decodedNonMarkerFieldsUnchanged:true,scope:'Two explicit native non-UUID deletions with save/reopen, one outside-request marker preserved before separate cleanup. One owned fixture/build; no atomic undo or general restart guarantee.'},null,2),{flag:'wx'});
+ console.log(JSON.stringify({root,preserved,cleaned}));
+}finally{await client.close();}

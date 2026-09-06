@@ -86,6 +86,23 @@ it.each(['none','partial','unrelated'])('verifies explicit batch marker removal 
  expect(result).toMatchObject({applicationCompleted:true,persistenceVerified:false,markersRemovedVerified:fault==='none'});expect(writes).toBe(1);
  await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
 });
+it('accepts observed native marker IDs but rejects malformed and duplicate identities',()=>{
+ const guid='060a2b340101010501010f1013-000000-7987bad412898806-8b34d8bbc16d-18d9',base={action:'delete_markers',bin:'fixture.avb',mobId:'clip'};
+ expect(nativeActionSchema.parse({...base,guids:[guid.toUpperCase()]})).toMatchObject({guids:[guid]});
+ for(const guids of [[guid,guid.toUpperCase()],['urn:smpte:umid:'+guid],[guid+'0'],[guid.replace('060a','060b')],['marker'],[guid+'\n']])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);
+});
+it('dispatches exact observed non-UUID spelling and preserves an unrelated marker',async()=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client),guid='060a2b340101010501010f1013-000000-7987bad412898806-8b34d8bbc16d-18d9';
+ let markers=[structuredClone(f.marker),{...structuredClone(f.marker),guid:guid.toUpperCase()}],writes=0;
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='GetMarkers')return [{info:structuredClone(markers)}];
+  if(method==='DeleteMarkers'){writes++;expect((body as any).guid).toEqual([guid.toUpperCase()]);markers=markers.slice(0,1);return [];}
+  return original(method,body);
+ });
+ const preview=await f.adapter.preview({action:'delete_markers',bin:'fixture.avb',mobId:'clip',guids:[guid]});
+ expect(await f.adapter.apply(preview.token)).toMatchObject({markersRemovedVerified:true});expect(markers).toEqual([f.marker]);
+ await expect(f.adapter.apply(preview.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
+});
 it('refuses missing, duplicate or stale deletion targets before dispatch',async()=>{
  const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',base={action:'delete_markers' as const,bin:'fixture.avb',mobId:'clip'};
  for(const guids of [[],[guid,guid.toUpperCase()],Array.from({length:101},()=>guid)])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);

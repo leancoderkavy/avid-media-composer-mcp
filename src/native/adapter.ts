@@ -19,11 +19,13 @@ import {verifyNativeAafMaster} from "./aaf-verifier.js";
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
 const clipName=z.string().min(1).max(120).refine(value=>value.trim().length>0,"Clip name cannot be blank").refine(value=>/^[\x20-\x7e]+$/.test(value),"Qualified native rename supports printable ASCII only; this host can replace other characters");
 const id = z.string().min(1).max(256);
+// Avid can replace marker UUIDs with this native UMID spelling after UI edits and reload.
+const markerDeletionId=z.union([z.string().uuid(),z.string().regex(/^060a2b340101010501010f1013-000000-[0-9a-f]{16}-[0-9a-f]{12}-[0-9a-f]{4}$/i)]).transform(value=>value.toLowerCase());
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
-  z.object({action:z.literal("delete_markers"),bin:z.string().min(1),mobId:id,guids:z.array(z.string().uuid().transform(value=>value.toLowerCase())).min(1).max(100).refine(values=>new Set(values).size===values.length,"Duplicate marker GUIDs")}).strict(),
+  z.object({action:z.literal("delete_markers"),bin:z.string().min(1),mobId:id,guids:z.array(markerDeletionId).min(1).max(100).refine(values=>new Set(values).size===values.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("add_markers"),bin:z.string().min(1),mobId:id,markers:z.array(z.object({guid:z.string().uuid().transform(value=>value.toLowerCase()),offset:z.number().int().nonnegative().max(2147483647),track,comment:z.string().max(1024).regex(/^[\x20-\x7e]*$/),name:z.string().max(120).regex(/^[\x20-\x7e]*$/),color}).strict()).min(1).max(100).refine(items=>new Set(items.map(item=>item.guid)).size===items.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("copy_clips"),bin:z.string().min(1),mobIds:selectionIds.refine(ids=>ids.length>0,"Copy at least one item"),destinationBin:z.string().min(1)}).strict(),
   z.object({action:z.literal("copy_clip"),bin:z.string().min(1),mobId:id,destinationBin:z.string().min(1)}).strict(),

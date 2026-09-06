@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Native non-UUID batch deletion
+
+Full check passed: 657 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-nonuuid-markers.log`. Installed package schemas match the checkout; live deletion evidence below uses the development server on the qualified Windows host.
+
+Extended deletion input to UUIDs or the observed native UMID spelling after reload. IDs normalize for duplicate/membership checks, but dispatch preserves Avid's current spelling. Existing scoped preview, owner/project checks, exact remaining-record verification and single-use tokens remain unchanged. Creation still requires UUIDs. Tests cover malformed formats, case-only duplicates, exact native spelling and outside-request preservation.
+
+Actual MCP removed two reloaded non-UUID markers, saved/reopened and verified the third unchanged, then separately removed that marker and saved/reopened to an empty list. Retained AVBs independently decoded to exact expected marker survivors with unchanged non-marker MOB fields/warnings. Original sources remained unchanged. Evidence: `.avid-mcp-analysis/native-nonuuid-removal-0b015032-f28d-4806-a8a8-80dd8856cb82/evidence.json`. The owned marker-trim fixture is now marker-empty. This qualifies explicit deletion/persistence for that spelling/build, not atomic undo, arbitrary formats or full-plan completion.
+
 ### Reopen invalidates pre-trim native marker UUIDs
 
 Executed verified native close/open on owned `MCP_TrimMarkers_9b4780a2.avb` after the marker-bearing trim/undo. All three native `guid` values changed to the saved non-UUID IDs. Other marker fields, saved bin bytes, decoded MOBs/warnings and original source hashes remained unchanged. Evidence: `.avid-mcp-analysis/marker-trim-reopen-b542f396-6647-48c2-ac7b-76f4f661251a/evidence.json`. The research harness records each response before assertions and retains a hash-checked reopened AVB/decoded graph.

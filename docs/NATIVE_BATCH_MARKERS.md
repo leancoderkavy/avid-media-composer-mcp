@@ -2,7 +2,9 @@
 
 ## Remove an explicit batch
 
-Preview `delete_markers` with `bin`, `mobId` and 1–100 UUIDs in `guids`. Every requested UUID must exist exactly once; case-only duplicates are refused. The preview binds the entire current marker list, so edits between preview and apply invalidate the plan. Apply sends the observed native GUID spellings in one `DeleteMarkers` request under the existing lock and owner check.
+Native non-UUID removal passed on the reloaded marker-trim fixture. Two IDs were deleted while the third record remained exactly unchanged after save/reopen. Separate cleanup and another save/reopen left zero markers. Saved surviving records matched their baseline and every decoded non-marker MOB field/warning stayed unchanged; original source hashes were preserved. Evidence: `.avid-mcp-analysis/native-nonuuid-removal-0b015032-f28d-4806-a8a8-80dd8856cb82/evidence.json`. This qualifies the observed ID spelling on this Windows build; arbitrary identity formats, atomic undo and restart remain unqualified.
+
+Preview `delete_markers` with `bin`, `mobId` and 1–100 current marker identifiers in `guids`. Accepted forms are UUIDs and the observed native spelling `060a2b340101010501010f1013-000000-<16 hex>-<12 hex>-<4 hex>`. Every requested identifier must exist exactly once; case-only duplicates are refused. The preview binds the entire current marker list, so edits between preview and apply invalidate the plan. Apply sends the observed native GUID spellings in one `DeleteMarkers` request under the existing lock and owner check. Do not convert saved IDs or reuse IDs from before a bin reload; read current native markers first. Newly added markers still require caller-generated UUIDs.
 
 `markersRemovedVerified` requires the resulting marker list to equal the original list minus exactly those IDs, including preservation of every remaining record. A project change, partial deletion or unrelated marker change refuses verified success. The token is consumed before dispatch; there is no automatic retry or compensating re-creation. Save/reopen remains a separate persistence check.
 
