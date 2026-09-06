@@ -118,6 +118,18 @@ it("keeps empty reviewed coverage distinct from preserved machine coverage",asyn
   expect((await review.read(original.analysisId)).sha256).toBe(original.sha256);
   expect(await sha256File(f.source)).toBe(f.id);
 });
+
+it("reports full revision scope on every alignment page including excluded and partial segments",async()=>{
+  const f=await fixture(),analysis=await f.speakers.generate(f.id,10,12);
+  const transcript=await new MediaLibrary(f.config).importTranscript(f.id,[{start:0,end:5,text:"before"},{start:10,end:11,text:"inside"},{start:11.5,end:13,text:"partial"},{start:14,end:15,text:"after"}]);
+  const hash=await sha256File(transcript.path);
+  const first=await f.speakers.align(analysis.analysisId,analysis.sha256,transcript.revision,hash,-1,1);
+  expect(first).toMatchObject({totalTranscriptSegments:4,intersectingSegments:2,outsideAnalysisSegments:2,nextAfter:1});
+  const last=await f.speakers.align(analysis.analysisId,analysis.sha256,transcript.revision,hash,first.nextAfter!,1);
+  expect(last).toMatchObject({totalTranscriptSegments:4,intersectingSegments:2,outsideAnalysisSegments:2,nextAfter:null});
+  expect(last.segments[0]).toMatchObject({index:2,outsideAnalysisSeconds:1});
+  expect(await sha256File(transcript.path)).toBe(hash);
+});
 it("resumes verified extracted audio after inference failure without re-extracting and retains parent provenance",async()=>{
   const f=await fixture(),normal=mocks.run.getMockImplementation()!;
   mocks.run.mockImplementationOnce(normal).mockResolvedValueOnce({exitCode:1});await expect(f.speakers.generate(f.id,10,12,{speakers:2})).rejects.toThrow("incomplete files retained");
