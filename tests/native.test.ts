@@ -43,6 +43,14 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("renames only the expected clip name and verifies name readback",async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);let current="Original",writes=0;
+    vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{if(method==="GetMobInfo")return [{column_name:"Name",column_value:current}];if(method==="SetMobInfo"){writes++;expect(body).toEqual({mob_id:"clip",column:{column_name:"Name",column_value:"Reviewed"}});current="Reviewed";return [];}return original(method,body);});
+    const action={action:"rename_clip" as const,bin:"fixture.avb",mobId:"clip",expectedName:"Original",name:"Reviewed"};
+    await expect(f.adapter.preview({...action,expectedName:"Wrong"})).rejects.toThrow("expectedName");
+    const stale=await f.adapter.preview(action);current="External";await expect(f.adapter.apply(stale.token)).rejects.toThrow("expectedName");expect(writes).toBe(0);
+    current="Original";const plan=await f.adapter.preview(action);expect(await f.adapter.apply(plan.token)).toMatchObject({renameVerified:true,persistenceVerified:false});expect(writes).toBe(1);await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");
+  });
   it("refuses viewer results when bin membership changes during the read",async()=>{
     const f=await hostFixture(),original=f.client.call.bind(f.client);let lists=0;
     vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetListOfBinItems"&&++lists>1?Promise.resolve([{mob_id:"replacement"}]):original(method,body));

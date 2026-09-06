@@ -30,6 +30,7 @@ export const nativeActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("change_marker"), bin: z.string().min(1), mobId: id, guid: id, comment: z.string().max(4000), color }).strict(),
   z.object({ action: z.literal("delete_marker"), bin: z.string().min(1), mobId: id, guid: id }).strict(),
   z.object({ action: z.literal("show_clip"), bin: z.string().min(1), mobId: id }).strict(),
+  z.object({action:z.literal("rename_clip"),bin:z.string().min(1),mobId:id,expectedName:z.string().min(1).max(1024),name}).strict(),
   z.object({action:z.literal("create_subclip"),bin:z.string().min(1),mobId:id,startFrame:z.number().int().nonnegative().max(2147483647),endFrame:z.number().int().positive().max(2147483647)}).strict().refine(value=>value.endFrame>value.startFrame,"Subclip end must follow start"),
 ]);
 type Action = z.infer<typeof nativeActionSchema>;
@@ -105,6 +106,10 @@ export class NativeAdapter {
     if(action.action==="open_bin")return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),action};
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path:path.relative(project.path,bin),bin_flags:["AllTypes"] });
     if ("mobId" in action && !clips.some(clip => clip.mob_id === action.mobId)) throw new Error("Target clip is not in bin");
+    if(action.action==="rename_clip"){
+      const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),names=info.filter(row=>row.column_name==="Name");
+      if(names.length!==1||names[0]!.column_value!==action.expectedName)throw new Error("Native clip name differs from expectedName; inspect before renaming");
+    }
     const markers = "mobId" in action ? (await this.client.call("GetMarkers",{mob_id:action.mobId})).flatMap(body=>Array.isArray(body.info)?body.info:[]) : [];
     if ("guid" in action && !(markers as Record<string, unknown>[]).some(marker => marker.guid === action.guid)) throw new Error("Target marker does not exist");
     const media = action.action === "link_media" ? await resolveReadablePath(action.media, this.config.allowedRoots, "file") : undefined;
@@ -264,6 +269,7 @@ export class NativeAdapter {
           }
           case "delete_marker": result = await this.client.call("DeleteMarkers", { mob_id: action.mobId, guid: [action.guid] }); break;
           case "show_clip": result = await this.client.call("LoadMobsIntoViewer", { mob_ids: [action.mobId], view_type: "Source" }); break;
+          case "rename_clip": result=await this.client.call("SetMobInfo",{mob_id:action.mobId,column:{column_name:"Name",column_value:action.name}});break;
           case "create_subclip": result=await this.client.call("CreateSubClip",{
             destination_bin_path:path.relative(project.path,await this.binPath(project.path,action.bin)),mob_id:action.mobId,
             head_frame:action.startFrame,end_frame:action.endFrame,create_new_sequence:true,
@@ -279,6 +285,10 @@ export class NativeAdapter {
             const created=after.filter(item=>!before.some((old:Record<string,any>)=>old.mob_id===item.mob_id));
             if(created.length!==1)throw new Error("Expected one new subclip; inspect bin before another attempt");
             postState={created,info:await this.read("clip",action.bin,created[0]!.mob_id)};
+          }else if(action.action==="rename_clip"){
+            postState=await this.read("clip",action.bin,action.mobId);
+            const names=(postState as Record<string,any>[]).filter(row=>row.column_name==="Name");
+            if(result.some(body=>Array.isArray(body.mob_failure)&&body.mob_failure.length)||names.length!==1||names[0]!.column_value!==action.name)throw new Error("Native rename was not verified; inspect clip before another attempt");
           }else if(action.action==="show_clip"){
             const viewers=await this.read("viewers",action.bin) as {viewers:{mob_id:string;view_type:string}[]};postState=viewers;
             if(!viewers.viewers.some(viewer=>viewer.mob_id===action.mobId&&viewer.view_type==="Source"))throw new Error("Requested clip was not observed in the Source viewer; inspect state before another attempt");
@@ -286,7 +296,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false, postState, verificationError, postStateRead:!verificationError,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}) };
+          persistenceVerified: false, postState, verificationError, postStateRead:!verificationError,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}) };
       });
     });
     queue = task;
