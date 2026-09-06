@@ -48,6 +48,11 @@ try{
  assert.equal(effectUsages.length,2);
  assert.deepEqual(effectUsages.map(node=>node.effect.inputReference.sourceStart),[2850,3300]);
  assert.ok(effectUsages.every(node=>node.kind==='TKFX'&&node.opaque&&!('sourceStart' in node)));
+ const complexity=await call(client,'avid_saved_sequence_complexity',{revision:snapshot.revision,mobId:mob.mobId});
+ assert.equal(complexity.complete,false);
+ assert.deepEqual(complexity.effectDeclarations.ids,[{id:'EFF2_LUTSFX',count:2}]);
+ assert.equal(complexity.effectDeclarations.identifiedNodes,2);assert.equal(complexity.effectDeclarations.unidentifiedNodes,0);
+ assert.equal(complexity.effectDeclarations.distinctIds,1);assert.equal(complexity.effectDeclarations.truncated,false);
  assert.equal(await sha256File(file),hash);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({file,hash,events,unchanged:true,scope:'Actual saved refreshed bin through MCP capture/reconnect, effect declarations and equal-length input-reference diagnostics. Rendered correspondence and parameter meaning remain unverified.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,revision:snapshot.revision,effects:result.results.map(n=>n.effect),unchanged:true}));

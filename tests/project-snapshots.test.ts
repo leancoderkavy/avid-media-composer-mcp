@@ -16,6 +16,19 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("bounds saved effect IDs while retaining aggregate and unidentified counts",async()=>{
+    const {record,save,snapshots}=await fixture(),track=record.bins[0]!.mobs[0]!.tracks[0]!,template=track.nodes[0]!;
+    const make=(id:string)=>({...template,kind:'TKFX',opaque:true,effect:{id,hasParameters:false,hasKeyframes:false}});
+    track.nodes=[...Array.from({length:101},(_,i)=>make(`effect-${String(i).padStart(3,'0')}`)),make('effect-000'),{...template,kind:'TKFX',opaque:true},{...make('ignored'),kind:'SCLP'}];
+    const report=await snapshots.complexity(await save(),'sequence');
+    expect(report.effectDeclarations).toMatchObject({distinctIds:101,identifiedNodes:102,unidentifiedNodes:1,truncated:true});
+    expect(report.effectDeclarations.ids).toHaveLength(100);
+    expect(report.effectDeclarations.ids[0]).toEqual({id:'effect-000',count:2});
+    expect(report.effectDeclarations.ids.at(-1)).toEqual({id:'effect-099',count:1});
+    expect(report.complete).toBe(false);
+    track.nodes=[template];const empty=await snapshots.complexity(await save(),'sequence');
+    expect(empty.effectDeclarations).toMatchObject({ids:[],distinctIds:0,identifiedNodes:0,unidentifiedNodes:0,truncated:false});
+  });
   it("opts into declared effect-input usage without flattening opaque nodes",async()=>{
     const {record,save,snapshots}=await fixture(),node=record.bins[0]!.mobs[0]!.tracks[0]!.nodes[0]!;
     const input={sourceMobId:'source',sourceTrackId:1,sourceStart:90,length:60,rate:30,basis:'declared-equal-length-input'};

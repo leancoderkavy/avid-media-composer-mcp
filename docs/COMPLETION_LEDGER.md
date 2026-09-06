@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Saved direct effect declaration counts
+
+Full local `npm run check` passed: 604 TypeScript tests, Python checks, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-effect-declaration-counts.log`). Current-change remote verification remains pending; prior ff11c88 CodeQL passed while platform CI was still running at the check.
+
+Extended `avid_saved_sequence_complexity` with bounded counts by saved direct TKFX ID, distinct/identified/unidentified totals and explicit truncation above 100 lexically sorted IDs. Stored opacity and incomplete coverage remain; no render-cost, enabled-state or recursive-effect interpretation is inferred. Snapshot tests cover repeated IDs, unknown IDs, non-effect nodes, truncation and empty inventories. All 27 focused snapshot tests passed. Actual Sonoma capture/reconnect returned exactly two EFF2_LUTSFX nodes with unchanged source bin hash: `.avid-mcp-analysis/saved-color-effects-a149cb34-f75d-4c24-a101-df23f59c0608/evidence.json`. This advances effect reporting; unqualified stereo-combiner trim and broader full-plan requirements remain open.
+
 ### Installed effect-input usage pagination
 
 Extended fresh-tarball acceptance with two synthetic saved color-effect mobs. Default installed usage omits effect inputs; opt-in one-result pages preserve opaque nodes, nested input offsets and incomplete status. A second MCP client continues the first client's cursor to the other mob without changing saved snapshot bytes. Existing keyframe-diff and malformed-declaration checks still pass. Actual `npm run smoke:package -- --with-python` succeeded with 139 tools, five matching skills and Python/AAF checks; log `.avid-mcp-analysis/check-installed-effect-usage.log`. Syntax checks passed. No production code changed and the full unit suite was not rerun. Synthetic installed-record acceptance is separate from the preceding real Sonoma saved-bin evidence.

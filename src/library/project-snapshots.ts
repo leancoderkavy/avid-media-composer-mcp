@@ -219,15 +219,21 @@ export class ProjectSnapshots {
     if(matches.length!==1)throw new Error("Expected one matching mob; provide its bin path from snapshot mob discovery when IDs repeat");
     const {bin,mob}=matches[0]!;
     const sources=new Set<string>();let nodes=0,opaqueNodes=0,sourceReferences=0;
+    const effects=new Map<string,number>();let unidentifiedEffectNodes=0;
     const tracks=mob.tracks.map(track=>{
       const kinds=new Map<string,number>();let opaque=0,references=0;
       for(const node of track.nodes){
         nodes++;kinds.set(node.kind,(kinds.get(node.kind)??0)+1);
         if(node.opaque){opaque++;opaqueNodes++;}
+        if(node.kind==='TKFX'){
+          if(node.effect?.id)effects.set(node.effect.id,(effects.get(node.effect.id)??0)+1);
+          else unidentifiedEffectNodes++;
+        }
         if(node.sourceMobId){sources.add(node.sourceMobId);references++;sourceReferences++;}
       }
       return {ordinal:track.ordinal,index:track.index,mediaKind:track.mediaKind,nodes:track.nodes.length,opaqueNodes:opaque,sourceReferences:references,kinds:Object.fromEntries(kinds)};
     });
-    return {revision,mobId,name:mob.name,bin:bin.file,binSha256:bin.sha256,rate:mob.rate,duration:mob.duration,durationSeconds:mob.duration/mob.rate,trackCount:tracks.length,nodes,opaqueNodes,sourceReferences,distinctSourceMobs:sources.size,tracks,complete:bin.complete&&opaqueNodes===0,warnings:bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(bin),origin:"saved snapshot; source bin may have changed since capture",limitations:["Counts describe stored direct nodes, not recursively expanded source graphs","Stereo channel-combiner references are counted per channel, not as editorial cuts","Opaque nodes are not classified as specific effects; no render-cost estimate","Excludes unsaved editor changes and does not verify media availability"]};
+    const effectDeclarations={ids:[...effects].sort(([a],[b])=>a<b?-1:a>b?1:0).slice(0,100).map(([id,count])=>({id,count})),distinctIds:effects.size,identifiedNodes:[...effects.values()].reduce((a,b)=>a+b,0),unidentifiedNodes:unidentifiedEffectNodes,truncated:effects.size>100,scope:'Saved direct TKFX identifiers only; counts do not establish enabled state, rendered behavior or nested effect coverage'};
+    return {revision,mobId,name:mob.name,bin:bin.file,binSha256:bin.sha256,rate:mob.rate,duration:mob.duration,durationSeconds:mob.duration/mob.rate,trackCount:tracks.length,nodes,opaqueNodes,sourceReferences,distinctSourceMobs:sources.size,tracks,effectDeclarations,complete:bin.complete&&opaqueNodes===0,warnings:bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(bin),origin:"saved snapshot; source bin may have changed since capture",limitations:["Counts describe stored direct nodes, not recursively expanded source graphs","Stereo channel-combiner references are counted per channel, not as editorial cuts","Effect IDs are saved declarations, not interpreted effect behavior; no render-cost estimate","Excludes unsaved editor changes and does not verify media availability"]};
   }
 }
