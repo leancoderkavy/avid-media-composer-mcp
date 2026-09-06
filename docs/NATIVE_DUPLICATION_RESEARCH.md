@@ -1,5 +1,13 @@
 # Native duplicate-items research
 
+## Same-session undo observation
+
+The explicit `qualify-native-duplicate-mcp.mjs --history` mode required the saved three-item fixture hash and verified a single duplication to four items. All original identities/names and protected file hashes remained unchanged; token replay was refused. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-23cbe67e-e3aa-40a8-ac32-e12b5901477a/evidence.json`.
+
+Computer use observed Undo, Redo and Undo-Redo List disabled before and after duplication. Refocusing the new row enabled Duplicate and selection commands while history remained disabled. No Undo was invoked and the fourth item was retained without an explicit save in this experiment. Autosave was not established. This is a fixture-specific negative observation, not proof that every Avid duplication lacks undo.
+
+Production duplicate previews now return `undoVerified: false`, `selectionMayChange: true` and `stateCoverage: "saved-bin-hash-and-native-item-inventory"`, with an explicit warning about unqualified undo and incomplete unsaved graph coverage. A preview-only MCP call confirmed the fields; typecheck, build and 124 native tests passed. No extra apply was performed for preview verification.
+
 ## Guarded MCP action
 
 `avid_native_preview` now accepts `{action: "duplicate_clip", bin, mobId}`. Apply its returned token with `avid_native_apply`. Preview requires inspection/edit authority and binds the scoped bin path/hash, current native item inventory, project and listener owner. Apply rechecks this state under the native lock, consumes the token before dispatch and invokes `DuplicateBinItems` once. This binding does not capture a complete unsaved sequence graph.

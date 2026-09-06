@@ -341,7 +341,10 @@ export class NativeAdapter {
     if (this.plans.size >= 100) throw new Error("Too many pending native plans");
     this.plans.set(token, { action, state, expires });
     return { token, expiresAt: new Date(expires).toISOString(), action, expectedState: state,
-      warning: "One native operation; no atomic undo guarantee. Inspect state after an uncertain response before creating another plan." };
+      ...(action.action==="duplicate_clip"?{selectionMayChange:true,undoVerified:false,stateCoverage:"saved-bin-hash-and-native-item-inventory"}:{}),
+      warning: action.action==="duplicate_clip"
+        ? "Native duplication has no qualified undo; UI history remained unavailable in the observed fixture. Selection may change. State binding does not capture a complete unsaved timeline graph. Inspect state after an uncertain response before creating another plan."
+        : "One native operation; no atomic undo guarantee. Inspect state after an uncertain response before creating another plan." };
   }
   async apply(token: string) {
     const task = queue.catch(() => {}).then(async () => {

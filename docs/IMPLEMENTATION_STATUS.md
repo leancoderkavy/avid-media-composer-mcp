@@ -1,6 +1,6 @@
 # Open-source implementation status
 
-Guarded native `duplicate_clip` now performs one same-bin duplication with token/state/owner checks and explicit identity/preservation verification. Actual MCP execution and replay refusal passed on the owned Sonoma fixture; save/reopen, graph and undo qualification for that new item remain separate. See [duplication](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action).
+Guarded native `duplicate_clip` now performs one same-bin duplication with token/state/owner checks and explicit identity/preservation verification. Actual MCP execution, replay refusal, saved graph comparison and bin-reopen persistence passed on the owned Sonoma fixture. A further same-session duplication left UI Undo/Redo/history disabled even with the new row focused. Previews explicitly report unqualified undo, possible selection changes and limited state coverage. General undo, restart and rendered fidelity remain open. See [duplication](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action).
 
 `avid_native_read` now supports `media_volumes`: bounded host-wide volume declarations gated by an authorized current project, with exact raw uint64 strings, omitted defaults and explicit unknown units/path/online status. Two fresh inspect-only MCP sessions passed on the qualified Windows host with protected source/bin hashes unchanged. See [media-volume diagnostic](NATIVE_MEDIA_VOLUMES.md).
 

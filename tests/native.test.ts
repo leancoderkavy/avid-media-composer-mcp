@@ -74,6 +74,8 @@ it.each(["pass","missing","extra","renamed","reused","uncertain"])("verifies dup
     }return original(method,body);
   });
   const preview=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
+  expect(preview).toMatchObject({selectionMayChange:true,undoVerified:false,stateCoverage:"saved-bin-hash-and-native-item-inventory"});
+  expect(preview.warning).toContain("no qualified undo");
   if(mode==="uncertain")await expect(f.adapter.apply(preview.token)).rejects.toThrow("Connection lost");
   else {
     const result=await f.adapter.apply(preview.token);

@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Duplicate undo observation and preview disclosure
+
+The explicit research `--history` mode duplicated the owned fixture from three to four items. Original identities/names and protected file hashes were preserved; token replay was refused. UI Undo, Redo and Undo-Redo List stayed disabled before and after, including with the new row focused and Duplicate/selection commands enabled. No Undo or explicit save was issued for this fourth item. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-23cbe67e-e3aa-40a8-ac32-e12b5901477a/evidence.json` and observed UI captures.
+
+Duplicate previews now disclose `undoVerified: false`, possible selection changes and saved-bin-hash/native-inventory state coverage. The updated fields were also returned by an actual preview-only MCP call. Typecheck, build and 124 native tests passed. The preceding commit `496c9aa` passed all hosted CI and CodeQL checks, including both macOS jobs after the canonical-path test correction. General undo and full unsaved graph coverage remain unqualified.
+
 ### MCP duplicate saved graph and reopen
 
 Saved the three-item owned bin through observed UI, then independently verified that the new MCP-created sequence was the only added decoded MOB. All prior mobs/warnings were unchanged; the new sequence matched its selected source except name/ID. Guarded close/reopen preserved all three native identities/names and every decoded record, with identical saved/reopened SHA-256. Protected original hashes were unchanged. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-persist-3e925c36-3b5a-4731-9a59-fc5d9757039e/evidence.json`.
