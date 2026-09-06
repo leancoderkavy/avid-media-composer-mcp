@@ -646,3 +646,7 @@ Inventory generation now verifies each resolved source checksum against its inde
 ### Installed inventory report acceptance
 
 Fresh-tarball verification now imports the installed library and exercises report rendering with a synthetic indexed record: separate stream index/codec, escaped camera tag and mobile field labels. It then changes the disposable source and requires the specific stale-source refusal, unchanged report directory contents and unchanged previous HTML. This passed alongside all 135 matching tool definitions, six notice mappings, five client formats and installed source tracing (`.avid-mcp-analysis/package-inventory-report.log`). Python MCP isolation was not requested in this targeted run. The synthetic record tests packaging and behavior; separate Sonoma MCP/browser evidence covers actual media and layout.
+
+### Full verification after cancellation and inventory changes
+
+Full `npm run check` passed on source commit `64e1bde`: 486 TypeScript tests across 83 files, 32 Python tests, 135-tool stdio/HTTP checks, dry packing and fresh-tarball installation. Installed acceptance included six notice mappings, inventory rendering/source refusal, exact tool definitions, source tracing, five client formats and Python available/missing/restored isolation. Log: `.avid-mcp-analysis/check-inventory-cancellation.log`. Current-head CI was still running when checked; CodeQL for `2d7829a` was successful. This closes the combined local regression checkpoint, not the broader native/client/quality requirements.
