@@ -8,13 +8,31 @@ import {MediaLibrary} from "../src/library/media-library.js";
 import {loadConfig} from "../src/config.js";
 
 async function fixture(){
-  const root=await mkdtemp(path.join(os.tmpdir(),"avid-watch-")),folder=path.join(root,"media");await mkdir(folder);
+  const root=await realpath(await mkdtemp(path.join(os.tmpdir(),"avid-watch-"))),folder=path.join(root,"media");await mkdir(folder);
   const file=path.join(folder,"test.mp4");await writeFile(file,"fixture");
   const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:folder,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,project-write,export"});
   return {root,folder,file,config};
 }
 afterEach(()=>vi.restoreAllMocks());
 describe("watch checkpointing",()=>{
+  it('stops after the current file checkpoint and resumes without duplicating it or starting another watch',async()=>{
+    const {root,folder,config}=await fixture();await writeFile(path.join(folder,'a.mp4'),'second');
+    const service=new WatchFolders(config);await service.configure({folder});await service.configure({folder});
+    const watches=await service.list();for(const watch of watches)await service.scan(watch.id);
+    let finish!:()=>void,started!:()=>void;const indexing=new Promise<void>(resolve=>{started=resolve;});
+    const index=vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>{
+      if(index.mock.calls.length===1)await new Promise<void>(resolve=>{finish=resolve;started();});
+      return {entries:[{id:'a'.repeat(64),file:files[0]!,duration:'10',streams:[]}],sourceModified:false};
+    });
+    let tick!:()=>void;vi.spyOn(globalThis,'setInterval').mockImplementation(((callback:()=>void)=>{tick=callback;return {unref(){}};}) as any);vi.spyOn(globalThis,'clearInterval').mockImplementation(()=>{});
+    service.start(10);tick();await indexing;
+    try{
+      expect(service.stop()).toMatchObject({running:false,scanInProgress:true});finish();await vi.waitFor(()=>expect(service.status().scanInProgress).toBe(false));expect(index).toHaveBeenCalledTimes(1);
+      const records=await Promise.all(watches.map(watch=>readFile(path.join(root,'avid-mcp-library','watches',watch.id+'.json'),'utf8').then(JSON.parse)));
+      expect(Object.values(records[0].observations).filter((item:any)=>item.mediaId)).toHaveLength(1);expect(Object.values(records[1].observations).filter((item:any)=>item.mediaId)).toHaveLength(0);
+      service.start(10);tick();await vi.waitFor(()=>expect(service.status().scanInProgress).toBe(false));expect(index).toHaveBeenCalledTimes(4);expect(service.status().lastError).toBeNull();
+    }finally{finish();service.stop();}
+  });
   it('retains known file failures while scanning a different batch',async()=>{
     const {folder,config}=await fixture(),broken=path.join(folder,'a.mp4');await writeFile(broken,'invalid');
     vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>{if(files[0]===broken)throw new Error('invalid media');return {entries:[{id:'a'.repeat(64),file:files[0]!,duration:'10',streams:[]}],sourceModified:false};});

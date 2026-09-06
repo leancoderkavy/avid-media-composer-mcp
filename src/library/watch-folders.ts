@@ -20,6 +20,7 @@ const extensions=new Set([".mp4",".mov",".mxf",".wav",".mp3",".mkv",".avi",".aif
 export class WatchFolders {
   private timer:ReturnType<typeof setInterval>|undefined;
   private pending:Promise<unknown>|undefined;
+  private pollingAbort:AbortController|undefined;
   private lastError:string|undefined;
   private watchErrors:{id:string;error:string}[]=[];
   private library:MediaLibrary;
@@ -73,8 +74,9 @@ export class WatchFolders {
     requireCapability(this.config.capabilities,"project-write");
     return this.locked(id,async()=>{await this.read(id,true);await unlink(path.join(await this.directory(),`${id}.json`));return {id,removed:true,mediaDeleted:false};});
   }
-  async scan(id:string){
+  async scan(id:string,signal?:AbortSignal){
     requireCapability(this.config.capabilities,"project-write");
+    signal?.throwIfAborted();
     return this.locked(id,async()=>{
       const record=await this.read(id);
       if(!record.options.enabled)return {id,skipped:"disabled"};
@@ -90,7 +92,7 @@ export class WatchFolders {
         const children=await directoryPage(folder,10001-entries,entry=>{
           const location=[...parts,entry.name],ancestor=cursor&&location.length<=cursor.length&&location.every((part,index)=>part===cursor[index]);
           return !cursor||compare(location,cursor)>0||Boolean(entry.isDirectory()&&ancestor);
-        });
+        },signal);
         for(const entry of children){
           const location=[...parts,entry.name],ancestor=cursor&&location.length<=cursor.length&&location.every((part,index)=>part===cursor[index]);
           if(cursor&&compare(location,cursor)<=0&&!(entry.isDirectory()&&ancestor))continue;
@@ -107,6 +109,7 @@ export class WatchFolders {
       await walk(record.options.folder,[]);
       const next:Watch["observations"]={};const indexed=[];
       for(const file of files){
+        signal?.throwIfAborted();
         try{
           await resolveReadablePath(file,this.config.allowedRoots,"file");
           const before=await stat(file),signature=`${before.size}:${before.mtimeMs}:${before.ctimeMs}`;
@@ -121,6 +124,7 @@ export class WatchFolders {
         // Persist after each file so a later failure does not discard successful checkpoints.
         record.observations={...record.observations,...next};await this.save(record);
       }
+      signal?.throwIfAborted();
       record.observations={...record.observations,...next};
       if(!truncated)record.observations=Object.fromEntries(Object.entries(record.observations).filter(([,value])=>value.cycle===record.cycle));
       record.cursor=truncated?nextCursor:undefined;
@@ -135,23 +139,26 @@ export class WatchFolders {
     if(this.timer)return this.status();
     this.timer=setInterval(()=>{
       if(this.pending)return;
+      const controller=new AbortController();this.pollingAbort=controller;
       this.pending=this.list().then(async records=>{
         const errors:{id:string;error:string}[]=[];
         const recordError=(id:string,error:unknown)=>errors.push({id,error:(error instanceof Error?error.message:String(error)).slice(0,1024)});
         for(const record of records){
+          if(controller.signal.aborted)return;
           if("unavailable" in record){recordError(record.id,record.error);continue;}
           if(!record.options?.enabled)continue;
           try{
-            const result=await this.scan(record.id);
+            const result=await this.scan(record.id,controller.signal);
             if(result.errors?.length)recordError(record.id,`${result.errors.length} media file(s) failed indexing: ${result.errors[0]!.error}`);
-          }catch(error){recordError(record.id,error);}
+          }catch(error){if(controller.signal.aborted)return;recordError(record.id,error);}
         }
+        if(controller.signal.aborted)return;
         this.watchErrors=errors;
         this.lastError=errors.length?`${errors.length} watch folder(s) reported errors`:undefined;
-      }).catch(error=>{this.lastError=(error instanceof Error?error.message:String(error)).slice(0,1024);}).finally(()=>{this.pending=undefined;});
+      }).catch(error=>{if(!controller.signal.aborted)this.lastError=(error instanceof Error?error.message:String(error)).slice(0,1024);}).finally(()=>{this.pending=undefined;if(this.pollingAbort===controller)this.pollingAbort=undefined;});
     },intervalSeconds*1000);
     this.timer.unref();return this.status();
   }
-  stop(){if(this.timer)clearInterval(this.timer);this.timer=undefined;return this.status();}
+  stop(){if(this.timer)clearInterval(this.timer);this.timer=undefined;this.pollingAbort?.abort();return this.status();}
   status(){return {running:Boolean(this.timer),scanInProgress:Boolean(this.pending),lastError:this.lastError??null,watchErrors:this.watchErrors.map(error=>({...error})),automaticRestart:false,staleLockPolicy:"Inspect PID and operation state before manually removing a stale watch lock"};}
 }

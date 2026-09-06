@@ -6,6 +6,13 @@ import {directoryPage} from "../src/library/directory-page.js";
 vi.mock('node:fs/promises',async importOriginal=>{const actual=await importOriginal<typeof import('node:fs/promises')>();return {...actual,opendir:vi.fn(actual.opendir)};});
 
 describe('bounded directory pages',()=>{
+  it('closes enumeration on cancellation and never returns a partial lexical page',async()=>{
+    const controller=new AbortController();let closed=false;
+    vi.mocked(opendir).mockResolvedValueOnce({async *[Symbol.asyncIterator](){try{yield {name:'z'};controller.abort();yield {name:'a'};}finally{closed=true;}}} as any);
+    await expect(directoryPage('synthetic',1,()=>true,controller.signal)).rejects.toMatchObject({name:'AbortError'});expect(closed).toBe(true);
+    const calls=vi.mocked(opendir).mock.calls.length;
+    await expect(directoryPage('synthetic',1,()=>true,controller.signal)).rejects.toMatchObject({name:'AbortError'});expect(vi.mocked(opendir).mock.calls.length).toBe(calls);
+  });
   it('selects earliest eligible entries even when enumeration is reversed or shuffled',async()=>{
     const sorted=Array.from({length:1000},(_,i)=>String(i).padStart(4,'0'));
     for(const names of [[...sorted].reverse(),sorted.map((_,i)=>sorted[(i*337)%1000]!)]){

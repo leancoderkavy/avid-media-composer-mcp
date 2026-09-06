@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Cooperative watch shutdown
+
+Local full check passed: 699 TypeScript/46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-stop.log`). All 18 focused watch/directory tests passed after canonicalizing temporary fixture roots. Earlier CI run 34050383712 failed because two mock predicates compared aliased temporary paths with canonical paths; the fixture now resolves its root before creating media. Cross-platform CI must verify the correction.
+
+Previously stop cleared only the timer, allowing the pending cycle to continue through all remaining files and watches. A cycle-specific abort signal now prevents new file/watch work, checks streamed directory iteration and preserves the current file's successful checkpoint before stopping. Cancelled cycles preserve previous diagnostics and do not advance cursors or prune unseen records. Regression tests cover stopping while an index is pending, checkpoint preservation, restart without duplication, iterator closure and refusal to return a partial lexical page.
+
+Actual production timers with real Sonoma indexing passed across two watches/two copies. A controlled harness pause held the first completed index result until stop; exactly one checkpoint was saved, no further index calls occurred, and restart completed the remaining three without duplication. Original/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-stop-27671439-a29e-4f7e-97ca-ab5f20a4485a/evidence.json`. This is direct-module controlled-timing evidence; blocked OS calls, forced subprocess termination, uncontrolled MCP races and full-plan acceptance remain open.
+
 ### Streamed watch directory selection
 
 Full check passed with 696 TypeScript/46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-directory-page.log`). After adding unordered-enumeration coverage, the final TypeScript rerun passed all 697 tests (`test-directory-page-final.log`). Full-plan acceptance remains open.

@@ -4,10 +4,12 @@ import type {Dirent} from "node:fs";
 /** Select the next lexical entries without retaining the entire directory listing.
  * Enumerates the directory to completion because filesystem iteration is unordered.
  */
-export async function directoryPage(directory:string,limit:number,accept:(entry:Dirent)=>boolean){
+export async function directoryPage(directory:string,limit:number,accept:(entry:Dirent)=>boolean,signal?:AbortSignal){
   if(!Number.isInteger(limit)||limit<1||limit>10001)throw new Error("Directory page limit must be 1–10001");
+  signal?.throwIfAborted();
   const heap:Dirent[]=[];
   for await(const entry of await opendir(directory,{bufferSize:32})){
+    signal?.throwIfAborted();
     if(!accept(entry))continue;
     if(heap.length<limit){
       heap.push(entry);let index=heap.length-1;
@@ -22,5 +24,6 @@ export async function directoryPage(directory:string,limit:number,accept:(entry:
       }
     }
   }
+  signal?.throwIfAborted();
   return heap.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
 }

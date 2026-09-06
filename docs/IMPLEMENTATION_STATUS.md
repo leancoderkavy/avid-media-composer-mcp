@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+Watch polling stop now finishes the current file checkpoint and prevents further file/watch work. Streamed directory selection cooperatively aborts without publishing partial traversal. Real Sonoma indexing with a harness-controlled completion pause passed checkpoint preservation and restart without duplication; source hashes were unchanged. See [cooperative stop](WATCH_FOLDER_RECOVERY.md). This is not forced termination or uncontrolled MCP timing proof.
+
 Watch directory selection now streams entries and retains a bounded lexical candidate heap instead of allocating an entire listing. Actual MCP continuation across 10,021 entries reached, indexed and deduplicated a Sonoma copy with source hashes unchanged. Enumeration time and observation-manifest growth remain separate limits. See [large-directory qualification](WATCH_FOLDER_RECOVERY.md).
 
 Watch scans now persist traversal progress instead of repeatedly scanning only the first `maxFiles` files. Actual MCP reconnect-per-scan qualification indexed three Sonoma copies in one-file batches, preserved stable-file deduplication, and pruned a moved fixture after a full sweep. Directory-budget continuation and cross-batch error retention have regression coverage. See [bounded watch scans](WATCH_FOLDER_RECOVERY.md).
@@ -113,6 +115,8 @@ A fresh managed development-package installation also passed actual native app/p
 The optional licensed Jumper provider has a [bounded loopback health, text/image/frame visual search and transcript-search client](JUMPER_PROVIDER.md) with fixture tests. Paired dispatch withholds HTTP bytes until accepted-connection ownership verification passes; refusal, timeout, closed-socket late approval and replacement-listener recovery have fixture evidence. This mitigates the listener-preflight connection race, but does not establish vendor authentication or licensed runtime compatibility. Licensed runtime qualification, additional enterprise adapters and separately shipped Windows UI actions remain unfinished. Mac implementation and real-host qualification are explicitly deferred to work on a Mac. These requirements remain in the completion ledger rather than being removed from scope.
 
 ## Latest complete local check
+
+Latest local full check passed: 699 TypeScript/46 Python tests, 140 tools/five skills and transport/fresh-package/Python/AAF checks (`check-watch-stop.log`). Focused watch/directory tests also passed after canonicalizing fixture roots to address CI temporary-path alias differences. Earlier CI run 34050383712 failed those mock-path predicates; local success alone does not establish corrected cross-platform CI.
 
 Latest directory-selection validation: complete check passed with 696 TypeScript/46 Python tests, 140 tools/five skills and transport/fresh-package/Python/AAF checks (`check-watch-directory-page.log`). A final TypeScript rerun including unordered-enumeration coverage passed all 697 tests (`test-directory-page-final.log`). Actual 10,021-entry MCP evidence is recorded above. Earlier counts below are historical.
 

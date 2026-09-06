@@ -1,5 +1,13 @@
 # Watch folder relocation
 
+## Cooperative polling stop
+
+`avid_watch_service` stop clears future timer ticks and cancels further work in the active polling cycle. A file already being processed can finish and save its successful checkpoint; the next file and subsequent watches are not started. Directory selection checks cancellation while iterating and closes its iterator without returning a partial lexical page. Cancellation does not advance the traversal cursor or prune unseen observations. A later start can revisit the interrupted batch while reusing successful checkpoints.
+
+Stop returns immediately, so `running: false` can coexist with `scanInProgress: true` until the current operation settles. Status retains the preceding completed-cycle diagnostics for an interrupted cycle. This is cooperative cancellation: it does not force-kill an indexing subprocess or interrupt an operating-system call already pending. Explicit manual scan requests are separate from the polling cycle.
+
+Actual production timers and real Sonoma indexing passed stop/checkpoint/restart qualification across two watches with two copies. The harness held the first real index result before checkpoint completion, requested stop, released it and observed exactly one checkpoint with no further index calls. Restart completed the other three file/watch operations without repeating the first one. Original/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-stop-27671439-a29e-4f7e-97ca-ab5f20a4485a/evidence.json`. This is direct-module qualification with controlled async timing, not an uncontrolled MCP stop race, disconnect/power-loss durability or prompt interruption of blocked filesystem calls.
+
 ## Bounded scans across large folders
 
 `maxFiles` limits files examined in one scan, not the lifetime coverage of the watch. A persisted component-wise lexical cursor advances through nested directories across scans and server reconnects. A scan also stops at 1,000 directory visits or 10,000 considered entries and resumes later. Directory iteration now streams through Node's [opendir API](https://nodejs.org/api/fs.html#fspromisesopendirpath-options) with a 32-entry buffer. A maximum heap retains only the earliest eligible entries: remaining scan-entry budget plus one lookahead, at most 10,001 entries per active traversal level. Depth remains capped at eight. Selection enumerates the entire directory because filesystem iteration order is unspecified; enumeration time and the total observation manifest are not bounded by this selection limit.
