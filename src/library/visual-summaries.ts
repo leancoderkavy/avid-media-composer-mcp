@@ -84,7 +84,16 @@ export class VisualSummaries{
     sha.parse(id);if(after)uuid.parse(after);z.number().int().min(1).max(100).parse(limit);await new MediaLibrary(this.config).metadata([id]);
     const root=await new MediaLibrary(this.config).directory(),names=[];let scanned=0;
     for await(const entry of await opendir(root)){if(++scanned>10000)throw new Error("Visual summary discovery limit exceeded");const match=/^visual-summary-([a-f0-9-]{36})\.json$/.exec(entry.name);if(match&&match[1]!>after)names.push(match[1]!);}
-    const results=[];for(const revision of names.sort()){const {record,sha256}=await this.read(revision,false);if(record.id!==id)continue;results.push({revision,sha256,root:record.root,nodes:record.nodes.length,provenanceVerified:false});if(results.length>limit)break;}return {summaries:results.slice(0,limit),nextAfter:results.length>limit?results[limit-1]!.revision:null};
+    const results=[],unavailable:{revision:string;mediaIdentityVerified:boolean;problem:{code:string;message:string}}[]=[];const page=names.sort().slice(0,limit);
+    for(const revision of page){let mediaIdentityVerified=false;
+      try{
+        const file=await resolveReadablePath(path.join(root,`visual-summary-${revision}.json`),[root],"file"),raw=await readBoundedJson(file,2*1024*1024),identity=z.object({id:sha}).parse(raw);
+        if(identity.id!==id)continue;mediaIdentityVerified=true;
+        const {record,sha256}=await this.read(revision,false);if(record.id!==id)throw new Error("Visual summary media identity changed during discovery");
+        results.push({revision,sha256,root:record.root,nodes:record.nodes.length,provenanceVerified:false});
+      }catch{unavailable.push({revision,mediaIdentityVerified,problem:{code:"VISUAL_SUMMARY_UNAVAILABLE",message:"Saved visual summary could not be validated; no content returned."}});}
+    }
+    return {summaries:results,unavailable,nextAfter:names.length>page.length?page.at(-1)!:null,scope:"Cursor advances across saved revision files, including unrelated media and unavailable records. Unverified identities are not attributed to the requested media; follow nextAfter even when summaries is empty."};
   }
   async remove(revision:string,expectedSha256:string){
     requireCapability(this.config.capabilities,"project-write");sha.parse(expectedSha256);const {file,sha256}=await this.read(revision,false);if(sha256!==expectedSha256)throw new Error("Visual summary changed; reload checksum");await unlink(file);return {revision,deleted:true,sourceModified:false,captionsModified:false};

@@ -8,6 +8,8 @@ Transcript summary node reads include `quality.potentiallyTruncatedNodeIds` acro
 
 Summary revision discovery reports unreadable records in `unavailable` and continues through `nextAfter`. Its limit bounds examined revision files, including other media, so a page may contain no matching summaries while still offering a continuation cursor. An unreadable record with `mediaIdentityVerified: false` is not attributed to the requested media. Damaged content is not returned; discovery does not repair or delete it.
 
+Visual-summary discovery follows the same bounded-file pagination and unavailable-record contract. It can find healthy revisions after malformed or unrelated files without loading models. Listing still checks saved structure only; caption provenance requires node inspection. Regression evidence covers continuation with a new library instance, denied source scope, omitted private fixture content and unchanged source/summary hashes.
+
 `scripts/research/qualify-summary-revision-recovery.mjs` verifies this through stdio MCP using an isolated Sonoma library and actual local generation from synthetic editorial notes. After the damaged-record page, a new inspection-only process without model configuration continued through an unrelated-record page to the healthy summary. Media, healthy summary and damaged-fixture hashes were preserved. Evidence: `.avid-mcp-analysis/summary-revision-recovery-e7b24787-589b-4747-963c-7e3210303caa/evidence.json`. This is recovery evidence, not summary accuracy or native editing proof.
 
 ## Native Avid workflows

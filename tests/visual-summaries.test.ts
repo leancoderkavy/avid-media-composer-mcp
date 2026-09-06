@@ -46,3 +46,12 @@ it("rejects duplicate/unordered references, source scope and writes without perm
  await expect(new VisualSummaries({...f.config,capabilities:new Set(["inspect"])}).generate(f.id,f.references)).rejects.toThrow();
  await writeFile(f.source,"changed");await expect(f.summaries.generate(f.id,f.references)).rejects.toThrow("source changed");
 });
+it("continues bounded discovery past corrupt and unrelated revisions after restart",async()=>{
+ const f=await fixture(),saved=await f.summaries.generate(f.id,f.references),damaged="00000000-0000-4000-8000-000000000001",other="00000000-0000-4000-8000-000000000002";
+ const file=path.join(f.directory,`visual-summary-${saved.revision}.json`),hash=await sha256File(file);
+ await writeFile(path.join(f.directory,`visual-summary-${damaged}.json`),"PRIVATE_BAD_CONTENT");await writeFile(path.join(f.directory,`visual-summary-${other}.json`),JSON.stringify({id:"b".repeat(64),private:"UNRELATED_CONTENT"}));
+ const first=await f.summaries.list(f.id,"",1);expect(first.summaries).toEqual([]);expect(first.unavailable).toMatchObject([{revision:damaged,mediaIdentityVerified:false}]);expect(first.nextAfter).toBe(damaged);
+ const restored=new VisualSummaries({...f.config,modelDirectory:undefined}),second=await restored.list(f.id,first.nextAfter!,1);expect(second.summaries).toEqual([]);expect(second.unavailable).toEqual([]);expect(second.nextAfter).toBe(other);
+ const third=await restored.list(f.id,second.nextAfter!,1);expect(third.summaries[0]!.revision).toBe(saved.revision);expect(third.nextAfter).toBeNull();expect(JSON.stringify([first,second,third])).not.toMatch(/PRIVATE_BAD_CONTENT|UNRELATED_CONTENT/);
+ expect(await sha256File(file)).toBe(hash);expect(await sha256File(f.source)).toBe(f.id);await expect(new VisualSummaries({...f.config,allowedRoots:[]}).list(f.id)).rejects.toThrow();
+});
