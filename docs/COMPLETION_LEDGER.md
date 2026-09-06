@@ -1,5 +1,11 @@
 # Completion ledger
 
+### MCP duplicate saved graph and reopen
+
+Saved the three-item owned bin through observed UI, then independently verified that the new MCP-created sequence was the only added decoded MOB. All prior mobs/warnings were unchanged; the new sequence matched its selected source except name/ID. Guarded close/reopen preserved all three native identities/names and every decoded record, with identical saved/reopened SHA-256. Protected original hashes were unchanged. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-persist-3e925c36-3b5a-4731-9a59-fc5d9757039e/evidence.json`.
+
+CI for the preceding action commit failed the new duplicate fixture on macOS because the expected temporary path was not canonicalized (`/var` versus `/private/var`). Corrected the test to compare `realpath`; production code is unchanged. The 124 focused native tests, harness syntax and diff checks passed. The full previous local pipeline is distinct from current hosted validation. See [MCP duplicate persistence](NATIVE_DUPLICATION_RESEARCH.md#mcp-created-duplicate-persistence); undo/general rendering remain unqualified.
+
 ### Guarded native duplicate action
 
 Implemented `duplicate_clip` in native preview/apply with scoped bin hash/item inventory, host/project binding, native locking, single-use tokens and one dispatch. Post-read verifies exactly one new returned ID and preservation of every prior item field except selection. Identity verification remains separate from persistence and source fidelity. The bound inventory is not a complete unsaved timeline graph.

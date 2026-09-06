@@ -7,7 +7,7 @@ import { withNativeLock } from "../src/native/lock.js";
 import {verifyNativeRender} from "../src/native/render-verifier.js";
 import {verifyNativeAafMaster} from "../src/native/aaf-verifier.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
-import {mkdtemp,writeFile,mkdir} from "node:fs/promises";
+import {mkdtemp,writeFile,mkdir,realpath} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -67,7 +67,7 @@ it.each(["pass","missing","extra","renamed","reused","uncertain"])("verifies dup
   vi.spyOn(f.client,"call").mockImplementation(async(method,body)=>{
     if(method==="GetListOfBinItems")return structuredClone(rows);
     if(method==="DuplicateBinItems"){
-      writes++;expect(body).toEqual({bin_path:path.join(path.dirname(f.source),"fixture.avb"),mob_id:["clip"]});
+      writes++;expect(body).toEqual({bin_path:await realpath(path.join(path.dirname(f.source),"fixture.avb")),mob_id:["clip"]});
       rows=[{mob_id:"clip",mob_name:mode==="renamed"?"Changed":"Original"},...(mode==="missing"?[]:[{mob_id:"new",mob_name:"Original.Copy.01",mob_selected:true}]),...(mode==="extra"?[{mob_id:"unrelated"}]:[])];
       if(mode==="uncertain")throw new Error("Connection lost after dispatch");
       return [{mob_id:[mode==="reused"?"clip":"new"]}];
