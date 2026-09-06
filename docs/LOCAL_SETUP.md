@@ -130,6 +130,8 @@ This read-only search requires `inspect`, checks access to every requested index
 
 The measurements use FFmpeg's [blackdetect](https://ffmpeg.org/ffmpeg-filters.html#blackdetect), [freezedetect](https://ffmpeg.org/ffmpeg-filters.html#freezedetect), [silencedetect](https://ffmpeg.org/ffmpeg-filters.html#silencedetect), [vfrdet](https://ffmpeg.org/ffmpeg-filters.html#vfrdet), and input statistics from [loudnorm](https://ffmpeg.org/ffmpeg-filters.html#loudnorm). The normalized filter output is discarded; no replacement audio or media is written. Silence can have nonfinite loudness, represented as null with the raw `-inf` value retained.
 
+Audio QC also measures samples per channel with [astats](https://ffmpeg.org/ffmpeg-filters.html#astats), at the declared sample rate before loudness normalization. `audioCoverage` reports the measured sample amount, equivalent duration and whether it matches the requested duration within one sample. A short stream can produce a partial amount; that mismatch remains visible for review. An empty range or missing sample measurement fails without writing a success report. Matching sample amounts do not establish continuous timestamps or perceptual synchronization.
+
 Events use source-second ranges. An unfinished freeze is marked as open at the analyzed range end. Black endings have decoded-frame precision. Timestamp variation may reflect time-base rounding and is not a diagnosis of dropped frames. Container stream-start offsets do not establish perceptual synchronization. Intentional black/static/silent scenes require editorial review. The report does not certify any broadcast/delivery specification. Multistream, HDR, nonzero stream-offset and perceptual sync qualification remain open.
 
 

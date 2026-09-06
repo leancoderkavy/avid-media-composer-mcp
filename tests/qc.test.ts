@@ -15,6 +15,12 @@ it("rejects oversized ranges and invalid detector parameters",()=>{
   expect(()=>qcOptions.parse({end:5,silenceDb:2})).toThrow();expect(()=>qcOptions.parse({end:5,freezeNoise:-1})).toThrow();
 });
 
+it("distinguishes measured silence from empty or missing sample coverage",()=>{
+  expect(parseQcLog('Number of samples: 48000\n',0,4).audioSamplesPerChannel).toBe(48000);
+  expect(parseQcLog('Number of samples: 0\n',3,4).audioSamplesPerChannel).toBe(0);
+  for(const log of ['', 'Number of samples: NaN\n','Number of samples: 1.5\n','Number of samples: 99999999999999999999\n'])expect(parseQcLog(log,0,4).audioSamplesPerChannel).toBeNull();
+});
+
 it("selects absolute stream indices, allows single-type analysis, and rejects missing or wrong-type selections",async()=>{
   const {selectQcStreams}=await import("../src/library/qc.js");
   const streams=[{index:0,codec_type:"video"},{index:1,codec_type:"video"},{index:2,codec_type:"audio"},{index:3,codec_type:"audio"}];

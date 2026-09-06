@@ -16,6 +16,7 @@ try{
  await call('avid_index_media',{files:[file]});
  const first=await call('avid_media_qc',{id,options:{end:4,freezeSeconds:0.5}});
  assert.deepEqual(first.streams,{video:0,audio:2});assert.ok(first.findings.freeze.length);assert.ok(first.findings.silence.length);
+ assert.equal(first.audioCoverage.samplesPerChannel,192000);assert.equal(first.audioCoverage.amountMatchesRequestedDuration,true);
  const alternate=await call('avid_media_qc',{id,options:{end:4,videoStream:1,audioStream:3,freezeSeconds:0.5}});
  assert.deepEqual(alternate.streams,{video:1,audio:3});assert.equal(alternate.findings.freeze.length,0);assert.equal(alternate.findings.silence.length,0);assert.equal(alternate.findings.black.length,0);assert.ok(Number.isFinite(alternate.findings.loudness.integratedLufs));
  const audioOnly=await call('avid_media_qc',{id,options:{end:4,videoStream:null,audioStream:3}});assert.deepEqual(audioOnly.streams,{video:null,audio:3});assert.equal(audioOnly.findings.frameTiming,null);
