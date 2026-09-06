@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import {smokeAafPackage} from "./smoke-aaf-package.mjs";
 import {
   StdioClientTransport,
   getDefaultEnvironment,
@@ -276,6 +277,7 @@ try {
   const wrongTrim=await client.callTool({name:"avid_verify_saved_trim",arguments:{...savedTrimArgs,delta:-1}});
   if(!wrongTrim.isError||!JSON.stringify(wrongTrim).includes("exact requested trim"))throw new Error("Installed MCP accepted the wrong trim direction");
   if (withPython) {
+    await smokeAafPackage({installedRoot,temporary,python});
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});
       if (result.isError || !result.structuredContent?.ok) throw new Error("Installed capability request failed");
@@ -328,6 +330,7 @@ try {
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
+      aafAuthoring: withPython ? "installed two-source merge, stereo selects, graph/hash binding and stale-template refusal passed" : "not requested",
     }),
   );
 } finally {
