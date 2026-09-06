@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+Independent saved-marker research now verifies a fresh before/persisted/cleaned AVB snapshot set: zero/two/zero TMBC records, exact requested marker identities/text/color labels, and unchanged decoded timeline fields. Sequence positions remain unverified by the saved decoder: native frames 15 and 75 both use component offset 15 on different nested clips. See [saved-marker evidence](NATIVE_BATCH_MARKERS.md#independent-saved-marker-inspection). This is research support, not a shipped general marker decoder.
+
 [Native batch markers](NATIVE_BATCH_MARKERS.md) now support guarded single-request application with exact field/readback and existing-marker preservation checks. A real two-marker 30 fps sequence run passed application, save/reopen and marker-list restoration after explicit deletion. A subsequent 100-marker V1/stereo A1 run also passed save/reopen; a subsequent batch removal preserved one outside-request marker, then separate cleanup restored the empty marker list. Other rates/track layouts, Unicode and atomic undo remain unqualified.
 
 [Native clip-bin lookup](NATIVE_MOB_BIN.md) resolves an observed MOB ID to Avid's reported bin within the current authorized project. Two known Sonoma sequence IDs resolved correctly across reconnect with source/bin hashes unchanged. Saved membership, uniqueness across copies and viewer alias mapping remain separate.

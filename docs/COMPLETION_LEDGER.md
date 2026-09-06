@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Independent saved marker records and before/after snapshots
+
+Extended the live batch harness with exclusive hash-checked before/persisted/cleaned AVB snapshots. Fresh real native run passed in `native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4`, owned bin `MCP_Batch_ca92028d.avb`. New read-only research inspector/verifier found zero/two/zero TMBC records, matched requested UUID/name/comment/user/color labels and component reference paths, and compared all existing decoded timeline fields across the three saved snapshots. Original source bin and MP4 hashes were unchanged. Retained report: `.avid-mcp-analysis/native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4/saved-marker-verification.json`.
+
+Both markers (native frames 15 and 75) store component offset 15 on different nested components with zero marker MOB IDs. This changes the next implementation step: resolve component ownership/position before exposing sequence coordinates. General marker decoding, opaque effects, track/rate mapping and complete graph equivalence remain unverified. Production code is unchanged; the actual native round trip, independent Python verification, JavaScript syntax and diff checks passed. The full suite was not repeated for research-only changes. Full-plan acceptance remains open.
+
 ### Saved decoded fields after marker cleanup
 
 Added a read-only verifier that snapshots the cleaned 100-marker fixture and unchanged copy source, decodes both, matches the target via the recorded native MOB ID, and compares all decoded composition fields except the expected new composition ID/name. All four other MOB records matched exactly; warnings matched after remapping the composition ID. Source, target, original MP4 and prior removal-evidence hashes remained unchanged. Evidence: `.avid-mcp-analysis/batch-cleanup-graph-6e4630fc-ab64-47b6-aa56-e78c1e422a5a/evidence.json` with retained AVB/JSON snapshots.

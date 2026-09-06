@@ -12,6 +12,18 @@ Subsequent read-only saved-file inspection compared the cleaned composition with
 
 The `--scale` harness mode passed 100 markers alternating between V1 and stereo A1 on a fresh 120-frame, 30 fps sequence copy, including frame-zero readback. All requested fields survived save/reopen. Evidence: `.avid-mcp-analysis/native-batch-markers-9b534448-7a38-4dd6-b345-5c08f6455e92/evidence.json`; retained fixture: `MCP_Batch_29084e01.avb`. Its markers remain for follow-up; no cleanup or baseline restoration is claimed for this mode. An initial V1/A1/A2 proposal was refused before dispatch because the source has one stereo A1, not separate A1/A2 tracks. The unchanged-source assertion passed on the successful run.
 
+The earlier scale-run statement that markers remained describes that historical checkpoint; the subsequent batch-removal qualification cleaned that fixture.
+
+## Independent saved-marker inspection
+
+The harness now retains exclusive, hash-checked AVB copies before markers, after persistence and after cleanup. A fresh two-marker run passed in `.avid-mcp-analysis/native-batch-markers-cc75c541-21e6-44a8-8863-3793d2a19fe4/`, using owned bin `MCP_Batch_ca92028d.avb`. Independent pyavb inspection found zero TMBC records before, exactly the two requested GUID/name/comment/user/color-label records after save, and zero after deletion/save. All fields emitted by the existing timeline decoder matched across all three snapshots, including warnings. Original source-bin/media hashes remained unchanged.
+
+The markers at sequence frames 15 and 75 both store `comp_offset: 15`, with `_TMP_CRM` references on different nested components. Their marker MOB IDs are zero. Neither field alone identifies sequence position or owner. The research inspector retains component reference paths and RGB16 values; it does not infer general track/rate/effect mapping or expose a production marker decoder yet. Opaque color adapters still prevent complete graph equivalence claims.
+
+Run `.venv/Scripts/python.exe scripts/research/verify-saved-marker-snapshots.py EVIDENCE_DIRECTORY` once against a completed fresh two-marker run. It writes an exclusive `saved-marker-verification.json`; reruns refuse to overwrite it. `inspect-saved-markers.py SAVED_AVB` provides read-only raw record/path inspection. These checks establish saved identities, text and removal for this fixture, not general sequence-position decoding, Unicode, length, RGB-to-label equivalence or restart/undo.
+
+## Native readback contract
+
 Frame-zero offsets may be absent in protobuf responses; verification applies the qualified numeric default of zero. A regression case failed before that fix and passed afterward. This does not authorize inferring an offset from arbitrary non-native records.
 
 Fresh corrected-code qualification passed in `.avid-mcp-analysis/native-batch-markers-c8750760-3e8d-4822-8248-a04621e44ba3/evidence.json`: verified batch application, saved/reopened marker fields and baseline marker-list restoration after explicit deletion. Original source-bin/media hashes were unchanged. Initial default-enum mismatch and no-replay recovery are retained separately in `native-batch-markers-62921df6-59f3-47cb-8ad4-b4bdb287eb02`.
