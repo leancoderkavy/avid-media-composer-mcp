@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Reopen invalidates pre-trim native marker UUIDs
+
+Executed verified native close/open on owned `MCP_TrimMarkers_9b4780a2.avb` after the marker-bearing trim/undo. All three native `guid` values changed to the saved non-UUID IDs. Other marker fields, saved bin bytes, decoded MOBs/warnings and original source hashes remained unchanged. Evidence: `.avid-mcp-analysis/marker-trim-reopen-b542f396-6647-48c2-ac7b-76f4f661251a/evidence.json`. The research harness records each response before assertions and retains a hash-checked reopened AVB/decoded graph.
+
+This disproves native UUID continuity across this bin reload and identifies a remaining batch-delete contract gap: its UUID-only input excludes these observed IDs. No marker write or automatic rekeying was attempted. Broader non-UUID edit support and application-restart behavior require further qualification. Research/docs only; prior 655 TypeScript/46 Python full check remains applicable to unchanged production code.
+
 ### Marker-bearing trim exposes saved identity changes
 
 A new owned sequence completed observed UI trim/save/undo/save with three picture/audio markers. Clip timing, marker positions and text restored, but every saved marker ID changed on trim and again on undo. Native UUIDs remained unchanged in-session. Original sources were unchanged; the fixture is saved and out of trim mode with three retained markers. Exact undo and cross-session identity continuity are not established. Evidence: `marker-trim-a6781039-2bfd-477f-993a-50a2867b1a1f/verification.json` under `.avid-mcp-analysis`.

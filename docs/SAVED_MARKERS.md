@@ -40,6 +40,8 @@ The corrected 100-marker comparison also passed from a fresh managed package: `i
 
 An observed marker-bearing trim/save/undo/save restored timing and text but changed all three saved marker IDs twice. Native UUIDs remained unchanged within that session. The decoder preserves non-UUID saved identifiers as `id` and reports `guid: null`; do not coerce them into native UUIDs or match them automatically by name/position. Cross-session correspondence is unverified. Read current native markers before planning further native writes. `avid_verify_saved_trim` reports `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` instead of accepting exact restoration. See [the trim evidence and limits](NATIVE_UI_TRIM_QUALIFICATION.md#marker-bearing-trim-and-incomplete-undo-restoration).
 
+The subsequent owned-bin close/reopen changed native `guid` fields to those same saved non-UUID IDs, while all other native marker fields and saved bytes stayed unchanged. Thus a native field named `guid` is not necessarily UUID-formatted. Existing batch deletion remains UUID-only and cannot handle these reloaded IDs; no non-UUID write is qualified by the readback. Evidence: `marker-trim-reopen-b542f396-6647-48c2-ac7b-76f4f661251a`.
+
 ## Saved cleanup and baseline comparison
 
 The scale fixture above has now been cleaned. `qualify-native-batch-removal.mjs` captured saved snapshots with the original 100 markers, with an additional unrelated marker, after removing the 100, and after explicitly removing the remaining marker. Native save/reopen checks passed at each stage. Evidence: `.avid-mcp-analysis/native-batch-removal-830c95f9-e387-4f0e-8b24-14db79244b61/`.

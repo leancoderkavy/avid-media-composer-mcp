@@ -26,4 +26,6 @@ For saved review evidence, use `avid_snapshot_saved_bins`, `avid_saved_snapshot_
 
 After timeline edits, refresh native marker identities before another native write. An observed trim and undo changed saved IDs while native UUIDs remained stable within the session. `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` means exact saved-state verification failed; inspect saved and current native markers without automatic rekeying or position/name matching. Do not assume undo restores saved identities or that session UUIDs survive reopen/restart.
 
+An observed bin reload replaced original native UUIDs with saved non-UUID identifiers in the native `guid` field. Refresh after reload; never replay old IDs. The current `delete_markers` batch schema accepts UUIDs only, so report those non-UUID targets as outside its qualified contract rather than converting or substituting identifiers. Readback alone does not qualify a non-UUID write.
+
 Return verified changes and any unresolved notes. Saved-bin persistence needs a separate save/reopen check; an in-memory read proves only the current host state.
