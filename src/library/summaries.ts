@@ -117,8 +117,18 @@ export class MediaSummaries{
     await this.library.metadata([id]);if(after)z.string().uuid().parse(after);z.number().int().min(1).max(100).parse(limit);
     const root=await this.library.directory(),revisions:string[]=[];let scanned=0;
     for await(const entry of await opendir(root)){if(++scanned>50000)throw new Error("Summary discovery directory limit exceeded");const match=/^summary-([a-f0-9-]{36})\.json$/.exec(entry.name);if(match&&match[1]!>after)revisions.push(match[1]!);}
-    revisions.sort();const results=[];for(const revision of revisions){const target=await resolveReadablePath(path.join(root,`summary-${revision}.json`),[root],"file");const header=recordSchema.parse(await readBoundedJson(target,4*1024*1024));if(header.id!==id)continue;const {record,sha256}=await this.read(revision,false);if(record.id===id)results.push({revision,root:record.root,transcriptRevision:record.transcriptRevision,nodes:record.nodes.length,sha256});if(results.length>limit)break;}
-    return {id,summaries:results.slice(0,limit),nextAfter:results.length>limit?results[limit-1]?.revision:null};
+    revisions.sort();const results=[],unavailable:{revision:string;mediaIdentityVerified:boolean;problem:{code:string;message:string}}[]=[];let lastVisited=after,visited=0;
+    for(const revision of revisions){
+      if(visited>=limit)break;visited++;lastVisited=revision;let mediaIdentityVerified=false;
+      try{
+        const target=await resolveReadablePath(path.join(root,`summary-${revision}.json`),[root],"file"),raw=await readBoundedJson(target,4*1024*1024);
+        const identity=z.object({id:z.string().regex(/^[a-f0-9]{64}$/)}).parse(raw);if(identity.id!==id)continue;mediaIdentityVerified=true;
+        recordSchema.parse(raw);const {record,sha256}=await this.read(revision,false);
+        if(record.id!==id)throw new Error("Summary media identity changed during discovery");
+        results.push({revision,root:record.root,transcriptRevision:record.transcriptRevision,nodes:record.nodes.length,sha256});
+      }catch{unavailable.push({revision,mediaIdentityVerified,problem:{code:"SUMMARY_UNAVAILABLE",message:"Saved summary could not be validated; no content returned."}});}
+    }
+    return {id,summaries:results,unavailable,nextAfter:revisions.length>visited?lastVisited:null,scope:"Cursor advances across saved revision files, including unrelated media and unavailable records. Unverified identities are not attributed to the requested media; follow nextAfter even when summaries is empty."};
   }
   async remove(revision:string,expectedSha256:string){requireCapability(this.config.capabilities,"project-write");const {file,sha256}=await this.read(revision,false);if(sha256!==expectedSha256)throw new Error("Summary changed; reload checksum");await unlink(file);return {revision,deleted:true,sourceModified:false};}
 }

@@ -71,3 +71,14 @@ it("keeps healthy runs discoverable after an older transcript is deleted",async(
   const rows=[...first.runs,...second.runs];expect(rows).toHaveLength(2);expect(rows.find(run=>run.runId===old.runId)).toMatchObject({state:"unavailable",problem:{code:"PATH_NOT_FOUND"}});expect(rows.find(run=>run.runId===current.runId)).toMatchObject({state:"completed"});
   await expect(summaries.runStatus(old.runId)).rejects.toThrow();await expect(new MediaSummaries({...config,allowedRoots:[]}).runs(id)).rejects.toThrow();
 });
+it("paginates past damaged and unrelated summary files without exposing their content",async()=>{
+  const {id,config,transcript,summaries}=await fixture(),saved=await summaries.generate(id,transcript.revision),directory=await new MediaLibrary(config).directory();
+  const damaged="00000000-0000-4000-8000-000000000001",unrelated="00000000-0000-4000-8000-000000000002";
+  await writeFile(path.join(directory,`summary-${damaged}.json`),"private damaged text");
+  await writeFile(path.join(directory,`summary-${unrelated}.json`),JSON.stringify({id:"b".repeat(64),secret:"unrelated text"}));
+  const first=await summaries.list(id,"",1);expect(first.summaries).toEqual([]);expect(first.unavailable).toMatchObject([{revision:damaged,mediaIdentityVerified:false}]);expect(first.nextAfter).toBe(damaged);
+  const second=await summaries.list(id,first.nextAfter!,1);expect(second.summaries).toEqual([]);expect(second.unavailable).toEqual([]);expect(second.nextAfter).toBe(unrelated);
+  const third=await summaries.list(id,second.nextAfter!,1);expect(third.summaries[0]!.revision).toBe(saved.revision);expect(third.nextAfter).toBeNull();
+  expect(JSON.stringify([first,second,third])).not.toMatch(/private damaged text|unrelated text/);
+  await expect(new MediaSummaries({...config,allowedRoots:[]}).list(id)).rejects.toThrow();
+});

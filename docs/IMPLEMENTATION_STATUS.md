@@ -6,6 +6,8 @@ The [completion ledger](COMPLETION_LEDGER.md) preserves every original requireme
 
 Transcript summary node reads include `quality.potentiallyTruncatedNodeIds` across the selected node and all descendants. This keeps an incomplete leaf visible even when its parent overview ends with punctuation. The signal uses the existing sentence-ending heuristic; an empty list does not verify completeness, factual accuracy or source-claim coverage. Saved summaries remain unchanged and inspection does not require a loaded model.
 
+Summary revision discovery reports unreadable records in `unavailable` and continues through `nextAfter`. Its limit bounds examined revision files, including other media, so a page may contain no matching summaries while still offering a continuation cursor. An unreadable record with `mediaIdentityVerified: false` is not attributed to the requested media. Damaged content is not returned; discovery does not repair or delete it.
+
 ## Native Avid workflows
 
 The independent Windows adapter extracts protocol descriptors locally from the checksum-qualified Media Composer 2024.12 binary. It distributes neither private SDK binaries nor extracted descriptor payloads. Native calls verify the loopback listener owner. Preview/apply uses expiring single-use tokens, scoped project/bin/source state and a per-user lock.
