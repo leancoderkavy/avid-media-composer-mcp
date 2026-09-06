@@ -8,7 +8,7 @@ import {MediaLibrary} from "../src/library/media-library.js";
 import {sha256File} from "../src/analysis/file-inventory.js";
 import {loadConfig} from "../src/config.js";
 const model=vi.hoisted(()=>({vision:vi.fn(),text:vi.fn(),tokenizer:vi.fn()}));
-vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({AutoTokenizer:{from_pretrained:async()=>model.tokenizer},AutoProcessor:{from_pretrained:async()=>async(image:unknown)=>image},CLIPTextModelWithProjection:{from_pretrained:async()=>Object.assign(model.text,{dispose:async()=>{}})},CLIPVisionModelWithProjection:{from_pretrained:async()=>Object.assign(model.vision,{dispose:async()=>{}})},RawImage:{read:async(image:unknown)=>image}})}));
+vi.mock("../src/library/model-runtime.js",()=>({modelRuntime:async()=>({AutoTokenizer:{from_pretrained:async()=>model.tokenizer},AutoProcessor:{from_pretrained:async()=>async(image:unknown)=>image},CLIPTextModelWithProjection:{from_pretrained:async()=>Object.assign(model.text,{dispose:async()=>{}})},CLIPVisionModelWithProjection:{from_pretrained:async()=>Object.assign(model.vision,{dispose:async()=>{}})},RawImage:{read:async(image:unknown)=>image,fromBlob:async(image:unknown)=>image}})}));
 afterEach(()=>{vi.restoreAllMocks();model.vision.mockReset();model.text.mockReset();model.tokenizer.mockReset();});
 async function fixture(){
   const root=await mkdtemp(path.join(os.tmpdir(),"avid-visual-resume-")),source=path.join(root,"source.mp4");await writeFile(source,"source");const id=await sha256File(source);
@@ -87,4 +87,25 @@ it("softly penalizes excluded concepts without deleting samples and validates al
   expect(model.text).not.toHaveBeenCalled();
   await expect(visual.search(index.indexId,{text:'scene'},2,{}, {exclude:Array(9).fill('x')})).rejects.toThrow();
   await expect(visual.search(index.indexId,{text:'scene'},2,{}, {weight:-1})).rejects.toThrow();
+});
+
+it("combines image and text similarities equally before exclusion penalties",async()=>{
+  const {visual,id,directory}=await fixture();const v=(a:number,b:number)=>[a,b,...Array(510).fill(0)];
+  model.vision.mockResolvedValueOnce({image_embeds:{data:v(1,0)}}).mockResolvedValueOnce({image_embeds:{data:v(0,1)}});
+  const index=await visual.index([id],2),image=path.join(directory,'frame-1.5.jpg');
+  model.vision.mockResolvedValue({image_embeds:{data:v(1,0)}});
+  model.tokenizer.mockImplementation(async(label:string)=>({label,input_ids:{dims:[1,label==='too long'?78:3]}}));
+  model.text.mockImplementation(async({label}:{label:string})=>({text_embeds:{data:label==='unwanted'?v(1,0):v(-0.6,0.8)}}));
+  const onlyImage=await visual.search(index.indexId,{image},2);
+  expect(onlyImage.results[0]!.time).toBe(1.5);
+  const combined=await visual.search(index.indexId,{image,text:'scene'},2);
+  expect(combined.results.map(s=>s.time)).toEqual([4.5,1.5]);
+  expect(combined.results[0]).toMatchObject({imageSimilarity:0,textSimilarity:0.8,similarity:0.4,score:0.4});
+  const penalty=await visual.search(index.indexId,{image,text:'scene'},2,{}, {exclude:['unwanted'],weight:0.5});
+  expect(penalty.results[1]!.score).toBeCloseTo(-0.3);
+  const frame=await visual.searchFrame(index.indexId,id,1.5,2,{}, {},'scene');
+  expect(frame.results).toEqual(combined.results);expect(frame.reference.time).toBe(1.5);
+  model.vision.mockClear();model.text.mockClear();
+  await expect(visual.search(index.indexId,{image,text:'too long'},2)).rejects.toMatchObject({code:'VISUAL_QUERY_TOO_LONG'});
+  expect(model.vision).not.toHaveBeenCalled();expect(model.text).not.toHaveBeenCalled();
 });

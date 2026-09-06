@@ -116,14 +116,15 @@ export class VisualSearch {
     const page=[];for(const {vector,image,...sample} of matches.slice(0,limit))page.push({...sample,image:await resolveReadablePath(image,[directory],"file")});
     return {indexId,samples:page,totalSamples:record.samples.length,nextAfter:matches.length>limit?page.at(-1)?.index:null,coverage:"Sample points only; ranges are half-open"};
   }
-  async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
+  async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={},text?:string){
+    if(text!==undefined)text=z.string().trim().min(1).max(500).parse(text);
     refinement=visualRefinement.parse(refinement);
     requireCapability(this.config.capabilities,"export");
     await this.record(indexId); // Validate index authority before creating an artifact.
     const frame=await this.library.artifact(id,"thumbnail",time);
-    return {...await this.search(indexId,{image:frame.output},limit,scope,refinement),reference:{id,time,image:frame.output}};
+    return {...await this.search(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,refinement),reference:{id,time,image:frame.output}};
   }
-  async search(indexId:string,query:{text:string}|{image:string},limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
+  async search(indexId:string,query:{text:string}|{image:string;text?:string|undefined},limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
     z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
     const controls=visualRefinement.parse(refinement);
     const {record,directory}=await this.record(indexId);
@@ -137,9 +138,11 @@ export class VisualSearch {
     };
     // Validate all text before any embedding inference; duplicates have no extra effect.
     const negativeTokens=[];for(const text of new Set(controls.exclude))negativeTokens.push(await tokenize(text));
+    const positiveTokens="text" in query&&query.text!==undefined?await tokenize(query.text):undefined;
     let embedding:number[];
-    if("text" in query){
-      const result=await models.text(await tokenize(query.text));
+    if(!("image" in query)){
+      if(!positiveTokens)throw new Error("Visual query requires text or an image");
+      const result=await models.text(positiveTokens);
       embedding=Array.from(result.text_embeds.data,Number);
     }else{
       const image=await resolveReadablePath(query.image,[...this.config.allowedRoots,directory],"file");
@@ -149,14 +152,18 @@ export class VisualSearch {
       const result=await models.vision(await models.processor(decoded));
       embedding=Array.from(result.image_embeds.data,Number);
     }
+    const textEmbedding="image" in query&&positiveTokens?Array.from((await models.text(positiveTokens)).text_embeds.data,Number):undefined;
     const negatives:number[][]=[];for(const tokens of negativeTokens)negatives.push(Array.from((await models.text(tokens)).text_embeds.data,Number));
     const ranked=record.samples.filter(sample=>(!scope.ids||scope.ids.includes(sample.id))&&(!scope.range||sample.time>=scope.range.start&&sample.time<scope.range.end)).map(({vector,...sample})=>{
-      const similarity=cosine(embedding,vector);
-      if(!negatives.length)return {...sample,score:similarity};
+      const primarySimilarity=cosine(embedding,vector),textSimilarity=textEmbedding?cosine(textEmbedding,vector):undefined;
+      const similarity=textSimilarity===undefined?primarySimilarity:(primarySimilarity+textSimilarity)/2;
+      const components=textSimilarity===undefined?{}:{imageSimilarity:primarySimilarity,textSimilarity,similarity};
+      if(!negatives.length)return {...sample,...components,score:similarity};
       const exclusionSimilarity=Math.max(0,...negatives.map(negative=>cosine(negative,vector)));
-      return {...sample,score:similarity-controls.weight*exclusionSimilarity,similarity,exclusionSimilarity};
+      return {...sample,...components,score:similarity-controls.weight*exclusionSimilarity,similarity,exclusionSimilarity};
     }).sort((a,b)=>b.score-a.score);
     const results=[];for(const sample of ranked.slice(0,limit))results.push({...sample,image:await resolveReadablePath(sample.image,[directory],"file")});
-    return {model:VISUAL_MODEL,scoreMeaning:negatives.length?"CLIP cosine similarity minus weight times maximum nonnegative excluded-concept cosine; soft ranking only, not guaranteed absence":"CLIP cosine similarity, not probability or verified identity",...(negatives.length?{refinement:{exclude:[...new Set(controls.exclude)],weight:controls.weight}}:{}),matchingSamples:ranked.length,truncated:ranked.length>limit,results};
+    const baseMeaning=textEmbedding?"Equal-weight mean of image and text CLIP cosine similarities":"CLIP cosine similarity";
+    return {model:VISUAL_MODEL,scoreMeaning:negatives.length?`${baseMeaning} minus weight times maximum nonnegative excluded-concept cosine; soft ranking only, not guaranteed absence`:`${baseMeaning}, not probability or verified identity`,...(negatives.length?{refinement:{exclude:[...new Set(controls.exclude)],weight:controls.weight}}:{}),matchingSamples:ranked.length,truncated:ranked.length>limit,results};
   }
 }
