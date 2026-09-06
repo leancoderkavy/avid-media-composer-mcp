@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config.js";
-import { clientConfiguration, codexSetupCommand, installConfiguration, doctor, resolveSetupEntry, type SetupClient } from "./setup.js";
+import { clientConfiguration, codexSetupCommand, installConfiguration, doctor, doctorConfiguration, resolveSetupEntry, type SetupClient } from "./setup.js";
 import {configurationStatus,changeConfiguration,type ConfigurationOperation} from "./setup-lifecycle.js";
 
 const { values } = parseArgs({ options: {
@@ -93,7 +93,7 @@ try {
     await models.text.dispose(); await models.vision.dispose();
     console.log(JSON.stringify({downloaded:VISUAL_MODEL,revision:VISUAL_REVISION,directory:values["model-dir"]}));
     }
-  } else if (values.doctor) console.log(JSON.stringify(await doctor(loadConfig()),null,2));
+  } else if (values.doctor) console.log(JSON.stringify(await doctor(doctorConfiguration({roots:values.root,outputRoot:values.output,nativeBinary:values.native,modelDirectory:values['model-dir']})),null,2));
   else if (values.client === "codex") {
     if(values.install||values.config)throw new Error("Codex setup prints a codex mcp add argument array; run it with Codex. JSON --config/--install does not support Codex TOML.");
     console.log(JSON.stringify(codexSetupCommand(values.root??[],values.output,values.native,serverEntry,runtimeOptions),null,2));
@@ -104,6 +104,6 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --pair-jumper ABSOLUTE_BINARY --jumper-sha256 HASH [--jumper-port PORT]\navid-mcp --diarization-runtime-status --model-dir PATH\navid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor\navid-mcp --client claude|cursor|vscode|lmstudio|generic|codex --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny|base] | --faces | --summaries | --captions | --diarization]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: --client codex prints a codex mcp add argument array; execute it with Codex. JSON configuration mutation flags do not apply.");
+  } else console.log("avid-mcp --pair-jumper ABSOLUTE_BINARY --jumper-sha256 HASH [--jumper-port PORT]\navid-mcp --diarization-runtime-status --model-dir PATH\navid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor [--root ABSOLUTE_PATH] [--output ABSOLUTE_PATH] [--native ABSOLUTE_EXE]\navid-mcp --client claude|cursor|vscode|lmstudio|generic|codex --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny|base] | --faces | --summaries | --captions | --diarization]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: --client codex prints a codex mcp add argument array; execute it with Codex. JSON configuration mutation flags do not apply.");
   }
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }

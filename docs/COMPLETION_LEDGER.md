@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Installed read regression and explicit doctor paths
+
+Full local check passed: 621 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-doctor-path-overrides.log`). Previous 92379f1 CI/CodeQL passed; current-change remote checks remain pending. Broader native editing, clean-machine setup and full-plan requirements remain open.
+
+Fresh managed-package app/project/bin/clip/track/viewer reads, saved timeline checks and bin/clip-column reconnect passed after the owner lookup change: `.avid-mcp-analysis/installed-native-e2459fac-98f2-4dec-a41e-e98bfb2ad655/evidence.json`. This broadens read regression evidence without claiming native writes or new-host qualification.
+
+Setup review found --doctor ignored accepted root/output/native path flags. Added doctor configuration merging that honors explicit absolute path overrides while preserving unspecified environment settings and rejecting relative/path-list roots. Updated CLI help/local setup. Actual CLI execution returned exactly the specified owned root/output and successfully read the explicitly configured Avid executable (`.avid-mcp-analysis/doctor-explicit-paths.json`). All four focused doctor tests passed, including environment preservation and invalid overrides. The doctor remains read-only; no dependency installation or client configuration mutation was introduced.
+
 ### Faster native owner lookup with fresh verification retained
 
 Full local check passed: 620 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-owner-cim.log`). A direct call against the actual Avid listener with Node as the expected executable also rejected with NATIVE_OWNER_MISMATCH. Current-change remote verification remains pending.

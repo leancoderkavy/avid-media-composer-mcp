@@ -4,7 +4,7 @@ import { realpath,stat } from "node:fs/promises";
 import {sha256File} from "./analysis/file-inventory.js";
 import {changeConfiguration} from "./setup-lifecycle.js";
 import { fileURLToPath } from "node:url";
-import type { ServerConfig } from "./config.js";
+import {loadConfig,type ServerConfig} from "./config.js";
 import type { DependencyStatus } from "./types.js";
 import { NativeAdapter } from "./native/adapter.js";
 import { probeFfmpeg, probeFfprobe } from "./analysis/media.js";
@@ -49,6 +49,18 @@ export function codexSetupCommand(roots:string[],outputRoot?:string,nativeBinary
   for(const [key,value] of Object.entries(entry.env))args.push("--env",`${key}=${value}`);
   args.push("--",entry.command,...entry.args);
   return {command:"codex",args,note:"Run this argument array with the installed Codex CLI, without a shell. Codex writes its own configuration. Inspect any existing avid-media-composer entry before replacing it."};
+}
+
+export function doctorConfiguration(options:{roots?:string[]|undefined;outputRoot?:string|undefined;nativeBinary?:string|undefined;modelDirectory?:string|undefined},environment:NodeJS.ProcessEnv=process.env){
+  const env={...environment};
+  if(options.roots!==undefined){
+    if(!options.roots.length||options.roots.some(root=>!path.isAbsolute(root)||root.includes(path.delimiter)))throw new Error('Doctor roots must be absolute paths without path-list separators');
+    env.AVID_MCP_ALLOWED_ROOTS=options.roots.join(path.delimiter);
+  }
+  for(const [key,value] of [['AVID_MCP_OUTPUT_ROOT',options.outputRoot],['AVID_MCP_NATIVE_BINARY',options.nativeBinary],['AVID_MCP_MODEL_DIR',options.modelDirectory]] as const){
+    if(value!==undefined){if(!path.isAbsolute(value))throw new Error('Doctor path overrides must be absolute');env[key]=value;}
+  }
+  return loadConfig(env);
 }
 
 export async function doctor(config: ServerConfig) {

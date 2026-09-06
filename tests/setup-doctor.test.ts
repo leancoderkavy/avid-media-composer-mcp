@@ -1,5 +1,5 @@
 import {expect,it,vi} from "vitest";
-import {doctor} from "../src/setup.js";
+import {doctor,doctorConfiguration} from "../src/setup.js";
 import {loadConfig} from "../src/config.js";
 import {probeFfmpeg,probeFfprobe} from "../src/analysis/media.js";
 import {probePythonInspector} from "../src/analysis/python-sidecar.js";
@@ -9,6 +9,17 @@ import os from "node:os";
 
 vi.mock("../src/analysis/media.js",()=>({probeFfmpeg:vi.fn(),probeFfprobe:vi.fn()}));
 vi.mock("../src/analysis/python-sidecar.js",()=>({probePythonInspector:vi.fn()}));
+
+it('applies explicit doctor paths while preserving unspecified environment settings',()=>{
+  const root=path.resolve('doctor-root'),output=path.resolve('doctor-output'),native=path.resolve('editor.exe'),model=path.resolve('models');
+  const env={AVID_MCP_ALLOWED_ROOTS:path.resolve('environment-root'),AVID_MCP_NATIVE_BINARY:path.resolve('environment-editor.exe'),AVID_MCP_FFPROBE:'custom-probe'};
+  const result=doctorConfiguration({roots:[root],outputRoot:output,nativeBinary:native,modelDirectory:model},env);
+  expect(result).toMatchObject({allowedRoots:[root],outputRoot:output,nativeBinary:native,modelDirectory:model,ffprobeExecutable:'custom-probe'});
+  expect(env.AVID_MCP_NATIVE_BINARY).toBe(path.resolve('environment-editor.exe'));
+  expect(doctorConfiguration({},env).allowedRoots).toEqual([env.AVID_MCP_ALLOWED_ROOTS]);
+  expect(()=>doctorConfiguration({roots:['relative']},env)).toThrow('absolute');
+  expect(()=>doctorConfiguration({nativeBinary:'relative'},env)).toThrow('absolute');
+});
 
 it.each([false,true])("reports dependency readiness, not just successful probe execution (%s)",async available=>{
   vi.mocked(probeFfmpeg).mockResolvedValue({available,executable:"ffmpeg",...(!available?{error:"Executable missing"}:{})});

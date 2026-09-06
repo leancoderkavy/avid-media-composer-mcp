@@ -15,3 +15,5 @@ Evidence under `.avid-mcp-analysis`:
 - `native-read-timing-a2931e8c-000a-4cb3-93f8-bc5ffbe4162c`: updated full-call path and owner equivalence.
 
 Every directory contains `evidence.json`. Unit tests separately verify repeated fresh lookup and missing, ambiguous, foreign and failed-provider rejection. This change does not make the surrounding editor-state reads atomic or qualify additional editing operations.
+
+Broader fresh-package native reads also passed after the lookup change: app/project/bin/clip/track/viewer queries, independent saved timeline checks, and bin/empty-inclusive clip-column reads across reconnect. Evidence: `.avid-mcp-analysis/installed-native-e2459fac-98f2-4dec-a41e-e98bfb2ad655/evidence.json`, with native and column evidence linked inside. This uses the existing qualified host and dependencies; it is not a new write or clean-machine qualification.

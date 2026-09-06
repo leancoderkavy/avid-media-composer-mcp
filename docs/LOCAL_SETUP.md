@@ -1,5 +1,11 @@
 # Unreleased local setup
 
+## Diagnose explicit project paths
+
+`avid-mcp --doctor --root ABSOLUTE_PROJECT_PATH --output ABSOLUTE_OUTPUT_DIRECTORY --native ABSOLUTE_AVID_EXECUTABLE` now diagnoses those explicit paths instead of silently falling back to environment paths. Repeat `--root` for multiple allowed roots. Supplied paths must be absolute; roots must not contain path-list separators. Omitted settings retain their environment configuration. Dependency executable/capability flags remain client-configuration options; use their corresponding environment variables for doctor probes.
+
+The doctor reads dependencies and the native application when configured. It does not install software, create directories, edit projects or write client configuration. Root/output existence and native connection results do not establish output capacity, general editing support or clean-machine readiness. Actual CLI qualification returned the requested owned root/output and a successful read of the explicitly configured Avid executable; evidence: `.avid-mcp-analysis/doctor-explicit-paths.json`.
+
 ## Filter media by recorded color properties
 
 Call avid_media_facets without filters to discover available color values and their file counts under `facets.pixelFormat`, `colorRange`, `colorSpace`, `colorTransfer` and `colorPrimaries`. Repeated stream values and duplicate input IDs count once per file. Missing declarations are omitted. Different values in a file's facets can originate from different streams; apply combined video filters to require that values occur together on one stream.
