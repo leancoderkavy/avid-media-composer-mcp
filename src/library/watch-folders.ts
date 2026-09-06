@@ -123,10 +123,13 @@ export class WatchFolders {
         for(const record of records){
           if("unavailable" in record){recordError(record.id,record.error);continue;}
           if(!record.options?.enabled)continue;
-          try{await this.scan(record.id);}catch(error){recordError(record.id,error);}
+          try{
+            const result=await this.scan(record.id);
+            if(result.errors?.length)recordError(record.id,`${result.errors.length} media file(s) failed indexing: ${result.errors[0]!.error}`);
+          }catch(error){recordError(record.id,error);}
         }
         this.watchErrors=errors;
-        this.lastError=errors.length?`${errors.length} watch folder(s) unavailable or failed to scan`:undefined;
+        this.lastError=errors.length?`${errors.length} watch folder(s) reported errors`:undefined;
       }).catch(error=>{this.lastError=(error instanceof Error?error.message:String(error)).slice(0,1024);}).finally(()=>{this.pending=undefined;});
     },intervalSeconds*1000);
     this.timer.unref();return this.status();

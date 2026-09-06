@@ -15,6 +15,23 @@ async function fixture(){
 }
 afterEach(()=>vi.restoreAllMocks());
 describe("watch checkpointing",()=>{
+  it('reports file indexing errors while preserving healthy progress and clears after retry',async()=>{
+    const {folder,config}=await fixture(),broken=path.join(folder,'broken.mp4');await writeFile(broken,'invalid');
+    let repaired=false;const index=vi.spyOn(MediaLibrary.prototype,'index').mockImplementation(async files=>{
+      if(files[0]===broken&&!repaired)throw new Error('Invalid media');
+      return {entries:[{id:'a'.repeat(64),file:files[0]!,duration:'10',streams:[]}],sourceModified:false};
+    });
+    const service=new WatchFolders(config),watch=await service.configure({folder});
+    let tick!:()=>void;vi.spyOn(globalThis,'setInterval').mockImplementation(((callback:()=>void)=>{tick=callback;return {unref(){}};}) as any);vi.spyOn(globalThis,'clearInterval').mockImplementation(()=>{});
+    const poll=async()=>{tick();await vi.waitFor(()=>expect(service.status().scanInProgress).toBe(false));};
+    service.start(10);
+    try{
+      await poll();await poll();expect(index).toHaveBeenCalledTimes(2);
+      expect(service.status()).toMatchObject({lastError:expect.any(String),watchErrors:[{id:watch.id,error:'1 media file(s) failed indexing: Invalid media'}]});
+      repaired=true;await poll();expect(index).toHaveBeenCalledTimes(3);
+      expect(service.status()).toMatchObject({lastError:null,watchErrors:[]});
+    }finally{service.stop();}
+  });
   it('reports unavailable records, bounds errors and prevents overlapping polling cycles',async()=>{
     const {config}=await fixture(),service=new WatchFolders(config);
     const list=vi.spyOn(service,'list').mockResolvedValue([{id:'missing',unavailable:true,error:'x'.repeat(2000)},{id:'healthy',options:{folder:'fixture',depth:2,maxFiles:100,enabled:true},files:0,scannedAt:undefined}]);

@@ -4,6 +4,8 @@ Updated 2026-09-06. The full plan remains incomplete. Development is on `codex/o
 
 The [completion ledger](COMPLETION_LEDGER.md) preserves every original requirement and chronological evidence. This page summarizes the current state; older checkpoints in the ledger are historical, not the latest capability inventory.
 
+Polling now reports per-file indexing errors even when the scan itself completes. An actual malformed MP4 was rejected while the Sonoma copy indexed successfully; moving the owned malformed fixture outside the watch cleared diagnostics on the next cycle. Original media hashes stayed unchanged. See [watch error evidence](WATCH_FOLDER_RECOVERY.md).
+
 Watch polling now isolates unavailable/failed watches, preserving bounded per-watch diagnostics while healthy watches continue serially. Actual MCP polling indexed a Sonoma copy with an earlier watch locked, preserved that lock and recovered after explicit fixture-lock removal. Source hashes were unchanged. See [watch recovery](WATCH_FOLDER_RECOVERY.md).
 
 Unavailable watch folders can now be explicitly replaced or removed under their original configured path scope. Replacement resets stability observations; actual MCP relocation of a Sonoma copy passed reconnect, two scans, checksum alias resolution and offline configuration removal without media deletion. Legacy/changed-scope records and stale locks remain guarded. See [watch recovery](WATCH_FOLDER_RECOVERY.md).
@@ -107,6 +109,8 @@ A fresh managed development-package installation also passed actual native app/p
 The optional licensed Jumper provider has a [bounded loopback health, text/image/frame visual search and transcript-search client](JUMPER_PROVIDER.md) with fixture tests. Paired dispatch withholds HTTP bytes until accepted-connection ownership verification passes; refusal, timeout, closed-socket late approval and replacement-listener recovery have fixture evidence. This mitigates the listener-preflight connection race, but does not establish vendor authentication or licensed runtime compatibility. Licensed runtime qualification, additional enterprise adapters and separately shipped Windows UI actions remain unfinished. Mac implementation and real-host qualification are explicitly deferred to work on a Mac. These requirements remain in the completion ledger rather than being removed from scope.
 
 ## Latest complete local check
+
+The current complete check passed with 691 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF validation (`check-watch-file-errors.log`). Actual malformed-media/healthy-Sonoma polling evidence is recorded separately above. Earlier counts below are historical.
 
 Latest verification: `check-watch-isolation.log` passed the full check with 689 TypeScript tests, 46 Python tests, 140 tools, five skills and fresh-package/transport/Python/AAF checks. A subsequently added unavailable/overlap regression passed with all nine focused watch tests. Real MCP watch failure isolation and recovery have separate Sonoma evidence above. The preceding complete-check details below remain historical.
 

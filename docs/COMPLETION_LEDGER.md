@@ -1,5 +1,13 @@
 # Completion ledger
 
+### File-level polling errors
+
+Full check passed: 691 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-file-errors.log`). Full-plan acceptance remains open.
+
+Polling previously discarded a completed scan's `errors`, allowing service status to appear healthy despite media-probe failures. It now reports the file-failure count and first bounded error per watch while preserving healthy indexing. Focused regression testing verifies healthy progress, subsequent retry and clearing diagnostics without reindexing the already successful file.
+
+Actual MCP timer/ffprobe qualification rejected an invalid MP4 fixture alongside successful Sonoma indexing. Moving only the owned malformed fixture outside the watched folder preserved its bytes and cleared diagnostics on the next completed cycle; the original/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-file-errors-bcc6d46c-d080-4165-a1ac-8080dde772e4/evidence.json`. This qualifies error visibility and healthy progress, not corrupt-media repair or complete recovery acceptance.
+
 ### Watch polling failure isolation
 
 Full `npm run check` passed with 689 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-isolation.log`). An additional unavailable/overlap regression added during that run passed in the subsequent nine-test focused watch suite; it was not in that full-suite count.
