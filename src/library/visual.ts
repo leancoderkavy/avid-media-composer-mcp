@@ -60,7 +60,7 @@ export class VisualSearch {
   async index(ids:string[],samplesPerFile:number,range?:z.infer<typeof visualRange>){
     requireCapability(this.config.capabilities,"export");
     if(ids.length>100||!ids.length||!Number.isInteger(samplesPerFile)||samplesPerFile<1||samplesPerFile>120||ids.length*samplesPerFile>1200)throw new Error("Visual sample limit exceeded (120 per file, 1200 total)");
-    const entries=await this.library.metadata([...new Set(ids)]);
+    const entries=await Promise.all([...new Set(ids)].map(id=>this.library.validatedMetadata(id)));
     const plans=entries.map(entry=>({entry,times:sampleTimes(Number(entry.metadata.format?.duration),samplesPerFile,range)}));
     return this.indexPlan(plans.flatMap(({entry,times})=>times.map(time=>({id:entry.id,time}))));
   }
@@ -91,7 +91,7 @@ export class VisualSearch {
         const saved={id,time,shot,image:image.output,imageSha256:await sha256File(image.output),vector:Array.from(result.image_embeds.data,Number)};
         await this.checkpoints.append(runId,samples.length,saved);samples.push(saved);
     }
-    for(const entry of await this.library.metadata([...new Set(plan.map(item=>item.id))]))if(await sha256File(entry.file)!==entry.id)throw new Error("Source changed during visual indexing");
+    for(const id of new Set(plan.map(item=>item.id)))await this.library.validatedMetadata(id);
     const record=recordSchema.parse({model:VISUAL_MODEL,revision:VISUAL_REVISION,samples});
     const indexId=randomUUID();
     await writeFile(path.join(await this.library.directory(),`visual-${indexId}.json`),JSON.stringify(record),{flag:"wx"});

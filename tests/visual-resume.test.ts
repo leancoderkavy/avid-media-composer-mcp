@@ -40,7 +40,7 @@ it("rejects changed source, image, model revision and narrowed roots",async()=>{
   await expect(new VisualSearch({...config,allowedRoots:[]}).resume(run)).rejects.toThrow();
   await expect(new VisualCheckpoints(config,VISUAL_MODEL,"different").read(run,true)).rejects.toThrow("revision");
   await writeFile(path.join(directory,"frame-1.jpg"),"changed");await expect(visual.resume(run)).rejects.toThrow("image changed");
-  await writeFile(path.join(directory,"frame-1.jpg"),"1");await writeFile(source,"changed");await expect(visual.resume(run)).rejects.toThrow("source changed");
+  await writeFile(path.join(directory,"frame-1.jpg"),"1");await writeFile(source,"changed");await expect(visual.resume(run)).rejects.toThrow(/[Ss]ource changed/);
 });
 it("rejects malformed or reordered samples instead of trusting their vectors",async()=>{
   const {config,id,directory}=await fixture(),checkpoints=new VisualCheckpoints(config,VISUAL_MODEL,VISUAL_REVISION);

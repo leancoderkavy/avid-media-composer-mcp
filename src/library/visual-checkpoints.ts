@@ -49,8 +49,8 @@ export class VisualCheckpoints{
     let indexId:string|undefined;
     try{const completed=await readBoundedJson(await resolveReadablePath(path.join(directory,"complete.json"),[directory],"file"),8192) as {indexId?:string};indexId=uuid.parse(completed.indexId);}
     catch(error){if((error as {code?:string}).code!=="PATH_NOT_FOUND")throw error;}
-    const entries=await new MediaLibrary(this.config).metadata([...new Set(record.plan.map(item=>item.id))]);
-    if(verifyImages)for(const entry of entries)if(await sha256File(entry.file)!==entry.id)throw new Error("Visual checkpoint source changed; reindex");
+    const library=new MediaLibrary(this.config),ids=[...new Set(record.plan.map(item=>item.id))];
+    if(verifyImages)for(const id of ids)await library.validatedMetadata(id);else await library.metadata(ids);
     const samples:VisualCheckpoint[]=[];
     for(let i=0;i<record.plan.length;i++){
       let value;try{value=await readBoundedJson(await resolveReadablePath(path.join(directory,`${i}.json`),[directory],"file"),32768);}
