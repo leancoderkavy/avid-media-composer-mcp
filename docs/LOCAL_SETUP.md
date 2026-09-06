@@ -481,3 +481,5 @@ Snapshot discovery summaries include `missingBins`; mob inventory entries includ
 For reading current bin selection, highlighting search-result MOBs, clearing selection, and explicit restoration, see [native selection](NATIVE_SELECTION.md). This development workflow uses `avid_native_read`, `avid_native_preview`, and `avid_native_apply` on the qualified Windows build.
 
 For copying a source bin item into an empty results bin, see [native copying](NATIVE_COPY.md), including identity changes, verification fields, and persistence limits.
+
+Saved snapshot range and complexity reports now include `sourceReferenceCoverage`. Diff and source-usage coverage include the same per-bin counts under `sourceReferences`. Parsing `complete:true` does not imply all source IDs resolve. Coverage is computed within each saved bin, so unresolved IDs may be external or terminal and are not automatically missing media. Samples are bounded; use the counts and `truncated` flag when reading them.

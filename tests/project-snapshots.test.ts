@@ -175,3 +175,12 @@ describe("saved semantic snapshots",()=>{
     await expect(snapshots.complexity(record.revision,"sequence")).rejects.toThrow("one matching mob");
   });
 });
+
+it("separates parsed completeness from unresolved and ambiguous saved-bin references",async()=>{
+ const {record,save,snapshots}=await fixture();let revision=await save();
+ expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({complete:true,sourceReferenceCoverage:{references:1,allReferencesResolve:false,unresolvedCount:1,unresolvedIds:["source"]}});
+ const source={...record.bins[0]!.mobs[0]!,mobId:"source",name:"Source",tracks:[]};record.bins[0]!.mobs.push(source);revision=await save();
+ expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({sourceReferenceCoverage:{allReferencesResolve:true,resolvedSourceIds:1}});
+ record.bins[0]!.mobs.push({...source});revision=await save();
+ expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({sourceReferenceCoverage:{allReferencesResolve:false,ambiguousCount:1,ambiguousIds:["source"]}});
+});

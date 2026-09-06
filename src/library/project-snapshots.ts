@@ -25,7 +25,14 @@ const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCod
 });
 const bin=z.object({schema:z.literal(1),file:z.string(),sha256:z.string().regex(/^[a-f0-9]{64}$/),mobs:z.array(mob).max(1000),warnings:z.array(z.record(z.string(),z.unknown())).max(1000),complete:z.boolean(),nodeCount:unit,stateOrigin:z.string()});
 const snapshotSchema=z.object({revision:z.string().uuid(),createdAt:z.string(),bins:z.array(bin).max(100)});
-const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
+function sourceReferenceCoverage(value:z.infer<typeof bin>){
+  const identities=new Map<string,number>();for(const mob of value.mobs)identities.set(mob.mobId,(identities.get(mob.mobId)??0)+1);
+  const referenced=new Set<string>();let references=0;
+  for(const mob of value.mobs)for(const track of mob.tracks)for(const node of track.nodes)if(node.sourceMobId!==undefined){references++;referenced.add(node.sourceMobId);}
+  const unresolved=[...referenced].filter(id=>!identities.has(id)).sort(),ambiguous=[...referenced].filter(id=>(identities.get(id)??0)>1).sort();
+  return {references,distinctSourceIds:referenced.size,resolvedSourceIds:referenced.size-unresolved.length-ambiguous.length,unresolvedCount:unresolved.length,ambiguousCount:ambiguous.length,unresolvedIds:unresolved.slice(0,10),ambiguousIds:ambiguous.slice(0,10),truncated:unresolved.length>10||ambiguous.length>10,allReferencesResolve:unresolved.length===0&&ambiguous.length===0,scope:"Direct references within this saved bin only. Unresolved IDs may be external or terminal; this does not establish missing media, acyclic graphs, valid source ranges or playback."};
+}
+const snapshotCoverage=(snapshot:z.infer<typeof snapshotSchema>)=>snapshot.bins.map(bin=>({bin:bin.file,complete:bin.complete,sourceReferences:sourceReferenceCoverage(bin),warningCount:bin.warnings.length,warnings:bin.warnings.slice(0,10),warningsTruncated:bin.warnings.length>10}));
 const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 /** Publish only fully written bytes, without replacing an existing revision. */
@@ -150,7 +157,7 @@ export class ProjectSnapshots {
       }
     }
     const page=results.slice(0,limit);
-    return {revision,mobId,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,rangeConvention:"half-open edit units",origin:"saved-bin"};
+    return {revision,mobId,rate:target.mob.rate,duration:target.mob.duration,results:page,nextAfter:results.length>limit?page.at(-1)?.index:null,complete:target.bin.complete,warnings:target.bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(target.bin),rangeConvention:"half-open edit units",origin:"saved-bin"};
   }
   async usage(revision:string,sourceMobId:string,after=-1,limit=500){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>500)throw new Error("Invalid source usage page");
@@ -178,6 +185,6 @@ export class ProjectSnapshots {
       }
       return {ordinal:track.ordinal,index:track.index,mediaKind:track.mediaKind,nodes:track.nodes.length,opaqueNodes:opaque,sourceReferences:references,kinds:Object.fromEntries(kinds)};
     });
-    return {revision,mobId,name:mob.name,bin:bin.file,binSha256:bin.sha256,rate:mob.rate,duration:mob.duration,durationSeconds:mob.duration/mob.rate,trackCount:tracks.length,nodes,opaqueNodes,sourceReferences,distinctSourceMobs:sources.size,tracks,complete:bin.complete&&opaqueNodes===0,warnings:bin.warnings,origin:"saved snapshot; source bin may have changed since capture",limitations:["Counts describe stored direct nodes, not recursively expanded source graphs","Stereo channel-combiner references are counted per channel, not as editorial cuts","Opaque nodes are not classified as specific effects; no render-cost estimate","Excludes unsaved editor changes and does not verify media availability"]};
+    return {revision,mobId,name:mob.name,bin:bin.file,binSha256:bin.sha256,rate:mob.rate,duration:mob.duration,durationSeconds:mob.duration/mob.rate,trackCount:tracks.length,nodes,opaqueNodes,sourceReferences,distinctSourceMobs:sources.size,tracks,complete:bin.complete&&opaqueNodes===0,warnings:bin.warnings,sourceReferenceCoverage:sourceReferenceCoverage(bin),origin:"saved snapshot; source bin may have changed since capture",limitations:["Counts describe stored direct nodes, not recursively expanded source graphs","Stereo channel-combiner references are counted per channel, not as editorial cuts","Opaque nodes are not classified as specific effects; no render-cost estimate","Excludes unsaved editor changes and does not verify media availability"]};
   }
 }
