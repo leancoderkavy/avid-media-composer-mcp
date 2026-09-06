@@ -1,3 +1,4 @@
+import {installModelNotice} from "./model-notices.js";
 import {mkdir} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
@@ -19,6 +20,7 @@ export const SPEECH_MODEL=speechModels["tiny.en"].model;
 export const SPEECH_REVISION=speechModels["tiny.en"].revision;
 export async function loadSpeechModel(cache:string,download=false,selection: "tiny.en"|"tiny"="tiny.en"){
   const selected=speechModels[speechModel.parse(selection)];
+  if(download)await installModelNotice(cache,selected.model,selected.revision);
   const {pipeline}=await modelRuntime(cache,download);
   return pipeline("automatic-speech-recognition",selected.model,{cache_dir:cache,revision:selected.revision,local_files_only:!download,dtype:"q8"});
 }

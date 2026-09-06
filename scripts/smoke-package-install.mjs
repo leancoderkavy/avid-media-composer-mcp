@@ -81,6 +81,11 @@ try {
   const installedRoot = path.join(temporary, "node_modules", "avid-media-composer-mcp");
   const {verifyFaceLicenses}=await import(pathToFileURL(path.join(installedRoot,"dist","library","face-runtime.js")).href);
   await verifyFaceLicenses(path.join(installedRoot,"docs","licenses"));
+  const {installModelNotice}=await import(pathToFileURL(path.join(installedRoot,"dist","library","model-notices.js")).href);
+  for(const model of ["Xenova/clip-vit-base-patch32","onnx-community/whisper-tiny","onnx-community/whisper-tiny.en","onnx-community/Florence-2-base-ft"]){
+    const cache=path.join(temporary,"notice-cache");
+    if(!(await installModelNotice(cache,model,"a".repeat(40))).created||(await installModelNotice(cache,model,"a".repeat(40))).created)throw new Error("Installed model notice creation/reuse failed");
+  }
   const originalNotices=JSON.parse(await readFile(path.join(root,"docs","original-model-notices.json"),"utf8"));
   for(const notice of originalNotices){
     if(!/^docs\/licenses\/[a-z0-9-]+\.LICENSE$/.test(notice.file))throw new Error("Unexpected original notice path");
@@ -266,6 +271,7 @@ try {
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       faceNotices: "both packaged model licenses match pinned upstream bytes",
       originalNotices: "packaged original-project notices match recorded upstream bytes",
+      cachedNotices: "four model notice mappings create and reuse from installed package",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",

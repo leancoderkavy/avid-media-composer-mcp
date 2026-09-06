@@ -1,3 +1,4 @@
+import {installModelNotice} from "./model-notices.js";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -17,6 +18,7 @@ export const VISUAL_MODEL = "Xenova/clip-vit-base-patch32";
 export const VISUAL_REVISION = "d15189d7028b43f1d3e65039190477f6af591c2a";
 export const VISUAL_TEXT_TOKEN_LIMIT = 77; // Pinned text_config.max_position_embeddings, including special tokens.
 export async function loadVisualModels(cache: string, download = false) {
+  if(download)await installModelNotice(cache,VISUAL_MODEL,VISUAL_REVISION);
   const {AutoTokenizer,AutoProcessor,CLIPTextModelWithProjection,CLIPVisionModelWithProjection,RawImage} = await modelRuntime(cache,download);
   const options = {cache_dir:cache,revision:VISUAL_REVISION,local_files_only:!download,dtype:"q8" as const};
   const location=download?VISUAL_MODEL:path.resolve(cache,VISUAL_MODEL,VISUAL_REVISION);

@@ -556,3 +556,9 @@ The metadata audit now requires an explicit, validated upstream repository ident
 ### Original CLIP and Whisper notices in installed packages
 
 Retained the original projects' MIT notices with OpenAI attribution and immutable source commits/hashes, alongside the Florence notice. `docs/original-model-notices.json` records all three. Documentation distinguishes Whisper's explicit original code/weights MIT statement from the inspected Hugging Face Apache-2.0 metadata, without claiming complete conversion-chain clearance. Fresh-tarball smoke passed with exact bytes for all three original notices plus both face notices, 135 matching tool definitions, stereo tracing, client formats and Python recovery. Log: `.avid-mcp-analysis/package-original-notices.log`. Runtime behavior and model caches were unchanged; further provenance work remains listed in `docs/OPTIONAL_MODEL_PROVENANCE.md`.
+
+### Notice delivery during explicit model setup
+
+CLIP, both Whisper selections and Florence now retain the recorded original-project notice in a revision-scoped cache notice directory during explicit setup. The helper verifies bundled bytes, creates files exclusively, reuses matching files, rejects changed notices without overwrite and refuses linked notice directories. Existing offline model loading remains read-only and compatible. Summary/diarization notices and complete conversion-chain clearance remain outstanding.
+
+Build and 10 selected tests passed across model-notice and speech-option test files. Fresh-tarball verification exercised actual installed helper creation/reuse for all four mappings, plus existing 135-tool definitions, source tracing, notice hashes, client formats and Python recovery. Log: `.avid-mcp-analysis/package-cache-notices.log`. This checks installed notice delivery without downloading weights; it is not a new full model installation or inference benchmark.
