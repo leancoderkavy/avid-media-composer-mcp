@@ -13,3 +13,9 @@ Evidence: `.avid-mcp-analysis/nonspeech-cbd88a25-bd6a-4798-b377-8159b3986baa/evi
 Both nonzero signals produced false speech text. These observations contradict broad non-speech rejection or ASR accuracy claims. Language-token probabilities are not calibrated speech-presence confidence; the larger noise probability did not indicate speech. Existing results correctly require review, but that flag does not solve the accuracy problem.
 
 This is a three-input synthetic development probe, not a representative accuracy benchmark. Speech-presence detection, mixed speech/noise/music evaluation and any rejection threshold need independent positive and negative fixtures before changing automatic transcription. Do not add phrase-based suppression for these outputs: the same words may occur in real speech. The harness retains machine results without treating a successful invocation as an accuracy pass.
+
+## Existing segmentation comparison
+
+`qualify-speech-presence.mjs` accepts negative-probe evidence and positive-language evidence, then invokes the installed diarization model through MCP on each file. On the three negatives above it returned zero spans. Existing synthetic English and Mandarin speech fixtures returned two and three spans respectively. All file hashes remained unchanged. Evidence: `.avid-mcp-analysis/speech-presence-4abbe458-cff1-4534-ac39-1e179feefbfa/evidence.json`.
+
+This suggests the existing segmentation model may help identify these ASR failures. It does not establish a calibrated voice-activity detector, per-word alignment or safe rejection of quiet/short/overlapping speech. Any optional gate must retain source-time evidence and distinguish unavailable segmentation from a verified no-span result. Ordinary transcription is unchanged; real music/noise and varied positive speech remain necessary acceptance inputs.
