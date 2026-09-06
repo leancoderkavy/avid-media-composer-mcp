@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Exact marker-update postconditions
+
+Actual MCP UUID marker update/save/reopen, explicit restoration/save/reopen and final cleanup passed. The second note remained unchanged; restored saved MOBs/warnings matched the original marker-bearing capture and final cleanup matched the empty baseline. Original sources were unchanged. Evidence: `.avid-mcp-analysis/native-marker-update-12ef1be1-0fc7-4f82-ad38-e470586ed11b/evidence.json`. The owned fixture is marker-empty; no atomic undo or non-UUID update proof is claimed.
+
+`change_marker` now requires exactly one target, uses its captured fields at owner-bound dispatch and verifies the complete marker list with only the requested comment/color differences. `markerChangedVerified` reports the result separately from call completion and persistence. The baseline is cloned; unexpected response-object mutation cannot change the expected state. Regression tests reject ignored updates, moved markers, changed outside notes, duplicates and ambiguous targets, with consumed-token checks.
+
+Full check passed: 663 TypeScript tests, 46 Python tests, 140 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-marker-update.log`). See [marker update contract](NATIVE_MARKER_UPDATE.md). General encoding, non-UUID updates, application restart and atomic undo remain unqualified.
+
 ### Native non-UUID batch deletion
 
 Full check passed: 657 TypeScript tests, 46 Python tests, 140 tools, five skills, stdio/HTTP and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-nonuuid-markers.log`. Installed package schemas match the checkout; live deletion evidence below uses the development server on the qualified Windows host.

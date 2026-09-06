@@ -103,6 +103,24 @@ it('dispatches exact observed non-UUID spelling and preserves an unrelated marke
  expect(await f.adapter.apply(preview.token)).toMatchObject({markersRemovedVerified:true});expect(markers).toEqual([f.marker]);
  await expect(f.adapter.apply(preview.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
 });
+it.each(['none','ignored','position','unrelated','duplicate'])('verifies marker updates against the entire baseline (%s)',async fault=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let writes=0;
+ const markers=[{...structuredClone(f.marker),offset:75},{...structuredClone(f.marker),guid:'other',offset:30}];
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='GetMarkers')return [{info:structuredClone(markers)}];
+  if(method==='ChangeMarker'){writes++;if(fault!=='ignored')Object.assign(markers[0]!,{comment:'after',color:'Blue'});if(fault==='position')markers[0]!.offset++;if(fault==='unrelated')markers[1]!.comment='changed';if(fault==='duplicate')markers.push(structuredClone(markers[0]!));return [];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:'change_marker',bin:'fixture.avb',mobId:'clip',guid:'marker',comment:'after',color:'Blue'});
+ expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,markerChangedVerified:fault==='none'});
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
+});
+it('refuses ambiguous marker updates before writing',async()=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);
+ vi.spyOn(f.client,'call').mockImplementation((method,body)=>method==='GetMarkers'?Promise.resolve([{info:[f.marker,f.marker]}]):original(method,body));
+ await expect(f.adapter.preview({action:'change_marker',bin:'fixture.avb',mobId:'clip',guid:'marker',comment:'after',color:'Blue'})).rejects.toThrow('exactly once');
+ expect(f.calls.some(call=>call.method==='ChangeMarker')).toBe(false);
+});
 it('refuses missing, duplicate or stale deletion targets before dispatch',async()=>{
  const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',base={action:'delete_markers' as const,bin:'fixture.avb',mobId:'clip'};
  for(const guids of [[],[guid,guid.toUpperCase()],Array.from({length:101},()=>guid)])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);

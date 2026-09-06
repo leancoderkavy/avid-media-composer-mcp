@@ -1,0 +1,11 @@
+# Native marker updates
+
+Preview `change_marker` with an observed `bin`, `mobId`, exact current `guid`, replacement `comment` and `color`. Apply its single-use token within the authorized project. Preflight requires exactly one target and captures the complete marker list. The dispatch uses the captured target's name, user and track declaration and binds the editor owner. Do not reuse a marker ID from before a bin reload.
+
+`markerChangedVerified: true` requires native readback to equal the captured list with only the target comment and color replaced. Position, identity, name, user, track, length, creation metadata and all unrelated records must remain equal. A project change during verification, ignored update, unexpected field change, missing/duplicate record or unavailable readback leaves verification false with an explanation. `applicationCompleted` means the native call returned; it does not establish this postcondition or persistence.
+
+The token is consumed before dispatch and cannot replay. After an uncertain result, inspect current records before another plan. No automatic undo or compensating write is performed. Save/reopen and independent saved-file inspection are separate checks. This operation does not qualify arbitrary text encodings, marker ID formats, application restart or atomic concurrent editing.
+
+Regression tests cover ignored updates, changed positions, changed unrelated comments, duplicate post-state records, ambiguous preflight targets and token consumption. The entire baseline is copied so subsequent response-object mutation cannot change the expected comparison.
+
+Actual qualification updated one of two UUID markers from its original Green review to a Blue replacement comment, saved/reopened and verified the complete expected native list. Explicit restoration and another save/reopen restored all original native records and decoded saved MOBs/warnings. Separate batch cleanup restored the empty decoded baseline; source hashes were unchanged. Evidence: `.avid-mcp-analysis/native-marker-update-12ef1be1-0fc7-4f82-ad38-e470586ed11b/evidence.json`, with baseline/original/updated/restored/cleaned AVB and JSON captures. The owned `MCP_TrimMarkers_9b4780a2.avb` fixture is marker-empty. This is an explicit update/restoration cycle, not editor undo or non-UUID update qualification.
