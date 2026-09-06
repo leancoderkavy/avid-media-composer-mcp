@@ -51,7 +51,9 @@ describe("saved semantic snapshots",()=>{
   it("rechecks source roots and rejects duplicate mob ambiguity",async()=>{
     const {config,record,save,snapshots}=await fixture();const first=await save();
     await expect(new ProjectSnapshots({...config,allowedRoots:[]}).range(first,"sequence",0,10)).rejects.toThrow("outside");
+    await expect(new ProjectSnapshots({...config,allowedRoots:[]}).complexity(first,"sequence")).rejects.toThrow("outside");
     record.bins.push(record.bins[0]!);record.revision=randomUUID();
     await expect(snapshots.range(await save(),"sequence",0,10)).rejects.toThrow("one matching mob");
+    await expect(snapshots.complexity(record.revision,"sequence")).rejects.toThrow("one matching mob");
   });
 });
