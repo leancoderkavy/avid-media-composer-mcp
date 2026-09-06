@@ -31,7 +31,7 @@ it("verifies original completion and refuses replay, edits and missing checkpoin
 it("rejects changed crops, models, sources and authority",async()=>{
   const {config,runs,indexId,directory,source}=await fixture(),crop=path.join(directory,"f00000.jpg");await writeFile(crop,"changed");await expect(runs.read(indexId)).rejects.toThrow("crop changed");await writeFile(crop,"crop");
   const file=path.join(directory,"faces-0.json"),original=await readFile(file,"utf8"),record=JSON.parse(original);record.input.models[FACE_MODELS[0]!.name]="0".repeat(64);await writeFile(file,JSON.stringify(record));await expect(runs.read(indexId)).rejects.toThrow("input changed");await writeFile(file,original);
-  await expect(new PeopleRuns({...config,allowedRoots:[]}).read(indexId)).rejects.toThrow();await writeFile(source,"changed");await expect(runs.read(indexId)).rejects.toThrow("source changed");
+  await expect(new PeopleRuns({...config,allowedRoots:[]}).read(indexId)).rejects.toThrow();await writeFile(source,"changed");await expect(runs.read(indexId)).rejects.toThrow(/[Ss]ource changed/);
 });
 it("refuses a source frame altered between validation and copying",async()=>{
   const {runs,indexId,coverage}=await fixture(),saved=await runs.read(indexId),child=await runs.create({coverage,threshold:0.45,parentIndexId:indexId});await writeFile(saved.extracted[0]!.file,"changed");await expect(runs.copyPrefix(saved,child.indexId)).rejects.toThrow("during checkpoint copy");

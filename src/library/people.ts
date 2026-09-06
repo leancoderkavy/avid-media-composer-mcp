@@ -66,7 +66,7 @@ export class PeopleRuns{
     if(header.indexId!==indexId||new Set(header.coverage.map(row=>row.mediaId)).size!==header.coverage.length)throw new Error("People run identity mismatch");
     const plan=header.coverage.flatMap(row=>peopleSampleTimes(row.end,row.samples,{start:row.start,end:row.end}).times.map(time=>({id:row.mediaId,time})));
     if(plan.length>1200)throw new Error("People run exceeds sample limit");
-    for(const entry of await new MediaLibrary(this.config).metadata(header.coverage.map(row=>row.mediaId)))if(await sha256File(await resolveReadablePath(entry.file,this.config.allowedRoots,"file"))!==entry.id)throw new Error("People run source changed");
+    for(const row of header.coverage)await new MediaLibrary(this.config).validatedMetadata(row.mediaId);
     const readOptional=async(name:string,limit:number)=>{try{return await readBoundedJson(await resolveReadablePath(path.join(directory,name),[directory],"file"),limit);}catch(error){if((error as {code?:string}).code==="PATH_NOT_FOUND")return undefined;throw error;}};
     const completed=await readOptional("complete.json",8192),complete=completed===undefined?undefined:completion.parse(completed),extracted=[];
     for(let i=0;i<plan.length;i++){const value=await readOptional(`frame-${i}.json`,8192);if(value===undefined)break;const saved=z.object({sha256:sha}).strict().parse(value),file=await resolveReadablePath(path.join(directory,`frame-${i}.jpg`),[directory],"file");if(await sha256File(file)!==saved.sha256)throw new Error("People extracted frame changed");extracted.push({file,sha256:saved.sha256});}
@@ -142,7 +142,7 @@ export class People {
     if(!this.config.modelDirectory)throw new Error("Install optional face models and set AVID_MCP_MODEL_DIR");
     if(!ids.length||ids.length>20||!Number.isInteger(samples)||samples<1||samples>120||new Set(ids).size*samples>1200)throw new Error("People indexing is limited to 20 media files, 120 samples each and 1200 total samples");
     if(range)peopleRange.parse(range);
-    const entries=await this.library.metadata([...new Set(ids)]),coverage=entries.map(entry=>{const plan=peopleSampleTimes(Number(entry.metadata.format?.duration),samples,range);return {mediaId:entry.id,start:plan.start,end:plan.end,samples};});
+    const entries=await Promise.all([...new Set(ids)].map(id=>this.library.validatedMetadata(id))),coverage=entries.map(entry=>{const plan=peopleSampleTimes(Number(entry.metadata.format?.duration),samples,range);return {mediaId:entry.id,start:plan.start,end:plan.end,samples};});
     const runtime=await faceRuntime(this.config.modelDirectory,this.config.pythonExecutable);
     const previous=parentIndexId?await this.runs.read(parentIndexId):undefined;
     if(previous&&(previous.complete||JSON.stringify(previous.header.coverage)!==JSON.stringify(coverage)||previous.header.threshold!==threshold||JSON.stringify(previous.header.range)!==JSON.stringify(range)))throw new Error("People run source plan changed");
