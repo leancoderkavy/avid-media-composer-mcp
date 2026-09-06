@@ -17,7 +17,8 @@ export const qcOptions=z.object({
   freezeSeconds:z.number().min(0.1).max(60).default(2),freezeNoise:z.number().min(0).max(1).default(0.001),
   silenceSeconds:z.number().min(0.1).max(60).default(0.5),silenceDb:z.number().min(-100).max(0).default(-50),
 }).strict().refine(value=>value.end>value.start&&value.end-value.start<=600,"QC range must be at most 600 seconds");
-type Interval={start:number;end:number;openAtRangeEnd?:boolean};
+type Interval={start:number;end:number};
+type OpenInterval={start:number;end:null;openAtProcessingEnd:true};
 export function qcVideoFrames(progress:string){
   const lines=progress.trim().split(/\r?\n/);
   if(lines.at(-1)!=="progress=end")throw new Error("Video QC final progress is missing; result is incomplete");
@@ -57,15 +58,15 @@ export function parseQcLog(log:string,start:number,end:number){
   }
   const blackOpenAtProcessingEnd=openBlack===undefined?null:{start:openBlack,end:null,minimumDurationVerified:false,meaning:"Black-start metadata had no closing transition before processing ended. May be shorter than blackSeconds; no media endpoint or perceptual darkness inferred."};
   const intervals=(kind:"freeze"|"silence")=>{
-    const result:Interval[]=[];let beginning:number|undefined;
+    const result:(Interval|OpenInterval)[]=[];let beginning:number|undefined;
     const regex=new RegExp(`${kind}_(start|end):\\s*${numeric}`,"g");
     for(const match of log.matchAll(regex)){
       if(match[1]==="start")beginning=clip(Number(match[2]));
       else if(beginning!==undefined){result.push({start:beginning,end:clip(Number(match[2]))});beginning=undefined;}
     }
-    if(beginning!==undefined)result.push({start:beginning,end,openAtRangeEnd:true});
+    if(beginning!==undefined&&beginning<end)result.push({start:beginning,end:null,openAtProcessingEnd:true});
     if(result.length>10000)throw new Error("QC event limit exceeded");
-    return result.filter(item=>item.end>item.start);
+    return result.filter(item=>item.end===null||item.end>item.start);
   };
   const vfr=[...log.matchAll(/VFR:([\d.]+)\s+\((\d+)\/(\d+)\)/g)].at(-1);
   const measurement=[...log.matchAll(/\{\s*"input_i"[\s\S]*?\}/g)].at(-1);

@@ -44,6 +44,11 @@ it('validates open black detections without upgrading their duration certainty',
  for(const value of [{...tail,start:4},{...tail,end:4},{...tail,minimumDurationVerified:true}]){await save(value);await expect(f.service.read(f.id,first)).rejects.toThrow('open black');}
  await writeFile(f.reportPath,JSON.stringify({...f.report,streams:{video:null,audio:1},findings:{blackOpenAtProcessingEnd:tail}}));await expect(f.service.read(f.id,first)).rejects.toThrow('open black');
 });
+it('validates new unknown freeze endpoints while preserving historical reports',async()=>{
+ const f=await fixture(),open={start:0,end:null,openAtProcessingEnd:true};
+ for(const interval of [open,{start:0,end:4,openAtRangeEnd:true}]){await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{freeze:[interval]}}));expect((await f.service.read(f.id,first)).report.findings.freeze).toEqual([interval]);}
+ for(const interval of [{...open,end:4},{...open,start:4},{...open,openAtProcessingEnd:false}]){await writeFile(f.reportPath,JSON.stringify({...f.report,findings:{freeze:[interval]}}));await expect(f.service.read(f.id,first)).rejects.toThrow('open interval');}
+});
 it("validates stored sample amount arithmetic and stream selection without inventing legacy coverage",async()=>{
  const f=await fixture(),coverage={samplesPerChannel:48000,sampleRate:48000,decodedSeconds:1,requestedSeconds:4,amountMatchesRequestedDuration:false,meaning:"fixture"};
  const current={...f.report,findings:{...f.report.findings,audioSamplesPerChannel:48000},audioCoverage:coverage};

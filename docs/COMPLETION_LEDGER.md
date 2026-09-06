@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Stop inventing open freeze/silence endpoints
+
+Full local check passed: 581 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-open-qc-intervals.log`). Actual short-stream cases also passed after stored-report validation was added: `.avid-mcp-analysis/qc-open-streams-e8290802-7c1e-4366-96b1-9b1392e874b5/evidence.json`.
+
+Reproduced a false four-second freeze from one second of static video in a four-second container. Unclosed freeze/silence findings now return end:null and openAtProcessingEnd:true, rather than assigning the requested end. Closed findings are unchanged. Stored validation checks the new representation while leaving historical reports readable. Actual short-video/short-audio cases and six closed offset cases passed with unchanged sources; see QC_OPEN_INTERVALS.md for evidence and client handling. This corrects event extent without claiming perceptual or delivery certification.
+
 ### Preserve black detections open at processing end
 
 Full local check passed: 579 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-black-tail.log`). Repeated real tests with stored-field validation passed: `qc-black-tail-9b48cda7-21dd-4bb7-b002-e15161e67152` and `qc-black-depth-fa1dcea0-89d8-4aa3-bcdc-8bc4c678e1d8` under `.avid-mcp-analysis`.
