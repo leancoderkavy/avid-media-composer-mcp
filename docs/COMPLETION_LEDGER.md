@@ -756,3 +756,8 @@ Collection save and OTIO export now stage bytes before exclusive hard-link publi
 
 Reacquired the live Avid UI and recorded accessibility/menu constraints; created a distinct disposable sequence through MCP, saved/reopened it and preserved its baseline AVB. See NATIVE_UI_EDIT_BASELINE.md for exact identity and evidence. Trimming/undo remain untested. CI 34018970601 for 902e3d2 failed in the existing Windows listener-ownership test when PowerShell exceeded 30 seconds; CodeQL passed. This failure remains unresolved and is not replaced by native fixture success.
 
+
+### Native baseline graph and ownership timeout follow-up
+
+The UI-test copy now has independent AVB graph comparison evidence: sequence semantics and four reachable source records equal the original, with one shared unresolved anchor. Current saved-bin bytes equal the preserved baseline. See NATIVE_UI_EDIT_BASELINE.md. The focused Windows loopback-owner test passed unchanged locally in 14.51 seconds (log: .avid-mcp-analysis/loopback-owner-recheck.log). One failed-job rerun of CI 34018970601 was started on the same 902e3d2 commit; attempt 2 remained running at this checkpoint. No timeout increase or ownership-verification bypass was introduced; the cause of the earlier 30-second PowerShell timeout remains unproven.
+

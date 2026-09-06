@@ -2,8 +2,8 @@ import {runProcess} from '../../dist/process.js';import {sha256File} from '../..
 import {mkdir,writeFile} from 'node:fs/promises';import path from 'node:path';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
 const root=path.resolve('.avid-mcp-analysis',`native-copy-graph-${randomUUID()}`);await mkdir(root);
 const project='D:/Avid Projects/MCP_Sonoma_30p_20260905';
-const mcpCopy=process.argv.includes('--mcp-copy'),batch=process.argv.includes('--batch');
-const inputs=[{bin:'MCP_AAF_Selects_20260905.avb',name:'MCP_Sonoma_AAF_Selects'},{bin:batch?'MCP_CopyMCP_a9c7f7a1ad75.avb':mcpCopy?'MCP_CopyMCP_3381a43a4edf.avb':'MCP_Copy_969f92a0264a.avb',name:batch?'MCP_Sonoma_AAF_Selects.Copy.04':mcpCopy?'MCP_Sonoma_AAF_Selects.Copy.02':'MCP_Sonoma_AAF_Selects.Copy.01'}];
+const mcpCopy=process.argv.includes('--mcp-copy'),batch=process.argv.includes('--batch'),uiCopy=process.argv.includes('--ui-copy');
+const inputs=[{bin:'MCP_AAF_Selects_20260905.avb',name:'MCP_Sonoma_AAF_Selects'},{bin:uiCopy?'MCP_CopyMCP_93108dc0c7b8.avb':batch?'MCP_CopyMCP_a9c7f7a1ad75.avb':mcpCopy?'MCP_CopyMCP_3381a43a4edf.avb':'MCP_Copy_969f92a0264a.avb',name:uiCopy?'MCP_Sonoma_AAF_Selects.Copy.05':batch?'MCP_Sonoma_AAF_Selects.Copy.04':mcpCopy?'MCP_Sonoma_AAF_Selects.Copy.02':'MCP_Sonoma_AAF_Selects.Copy.01'}];
 const graphs=[];
 for(const input of inputs){const file=path.join(project,input.bin),parsed=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',file],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(parsed.exitCode,0,parsed.stderr);const graph=JSON.parse(parsed.stdout);await writeFile(path.join(root,input.bin+'.json'),JSON.stringify(graph,null,2));assert.equal(await sha256File(file),graph.sha256);graphs.push(graph);}
 const sequence=graphs.map((g,i)=>{const found=g.mobs.filter(m=>m.name===inputs[i].name);assert.equal(found.length,1);return found[0];});
