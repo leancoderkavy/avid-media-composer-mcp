@@ -2,7 +2,42 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
+
+
+def descriptor_metadata(descriptor):
+    """Selected saved declarations only; never open or resolve locator paths."""
+    if descriptor is None:
+        return None
+    def class_id(value):
+        return value.class_id.decode('ascii', errors='replace')
+    values = {}
+    for field in ('edit_rate', 'length', 'sample_rate', 'channels', 'quantization_bits',
+                  'stored_width', 'stored_height', 'mob_kind'):
+        value = getattr(descriptor, field, None)
+        if value is not None:
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or abs(value) > 9007199254740991:
+                raise ValueError('Invalid descriptor numeric declaration')
+            values[field] = value
+    result = {'classId': class_id(descriptor), 'values': values, 'locator': None}
+    locator = getattr(descriptor, 'locator', None)
+    if locator is not None:
+        paths = []
+        for field in ('path', 'path_posix', 'path_utf8', 'path2_utf8', 'last_known_volume', 'last_known_volume_utf8'):
+            value = getattr(locator, field, None)
+            if value is not None:
+                if not isinstance(value, str) or len(value) > 4096:
+                    raise ValueError('Invalid or oversized locator declaration')
+                paths.append({'field': field, 'value': value})
+        result['locator'] = {'classId': class_id(locator), 'paths': paths}
+        identity = getattr(locator, 'mob_id', None)
+        if identity is not None:
+            result['locator']['mobId'] = str(identity)
+    physical = getattr(descriptor, 'physical_media', None)
+    if physical is not None:
+        result['physicalMediaClassId'] = class_id(physical)
+    return result
 
 
 def index_bin(filename, max_nodes=10000):
@@ -89,7 +124,8 @@ def index_bin(filename, max_nodes=10000):
                                'mediaKind':str(track.media_kind),'nodes':nodes})
             mobs.append({'mobId':str(mob.mob_id),'name':mob.name or '', 'mobType':mob.mob_type,
                          'usageCode':int(mob.usage_code),'rate':rate,'duration':end-start,
-                         'sourceBounds':{'start':start,'end':end},'tracks':tracks})
+                         'sourceBounds':{'start':start,'end':end},'tracks':tracks,
+                         'descriptor':descriptor_metadata(getattr(mob,'descriptor',None))})
     if hashlib.sha256(file.read_bytes()).hexdigest()!=before:
         raise ValueError('Bin changed while indexing; retry after saving')
     return {'schema':1,'file':str(file.resolve()),'sha256':before,'mobs':mobs,'warnings':warnings[:1000],

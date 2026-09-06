@@ -4,10 +4,36 @@ import unittest
 from pathlib import Path
 import avb
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_timeline import index_bin
+from avid_timeline import index_bin, descriptor_metadata
+from types import SimpleNamespace
 
 
 class TimelineTests(unittest.TestCase):
+    def test_saved_descriptor_and_locator_declarations_roundtrip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target=Path(directory)/'descriptor.avb'
+            with avb.open() as file:
+                mob=file.create.Composition(mob_type='SourceMob')
+                mob.name='Descriptor fixture';mob.edit_rate=30;mob.length=60
+                descriptor=file.create.MediaFileDescriptor()
+                descriptor.edit_rate=48000;descriptor.length=96000
+                locator=file.create.WinFileLocator();locator.path=r'Z:\offline\not-opened.wav'
+                descriptor.locator=locator;mob.descriptor=descriptor
+                file.content.add_mob(mob);file.write(str(target))
+            result=index_bin(target)['mobs'][0]['descriptor']
+            self.assertEqual(result['classId'],'MDFL')
+            self.assertEqual(result['values']['edit_rate'],48000)
+            self.assertEqual(result['values']['length'],96000)
+            self.assertEqual(result['locator'],{'classId':'WINF','paths':[{'field':'path','value':r'Z:\offline\not-opened.wav'}]})
+
+    def test_descriptor_metadata_bounds_and_absence(self):
+        self.assertIsNone(descriptor_metadata(None))
+        for value in (float('nan'),float('inf'),2**53,True):
+            with self.subTest(value=value),self.assertRaisesRegex(ValueError,'numeric'):
+                descriptor_metadata(SimpleNamespace(class_id=b'MDFL',length=value))
+        with self.assertRaisesRegex(ValueError,'locator'):
+            descriptor_metadata(SimpleNamespace(class_id=b'MDES',locator=SimpleNamespace(class_id=b'WINF',path='x'*4097)))
+
     def transition_fixture(self,directory):
         target=Path(directory)/'transition.avb'
         with avb.open() as file:

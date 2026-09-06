@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Saved source descriptors and locator declarations
+
+Full local check passed: 552 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-source-descriptors.log`).
+
+The Python saved-bin index now retains bounded selected descriptor numeric fields, locator variants/identity and physical-media class IDs. Snapshot validation preserves these declarations, and source tracing deduplicates them per visited bin/mob with recorded/absent/not_recorded statuses for historical compatibility. Locator strings are metadata only and never opened. Tests cover real generated AVB serialization, numeric/string bounds, partial declaration persistence and legacy/absent distinctions. Actual Sonoma MCP traversal verified video/audio descriptor rates and lengths, MSML and WINF locator classes; the bin hash remained unchanged. Evidence: `.avid-mcp-analysis/trim-source-trace-51eefa79-0192-47b6-b333-0df257f926df/evidence.json`. Saved forward/inverse/backward trim verification also passed with new descriptor-bearing captures. Physical media identity, unit conversion, handles and broader descriptor families remain open; see NATIVE_UI_TRIM_QUALIFICATION.md.
+
 ### Nested trim source trace and exact frame arithmetic
 
 Full local check passed: 550 TypeScript tests, 34 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-source-trace-arithmetic.log`).

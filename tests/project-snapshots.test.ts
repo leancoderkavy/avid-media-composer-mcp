@@ -16,6 +16,14 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it("retains partial descriptor declarations without resolving untrusted locators",async()=>{
+    const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;
+    const descriptor={classId:'MDFL',values:{length:96000,edit_rate:48000},locator:{classId:'WINF',paths:[{field:'path',value:'Z:/does-not-exist/source.wav'}]}};
+    Object.assign(mob,{descriptor});const revision=await save();
+    expect((await snapshots.traceSources(revision,'sequence',0,10)).descriptors[0]).toMatchObject({status:'recorded',descriptor});
+    descriptor.locator.paths[0]!.value='x'.repeat(4097);await save();
+    await expect(snapshots.traceSources(revision,'sequence',0,10)).rejects.toThrow();
+  });
   it("verifies captured trims with scoped bin selection and rejects partial-track expectations",async()=>{
     const {record,save,snapshots,config}=await fixture(),bin=record.bins[0]!,sequence=bin.mobs[0]!;
     const first=sequence.tracks[0]!.nodes[0]!;first.timelineEnd=30;

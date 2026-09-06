@@ -26,6 +26,15 @@ try{
  // Independently inspected saved nodes: master picture offset 0 then file
  // source offset 2; both sound channels use master offset 1 then offset 1.
  assert.equal(trace.steps.length,24);assert.equal(trace.incomplete,true);
+ assert.equal(trace.descriptors.length,5);
+ assert.equal(trace.descriptors.filter(d=>d.status==='absent').length,2);
+ const video=trace.descriptors.find(d=>d.descriptor?.classId==='CDCI');
+ const audio=trace.descriptors.find(d=>d.descriptor?.classId==='MPGA');
+ const physical=trace.descriptors.find(d=>d.descriptor?.classId==='MDES');
+ assert.deepEqual([video.descriptor.values.edit_rate,video.descriptor.values.length,video.descriptor.values.stored_width,video.descriptor.values.stored_height],[30,5726,1280,720]);
+ assert.deepEqual([audio.descriptor.values.edit_rate,audio.descriptor.values.length,audio.descriptor.values.sample_rate,audio.descriptor.values.channels],[48000,9164224,48000,2]);
+ assert.equal(video.descriptor.locator.classId,'MSML');assert.equal(audio.descriptor.locator.classId,'MSML');
+ assert.equal(physical.descriptor.locator.classId,'WINF');assert.ok(physical.descriptor.locator.paths.some(p=>p.field==='path'&&p.value.length>0));
  for(let group=0;group<6;group++){
   const base=group%2===0?2909:3300,chain=trace.steps.slice(group*4,group*4+4);
   assert.deepEqual(chain.map(s=>s.depth),[0,1,2,3]);

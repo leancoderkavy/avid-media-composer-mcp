@@ -1,6 +1,13 @@
 import {it,expect} from "vitest";
 import {traceSavedSources} from "../src/library/source-trace.js";
 const mob=(mobId:string,sourceMobId:string,offset=0)=>({mobId,rate:30,duration:200,sourceBounds:{start:0,end:200},tracks:[{index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:200,sourceMobId,sourceTrackId:1,sourceStart:offset}]}]});
+it("distinguishes historical missing metadata from captured absent and recorded descriptors",()=>{
+ const a={...mob("a","b"),descriptor:null},b={...mob("b","c"),descriptor:{classId:"MDES",values:{},locator:{classId:"WINF",paths:[{field:"path",value:"Z:/offline/source.mov"}]}}},c=mob("c","terminal"),bin={file:"fixture",mobs:[a,b,c]};
+ a.tracks.push({...a.tracks[0]!,index:2});
+ const result=traceSavedSources([bin],{bin,mob:a},0,10);
+ expect(result.descriptors).toEqual([{bin:"fixture",mobId:"a",status:"absent",descriptor:null},{bin:"fixture",mobId:"b",status:"recorded",descriptor:b.descriptor},{bin:"fixture",mobId:"c",status:"not_recorded",descriptor:null}]);
+ expect(result.incomplete).toBe(true);
+});
 it("preserves exact offsets at large timeline coordinates without intermediate rounding",()=>{
  const a=mob("a","external"),bin={file:"fixture",mobs:[a]},base=Number.MAX_SAFE_INTEGER-10;
  a.duration=Number.MAX_SAFE_INTEGER;a.sourceBounds.end=a.duration;

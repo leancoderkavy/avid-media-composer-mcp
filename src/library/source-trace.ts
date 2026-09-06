@@ -1,16 +1,18 @@
 type Node={kind:string;timelineStart:number;timelineEnd:number;sourceMobId?:string|undefined;sourceTrackId?:number|undefined;sourceStart?:number|undefined;opaque?:boolean|undefined;channelCombiner?:{channelIndex:1|2;channelCount:2}|undefined};
 type Track={index:number;mediaKind:string;nodes:Node[]};
-type Mob={mobId:string;rate:number;duration:number;sourceBounds:{start:number;end:number};tracks:Track[]};
+type Mob={mobId:string;rate:number;duration:number;sourceBounds:{start:number;end:number};tracks:Track[];descriptor?:unknown};
 type Bin={file:string;mobs:Mob[]};
 /** Diagnostic traversal only: no rate conversion, effect interpretation or media lookup. */
 export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:number,end:number,maxDepth=8){
  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>origin.mob.duration||!Number.isInteger(maxDepth)||maxDepth<1||maxDepth>16)throw new Error("Invalid source trace range or depth");
  const steps:Record<string,unknown>[]=[];let incomplete=false;
+ const descriptors=new Map<string,{bin:string;mobId:string;status:string;descriptor:unknown}>();
  const emit=(value:Record<string,unknown>)=>{if(steps.length>=500)throw new Error("Source trace exceeds 500 steps; narrow the range");steps.push(value);};
  function walk(bin:Bin,mob:Mob,track:Track,left:number,right:number,depth:number,seen:Set<string>){
   const base={bin:bin.file,mobId:mob.mobId,trackIndex:track.index,mediaKind:track.mediaKind,start:left,end:right,depth};
   const stop=(status:string,details:Record<string,unknown>={})=>{incomplete=true;emit({...base,...details,status});};
   const key=JSON.stringify([bin.file,mob.mobId,track.index,track.mediaKind]);
+  descriptors.set(JSON.stringify([bin.file,mob.mobId]),{bin:bin.file,mobId:mob.mobId,status:mob.descriptor===undefined?"not_recorded":mob.descriptor===null?"absent":"recorded",descriptor:mob.descriptor??null});
   if(seen.has(key)){stop("cycle");return;}if(depth>=maxDepth){stop("depth_limit");return;}
   const nextSeen=new Set(seen);nextSeen.add(key);let covered=left;
   const nodes=track.nodes.filter(n=>n.timelineStart<right&&n.timelineEnd>left).sort((a,b)=>a.timelineStart-b.timelineStart);
@@ -51,5 +53,5 @@ export function traceSavedSources(bins:Bin[],origin:{bin:Bin;mob:Mob},start:numb
  const tracks=origin.mob.tracks.filter(t=>t.mediaKind==="picture"||t.mediaKind==="sound");
  if(!tracks.length)incomplete=true;
  for(const track of tracks)walk(origin.bin,origin.mob,track,start,end,0,new Set());
- return {steps,incomplete,maxDepth,scope:"Diagnostic equal-rate direct source chains. Local-bin identities take precedence over cross-bin matches. Unsupported components and unresolved references remain explicit; no terminal-reference classification, media availability or playback verification."};
+ return {steps,incomplete,maxDepth,descriptors:[...descriptors.values()],scope:"Diagnostic equal-rate direct source chains and selected saved descriptor declarations. Locator paths are untrusted metadata and are never opened. Local-bin identities take precedence over cross-bin matches. Unsupported components and unresolved references remain explicit; no terminal-reference classification, media availability or playback verification."};
 }

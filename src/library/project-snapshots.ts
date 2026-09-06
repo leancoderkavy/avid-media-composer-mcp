@@ -12,9 +12,10 @@ import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 
 const unit=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const descriptor=z.object({classId:z.string().length(4),values:z.partialRecord(z.enum(['edit_rate','length','sample_rate','channels','quantization_bits','stored_width','stored_height','mob_kind']),z.number().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER)),locator:z.object({classId:z.string().length(4),paths:z.array(z.object({field:z.enum(['path','path_posix','path_utf8','path2_utf8','last_known_volume','last_known_volume_utf8']),value:z.string().max(4096)}).strict()).max(6),mobId:z.string().max(256).optional()}).strict().nullable(),physicalMediaClassId:z.string().length(4).optional()}).strict();
 const node=z.object({kind:z.string(),timelineStart:unit,timelineEnd:unit,sourceMobId:z.string().optional(),sourceTrackId:z.number().int().optional(),sourceStart:z.number().int().optional(),channelCombiner:z.object({channelIndex:z.union([z.literal(1),z.literal(2)]),channelCount:z.literal(2)}).strict().optional(),opaque:z.boolean().optional(),timecode:z.object({start:z.number().int(),fps:z.number().int().positive(),flags:z.number().int()}).optional()});
 const track=z.object({ordinal:unit,index:z.number().int(),mediaKind:z.string(),nodes:z.array(node).max(10000)});
-const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128)}).superRefine((value,ctx)=>{
+const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128),descriptor:descriptor.nullable().optional()}).superRefine((value,ctx)=>{
   if(value.sourceBounds.end-value.sourceBounds.start!==value.duration)ctx.addIssue({code:"custom",message:"Snapshot source bounds disagree with duration"});
   const ordinals=new Set<number>();
   for(const track of value.tracks){

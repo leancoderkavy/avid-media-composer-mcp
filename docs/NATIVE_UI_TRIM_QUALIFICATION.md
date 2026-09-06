@@ -1,5 +1,15 @@
 # One-frame native UI trim and undo qualification
 
+## Captured descriptor declarations
+
+New saved snapshots retain selected descriptor declarations per mob. `avid_trace_saved_sources` returns one `descriptors` entry per visited bin/mob, with status `recorded`, `absent` (captured null descriptor), or `not_recorded` (historical snapshot without this field). Each recorded entry includes the descriptor class ID, available numeric fields, one locator's declared path variants and identity, and the physical-media descriptor class ID when present. This is a bounded subset; descriptor attributes, multiple/nested descriptors and physical-media contents are not decoded here. Unknown locator classes remain identified without inferring a path.
+
+All locator strings are untrusted saved metadata. Capturing and tracing never resolves or opens them, including network and out-of-scope paths. The caller must separately authorize and validate a candidate path before reading media. Numeric fields retain their original names and units: descriptor `length` uses the descriptor's `edit_rate`, which need not equal the mob timeline rate. No resampling or frame/sample conversion is implied.
+
+Historical snapshots remain readable. For exact before/after trim comparison, capture both retained bins using the same parser version: mixing a historical descriptor-free baseline with a descriptor-bearing candidate changes the normalized records and is correctly refused rather than silently ignoring the new fields.
+
+The restored Sonoma fixture returned five visited mobs: two absent descriptors, a CDCI video descriptor (30 edit rate, length 5726, 1280x720), an MPGA audio descriptor (48000 edit/sample rate, length 9164224, two channels), and an MDES descriptor with a WINF locator. Video and audio descriptors use MSML locators. Actual MCP assertions and unchanged-bin evidence: `.avid-mcp-analysis/trim-source-trace-51eefa79-0192-47b6-b333-0df257f926df/evidence.json`. The three saved trim directions also passed with descriptors included in new captures: `.avid-mcp-analysis/saved-trim-mcp-a6d244b8-5c30-4e44-872a-29a0ca9305ad/evidence.json`. The referenced media was not opened during these checks; essence identity, availability and handles remain unverified.
+
 ## Nested source mapping around the restored cut
 
 `scripts/research/qualify-trim-source-trace.mjs` captures the retained restored baseline through MCP and traces [59,61), spanning both sides of the cut. All six V1/A1/A2 paths have three resolved references followed by one unresolved endpoint. Direct source ranges are [2909,2910) and [3300,3301). The master picture offset is zero and its next source offset is two; each sound channel has master offset one and next source offset one. All paths consequently reach [2911,2912) and [3302,3303) at the final captured source mob. These values were checked against the separately decoded saved nodes and asserted in the reproducible script.
