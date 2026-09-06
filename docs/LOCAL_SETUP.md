@@ -6,6 +6,8 @@ This checkout contains new Windows native and local analysis tools. They have no
 
 Use Node.js 20 or newer. Run `npm ci` and `npm run build`. Install FFmpeg/ffprobe for media work; Python is optional for AVB/AAF analysis and is not needed by the native adapter.
 
+For this unreleased implementation, clone with `git clone --branch codex/open-source-full-plan https://github.com/leancoderkavy/avid-media-composer-mcp.git`. The default branch and the published npm package are separate delivery states. Configure `AVID_MCP_PYTHON` to the absolute virtual-environment interpreter after installing `python/requirements.txt`; creating a virtual environment alone does not select it for the server.
+
 ```powershell
 $env:AVID_MCP_ALLOWED_ROOTS = 'D:\Avid Projects;D:\Media'
 $env:AVID_MCP_OUTPUT_ROOT = 'D:\MCP Outputs'

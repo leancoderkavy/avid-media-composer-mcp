@@ -44,6 +44,8 @@ The CLI generates, installs, updates, restores and removes entries for Claude, C
 
 The installed Windows Claude CLI passed isolated connection, removal and broken-startup recovery against a fresh development-package installation. Its 129-tool definitions matched that checkout exactly. The package check now compares full tool definitions on every run; the current inventory is 132 after adding saved-sequence structure reporting, historical snapshot discovery and mob inventory. This CLI evidence does not establish GUI or model-driven Avid invocation. Zod is pinned to the qualified version after fresh-install dependency drift changed advertised tuple constraints.
 
+A fresh managed development-package installation also passed actual native app/project/bin/clip reads against the existing qualified Windows Avid host. Independent checkout Python inspection confirmed the saved Sonoma picture/stereo ranges and unchanged source/bin hashes. Evidence: `installed-native-9dbb445d-006a-4012-b656-6f3ca0d64a88`. This is installed-server native evidence; it does not establish clean-machine dependency setup or a model invoking Avid through a named client.
+
 The optional licensed Jumper provider, additional enterprise adapters and separately shipped Windows UI actions remain unfinished. Mac implementation and real-host qualification are explicitly deferred to work on a Mac. These requirements remain in the completion ledger rather than being removed from scope.
 
 ## Latest complete local check
@@ -51,4 +53,3 @@ The optional licensed Jumper provider, additional enterprise adapters and separa
 The latest `npm run check` passed with 371 TypeScript tests, 32 Python tests, 132 tools, stdio/HTTP checks, dry packing and fresh-tarball installation including actual Python MCP isolation and recovery. Log: `.avid-mcp-analysis/check-installed-native.log`. Fresh installation also matched all checkout tool definitions exactly and invoked installed snapshot discovery and diff/source-usage/timeline pagination. The TypeScript run used the four-worker default. Real Sonoma forced-exit recovery and damaged-record pagination have separate retained MCP evidence. Tool count includes existing offline/bridge tools; it does not represent 132 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
-

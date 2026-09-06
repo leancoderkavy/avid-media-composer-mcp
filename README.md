@@ -10,9 +10,9 @@ An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextp
 
 [Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
 
-Use it to connect Claude, ChatGPT, Codex, or another MCP client to local Avid project evidence without modifying source media. The stable `1.1.0` release adds marker/SVG, transcript, DNx turnover, OTIO handoff, CTMS, and integration diagnostics to the 1.0 analysis foundation. It supports the current `2025.12.x`, previous `2025.6`, and long-term-maintenance `2024.12.x` Media Composer release tracks on their qualified Windows and macOS versions.
+Use it with an MCP client that can launch a local process or reach the configured authenticated HTTP server. The published `1.1.0` package provides analysis, interchange and bridge contracts. This unreleased branch additionally provides local media intelligence, installation helpers and a separate Windows native adapter. A compatibility-rule result is not proof of this connector running on that host; native runtime evidence currently covers the qualified Windows Media Composer 2024.12 build described in [implementation status](docs/IMPLEMENTATION_STATUS.md). Mac implementation and host qualification are deferred.
 
-The server also defines a 167-action editing catalog and a tested bridge protocol. It does **not** claim live Media Composer editing until a compatible Avid Extension is connected and advertises each supported operation.
+The server also defines a 167-action editing catalog and a tested bridge protocol. Catalog actions require a compatible Extension that advertises each operation. The separate native adapter has its own bounded operations, authority checks and host qualification; the catalog does not describe its coverage.
 
 > Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
 
@@ -23,12 +23,14 @@ The server also defines a 167-action editing catalog and a tested bridge protoco
 | What is this? | An open-source MCP server for Avid Media Composer analysis and guarded automation. |
 | What can it inspect? | AVB bins, AAF files, ALE logs, EDLs, OTIO JSON, AVP/AVS configuration evidence, project trees, locks, and media metadata. |
 | Does it modify Avid projects offline? | No. Offline analysis is read-only and source media is never modified. |
-| Can it edit a live Media Composer session? | Only through a separately installed, compatible Avid Extension bridge. Without that bridge, editing fails closed. |
-| Which systems are supported? | Qualified Windows and macOS combinations for Media Composer 2025.12.x, 2025.6, and 2024.12.x. |
+| Can it edit a live Media Composer session? | This development branch has guarded native operations for the qualified Windows 2024.12 build. General editing catalog actions still require a separately installed compatible Extension bridge. |
+| Which systems are supported? | Windows native evidence is build-specific. Offline compatibility rules cover additional Avid/OS combinations; those rules do not establish connector runtime qualification. Mac work is deferred. |
 | Which AI clients can use it? | Any standards-compatible MCP client that can launch a local stdio server or connect to authenticated Streamable HTTP. |
 | Is it an official Avid product? | No. It is an independent MIT-licensed project. |
 
 ## What works now
+
+The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 132 tools, including offline and bridge tools.
 
 - Recursively inventory and classify project, bin, setting, lock, interchange, sidecar, document, and media files.
 - Detect active or orphaned `.lck` bin locks.
@@ -61,9 +63,9 @@ The server also defines a 167-action editing catalog and a tested bridge protoco
 
 ## What still requires Avid access
 
-True in-editor control depends on the **Media Composer Extensions SDK** (formerly Panel SDK) and a bridge extension running inside Media Composer. Avid describes the SDK as the integration path for project, bin, and timeline tools, but its current onboarding page says new partners are not actively being onboarded.
+The **Media Composer Extensions SDK** (formerly Panel SDK) is the separate sanctioned integration path for the Extension bridge. SDK access and an installed compatible Extension remain prerequisites for that path. The development Windows native adapter uses the locally installed, checksum-qualified Avid binary and verifies the loopback listener owner; it does not require or distribute the private SDK. See [native adapter setup and limits](docs/LOCAL_SETUP.md).
 
-Until that bridge exists:
+For the Extension path, until that bridge exists:
 
 - `avid_get_live_state` fails closed with `BRIDGE_NOT_CONNECTED`.
 - `avid_apply_edit_plan` fails closed even when the `edit` capability is enabled.
@@ -81,11 +83,13 @@ flowchart LR
     Python --> AVB[pyavb]
     Python --> AAF[pyaaf2]
     Server --> Probe[ffprobe, optional]
+    Server -->|qualified Windows build| Adapter[Guarded native adapter]
+    Adapter --> Avid
     Server -->|signed plan token + local mailbox| Bridge[Media Composer Extension bridge]
     Bridge --> Avid[Media Composer project / bins / timeline]
 ```
 
-The analysis and live-control lanes are independent. Offline inspection remains useful if the Avid bridge is unavailable, while live control cannot silently fall back to UI automation or raw scripts.
+Offline inspection, guarded native operations and the Extension bridge are separate paths. A missing bridge cannot silently fall back to native operations, UI automation or raw scripts.
 
 ## Quick start
 
@@ -94,7 +98,7 @@ Requirements:
 - Node.js 20 or newer
 - Python 3.9 or newer for AVB/AAF analysis
 - `ffprobe` on `PATH` for clip analysis
-- Media Composer 2025.12.x, 2025.6, or 2024.12.x plus a protocol v3 Extension bridge for live control
+- A qualified Windows Media Composer build for development native operations, or a compatible protocol v3 Extension for bridge operations; see [local setup](docs/LOCAL_SETUP.md)
 
 Install and run the stable release directly:
 
@@ -105,16 +109,18 @@ npx -y avid-media-composer-mcp@latest
 ```
 
 AVB and AAF inspection additionally needs Python plus the pinned packages in
-`python/requirements.txt`. For development or those optional analyzers, install from source:
+`python/requirements.txt`. To install the unreleased development work from source:
 
 ```powershell
-git clone https://github.com/leancoderkavy/avid-media-composer-mcp.git
+git clone --branch codex/open-source-full-plan https://github.com/leancoderkavy/avid-media-composer-mcp.git
 cd avid-media-composer-mcp
 npm ci
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r .\python\requirements.txt
 $env:AVID_MCP_ALLOWED_ROOTS = "C:\Users\you\Documents\Avid Projects"
+$env:AVID_MCP_PYTHON = (Resolve-Path .\.venv\Scripts\python.exe).Path
 npm run build
+node .\dist\cli.js --doctor
 ```
 
 Run the local stdio server:
@@ -134,7 +140,15 @@ npm run start:http
 The remote endpoint is `/mcp`; `/health` is intentionally unauthenticated for provider health
 checks. Every MCP request requires `Authorization: Bearer <token>`.
 
-Example MCP client configuration:
+The following example launches the published package. For this development checkout, generate configuration containing its absolute server entry instead:
+
+```powershell
+node .\dist\cli.js --client generic --root "C:\Users\you\Documents\Avid Projects" --python "$env:AVID_MCP_PYTHON"
+```
+
+Use `claude`, `cursor`, `vscode` or `lmstudio` for the corresponding JSON format. Keep the checkout at a stable location. Generated configuration does not prove application onboarding; see [client qualification and managed package installation](docs/LOCAL_SETUP.md).
+
+Published-package example:
 
 ```json
 {
@@ -151,7 +165,7 @@ Example MCP client configuration:
 }
 ```
 
-Keep `AVID_MCP_CAPABILITIES=inspect` until a bridge has been installed and tested. To enable confirmed live edits later:
+Start with `AVID_MCP_CAPABILITIES=inspect`. For Extension operations, after installing and testing a compatible bridge:
 
 ```powershell
 $env:AVID_MCP_CAPABILITIES = "inspect,edit"
