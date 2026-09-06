@@ -6,6 +6,8 @@ For each lag, correlation is mean-centered and normalized over the overlapping p
 
 Results distinguish insufficient signal, weak match, ambiguous alternatives, a best match at the search boundary, and a candidate needing review. Correlation 0.8 and a 0.05 margin over alternatives outside a 100 ms neighborhood are uncalibrated heuristics, not confidence probabilities. The five returned separated peaks expose competing offsets. Silence and constant envelopes do not yield a candidate. RMS comparison tolerates polarity inversion but loses waveform detail; nearby competing offsets can fall inside the excluded neighborhood.
 
+Otherwise strong candidates with at least six seconds in each input also receive three independently searched reference-window comparisons. Each requires 75% overlap; at least two windows must have correlation ≥0.8, a ≥0.05 separated-peak margin when an alternative exists and an interior search peak. A spread greater than 30 ms among supported windows, or a deviation greater than 30 ms from the overall best offset, returns `inconsistent_offset`; fewer than two supported windows returns `insufficient_window_support`. Two agreeing windows give explicit `partial_support` and leave the third unverified. Shorter or already weak/ambiguous inputs have consistency `not_assessed`. These are content-consistency heuristics, not a calibrated drift detector or clock correction.
+
 ## Evidence
 
 `scripts/research/qualify-audio-sync.mjs` decodes the first channel of the first audio stream from the protected Sonoma preview MP4, resamples to 8 kHz, selects exactly 240,000 samples and constructs a controlled comparison with 1.23 seconds of leading silence, polarity inversion and gain 0.25. The original source hash is checked before and after. No media file is edited.
@@ -38,6 +40,14 @@ The worker records exact selected sample offsets/counts, PCM hashes, the extract
 The real stdio experiment `scripts/research/qualify-audio-sync-mcp.mjs` compared first-channel Sonoma windows at decoded-sample starts 0 and 1.23 seconds. It returned a -1.23-second content candidate, rejected an unavailable channel in a separate job, and read the identical saved result through a fresh MCP connection. Source hashes remained unchanged. Evidence: `.avid-mcp-analysis/audio-sync-mcp-7cea567c-b2b6-4a9d-ac3c-6addecfeedfd/evidence.json`.
 
 This source also demonstrated why content offsets must not become clock edits: the reference window reported 10 timestamp discontinuities and 8192 overlapping samples; comparison reported 11 and 8384. Each contained exactly 1,440,000 decoded samples at 48 kHz. Neither result claimed a source-clock offset.
+
+## Off-grid and degradation experiments
+
+`scripts/research/qualify-audio-sync-variants.mjs` creates deterministic derivatives of the same decoded Sonoma channel. Delays of 1.231, 1.235 and 1.239 seconds produced candidates within 5 ms of their known delays. Noise amplitudes 0.005 and 0.02 after gain reduction to 0.25 retained candidates; amplitude 0.1 returned a weak match. A 32 kbit/s MP3 encode/decode round trip retained a candidate within 5 ms. These are observed fixture errors, not promised precision for other material.
+
+The initial 0.5% speed-change diagnostic returned a strong whole-window candidate (correlation 0.8367) even though content offset varied. Evidence is retained in `.avid-mcp-analysis/audio-sync-variants-19eccb5a-227a-4119-bb51-fa27c187ad69/observations.json`. Adding window checks exposed strong offsets of 1.18 and 1.13 seconds and now returns `inconsistent_offset`. The first window was weak; the estimator does not claim all three windows verified. A first implementation requiring all three windows also rejected the clean half-bin delay because the first window's correlation was only 0.6725; the current rule requires at least two strong windows and exposes partial support rather than concealing that uncertainty.
+
+Passing revised observations are in `.avid-mcp-analysis/audio-sync-variants-2c309749-e808-40a9-9ee2-a2d60a059c2c/evidence.json`. The real MCP job and reconnect experiment passed again after the consistency change in `.avid-mcp-analysis/audio-sync-mcp-ab3a2be8-f5ad-4ca8-a90c-9a3a8a41c70a/evidence.json`. Independent recordings and general drift accuracy remain unqualified.
 
 ## Remaining qualification
 

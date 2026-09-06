@@ -39,10 +39,11 @@ export function estimateAudioOffset(reference: Float64Array, comparison: Float64
   }
   const limit = Math.floor(maxOffsetSeconds * BINS_PER_SECOND);
   const minOverlap = Math.max(100, Math.ceil(Math.min(reference.length, comparison.length) / 2));
+  const rank = (windowStart: number, windowEnd: number, requiredOverlap: number) => {
   const scores: AudioOffsetCandidate[] = [];
   for (let lag = -limit; lag <= limit; lag++) {
-    const start = Math.max(0, -lag), end = Math.min(reference.length, comparison.length - lag), count = end - start;
-    if (count < minOverlap) continue;
+    const start = Math.max(windowStart, -lag), end = Math.min(windowEnd, comparison.length - lag), count = end - start;
+    if (count < requiredOverlap) continue;
     let x = 0, y = 0;
     for (let i = start; i < end; i++) { x += reference[i]!; y += comparison[i + lag]!; }
     x /= count; y /= count;
@@ -61,12 +62,38 @@ export function estimateAudioOffset(reference: Float64Array, comparison: Float64
     if (peaks.every(peak => Math.abs(peak.lagBins - score.lagBins) > 10)) peaks.push(score);
     if (peaks.length === 5) break;
   }
+  return peaks;
+  };
+  const peaks = rank(0, reference.length, minOverlap);
   const best = peaks[0] ?? null, competitor = peaks[1] ?? null;
   const margin = best && competitor ? best.correlation - competitor.correlation : null;
-  const status = !best ? "insufficient_signal" : best.correlation < 0.8 ? "weak_match"
+  const initialStatus = !best ? "insufficient_signal" : best.correlation < 0.8 ? "weak_match"
     : Math.abs(best.lagBins) === limit ? "search_boundary"
     : margin !== null && margin < 0.05 ? "ambiguous" : "candidate";
+  // Three independently searched windows expose changing offsets that a high
+  // whole-clip correlation can hide. This diagnoses inconsistency, not its cause.
+  const windows = [];
+  if (initialStatus === "candidate" && Math.min(reference.length, comparison.length) >= 600) {
+    for (let n = 0; n < 3; n++) {
+      const start = Math.floor(reference.length * n / 3), end = Math.floor(reference.length * (n + 1) / 3);
+      const ranked = rank(start, end, Math.max(100, Math.ceil((end - start) * 0.75)));
+      const first = ranked[0] ?? null, second = ranked[1] ?? null;
+      const peakMargin = first && second ? first.correlation - second.correlation : null;
+      windows.push({startSeconds: start / BINS_PER_SECOND, endSeconds: end / BINS_PER_SECOND, best: first, peakMargin,
+        supported: !!first && first.correlation >= 0.8 && Math.abs(first.lagBins) < limit && (peakMargin === null || peakMargin >= 0.05)});
+    }
+  }
+  const supported = windows.filter(window => window.supported).map(window => window.best!.lagBins);
+  const spreadBins = supported.length >= 2 ? Math.max(...supported) - Math.min(...supported) : null;
+  const deviationBins = best && supported.length ? Math.max(...supported.map(lag => Math.abs(lag - best.lagBins))) : null;
+  const consistency = {status: windows.length === 0 ? "not_assessed" : spreadBins === null ? "insufficient_support" : spreadBins > 3 || deviationBins! > 3 ? "inconsistent" : supported.length === 3 ? "consistent" : "partial_support",
+    windows, supportedWindows: supported.length, spreadSeconds: spreadBins === null ? null : spreadBins / BINS_PER_SECOND, maximumSpreadSeconds: 0.03,
+    maximumDeviationFromBestSeconds: deviationBins === null ? null : deviationBins / BINS_PER_SECOND,
+    meaning: "Three independently searched reference windows with at least 75% overlap; at least two strong unambiguous windows must agree. Partial support leaves another window unverified. Disagreement can reflect drift, edits, repetition or noise; it does not measure or correct a clock rate. Only assessed for otherwise strong candidates with at least six seconds per input."};
+  const status = initialStatus !== "candidate" ? initialStatus : consistency.status === "inconsistent" ? "inconsistent_offset"
+    : consistency.status === "insufficient_support" ? "insufficient_window_support" : "candidate";
   return {status, best, alternatives: peaks.slice(1), peakMargin: margin, resolutionSeconds: 0.01,
+    consistency,
     searchedOffsetSeconds: limit / BINS_PER_SECOND, minimumOverlapSeconds: minOverlap / BINS_PER_SECOND,
     reviewRequired: true, verifiedSync: false,
     convention: "Positive offset means matching content occurs later in comparison; reference[i] matches comparison[i + lag]. Offsets are relative to decoded window starts.",

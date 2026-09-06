@@ -46,4 +46,30 @@ describe("audio content offset candidates", () => {
     expect(() => audioEnvelope(new Float32Array([NaN]), 100)).toThrow();
     expect(() => audioEnvelope(new Float32Array([0]), 44101)).toThrow();
   });
+  it("withholds a constant-offset candidate when strong windows disagree", () => {
+    const raw = signal(6000), source = Float64Array.from(raw, (_, i) => {
+      let sum = 0; for (let n = 0; n < 20; n++) sum += raw[Math.min(raw.length - 1, i + n)]!;
+      return sum / 20;
+    });
+    const comparison = Float64Array.from(source, (_, i) => source[Math.max(0, i - Math.floor(i / 2000) * 5)]!);
+    const result = estimateAudioOffset(source, comparison);
+    expect(result.best!.correlation).toBeGreaterThan(0.8);
+    expect(result.status).toBe("inconsistent_offset");
+    expect(result.consistency.supportedWindows).toBe(3);
+    expect(result.consistency.spreadSeconds).toBe(0.1);
+  });
+  it("distinguishes partial support, insufficient support and unassessed short clips", () => {
+    const source = signal(3000); source.fill(0.1, 0, 1000);
+    const partial = estimateAudioOffset(source, source);
+    expect(partial.status).toBe("candidate"); expect(partial.consistency.status).toBe("partial_support");
+    expect(partial.consistency.supportedWindows).toBe(2);
+    expect(partial.consistency.maximumDeviationFromBestSeconds).toBe(0);
+    source.fill(0.1, 1000, 2000);
+    const insufficient = estimateAudioOffset(source, source);
+    expect(insufficient.best!.correlation).toBeCloseTo(1);
+    expect(insufficient.status).toBe("insufficient_window_support");
+    expect(insufficient.consistency.supportedWindows).toBe(1);
+    const short = signal(200);
+    expect(estimateAudioOffset(short, short).consistency.status).toBe("not_assessed");
+  });
 });

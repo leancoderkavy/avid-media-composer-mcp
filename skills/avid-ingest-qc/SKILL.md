@@ -18,6 +18,8 @@ For an audio-content alignment request, use `avid_start_analysis_job` with `kind
 
 Interpret a positive content offset as matching sound occurring later in the comparison window. Review the best match, alternatives and weak/ambiguous/boundary outcomes; correlation is not a probability. Inspect each input's sample counts and timestamp discontinuities separately. Do not turn a content candidate into a source-clock offset or native sync edit: `sourceClockOffset` remains null even for a strong match. Repeated sounds and silence are not reliable alignment anchors. No automatic clip movement follows this analysis.
 
+Check `estimate.consistency` for multi-window support. `inconsistent_offset` means strong windows disagree; `insufficient_window_support` means fewer than two windows support a single offset. A candidate with `partial_support` leaves one window unverified, and `not_assessed` provides no multi-window evidence. Do not label an inconsistency as clock drift without separate evidence; edits, noise and repetition can also cause it.
+
 When transcript QA is requested, preserve the selected revision and checksum from `avid_transcript_revisions`. Machine words can be false even when language detection returns a candidate: local negative probes produced words for tone and white noise. Do not treat language-token scores as speech-presence confidence.
 
 Use `avid_speaker_analyses` to discover existing segmentation for the same source/range. Follow discovery cursors and inspect availability. If analysis is needed and local analysis is authorized, `avid_diarize_audio` requires the separately installed runtime and export/project-write capabilities. A missing runtime, failed job or unavailable record is not evidence of no speech.

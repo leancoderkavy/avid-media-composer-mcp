@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Audio offset degradation and window consistency
+
+Controlled Sonoma derivatives now cover off-grid delays, deterministic additive noise, a 32 kbit/s MP3 round trip and a 0.5% speed-change diagnostic. Clean/moderate-noise/MP3 candidates were within 5 ms for these fixtures; heavy noise returned weak match. The speed-change probe initially exposed a misleading strong overall candidate. Three independent window searches now withhold a single-offset candidate when supported offsets differ by more than 30 ms, and explicitly report insufficient or partial window support. This does not infer a drift cause or rate.
+
+The changed-offset regression retains an overall correlation above 0.8 while requiring `inconsistent_offset`; other regressions cover partial, insufficient and unassessed support. Revised real derivative evidence: `.avid-mcp-analysis/audio-sync-variants-2c309749-e808-40a9-9ee2-a2d60a059c2c/evidence.json`. Real MCP analysis, invalid-channel failure and saved-result reconnect passed again: `.avid-mcp-analysis/audio-sync-mcp-ab3a2be8-f5ad-4ca8-a90c-9a3a8a41c70a/evidence.json`. Original source unchanged. Independent microphone recordings, native sync edits and active-decoder cancellation remain open.
+
+The final rule additionally checks deviation from the overall best offset. Its focused tests, typecheck, derivative matrix (`audio-sync-variants-93e37a82-9969-480e-b310-a04036d22e65`) and real MCP rerun (`audio-sync-mcp-4cd11bd9-d8a5-44c6-8d16-73e9a46cb433`) passed. Full local pipeline passed 763 TypeScript/46 Python tests, both transports and fresh-package/Python/AAF validation; the final deviation check was added after the full TypeScript phase and verified by the focused rerun. Log: `.avid-mcp-analysis/check-audio-sync-consistency.log`. Tool/skill counts remain 142/five.
+
 ### Audio content offset MCP job integration
 
 `avid_start_analysis_job` now accepts `audio_sync` with two indexed media IDs, explicit absolute stream/zero-based channel selectors, bounded decoded-sample windows and an offset-search limit. The worker verifies source hashes, exact PCM/sample counts, and timing observations, records extraction/PCM provenance, removes temporary PCM on normal completion, and retains the result through the existing job journal. Content offsets never become a source-clock edit offset; gaps/overlaps remain explicit.
