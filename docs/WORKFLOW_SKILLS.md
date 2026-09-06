@@ -12,6 +12,7 @@ Useful task examples:
 | --- | --- |
 | avid-ingest-qc | Inventory these rushes, create contact sheets, and QC the first two minutes. |
 | avid-selects | Find landscape shots and save a collection with reviewed source ranges. |
+| avid-selects | Find shots like this reference frame, refine toward vineyards, and lower the rank of shots resembling people; review the results before saving selects. |
 | avid-review-markers | Add these review notes to the specified clip and verify the markers. |
 | avid-turnover | Compare these saved-bin snapshots and report changed source usage. |
 | avid-export | Export this source range and the reviewed transcript as SRT. |
@@ -21,3 +22,5 @@ Package smoke validation checks that all five skill files reach a fresh installa
 The selects skill now covers native reference-AAF export, source/slot-checked building, native import, save/reopen, saved-range inspection and optional render. Selects/export instructions also distinguish explicit analysis resume tools from automatic job replay. The initial chained host test found a stereo-routing regression; explicit stereo authoring subsequently passed for the prepared-PCM fixture. Follow [workflow qualification](AAF_WORKFLOW_QUALIFICATION.md) and report technical/structural success separately from fidelity.
 
 The selects skill also describes the observed one-frame UI trim workflow with baseline/candidate snapshots and avid_verify_saved_trim. It requires a separately available computer-use executor, exact record-sequence/track context, and verified saved-state transitions. Same-session undo/redo evidence and the loss of history after bin closure are explicit. This is workflow guidance around the existing verifier, not a standalone UI execution adapter or named-client acceptance result.
+
+The selects skill covers combined image/frame and text scoring, unwanted-concept penalties, source-content mismatch recovery, and verified versus legacy thumbnail indicators. Its recovery guidance preserves checksum evidence and avoids treating ranking controls as guaranteed content filters. Both observed one-frame trim directions are documented. These are instructions for the implemented tools; fresh-package validation does not prove a named AI client has applied the instructions successfully.
