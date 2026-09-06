@@ -1,5 +1,15 @@
 # Source-viewer navigation qualification
 
+## Absolute-entry attempt on September 6
+
+Computer Use selected the current Avid window and clicked the owned Source monitor. The observer verified the same `MCP_Load_7006b4d8.avb` MOB at frame 0, sequence timecode `01:00:00:00`, with its retained saved hash. Individual keypad presses `0 1 0 0 0 3 0 0 Enter` attempted absolute `01:00:03:00` (frame 90 at 30 fps), with a screenshot refresh after every action. No timecode-entry field appeared; accessibility reported only the top-level window as focused. The subsequent native read still reported frame 0. The displayed counter remained configured as `V1 TC1`, showing underlying source timecode rather than the native sequence timecode.
+
+This attempt failed to establish absolute seeking. It does not distinguish keyboard focus, keypad delivery, counter selection or entry-mode behavior, and does not prove that Avid generally lacks absolute entry. Do not ship this sequence as an unattended seek executor. No save or timeline edit was issued; final readback verified the original frame 0 and unchanged saved-bin/source hashes, so no compensating navigation was required.
+
+Evidence under `.avid-mcp-analysis`: `ui-seek-absolute-baseline-a7f8a7f7-ebc9-4984-88cc-fe949d960e79`, failed raw response `ui-seek-absolute-ninety-25195b9d-1e25-4c1e-bc16-c80818aff9b8`, and final baseline `ui-seek-absolute-final-baseline-a08327af-7ce5-4427-922a-2e990fb510a9`. The observer now checks source hashes and writes explicit `positionVerified: false` evidence before failing a position assertion. Its mismatch path was exercised read-only in `ui-seek-absolute-mismatch-retained-d8d02244-19fc-4b40-bb6e-a252782136ef`, followed by the successful final baseline. Monitor pixels remained black; neither navigation result establishes visual playback fidelity.
+
+## Earlier relative-entry evidence
+
 On the qualified Windows 2024.12 host, computer use focused the Source monitor for the owned `MCP_Load_7006b4d8.avb` sequence and entered relative offsets with numeric-keypad keys, observing between inputs. The separate read-only `capture-native-seek-position.mjs <label> <expected-frame> Source` connected through MCP and required the exact MOB/viewer/frame, preserving the saved bin and source hashes. No save, timeline edit or native write was issued in this experiment.
 
 | Input after baseline | Native frame | Native sequence timecode | Result |

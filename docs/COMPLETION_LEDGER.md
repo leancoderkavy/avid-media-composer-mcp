@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Absolute Source navigation negative result
+
+Current Computer Use inspection found the owned four-second Source sequence at native frame 0. An observed, individual-key absolute `01:00:03:00` attempt left it at 0 rather than expected frame 90, without a visible entry field or specific input-focus evidence. The UI displayed underlying `V1 TC1` timecode. This keeps absolute seeking and unattended focus/entry handling unqualified; the cause is not established. No save or edit was issued, and final MCP observation verified frame 0 and unchanged saved-bin/source hashes. Details and evidence are in `NATIVE_UI_SEEK_QUALIFICATION.md`.
+
+The research observer now records hash-verified position mismatches before its assertion exits, rather than leaving only a raw response. Actual read-only mismatch and matching-baseline invocations exercised both outcomes; syntax validation passed. No runtime source changed, so the preceding 717 TypeScript/46 Python result remains separate from this research evidence. The full goal remains open.
+
 ### Interrupted recovery guard visibility
 
 An interrupted recovery could delete the owner lock while retaining its recovery guard. The old inspection then returned `locked: false` without explaining why scans remained blocked, and a guard-only orphan could disappear from listing. Inspection now reports `blockedByRecoveryGuard`, bounded guard bytes/hash and ineligibility for ordinary recovery. Listing includes guard-only IDs and marks them unavailable, with or without a manifest. Internal owner validation remains separate so an active recovery can verify its own guarded release.
