@@ -2,6 +2,8 @@
 
 ## Filter media by recorded color properties
 
+Call avid_media_facets without filters to discover available color values and their file counts under `facets.pixelFormat`, `colorRange`, `colorSpace`, `colorTransfer` and `colorPrimaries`. Repeated stream values and duplicate input IDs count once per file. Missing declarations are omitted. Different values in a file's facets can originate from different streams; apply combined video filters to require that values occur together on one stream.
+
 Use avid_media_facets with `filters.video` fields `pixelFormat`, `colorRange`, `colorSpace`, `colorTransfer` and `colorPrimaries`, alongside existing codec/size/frame-rate constraints. For example, `{"video":{"colorTransfer":"smpte2084","colorPrimaries":"bt2020"}}` finds streams carrying both PQ and BT.2020 declarations. HLG uses `arib-std-b67`; ordinary BT.709 transfer uses `bt709`. Queries are normalized to lowercase and must match one stream. A missing field does not match the literal value `unknown`.
 
 These filters inspect cached probe declarations. They do not verify mastering, actual pixel transfer, HDR display behavior or color fidelity. `scripts/research/qualify-color-filters.mjs` tests synthetic SDR/PQ/HLG tags on owned short Sonoma derivatives without modifying the original media.

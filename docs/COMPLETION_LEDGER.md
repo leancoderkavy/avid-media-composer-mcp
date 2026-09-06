@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Discoverable color-declaration facets
+
+Fresh-package checks passed with 137 tools, five skills, Codex command validation and Python/AAF isolation (`.avid-mcp-analysis/check-color-facets-package.log`). The complete unit suite was not rerun for this increment; the affected library suite, build, actual media workflow and installed-package gate were run.
+
+Media facet results now include pixelFormat, colorRange, colorSpace, colorTransfer and colorPrimaries counts, each deduplicated per matching file. Only bounded string declarations from video streams contribute; absent values are omitted. The count description explicitly states that different facet values may come from different streams, so clients must use a combined filter to require co-occurrence. Build and all 14 library tests passed. Actual synthetic-tag Sonoma discovery/filtering returned expected SDR/PQ/HLG counts with original and derivative hashes unchanged: `.avid-mcp-analysis/color-filters-3b32d59d-d65b-4815-93bd-88554674dcd8/evidence.json`. This improves metadata discovery without claiming HDR fidelity.
+
 ### Color-declaration media filtering
 
 Full local check passed: 576 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks including Codex argv (`.avid-mcp-analysis/check-color-filters.log`).

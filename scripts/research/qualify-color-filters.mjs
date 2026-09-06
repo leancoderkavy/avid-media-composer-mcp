@@ -18,13 +18,16 @@ await client.connect(new StdioClientTransport({command:process.execPath,args:['d
 const call=async(name,args)=>{const response=await client.callTool({name,arguments:args},undefined,{timeout:120000});assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
 try{
  await call('avid_index_media',{files});
+ const discovery=await call('avid_media_facets',{ids:[...ids,ids[0]]});
+ assert.deepEqual(discovery.facets.colorTransfer,{bt709:1,smpte2084:1,'arib-std-b67':1});
+ assert.deepEqual(discovery.facets.colorPrimaries,{bt709:1,bt2020:2});assert.deepEqual(discovery.facets.pixelFormat,{yuv420p10le:3});assert.deepEqual(discovery.facets.colorRange,{tv:3});assert.deepEqual(discovery.facets.colorSpace,{bt709:1,bt2020nc:2});
  for(let i=0;i<variants.length;i++){
   const [,colorTransfer,colorPrimaries,colorSpace]=variants[i];
   const filters={video:{codec:'ffv1',pixelFormat:'yuv420p10le',colorRange:'tv',colorTransfer,colorPrimaries,colorSpace}};
-  const result=await call('avid_media_facets',{ids,filters});assert.deepEqual(result.matchingIds,[ids[i]]);results.push({filters,result});
+  const result=await call('avid_media_facets',{ids,filters});assert.deepEqual(result.matchingIds,[ids[i]]);assert.deepEqual(result.facets.colorTransfer,{[colorTransfer]:1});results.push({filters,result});
  }
  const mismatch=await call('avid_media_facets',{ids,filters:{video:{colorTransfer:'smpte2084',colorPrimaries:'bt709'}}});assert.deepEqual(mismatch.matchingIds,[]);
  assert.deepEqual(await Promise.all(files.map(sha256File)),ids);assert.equal(await sha256File(original),originalHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({files,ids,originalHash,results,mismatch,sourceUnchanged:true,scope:'One-second Sonoma derivatives deliberately tagged SDR/PQ/HLG. Tags are synthetic; no HDR conversion, mastering, visual fidelity or dynamic metadata qualification.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({files,ids,originalHash,discovery,results,mismatch,sourceUnchanged:true,scope:'One-second Sonoma derivatives deliberately tagged SDR/PQ/HLG. Tags are synthetic; no HDR conversion, mastering, visual fidelity or dynamic metadata qualification.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,passed:true,matches:results.length}));
 }finally{await client.close();}

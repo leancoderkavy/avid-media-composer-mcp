@@ -20,6 +20,13 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it("counts color declarations once per file and omits absent or non-video values",async()=>{
+  const {root,id,library}=await fixture(),file=path.join(root,"avid-mcp-library",`${id}.json`),record=JSON.parse(await readFile(file,'utf8'));
+  record.metadata.streams=[{codec_type:'video',pix_fmt:'yuv420p10le',color_transfer:'smpte2084',color_primaries:'bt2020'},{codec_type:'video',pix_fmt:'yuv420p10le',color_transfer:'smpte2084',color_primaries:'bt709',color_range:'unknown'},{codec_type:'audio',color_space:'audio-must-not-count'},{codec_type:'video',color_space:42}];
+  await writeFile(file,JSON.stringify(record));const result=await library.facets([id,id]);
+  expect(result.facets.pixelFormat).toEqual({yuv420p10le:1});expect(result.facets.colorTransfer).toEqual({smpte2084:1});expect(result.facets.colorPrimaries).toEqual({bt2020:1,bt709:1});expect(result.facets.colorRange).toEqual({unknown:1});expect(result.facets.colorSpace).toEqual({});
+  expect((await library.facets([id],{video:{colorTransfer:'bt709'}})).facets.colorTransfer).toEqual({});
+ });
  it("filters unique media IDs and reports only matching facets while enforcing path scope",async()=>{
   const {root,id,config,library}=await fixture(),directory=path.join(root,"avid-mcp-library");
   const first=JSON.parse(await readFile(path.join(directory,`${id}.json`),"utf8"));

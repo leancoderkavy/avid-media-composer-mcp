@@ -188,18 +188,22 @@ export class MediaLibrary {
   async facets(ids:string[],filters:z.input<typeof mediaFilters>={}){
     const parsed=mediaFilters.parse(filters),selected=[...new Set(ids)];
     const entries=(await this.metadata(selected)).filter(entry=>matchesMediaFilters(entry.metadata,parsed));
-    const facets:Record<string,Record<string,number>>={codec:Object.create(null),resolution:Object.create(null),frameRate:Object.create(null),audioChannels:Object.create(null)};
+    const colors={pixelFormat:"pix_fmt",colorRange:"color_range",colorSpace:"color_space",colorTransfer:"color_transfer",colorPrimaries:"color_primaries"};
+    const facets:Record<string,Record<string,number>>=Object.fromEntries(["codec","resolution","frameRate","audioChannels",...Object.keys(colors)].map(key=>[key,Object.create(null)]));
     for(const entry of entries){
-      const values:Record<string,Set<string>>={codec:new Set(),resolution:new Set(),frameRate:new Set(),audioChannels:new Set()};
+      const values:Record<string,Set<string>>=Object.fromEntries(Object.keys(facets).map(key=>[key,new Set<string>()]));
       for(const stream of entry.metadata.streams??[]){
         if(stream.codec_name)values.codec!.add(String(stream.codec_name));
         if(stream.width&&stream.height)values.resolution!.add(`${stream.width}x${stream.height}`);
         if(stream.codec_type==="video"&&stream.r_frame_rate)values.frameRate!.add(String(stream.r_frame_rate));
         if(stream.channels)values.audioChannels!.add(String(stream.channels));
+        if(stream.codec_type==="video")for(const [key,field] of Object.entries(colors)){
+          const value=stream[field];if(typeof value==="string"&&value.length>0&&value.length<=64)values[key]!.add(value);
+        }
       }
       for(const[key,set]of Object.entries(values))for(const value of set)facets[key]![value]=(facets[key]![value]??0)+1;
     }
-    return {mediaCount:entries.length,selectedMediaCount:selected.length,matchingIds:entries.map(entry=>entry.id),filters:parsed,facets,countMeaning:"Unique matching files with each observed value; cached probe metadata, not current content verification. Nominal frame rate does not prove CFR"};
+    return {mediaCount:entries.length,selectedMediaCount:selected.length,matchingIds:entries.map(entry=>entry.id),filters:parsed,facets,countMeaning:"Unique matching files with each observed value across their streams; facet values need not occur on the same stream. Missing color declarations are omitted, not inferred as unknown or SDR. Cached probe metadata does not verify current content, CFR or HDR mastering."};
   }
   async exportTranscript(id:string,revision:string,format:"txt"|"json"|"csv"|"srt"|"vtt"){
     requireCapability(this.config.capabilities,"export");
