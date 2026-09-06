@@ -43,6 +43,11 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("refuses viewer results when bin membership changes during the read",async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);let lists=0;
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetListOfBinItems"&&++lists>1?Promise.resolve([{mob_id:"replacement"}]):original(method,body));
+    await expect(f.adapter.read("viewers","fixture.avb")).rejects.toThrow("membership changed");
+  });
   it("verifies show_clip only when the requested MOB appears in the Source viewer",async()=>{
     for(const viewer of ["Record","Source"]){
       const f=await hostFixture(),original=f.client.call.bind(f.client);
