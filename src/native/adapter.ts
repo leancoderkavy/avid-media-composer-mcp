@@ -19,6 +19,7 @@ import {verifyNativeAafMaster} from "./aaf-verifier.js";
 const name = z.string().min(1).max(120).regex(/^[\w -]+$/);
 const clipName=z.string().min(1).max(120).refine(value=>value.trim().length>0,"Clip name cannot be blank").refine(value=>/^[\x20-\x7e]+$/.test(value),"Qualified native rename supports printable ASCII only; this host can replace other characters");
 const id = z.string().min(1).max(256);
+const nativeStringDefault=(value:unknown)=>value===undefined?"":value;
 // Avid can replace marker UUIDs with this native UMID spelling after UI edits and reload.
 const markerDeletionId=z.union([z.string().uuid(),z.string().regex(/^060a2b340101010501010f1013-000000-[0-9a-f]{16}-[0-9a-f]{12}-[0-9a-f]{4}$/i)]).transform(value=>value.toLowerCase());
 const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Black", "White"]);
@@ -466,14 +467,15 @@ export class NativeAdapter {
             if(!("markers" in observedState))throw new Error("Missing marker baseline");
             const guid=z.array(z.object({guid:id})).length(1).parse(result)[0]!.guid,before=observedState.markers as Record<string,any>[],after=postState as Record<string,any>[];
             const matched=after.filter(marker=>marker.guid===guid),marker=matched[0];
-            if(before.some(item=>item.guid===guid)||matched.length!==1||!marker||(marker.offset??0)!==action.offset||marker.length!==1||marker.name!==action.name||marker.comment!==action.comment||marker.color!==action.color||marker.user!=="Avid MCP"||(marker.track_label?.type??"TRACKTYPE_PICTURE")!==action.track.type||marker.track_label?.number!==action.track.number)throw new Error("Created marker identity or fields not verified; inspect before retrying");
+            if(before.some(item=>item.guid===guid)||matched.length!==1||!marker||(marker.offset??0)!==action.offset||marker.length!==1||nativeStringDefault(marker.name)!==action.name||nativeStringDefault(marker.comment)!==action.comment||marker.color!==action.color||marker.user!=="Avid MCP"||(marker.track_label?.type??"TRACKTYPE_PICTURE")!==action.track.type||marker.track_label?.number!==action.track.number)throw new Error("Created marker identity or fields not verified; inspect before retrying");
             if(digest(before.map(digest).sort())!==digest(after.filter(item=>item.guid!==guid).map(digest).sort()))throw new Error("Existing marker preservation not verified");
           }else if(action.action==="change_marker"){
             postState=await this.read("markers",action.bin,action.mobId);
             if((await this.project()).path!==project.path)throw new Error("Project changed during marker update verification");
             if(!("markers" in observedState))throw new Error("Missing marker baseline");
-            const expected=(observedState.markers as Record<string,any>[]).map(marker=>marker.guid===action.guid?{...marker,comment:action.comment,color:action.color}:marker);
-            if(digest(expected.map(digest).sort())!==digest((postState as Record<string,any>[]).map(digest).sort()))throw new Error("Marker update or unrelated-marker preservation not verified; inspect before retrying");
+            const expected=(observedState.markers as Record<string,any>[]).map(marker=>{if(marker.guid!==action.guid)return marker;const {comment,color,...rest}=marker;return {...rest,comment:action.comment,color:action.color};});
+            const actual=(postState as Record<string,any>[]).map(marker=>{if(marker.guid!==action.guid)return marker;const {comment,color,...rest}=marker;return {...rest,comment:nativeStringDefault(comment),color};});
+            if(digest(expected.map(digest).sort())!==digest(actual.map(digest).sort()))throw new Error("Marker update or unrelated-marker preservation not verified; inspect before retrying");
           }else if(action.action==="delete_markers"||action.action==="delete_marker"){
             postState=await this.read("markers",action.bin,action.mobId);
             if((await this.project()).path!==project.path)throw new Error("Project changed during marker removal verification");
@@ -485,7 +487,7 @@ export class NativeAdapter {
             postState=await this.read("markers",action.bin,action.mobId);const after=postState as Record<string,any>[];
             if((await this.project()).path!==project.path)throw new Error("Project changed during batch marker verification");
             const before="markers" in observedState?observedState.markers as Record<string,any>[]:[];
-            for(const marker of action.markers){const matched=after.filter(item=>typeof item.guid==="string"&&item.guid.toLowerCase()===marker.guid);if(matched.length!==1||(matched[0]!.offset??0)!==marker.offset||matched[0]!.comment!==marker.comment||matched[0]!.name!==marker.name||matched[0]!.color!==marker.color||matched[0]!.length!==1||matched[0]!.user!=="Avid MCP"||(matched[0]!.track_label?.type??"TRACKTYPE_PICTURE")!==marker.track.type||matched[0]!.track_label?.number!==marker.track.number)throw new Error("Batch marker readback mismatch; inspect before retrying");}
+            for(const marker of action.markers){const matched=after.filter(item=>typeof item.guid==="string"&&item.guid.toLowerCase()===marker.guid);if(matched.length!==1||(matched[0]!.offset??0)!==marker.offset||nativeStringDefault(matched[0]!.comment)!==marker.comment||nativeStringDefault(matched[0]!.name)!==marker.name||matched[0]!.color!==marker.color||matched[0]!.length!==1||matched[0]!.user!=="Avid MCP"||(matched[0]!.track_label?.type??"TRACKTYPE_PICTURE")!==marker.track.type||matched[0]!.track_label?.number!==marker.track.number)throw new Error("Batch marker readback mismatch; inspect before retrying");}
             if(after.length!==before.length+action.markers.length||before.some(marker=>!after.some(item=>digest(item)===digest(marker))))throw new Error("Existing marker preservation not verified");
           }else
           if(action.action==="copy_clip"||action.action==="copy_clips"){

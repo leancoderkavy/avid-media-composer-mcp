@@ -16,6 +16,8 @@ For 1–100 reviewed notes on the same qualified 30 fps clip, `add_markers` can 
 
 For single `add_marker`, require `markerAddedVerified: true` and retain the native GUID from `result`. Preflight requires an in-range offset and observed track on a qualified 30 fps clip. Verification checks the returned identity, all requested fields and preservation of every prior marker. On an uncertain result, read current markers before creating another note; do not replay the token or assume absence. Save/reopen remains separate from in-memory verification.
 
+Use an explicit empty comment to clear requested marker text. Native protobuf readback may omit empty strings; the verifier handles that default only for the requested target comment and requested creation name/comment fields. Invalid null values and changes to unrelated notes still fail verification. Do not infer that omitted fields elsewhere permit changes.
+
 For an explicitly requested removal of 1–100 known markers, preview `delete_markers` with their exact `guids` and apply its token. Check `markersRemovedVerified`, then reread markers and verify that notes outside the request remain unchanged. Do not broaden a removal to all markers merely because they share a color or author. An uncertain or partial deletion requires a fresh read; do not replay the consumed token or re-create deleted notes automatically.
 
 For the single-note `delete_marker` operation, require `markerRemovedVerified: true`. The adapter verifies exact removal of the one current identity and preservation of every remaining record. A returned native call or successful read alone is insufficient. Inspect after any verification failure before making a fresh plan; persistence remains a separate save/reopen check.

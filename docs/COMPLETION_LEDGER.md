@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Empty native marker text defaults
+
+Actual native non-UUID marker clearing/color change, save/reopen, explicit restoration and final cleanup passed. Independent hash-bound saved AVB comparison allowed only target comment/color/observed RGB changes and verified exact decoded restoration with outside-note/source preservation. Evidence: `.avid-mcp-analysis/native-marker-clear-f4587e21-5479-43d9-94d3-42c5b1b9a3db/evidence.json` and `saved-clear-verification.json`. The fixture is marker-empty. This adds observed non-UUID update qualification, not arbitrary identity or atomic-undo support.
+
+Marker update verification now recognizes an omitted target comment as the protobuf empty-string default when comparing the requested edit. Single/batch creation applies the same rule to requested name/comment fields. Invalid null values and changes to unrelated records still fail. Target comparison keeps comment/color field ordering consistent when omission changes their JSON insertion order. Regression tests cover empty creation fields, omitted target comments, null rejection and unchanged outside-note representation.
+
+All 104 focused native tests and full check passed: 679 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-marker-empty-text.log`). GitHub CI for the preceding audit commit `f003850` completed successfully, including the new Python audit job and Windows/macOS validation; this is not current-head release or Mac Avid evidence.
+
 ### Verified single marker creation
 
 `add_marker` now shares batch preflight bounds/track discovery on 30 fps targets, uses owner-bound dispatch and verifies the single native returned identity plus every requested field and prior-record preservation. It reports `markerAddedVerified`; ignored/duplicate additions, wrong fields, missing returned identity or changed existing records fail verification without replay. Protocol defaults for frame zero and picture type remain explicit. All 99 focused native tests and full check passed: 674 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-single-marker-creation.log`).

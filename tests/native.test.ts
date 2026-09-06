@@ -150,6 +150,28 @@ it('refuses out-of-range and unavailable-track single markers before writing',as
  await expect(f.adapter.preview({...base,track:{...base.track,number:2}})).rejects.toThrow('track is unavailable');
  expect(f.calls.some(call=>call.method==='AddMarker')).toBe(false);
 });
+it.each(['omitted','null','outside'])('checks empty marker update defaults without relaxing unrelated fields (%s)',async fault=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let changed=false;
+ const before=[structuredClone(f.marker),{...structuredClone(f.marker),guid:'outside',comment:''}];
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='ChangeMarker'){changed=true;return [];}
+  if(method==='GetMarkers'){const markers=structuredClone(before);if(changed){if(fault==='null')(markers[0] as any).comment=null;else delete (markers[0] as any).comment;if(fault==='outside')delete (markers[1] as any).comment;}return [{info:markers}];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:'change_marker',bin:'fixture.avb',mobId:'clip',guid:'marker',comment:'',color:'Green'});
+ expect(await f.adapter.apply(plan.token)).toMatchObject({markerChangedVerified:fault==='omitted'});
+});
+it.each(['add_marker','add_markers'])('accepts omitted empty text defaults in %s',async action=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';let created:any;
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='AddMarker'||method==='AddMarkers'){created={guid,offset:1,length:1,track_label:{number:1},user:'Avid MCP',color:'Green'};return method==='AddMarker'?[{guid}]:[];}
+  if(method==='GetMarkers')return [{info:[structuredClone(f.marker),...(created?[created]:[])]}];
+  return original(method,body);
+ });
+ const note={offset:1,track:{type:'TRACKTYPE_PICTURE' as const,number:1},name:'',comment:'',color:'Green' as const};
+ const plan=await f.adapter.preview(action==='add_marker'?{action,bin:'fixture.avb',mobId:'clip',...note}:{action:'add_markers',bin:'fixture.avb',mobId:'clip',markers:[{...note,guid}]});
+ expect(await f.adapter.apply(plan.token)).toMatchObject(action==='add_marker'?{markerAddedVerified:true}:{markersVerified:true});
+});
 it('refuses missing, duplicate or stale deletion targets before dispatch',async()=>{
  const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',base={action:'delete_markers' as const,bin:'fixture.avb',mobId:'clip'};
  for(const guids of [[],[guid,guid.toUpperCase()],Array.from({length:101},()=>guid)])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);
