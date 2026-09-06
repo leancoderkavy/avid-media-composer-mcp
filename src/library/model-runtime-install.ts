@@ -1,4 +1,4 @@
-import {mkdir,writeFile,lstat,realpath,rename,unlink,access} from "node:fs/promises";
+import {mkdir,writeFile,lstat,realpath,rename,unlink,access,link} from "node:fs/promises";
 import path from "node:path";
 import {pathToFileURL} from "node:url";
 import {randomUUID} from "node:crypto";
@@ -10,6 +10,14 @@ import {resolveReadablePath} from "../security/path-policy.js";
 import {installRuntimeNotices} from "./runtime-notices.js";
 export const runtimeManifest={name:"avid-mcp-local-model-runtime",version:"1.0.0",private:true,type:"module",dependencies:{"@huggingface/transformers":"4.2.0"},overrides:{sharp:"0.35.4","adm-zip":"0.6.0"}};
 const receiptSchema=z.object({schema:z.literal(1),kind:z.literal("avid-model-runtime"),transformers:z.literal("4.2.0"),treeSha256:z.string().regex(/^[a-f0-9]{64}$/),checkedAt:z.string(),nodeVersion:z.string(),checks:z.object({scriptsDisabled:z.boolean(),auditHighPassed:z.literal(true),importPassed:z.literal(true)}).strict(),adoptedLegacy:z.boolean()}).strict();
+/** Publish complete receipt bytes exclusively. Staging lives outside the
+ * inventoried runtime so a process crash cannot alter its dependency hash. */
+export async function publishRuntimeReceipt(directory:string,input:unknown){
+ const bytes=JSON.stringify(receiptSchema.parse(input));
+ const temporary=path.join(path.dirname(directory),`.runtime-receipt-${randomUUID()}.tmp`);
+ try{await writeFile(temporary,bytes,{flag:"wx",mode:0o600});await link(temporary,path.join(directory,"installation.json"));}
+ finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}
+}
 async function exists(file:string){try{await lstat(file);return true;}catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return false;throw error;}}
 async function basic(directory:string){
  const info=await lstat(directory);if(!info.isDirectory()||info.isSymbolicLink()||await realpath(directory)!==directory)throw new Error("Model runtime must be a direct directory in the selected cache");
@@ -44,7 +52,7 @@ export async function installModelRuntime(cache:string){
    if(imported.exitCode!==0)throw new Error(`Model runtime import failed; files retained at ${directory}`);
    if(await packageTreeHash(directory)!==before)throw new Error("Model runtime changed during qualification; no receipt saved");
    const receipt=receiptSchema.parse({schema:1,kind:"avid-model-runtime",transformers:"4.2.0",treeSha256:before,checkedAt:new Date().toISOString(),nodeVersion:process.versions.node,checks:{scriptsDisabled:!legacy,auditHighPassed:true,importPassed:true},adoptedLegacy:legacy});
-   await writeFile(path.join(directory,"installation.json"),JSON.stringify(receipt),{flag:"wx",mode:0o600});
+   await publishRuntimeReceipt(directory,receipt);
   };
   if(await exists(runtime)){
    const status=await modelRuntimeStatus(root);

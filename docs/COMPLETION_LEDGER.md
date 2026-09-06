@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Atomic optional-runtime receipts
+
+Full local check passed: 562 TypeScript tests, 36 Python tests, 137 tools, five skills, transports and fresh-package checks (`.avid-mcp-analysis/check-runtime-receipt.log`).
+
+Model runtime setup now publishes validated complete receipt bytes through an exclusive hard link from a unique cache-root temporary file. Injected partial-write and concurrent-publisher tests prove no partial final receipt and no overwrite. Temporaries left by a process crash remain outside the dependency tree. Actual disposable-copy audit/adoption/status/import passed with an abandoned partial temporary receipt preserved and the original tree unchanged: `.avid-mcp-analysis/runtime-receipt-2027927f-b197-45ee-997c-ec41aa202b44/evidence.json`. See MODEL_RUNTIME_QUALIFICATION.md. Power-loss durability, stale setup-lock recovery and update/rollback/removal remain open.
+
 ### Audio timing stream/offset qualification
 
 Expanded and ran the real MCP multistream fixture: audio timing matches selected stream/sample totals and survives saved readback; video-only reports null audio timing. A generated two-track PCM source with a 250 ms delay only on track two produced the expected 192,000 versus 180,000 samples over [0,4), including a 12,000-tick delayed start; both tracks produced 132,000 samples over [1.25,4). An empty delayed-track range failed with no report files published. Both input hashes stayed unchanged. Evidence: `.avid-mcp-analysis/qc-streams-1ee0a6b6-0e14-424a-b79d-8553ed9df39e/evidence.json`. Syntax and actual script execution passed; production code did not change. Broader codec/clock and playback qualification remains open.

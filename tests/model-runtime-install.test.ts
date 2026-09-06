@@ -2,17 +2,34 @@ import {mkdir,mkdtemp,writeFile,readFile,readdir,access,realpath} from "node:fs/
 import path from "node:path";
 import os from "node:os";
 import {it,expect,vi,beforeEach} from "vitest";
-import {installModelRuntime,modelRuntimeStatus,runtimeManifest} from "../src/library/model-runtime-install.js";
+import {installModelRuntime,modelRuntimeStatus,runtimeManifest,publishRuntimeReceipt} from "../src/library/model-runtime-install.js";
 import {runtimeNoticePackages} from "../src/library/runtime-notices.js";
 const runner=vi.hoisted(()=>vi.fn());
+const receiptFault=vi.hoisted(()=>({fail:false}));
 vi.mock("node:fs/promises",async importOriginal=>{
  const actual=await importOriginal<typeof import("node:fs/promises")>();
- return {...actual,access:async(file:Parameters<typeof actual.access>[0],mode?:number)=>String(file).endsWith("npm-cli.js")?undefined:actual.access(file,mode)};
+ return {...actual,writeFile:async(...args:Parameters<typeof actual.writeFile>)=>{if(receiptFault.fail&&String(args[0]).includes('.runtime-receipt-')){await actual.writeFile(args[0],'{partial',args[2]);throw new Error('Injected interrupted receipt write');}return actual.writeFile(...args);},access:async(file:Parameters<typeof actual.access>[0],mode?:number)=>String(file).endsWith("npm-cli.js")?undefined:actual.access(file,mode)};
 });
 vi.mock("../src/process.js",()=>({runProcess:(...args:unknown[])=>runner(...args)}));
 async function populate(directory:string){const module=path.join(directory,"node_modules","@huggingface","transformers");await mkdir(path.join(module,"dist"),{recursive:true});await writeFile(path.join(module,"package.json"),JSON.stringify({version:"4.2.0"}));await writeFile(path.join(module,"dist","transformers.node.mjs"),"export class Tensor {}");await writeFile(path.join(directory,"package-lock.json"),"fixture lock");for(const item of runtimeNoticePackages){const target=path.join(directory,"node_modules",item.name);await mkdir(target,{recursive:true});await writeFile(path.join(target,"package.json"),JSON.stringify({name:item.name,version:item.version}));}}
 async function fixture(){return realpath(await mkdtemp(path.join(os.tmpdir(),"avid-runtime-install-")));}
-beforeEach(()=>{runner.mockReset();runner.mockImplementation(async(_command,args,options)=>{if(args[1]==="install")await populate(options.cwd);return {exitCode:0,stdout:"",stderr:""};});});
+beforeEach(()=>{receiptFault.fail=false;runner.mockReset();runner.mockImplementation(async(_command,args,options)=>{if(args[1]==="install")await populate(options.cwd);return {exitCode:0,stdout:"",stderr:""};});});
+it("never publishes a partial receipt when writing fails",async()=>{
+ const root=await fixture();receiptFault.fail=true;
+ await expect(installModelRuntime(root)).rejects.toThrow('interrupted receipt');
+ const entries=await readdir(root),staging=entries.find(n=>n.startsWith('.runtime-install-'))!;
+ expect(staging).toBeTruthy();await expect(access(path.join(root,staging,'installation.json'))).rejects.toThrow();
+ expect(entries.some(n=>n.startsWith('.runtime-receipt-'))).toBe(false);
+});
+it("publishes only one complete receipt concurrently without replacing the winner",async()=>{
+ const root=await fixture(),directory=path.join(root,'runtime');await mkdir(directory);
+ const receipt={schema:1,kind:'avid-model-runtime',transformers:'4.2.0',treeSha256:'a'.repeat(64),checkedAt:'fixture',nodeVersion:process.versions.node,checks:{scriptsDisabled:true,auditHighPassed:true,importPassed:true},adoptedLegacy:false};
+ const candidates=[receipt,{...receipt,treeSha256:'b'.repeat(64)}];
+ const outcomes=await Promise.allSettled(candidates.map(r=>publishRuntimeReceipt(directory,r)));
+ expect(outcomes.filter(o=>o.status==='fulfilled')).toHaveLength(1);
+ expect(JSON.parse(await readFile(path.join(directory,'installation.json'),'utf8'))).toEqual(candidates[outcomes.findIndex(o=>o.status==='fulfilled')]);
+ expect(await readdir(root)).toEqual(['runtime']);
+});
 it("publishes qualified staging and reuses an unchanged runtime without npm mutation",async()=>{
  const root=await fixture(),first=await installModelRuntime(root);expect(first).toMatchObject({managed:true,unchanged:true,reused:false,receipt:{adoptedLegacy:false,checks:{scriptsDisabled:true}}});
  expect(first.notices.packages).toHaveLength(2);expect(first.notices.packages.every(p=>p.files.every(file=>file.created))).toBe(true);

@@ -38,4 +38,12 @@ Regression evidence:
 - Actual visual-summary lifecycle: `.avid-mcp-analysis/visual-summary-7cb0f246-c17f-4569-825f-8d5359f0ed4b/evidence.json`; the overview remained identical, including its previously documented quality defects.
 - Sonoma CLIP ranking: `.avid-mcp-analysis/visual-ranking-cd9ab79e-eb9f-40c7-b9d0-5266aaee7ddb/evidence.json`; hit@1 14/16, hit@3 16/16 and MRR 0.9375, unchanged from the earlier development set.
 
-Tree receipts detect changes when setup/status is requested; ordinary inference does not hash every runtime dependency on each call. Receipts record earlier audit/import results, not a current vulnerability audit or publisher authentication. Model weights and system dependencies retain their separate provenance and lifecycle requirements.
+Tree receipts detect changes during setup/status and every ordinary `modelRuntime()` loader call, as described above. Receipts record earlier audit/import results, not a current vulnerability audit or publisher authentication. Model weights and system dependencies retain their separate provenance and lifecycle requirements.
+
+## Atomic receipt publication
+
+Setup now writes a complete validated receipt to a unique temporary file in the cache root, then links it exclusively to the runtime's installation.json. A partial write cannot become the final receipt, and concurrent publishers cannot replace a winner. The attempt's temporary file is removed on ordinary success/failure. A process crash may leave a temporary file in the cache root; it is outside the inventoried runtime, remains available for inspection and does not change the dependency-tree hash. This does not remove a surviving setup lock, establish worker termination or prove power-loss durability.
+
+Regression tests inject a partial write failure and exercise two simultaneous publishers, verifying that the final receipt is absent or complete and existing content is preserved. The full runtime installation/adoption tests still cover failed staging, changed trees and replacement setup locks.
+
+Actual installed-runtime evidence: `.avid-mcp-analysis/runtime-receipt-2027927f-b197-45ee-997c-ec41aa202b44/evidence.json`. `qualify-runtime-receipt.mjs` copies dependencies without the original receipt into a disposable cache, retains an abandoned partial temporary receipt in the cache root, runs real audit/import/adoption, checks managed status and loads a tensor. The new runtime tree equals the original hash; the original cache stayed unchanged. This is actual filesystem/adoption evidence with existing dependencies, not a new dependency installation, model inference or process-kill experiment.
