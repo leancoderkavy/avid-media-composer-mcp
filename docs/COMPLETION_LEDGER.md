@@ -801,3 +801,8 @@ avid_verify_saved_trim exposes normalized selected-bin snapshot comparison throu
 
 Fresh-package smoke now invokes avid_verify_saved_trim through the installed stdio server using synthetic captured snapshot records. It verifies the expected cut and baseline/candidate revision identities, then requires a wrong-direction request to fail with an exact-trim mismatch. The 137-tool package check passed with full definition equality, client configuration checks and Python isolation/recovery. Log: .avid-mcp-analysis/package-saved-trim-mcp.log. This is installed API coverage; retained real Avid trim captures and current editor execution remain distinct evidence.
 
+
+### Packaged verified trim workflow
+
+The avid-selects skill now guides snapshot-before/edit/save/snapshot-after/verify and verified same-session recovery. It distinguishes record/source viewers, frame/track coordinates, saved-state verification versus command execution, and invalidation of assumed history on close/reload/restart. A separate computer-use executor remains required. All 39 referenced MCP tools were found, and fresh-package validation passed for 137 tools and five skills, including installed saved-trim verification and Python isolation/recovery. Log: .avid-mcp-analysis/package-trim-workflow.log. Named-client execution of this guidance remains unqualified.
+
