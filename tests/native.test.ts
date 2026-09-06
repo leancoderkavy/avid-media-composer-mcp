@@ -43,6 +43,13 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it("bounds EDL preset discovery without exposing native extra fields",async()=>{
+    const f=await hostFixture("inspect"),original=f.client.call.bind(f.client);let payload:any[]=[{setting_names:["CMX 3600","CMX 3600"],private:"PRIVATE"}];
+    vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetListOfExportEDLSettings"?Promise.resolve(payload):original(method,body));
+    const result=await f.adapter.read("edl_settings");expect(result).toMatchObject({settingNames:["CMX 3600"]});expect(JSON.stringify(result)).not.toContain("PRIVATE");
+    for(payload of [[{}],[{setting_names:[123]}],[{setting_names:Array(513).fill("x")}],[{setting_names:Array(300).fill("x")},{setting_names:Array(300).fill("y")}]])await expect(f.adapter.read("edl_settings")).rejects.toThrow();
+    payload=[];expect(await f.adapter.read("edl_settings")).toMatchObject({settingNames:[]});
+  });
   it("reports empty viewer inventory without claiming a loaded clip",async()=>{
     const f=await hostFixture(),original=f.client.call.bind(f.client);
     vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="GetViewerMobs"?Promise.resolve([]):original(method,body));

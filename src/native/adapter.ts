@@ -54,7 +54,7 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "bins" | "open_bins" | "bin" | "clips" | "clip" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
@@ -77,6 +77,13 @@ export class NativeAdapter {
     }
     if (query === "bins") return this.client.call("GetBins", { project_path: project.path, request_flag: ["AllTypes"] });
     if (query === "link_settings") return this.client.call("GetListOfLinkSettings");
+    if (query === "edl_settings") {
+      const bodies=z.array(z.object({setting_names:z.array(z.string().min(1).max(1024)).max(512)})).max(512).parse(await this.client.call("GetListOfExportEDLSettings"));
+      const names=bodies.flatMap(body=>body.setting_names);
+      if(names.length>512)throw new Error("Native EDL preset inventory exceeds 512 entries");
+      if((await this.project()).path!==project.path)throw new Error("Native project changed during EDL preset inspection");
+      return {settingNames:[...new Set(names)],scope:"EDL preset names reported by Avid. Preset content, output destination and export fidelity are not verified."};
+    }
     if (query === "export_settings") return this.client.call("GetListOfExportSettings");
     if (query === "import_settings") return this.client.call("GetListOfImportSettings");
     const target = await this.binPath(project.path, bin ?? "");
