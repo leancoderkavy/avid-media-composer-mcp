@@ -62,14 +62,17 @@ export class ProjectSnapshots {
     const sidecar=fileURLToPath(new URL("../../python/avid_timeline.py",import.meta.url));
     // src/library and dist/library have the same relative depth below the package root.
     await access(sidecar);
-    const bins=[];
+    const bins=[];let accumulatedBytes=0;
     for(const input of [...new Set(files)]){
       const file=await resolveReadablePath(input,this.config.allowedRoots,"file");
       if(path.extname(file).toLowerCase()!==".avb")throw new Error("Expected AVB bin");
       if((await stat(file)).size>512*1024*1024)throw new Error("Bin exceeds snapshot size limit");
       const response=await runProcess(this.config.pythonExecutable,[sidecar,file,"--max-nodes","10000"],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:8*1024*1024});
       if(response.exitCode!==0)throw new Error(`Saved-bin index failed: ${response.stderr.slice(-2000)}`);
-      bins.push(bin.parse(JSON.parse(response.stdout)));
+      const inspected=bin.parse(JSON.parse(response.stdout));
+      accumulatedBytes+=Buffer.byteLength(JSON.stringify(inspected))+1;
+      if(accumulatedBytes>32*1024*1024)throw new Error("Snapshot exceeds size limit while collecting bins");
+      bins.push(inspected);
     }
     const revision=randomUUID(),record={revision,createdAt:new Date().toISOString(),bins};
     const serialized=JSON.stringify(record);

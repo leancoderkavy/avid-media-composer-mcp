@@ -465,3 +465,5 @@ Snapshot diffs return `coverage.baseline` and `coverage.candidate` with per-bin 
 `node scripts/research/qualify-snapshot-discovery-restart.mjs` exercises a copied historical Sonoma snapshot across a real MCP reconnect, pages past a damaged entry and checks restricted-root discovery. It preserves the original snapshot and retains its evidence in an isolated output directory.
 
 New snapshots are written to a unique temporary file and published using an exclusive same-directory hard link after writing finishes. Existing revisions are never replaced; ordinary failures clean temporary attempts. The output filesystem must support hard links. Abrupt termination may leave an undiscovered temporary file, and this protocol does not guarantee power-loss durability.
+
+Multi-bin capture checks cumulative serialized bin bytes while collecting results, stopping when the 32 MiB snapshot budget is exceeded instead of inspecting every remaining bin. The final serialized-size check includes wrapper metadata. This bounds retained bin payload growth; Python output, parsed objects and serialization still have transient memory overhead.
