@@ -67,3 +67,17 @@ it("keeps terminal persistence failures visible in status",async()=>{
   expect((await jobs.journal.read(first.id)).status).toBe("running");
   save.mockRestore();jobs.close();
 });
+
+it("waits for a queued cancellation record before acknowledging cancellation",async()=>{
+  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]}),second=await jobs.start({kind:"index",files:["second.mp4"]});
+  await jobs.readStatus(first.id);
+  let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+  const original=jobs.journal.save.bind(jobs.journal);
+  const save=vi.spyOn(jobs.journal,"save").mockImplementation(async record=>{if(record.id===second.id&&record.status==="cancelled")await gate;return original(record);});
+  let settled=false;const cancelling=jobs.cancelAndReadStatus(second.id).then(value=>{settled=true;return value;});
+  await new Promise(resolve=>setImmediate(resolve));
+  try{expect(settled).toBe(false);expect(state.workers).toHaveLength(1);}finally{release();}
+  expect(await cancelling).toMatchObject({status:"cancelled"});
+  expect(await jobs.journal.read(second.id)).toMatchObject({status:"cancelled"});
+  save.mockRestore();jobs.close();state.workers[0].emit("close",1);await jobs.readStatus(first.id);
+});

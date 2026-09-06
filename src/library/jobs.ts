@@ -70,6 +70,7 @@ export class AnalysisJobs {
     const current=this.jobs.get(id);return current?this.status(id):this.journal.read(id);
   }
   status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return value;}
+  async cancelAndReadStatus(id:string){this.cancel(id);return this.readStatus(id);}
   cancel(id:string){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");
     if(!["queued","running"].includes(job.status))return this.status(id);
