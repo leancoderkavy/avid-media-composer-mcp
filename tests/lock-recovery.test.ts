@@ -95,3 +95,37 @@ it("accepts a canonical parent alias but rejects an unexpected output leaf",asyn
   const status=await recovery.inspect();expect(status).toMatchObject({locked:true,recoverable:true});
   await writeFile(file,record(path.join(alias,"export","other.mp4")));await expect(recovery.inspect()).rejects.toThrow("expected attempt output");
 });
+
+async function edlFixture(withResponse=true){
+ const base=await fixture(),directory=path.join(base.root,`native-export-${randomUUID()}`);await mkdir(directory);
+ const attempt=path.join(directory,"attempt.json"),response=path.join(directory,"response.json"),bin=path.join(base.root,"edl.avb");
+ await writeFile(bin,"saved bin");
+ await writeFile(attempt,JSON.stringify({project:base.root,exportDirectory:base.root,action:{action:"export_edl",bin:"edl.avb",exportDirectory:base.root}}));
+ if(withResponse)await writeFile(response,JSON.stringify({output:"retained EDL evidence"}));
+ await writeFile(base.file,JSON.stringify(base.owner)+"\n"+JSON.stringify({state:"export-unresolved",output:attempt,cause:"uncertain EDL"}));
+ return {...base,attempt,response};
+}
+it.each([false,true])("recovers EDL with both checksums and preserves evidence (response=%s)",async(withResponse)=>{
+ const data=await edlFixture(withResponse),stopped=vi.fn(async()=>{}),recovery=new NativeLockRecovery(data.config,stopped),status=await recovery.inspect();
+ if(!status.locked||!status.recoverable||status.state!=="export-unresolved"||!("evidenceSha256" in status))throw new Error("Missing EDL evidence");
+ await expect(recovery.release(status.sha256)).rejects.toThrow("checksum");
+ await expect(recovery.release(status.sha256,"0".repeat(64))).rejects.toThrow("checksum");await access(data.file);
+ const before=await readFile(data.attempt);const result=await recovery.release(status.sha256,status.evidenceSha256);
+ expect(result.released).toBe(true);expect(stopped).toHaveBeenCalledTimes(2);await expect(access(data.file)).rejects.toThrow();
+ expect(await readFile(data.attempt)).toEqual(before);if(withResponse)await access(data.response);await access(data.output);
+ expect(JSON.parse(await readFile(result.archive,"utf8")).lock.evidenceSha256).toBe(status.evidenceSha256);
+});
+it.each([1,2])("retains EDL lock if response appears during stopped-host check %s",async(check)=>{
+ const data=await edlFixture(false);let count=0;const recovery=new NativeLockRecovery(data.config,async()=>{if(++count===check)await writeFile(data.response,"new response");}),status=await recovery.inspect();
+ if(!status.locked||!status.recoverable||status.state!=="export-unresolved"||!("evidenceSha256" in status))throw new Error("Missing EDL evidence");
+ await expect(recovery.release(status.sha256,status.evidenceSha256)).rejects.toThrow("changed");await access(data.file);
+});
+it("retains EDL lock after attempt changes and rejects response escaping its evidence directory",async()=>{
+ const data=await edlFixture(false),recovery=new NativeLockRecovery(data.config,async()=>{}),status=await recovery.inspect();
+ if(!status.locked||!status.recoverable||status.state!=="export-unresolved"||!("evidenceSha256" in status))throw new Error("Missing EDL evidence");
+ await writeFile(data.attempt,(await readFile(data.attempt,"utf8"))+" ");
+ await expect(recovery.release(status.sha256,status.evidenceSha256)).rejects.toThrow("changed");await access(data.file);
+ // A directory junction is portable on Windows without symlink privileges.
+ const alias=path.join(path.dirname(data.attempt),"response.json");await symlink(data.root,alias,process.platform==="win32"?"junction":"dir");
+ await expect(recovery.inspect()).rejects.toThrow("outside");await access(data.file);
+});

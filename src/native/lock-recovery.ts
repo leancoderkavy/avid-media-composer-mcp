@@ -61,6 +61,22 @@ export class NativeLockRecovery {
     }
     const retained=retainedSchema.parse(record);
     if(!this.config.outputRoot)throw new Error("Output root required to inspect retained export");
+    if(path.basename(retained.output)==="attempt.json"){
+      const attemptFile=await resolveReadablePath(retained.output,[this.config.outputRoot],"file"),directory=path.dirname(attemptFile);
+      if(!/^native-export-[a-f0-9-]{36}$/.test(path.basename(directory)))throw new Error("Unexpected EDL attempt layout");
+      const bytes=await readBoundedFile(attemptFile,4*1024*1024);
+      const attempt=z.object({project:z.string(),exportDirectory:z.string(),action:z.object({action:z.literal("export_edl"),bin:z.string(),exportDirectory:z.string()})}).parse(JSON.parse(bytes.toString("utf8")));
+      const project=await resolveReadablePath(attempt.project,this.config.allowedRoots,"directory");
+      const bin=await resolveReadablePath(path.resolve(project,attempt.action.bin),[project],"file");
+      if(path.extname(bin).toLowerCase()!==".avb")throw new Error("Expected EDL source bin");
+      const exportDirectory=await resolveReadablePath(attempt.exportDirectory,this.config.allowedRoots,"directory");
+      if(exportDirectory!==await resolveReadablePath(attempt.action.exportDirectory,this.config.allowedRoots,"directory"))throw new Error("EDL destination declarations disagree");
+      let responseSha256:string|null=null;
+      try{await lstat(path.join(directory,"response.json"));responseSha256=createHash("sha256").update(await readBoundedFile(await resolveReadablePath(path.join(directory,"response.json"),[directory],"file"),2*1024*1024)).digest("hex");}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
+      const evidence={attemptFile,attemptSha256:createHash("sha256").update(bytes).digest("hex"),responseSha256,project,bin,exportDirectory};
+      const evidenceSha256=createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
+      return {locked:true as const,recoverable:true as const,sha256,owner,...retained,directory,evidence,evidenceSha256,requirement:"EDL recovery requires both checksums and stopped Avid; no export retry or artifact deletion"};
+    }
     const directory=await resolveReadablePath(path.dirname(path.dirname(retained.output)),[this.config.outputRoot],"directory");
     // Validate the leaf layout separately from the canonical parent: realpath can
     // expand /var aliases or Windows short/case variants without changing scope.
@@ -72,19 +88,25 @@ export class NativeLockRecovery {
     await resolveReadablePath(attempt.project,this.config.allowedRoots,"directory");
     return {locked:true as const,recoverable:true as const,sha256,owner,...retained,directory,requirement:"Avid must be stopped; release does not retry export or remove its output"};
   }
-  async release(expectedSha256:string){
+  async release(expectedSha256:string,expectedEvidenceSha256?:string){
     requireCapability(this.config.capabilities,"export");z.string().regex(/^[a-f0-9]{64}$/).parse(expectedSha256);
     const before=await this.inspect();
     if(!before.locked||!before.recoverable||before.state!=="export-unresolved"||before.sha256!==expectedSha256)throw new Error("Lock is absent, changed or not eligible for export recovery");
+    const verifyEvidence=(status:Awaited<ReturnType<NativeLockRecovery["inspect"]>>)=>{
+      if("evidenceSha256" in before && (!expectedEvidenceSha256||!("evidenceSha256" in status)||status.evidenceSha256!==expectedEvidenceSha256))throw new Error("EDL recovery evidence checksum is missing or changed; inspect again");
+    };
+    verifyEvidence(before);
     const guardFile=path.join(path.dirname(this.file()),"native-recovery.lock"),guard=await open(guardFile,"wx",0o600);
     try{
       await this.assertStopped();
       const current=await this.inspect();
       if(!current.locked||!current.recoverable||current.state!=="export-unresolved"||current.sha256!==expectedSha256)throw new Error("Native lock changed during recovery");
+      verifyEvidence(current);
       const receipt={preparedAt:new Date().toISOString(),state:"prepared-for-release",lock:current,exportRetried:false,outputDeleted:false};
       const archive=path.join(current.directory,`lock-recovery-${randomUUID()}.json`);await writeFile(archive,JSON.stringify(receipt,null,2),{flag:"wx",mode:0o600});
       await this.assertStopped();
       if(createHash("sha256").update(await readBoundedFile(this.file(),65536)).digest("hex")!==expectedSha256)throw new Error("Native lock changed before release");
+      verifyEvidence(await this.inspect());
       await unlink(this.file());return {released:true,archive,exportRetried:false,outputDeleted:false};
     }finally{await guard.close();await unlink(guardFile);}
   }
