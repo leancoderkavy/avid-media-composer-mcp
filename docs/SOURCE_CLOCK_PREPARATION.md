@@ -1,5 +1,15 @@
 # Source-clock editing copies
 
+## Fresh installed worker qualification
+
+The job harness accepts `--entrypoint <absolute-installed-dist/index.js>` and starts every MCP session with that entrypoint's directory as its working directory. It records and rechecks hashes for the entrypoint, job scheduler, worker, journal, preparation verifier and termination helper. Cancellation modes remain explicit and mutually exclusive.
+
+A fresh development tarball was installed into a unique Windows temporary directory with npm lifecycle scripts disabled. The six installed runtime files matched the checkout's built files. The tarball checksum and installation location are retained in `.avid-mcp-analysis/preparation-installed-runtime.json`; this is not a new npm publication.
+
+Actual installed-server Sonoma preparation, output verification, queued cancellation, active cancellation, checksum refusal, receipt inspection and fresh-session history passed at `.avid-mcp-analysis/source-clock-jobs-2d077ddf-1c7e-4552-a1b1-6f6cc60e294f/evidence.json`. A separate installed-server injected-failure run passed the scheduling pause, queued cancellation and new-start refusal at `source-clock-jobs-40094408-5776-44aa-91a7-5202b92df78f/evidence.json` beneath the same analysis root. Source and runtime hashes remained unchanged in both runs. The fault test uses the explicit research preload; the ordinary run does not.
+
+This qualifies packaged worker execution on the existing Windows machine with its installed FFmpeg/ffprobe. It does not qualify clean-machine dependency setup, named-client GUI onboarding, arbitrary termination reliability, cross-session orphan containment or Mac host behavior.
+
 ## Queued preparation
 
 `avid_start_analysis_job` accepts `{job: {kind: "source_clock", options: {file, expectedSha256, videoStream, audioStream}}}`. It requires inspection and export authority and uses the same preparation verifier as the direct tool. The existing session queue runs one worker at a time; persistent job status survives reconnect without automatically replaying unfinished work. A completed result contains the prepared output and verification receipt. `avid_source_clock_status` independently checks the saved receipt against current files.

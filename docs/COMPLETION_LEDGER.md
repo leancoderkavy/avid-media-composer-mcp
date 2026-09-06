@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Fresh installed source-clock jobs
+
+Extended the research harness to accept an absolute installed entrypoint, use its directory as the server working directory and checksum six relevant runtime files before and after execution. A fresh development tarball installation matched the checkout build, then passed real Sonoma queued preparation, queued/active cancellation, bad-checksum refusal, receipt verification and fresh-session status. A separate installed fault-injection run verified scheduling pause, new-start refusal and queued cancellation.
+
+Evidence: `.avid-mcp-analysis/preparation-installed-runtime.json`, `source-clock-jobs-2d077ddf-1c7e-4552-a1b1-6f6cc60e294f/evidence.json` and `source-clock-jobs-40094408-5776-44aa-91a7-5202b92df78f/evidence.json`. All paths are beneath the analysis root. Original source/runtime hashes were unchanged. No production code changed in this checkpoint; original intermittent cancellation, cross-session recovery and clean-machine setup remain open. See [installed preparation qualification](SOURCE_CLOCK_PREPARATION.md#fresh-installed-worker-qualification).
+
 ### Retain helper termination diagnostics across reconnect
 
 Windows taskkill closure now preserves its exit code in both process errors and job history. Nonzero/null remains failure, absent closure remains unknown, and late closure cannot rewrite a timeout. Focused process/job/journal checks passed 43 tests, with typecheck/build. A real Sonoma MCP injected-failure test preserved exit code 1 across a fresh connection at `source-clock-jobs-8b7ef637-158e-4afe-8f4d-a4697bf9bdd2` beneath `.avid-mcp-analysis`.
