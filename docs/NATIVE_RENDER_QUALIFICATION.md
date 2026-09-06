@@ -1,5 +1,13 @@
 # Avid sequence render qualification
 
+## Live source-color and export-preset inspection, 2026-09-06
+
+Computer use inspected the currently loaded `MCP_Sonoma_AAF_Selects.Copy.05` in the Sonoma Windows project. Export As selected `MCP_H264_Stereo_Legal_20260905`. Its UME options showed Rec.709, **Keep as Legal Range**, H.264 8-bit, constant 20 Mbps, PCM stereo 48 kHz/24-bit, Use Marks off, Use Selected Tracks on and Include Inactive Audio Tracks on. The dialogs were canceled; no export or preset save was requested. A temporary Not Responding title during dismissal cleared on fresh observation.
+
+Timeline Find Bin selected `Sonoma_Escape_RoughCut_v1_preview.Exported.02`. Its Source Settings > Color Encoding showed **Rec.709 [full range]**, a **Levels scaling (full range to video levels)** transformation, Generic adapter type and **Bypass all color transformations unchecked**. Source Settings was canceled without pressing Apply or OK. A bin-tab asterisk was visible afterward, so this inspection does not prove the absence of unsaved application-state changes. The saved Copy.05 bin still matched baseline SHA-256 `8b8ccefa6225a38acc6aae30be05d05b469c14b8758afc12bdd80494df785822`; original MP4 SHA-256 remained `3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca`. No save, revert or restart was performed.
+
+These live observations weaken a simple missing-source-range-classification explanation. They do not prove that the imported composition actually applies the displayed source transformation. The next controlled test should duplicate the owned sequence into a new fixture, compare saved source/color-adapter structure, exercise the relevant Refresh Sequence source-settings operation only on that copy, and independently compare its native render. Do not ship automatic full-range retagging based on this observation; the discrepancy remains unresolved.
+
 The development branch now includes a preview/apply export action; see [native export usage and limits](NATIVE_EXPORT.md). The sections below preserve the research steps leading to that implementation.
 
 On Windows Media Composer Ultimate 2024.12, computer use exported the imported four-second `MCP_Sonoma_AAF_Selects` composition from the disposable `MCP_Sonoma_30p_20260905` project. This extends the saved-bin evidence in [native AAF qualification](NATIVE_AAF_QUALIFICATION.md). It does not qualify a shipped native export adapter.

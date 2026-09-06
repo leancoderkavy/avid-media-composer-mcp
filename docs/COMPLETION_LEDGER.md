@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Live native color-settings investigation
+
+Computer use inspected the current Copy.05 export preset and linked source settings. The preset remains Keep as Legal Range/Rec.709/H.264 8-bit with stereo 48 kHz/24-bit PCM. Source Color Encoding already declares Rec.709 full range and a full-to-video-level scaling adapter with bypass unchecked. All dialogs were canceled without Apply/OK, preset save or export. A bin-tab asterisk appeared after source-settings inspection; unsaved application state is not asserted unchanged. Saved Copy.05 and original MP4 hashes still match retained baselines. See NATIVE_RENDER_QUALIFICATION.md for exact observations. This points the next isolated experiment toward imported-sequence source-transformation propagation/refresh, rather than assuming missing source classification. Color fidelity remains unresolved; no production code or tests changed.
+
 ### Explicit MCP recovery after active preparation crash
 
 Extended the active-FFmpeg owner-crash harness through a new MCP connection. Discovery returned the interrupted attempt, status remained unresolved, and an explicit retry created a separate verified output. Normal production video/PCM/timestamp checks passed; independent complete audio/video decode succeeded and FFprobe counted 150 expected frames. New status matched receipt/output checksums. Original source and all interrupted-directory files stayed unchanged. Evidence: `.avid-mcp-analysis/preparation-worker-crash-ba72c0dd-573c-489d-9291-0b68b6ec7a12/evidence.json`. Syntax and actual execution passed; no production code changed and the full suite was not rerun. This qualifies explicit retry after observed worker exit on the bounded fixture; automatic retry, general orphan containment and cleanup remain open.
