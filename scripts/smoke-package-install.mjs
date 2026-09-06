@@ -204,7 +204,7 @@ try {
   const fixtureMob={mobId:"sequence",name:"Before",mobType:"CompositionMob",usageCode:0,rate:30,duration:60,sourceBounds:{start:0,end:60},tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:30,sourceMobId:"source",sourceStart:90},{kind:"SCLP",timelineStart:30,timelineEnd:60,sourceMobId:"source",sourceStart:120}]}]};
   const {verifySavedDualRollerTrim}=await import(pathToFileURL(path.join(installedRoot,"dist/native/trim-verifier.js")).href);
   const trimMob=structuredClone(fixtureMob);for(const node of trimMob.tracks[0].nodes)node.sourceTrackId=1;
-  const trimBefore={schema:1,complete:true,warnings:[],mobs:[trimMob,{...trimMob,mobId:"source",mobType:"MasterMob",duration:1000,sourceBounds:{start:0,end:1000},tracks:[]}]};
+  const trimBefore={schema:1,complete:true,warnings:[],mobs:[trimMob,{...trimMob,mobId:"source",mobType:"MasterMob",duration:1000,sourceBounds:{start:0,end:1000},tracks:[{ordinal:0,index:1,mediaKind:"picture",nodes:[{kind:"SCLP",timelineStart:0,timelineEnd:1000}]}]}]};
   const trimAfter=structuredClone(trimBefore);trimAfter.mobs[0].tracks[0].nodes[0].timelineEnd=31;trimAfter.mobs[0].tracks[0].nodes[1].timelineStart=31;trimAfter.mobs[0].tracks[0].nodes[1].sourceStart=121;
   const trimPlan={mobId:"sequence",cut:30,delta:1,trackOrdinals:[0]};
   if(!verifySavedDualRollerTrim(trimBefore,trimAfter,trimPlan).verified||!verifySavedDualRollerTrim(trimAfter,trimBefore,{...trimPlan,cut:31,delta:-1}).verified)throw new Error("Installed trim verification failed");

@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Immediate source-track trim coverage
+
+Saved trim verification now resolves the referenced track by numeric index and media kind, requires unique direct SCLP coverage across before/after ranges, and refuses gaps, filler, opaque/combiner nodes, overlaps and malformed track intervals. Bounds records expose source track IDs/ordinals and media kinds. Tests cover shared picture/sound indices, missing/duplicate tracks, gap crossings in both directions, adjacent direct nodes and unsupported coverage. Actual MCP checks verified the expected six V1/A1/A2 mappings for retained forward, inverse and backward Avid captures with unchanged input hashes: `.avid-mcp-analysis/saved-trim-mcp-f7ec7b6b-9d4d-45d1-86c7-0ae9c0017cc4/evidence.json`. Full check passed: 546 TypeScript tests, 34 Python tests, 137 tools, five skills, transports and fresh package (`check-trim-track-coverage.log`). This validates the immediate declared track only; nested physical handles, online media, UI execution and playback remain open.
+
 ### Saved trim declared-source bounds
 
 The existing trim verifier now checks outgoing/incoming baseline and result ranges against referenced same-rate source-mob durations, rejects exhausted bounds and unsafe interval arithmetic, and returns per-track declaredSourceBounds. Actual MCP verification passed retained Avid forward, inverse and backward captures, preserving all four input hashes and rejecting an incomplete track expectation: `.avid-mcp-analysis/saved-trim-mcp-a2593a8b-b4da-4b58-a39f-ce8d90d78e7f/evidence.json`. Full check passed: 540 TypeScript tests, 34 Python tests, 137 tools, five skills, transports and fresh-package checks (`check-trim-source-bounds.log`). See NATIVE_UI_TRIM_QUALIFICATION.md. This validates declared mob duration, not per-track physical handles, online media, UI execution or playback; the shipping edit adapter remains unfinished. Previous research commit a7b5609 passed CI and CodeQL.

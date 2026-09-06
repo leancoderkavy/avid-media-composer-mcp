@@ -3,10 +3,25 @@ import * as z from "zod/v4";
 
 const frame=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const node=z.object({kind:z.string(),timelineStart:frame,timelineEnd:frame,sourceStart:frame.optional(),sourceMobId:z.string().optional(),sourceTrackId:frame.optional(),opaque:z.boolean().optional(),channelCombiner:z.unknown().optional()}).passthrough();
-const track=z.object({ordinal:frame,mediaKind:z.string(),nodes:z.array(node).max(10000)}).passthrough();
+const track=z.object({ordinal:frame,index:frame.optional(),mediaKind:z.string(),nodes:z.array(node).max(10000)}).passthrough();
 const mob=z.object({mobId:z.string().min(1),mobType:z.string(),rate:z.number().positive(),duration:frame,tracks:z.array(track).max(128)}).passthrough();
 const graph=z.object({schema:z.literal(1),complete:z.literal(true),warnings:z.array(z.unknown()).length(0),mobs:z.array(mob).max(1000)}).passthrough();
 const request=z.object({mobId:z.string().min(1),cut:frame,delta:z.union([z.literal(-1),z.literal(1)]),trackOrdinals:z.array(frame).min(1).max(128)}).strict();
+function requireSourceTrackCoverage(source:z.infer<typeof mob>,index:number,kind:string,start:number,end:number){
+ const matches=source.tracks.filter(t=>t.index===index&&t.mediaKind===kind);
+ if(matches.length!==1)throw new Error("Missing or ambiguous declared source track");
+ const selected=matches[0]!,nodes=[...selected.nodes].sort((a,b)=>a.timelineStart-b.timelineStart);
+ let covered=start,previousEnd=-1;
+ for(const n of nodes){
+  if(n.timelineEnd<=n.timelineStart||n.timelineEnd>source.duration||n.timelineStart<previousEnd)throw new Error("Invalid or overlapping declared source track ranges");
+  previousEnd=n.timelineEnd;
+  if(n.timelineEnd<=start||n.timelineStart>=end)continue;
+  if(n.timelineStart>covered||n.kind!=="SCLP"||n.opaque||n.channelCombiner!==undefined)throw new Error("Trim range lacks direct declared source-track coverage");
+  covered=Math.max(covered,Math.min(end,n.timelineEnd));
+ }
+ if(covered<end)throw new Error("Trim range lacks direct declared source-track coverage");
+ return selected.ordinal;
+}
 
 /** Compares decoded saved graphs only. Does not execute a trim or prove media handles/playback. */
 export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown,input:z.infer<typeof request>){
@@ -17,7 +32,7 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
  };
  const expected=structuredClone(ordered(before));ordered(after);
  const target=expected.find(m=>m.mobId===plan.mobId);if(!target||target.mobType!=="CompositionMob")throw new Error("Expected one composition");
- const declaredSourceBounds:{trackOrdinal:number;side:"outgoing"|"incoming";sourceMobId:string;sourceDuration:number;before:{start:number;end:number};after:{start:number;end:number}}[]=[];
+ const declaredSourceBounds:{trackOrdinal:number;side:"outgoing"|"incoming";sourceMobId:string;sourceTrackId:number;sourceTrackOrdinal:number;mediaKind:string;sourceDuration:number;before:{start:number;end:number};after:{start:number;end:number}}[]=[];
  if(new Set(plan.trackOrdinals).size!==plan.trackOrdinals.length||new Set(target.tracks.map(t=>t.ordinal)).size!==target.tracks.length)throw new Error("Ambiguous trim track selection");
  for(const ordinal of plan.trackOrdinals){
   const selected=target.tracks.find(t=>t.ordinal===ordinal);if(!selected||!["picture","sound"].includes(selected.mediaKind))throw new Error("Unsupported trim track");
@@ -34,10 +49,11 @@ export function verifySavedDualRollerTrim(beforeInput:unknown,afterInput:unknown
    const sourceMob=sources[index]!,beforeStart=n.sourceStart!,beforeEnd=beforeStart+(n.timelineEnd-n.timelineStart);
    const afterStart=index===0?beforeStart:source,afterEnd=index===0?beforeEnd+plan.delta:beforeEnd;
    if(![beforeEnd,afterStart,afterEnd].every(Number.isSafeInteger)||beforeStart<0||afterStart<0||beforeEnd>sourceMob.duration||afterEnd>sourceMob.duration||beforeEnd<=beforeStart||afterEnd<=afterStart)throw new Error("Trim source range exceeds declared source bounds or numeric limits");
-   declaredSourceBounds.push({trackOrdinal:ordinal,side:index===0?"outgoing":"incoming",sourceMobId:sourceMob.mobId,sourceDuration:sourceMob.duration,before:{start:beforeStart,end:beforeEnd},after:{start:afterStart,end:afterEnd}});
+   const sourceTrackOrdinal=requireSourceTrackCoverage(sourceMob,n.sourceTrackId!,selected.mediaKind,Math.min(beforeStart,afterStart),Math.max(beforeEnd,afterEnd));
+   declaredSourceBounds.push({trackOrdinal:ordinal,side:index===0?"outgoing":"incoming",sourceMobId:sourceMob.mobId,sourceTrackId:n.sourceTrackId!,sourceTrackOrdinal,mediaKind:selected.mediaKind,sourceDuration:sourceMob.duration,before:{start:beforeStart,end:beforeEnd},after:{start:afterStart,end:afterEnd}});
   }
   a.timelineEnd=cut;b.timelineStart=cut;b.sourceStart=source;
  }
  if(!isDeepStrictEqual(expected,ordered(after)))throw new Error("Saved graph differs from the exact requested trim");
- return {verified:true as const,mobId:plan.mobId,cutBefore:plan.cut,cutAfter:plan.cut+plan.delta,trackOrdinals:plan.trackOrdinals,declaredSourceBounds,scope:"Complete decoded mob records and declared same-rate source-mob duration bounds only; per-track physical media handles, online availability, unknown binary fields and playback are not verified"};
+ return {verified:true as const,mobId:plan.mobId,cutBefore:plan.cut,cutAfter:plan.cut+plan.delta,trackOrdinals:plan.trackOrdinals,declaredSourceBounds,scope:"Complete decoded mob records, same-rate source-mob bounds and direct declared source-track coverage only; nested physical media handles, online availability, unknown binary fields and playback are not verified"};
 }

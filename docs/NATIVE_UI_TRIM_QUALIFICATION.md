@@ -2,6 +2,10 @@
 
 ## Declared source-duration checks
 
+Source bounds now also require exactly one source track with the referenced numeric index and matching media kind. The union of the before/after intervals must be covered by direct SCLP nodes on that track. Missing/ambiguous tracks, malformed or overlapping ranges, gaps, filler and opaque/combiner coverage are refused. Adjacent direct nodes can cover an interval. This prevents a longer picture track or overall mob duration from concealing a shorter sound track; picture and sound may legitimately share a numeric index.
+
+Each bounds record now includes `sourceTrackId`, `sourceTrackOrdinal` and `mediaKind`. These describe the immediate source track only: nested physical-media availability and usable handles are still not verified. Actual MCP verification of the retained forward, inverse and backward captures passed with source-track resolution: `.avid-mcp-analysis/saved-trim-mcp-f440f6e3-bcc5-44f9-8a39-94bef25006e9/evidence.json`. No editor mutation occurred and all captured inputs stayed unchanged.
+
 The saved trim verifier now rejects outgoing or incoming clip intervals that exceed the referenced same-rate source mob's declared duration, including invalid baseline intervals and unsafe integer arithmetic. It returns `declaredSourceBounds` for every selected track, identifying outgoing/incoming source IDs, declared duration, and half-open before/after source intervals. A forward roll lengthens the outgoing source interval and moves the incoming start while preserving its end; the reverse transformation is checked likewise.
 
 This is a declared graph-bound check, not proof of per-track physical media handles, online availability, nested source conformance, UI selection or playback. It does not execute an edit or repair a graph whose baseline already exceeds its declared bounds.

@@ -20,7 +20,7 @@ describe("saved semantic snapshots",()=>{
     const {record,save,snapshots,config}=await fixture(),bin=record.bins[0]!,sequence=bin.mobs[0]!;
     const first=sequence.tracks[0]!.nodes[0]!;first.timelineEnd=30;
     sequence.tracks[0]!.nodes.push({...first,timelineStart:30,timelineEnd:60,sourceStart:120});
-    bin.mobs.push({...structuredClone(sequence),mobId:"source",duration:1000,sourceBounds:{start:0,end:1000},tracks:[]});
+    bin.mobs.push({...structuredClone(sequence),mobId:"source",duration:1000,sourceBounds:{start:0,end:1000},tracks:[{...sequence.tracks[0]!,nodes:[{...first,timelineStart:0,timelineEnd:1000}]}]});
     const baseline=await save();record.revision=randomUUID();first.timelineEnd=31;sequence.tracks[0]!.nodes[1]!.timelineStart=31;sequence.tracks[0]!.nodes[1]!.sourceStart=121;
     const candidate=await save();expect((await snapshots.verifyTrim(baseline,candidate,bin.file,bin.file,"sequence",30,1,[0])).verified).toBe(true);
     await expect(snapshots.verifyTrim(baseline,candidate,bin.file,bin.file,"sequence",30,-1,[0])).rejects.toThrow("exact requested trim");
