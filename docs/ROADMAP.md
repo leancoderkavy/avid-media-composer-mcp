@@ -4,10 +4,12 @@
 
 The [competitor review and staged plan additions](COMPETITOR_RESEARCH.md) supplement the original phases below. Deliver Windows local setup and a separately qualified native adapter first, then richer media/interchange workflows, optional analysis providers and named UI automation. Mac code follows on a Mac. The user cannot obtain Avid SDK access; it is not a prerequisite for the native research route. A sanctioned Extension remains a separate optional path with its own SDK requirements.
 
-- [ ] Package the 16 demonstrated native operations behind individual capability and host-version checks; research smoke tests alone are not production support.
+- [x] Package the 16 demonstrated native operations behind individual capability and host-version checks; research smoke tests alone are not production support.
 - [ ] Add bounded timeline/source queries, local reports, verified outputs and reusable workflow skills as described in the competitor review.
 - [ ] Qualify the seven Sonoma MP4 exports in a disposable Windows project; original Premiere media and Mac qualification remain later work.
 - [ ] Evaluate optional Jumper search integration using its public API without making it a core dependency.
+
+The native packaging item is implemented in [NativeClient](../src/native/client.ts) and [NativeAdapter](../src/native/adapter.ts). All 16 methods from the historical [native smoke test](NATIVE_API_SMOKE_TEST.md) are in the current allowlist and have adapter call paths. The allowlist now contains ten reads and eleven writes, with the additional methods supporting subclips, export/import preset discovery and file export/import. Reads require inspection authority; writes go through action-specific capabilities and guarded preview/apply. The client binds schema loading to the qualified executable hash and verifies the loopback listener owner. This closes the packaging item only: operation-specific real-host evidence, version limits and remaining acceptance work are tracked in [implementation status](IMPLEMENTATION_STATUS.md) and the [completion ledger](COMPLETION_LEDGER.md).
 
 ## Phase 1 — research and offline foundation
 

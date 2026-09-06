@@ -46,6 +46,6 @@ The optional licensed Jumper provider, additional enterprise adapters and separa
 
 ## Latest complete local check
 
-The latest `npm run check` passed with 345 TypeScript tests, 29 Python tests, 127 tools, stdio/HTTP checks, dry packing and fresh-tarball installation including actual Python MCP isolation and recovery. Log: `.avid-mcp-analysis/check-qc-coverage.log`. Tool count includes existing offline/bridge tools; it does not represent 127 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
+The latest `npm run check` passed with 348 TypeScript tests, 29 Python tests, 127 tools, stdio/HTTP checks, dry packing and fresh-tarball installation including actual Python MCP isolation and recovery. Log: `.avid-mcp-analysis/check-job-acknowledgement.log`. Tool count includes existing offline/bridge tools; it does not represent 127 native Avid operations. CI, local package checks, real Windows/Avid evidence, model/media quality and release proof remain distinct.
 
 The next acceptance work includes remaining native editing/undo and full fidelity; broader model accuracy/resource/recovery work; named-client onboarding and dependency lifecycle; licensing/security/release review; and the optional-provider/enterprise scope. No merge, release or publication is claimed for this development branch.
