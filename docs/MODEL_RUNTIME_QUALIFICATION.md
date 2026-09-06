@@ -24,6 +24,8 @@ Normal inference now disables remote model access, directs the default cache out
 
 Regression evidence:
 
+- [Non-speech negative probes](NONSPEECH_QUALIFICATION.md) found false transcript text for a pure tone and seeded white noise. Digital silence was rejected. This is an open quality failure despite successful offline execution.
+
 - Actual English/Mandarin auto-language workflow: `.avid-mcp-analysis/speech-auto-3cf8417d-35d7-4e8c-a599-153cbd23ee68/evidence.json`.
 - Actual visual-summary lifecycle: `.avid-mcp-analysis/visual-summary-7cb0f246-c17f-4569-825f-8d5359f0ed4b/evidence.json`; the overview remained identical, including its previously documented quality defects.
 - Sonoma CLIP ranking: `.avid-mcp-analysis/visual-ranking-cd9ab79e-eb9f-40c7-b9d0-5266aaee7ddb/evidence.json`; hit@1 14/16, hit@3 16/16 and MRR 0.9375, unchanged from the earlier development set.
