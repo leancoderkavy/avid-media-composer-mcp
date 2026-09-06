@@ -5,6 +5,10 @@ import {sha256File} from "../src/analysis/file-inventory.js";
 import {JumperReadClient} from "../src/integrations/jumper.js";
 import path from "node:path";
 import {runProcess} from "../src/process.js";
+import {createServer as createMcpServer} from "../src/server.js";
+import {loadConfig} from "../src/config.js";
+import {Client} from "@modelcontextprotocol/sdk/client/index.js";
+import {InMemoryTransport} from "@modelcontextprotocol/sdk/inMemory.js";
 
 it.skipIf(process.platform!=="win32")("verifies an actual owned listener and refuses changed checksum/process identity",async()=>{
   let requests=0,license:unknown;
@@ -28,9 +32,18 @@ it.skipIf(process.platform!=="win32")("verifies an actual owned listener and ref
     const search={query:"fixture",cacheDirectory:process.cwd(),mediaPaths:[path.resolve("package.json")]};
     expect(await client.searchText(search)).toMatchObject({matches:[]});
     expect(requests).toBe(1);expect(license).toBe("fixture-license");
+    const mcp=createMcpServer(loadConfig({AVID_MCP_ALLOWED_ROOTS:process.cwd(),AVID_MCP_JUMPER_URL:options.baseUrl,AVID_MCP_JUMPER_LICENSE_KEY:"fixture-license",AVID_MCP_JUMPER_BINARY:process.execPath,AVID_MCP_JUMPER_SHA256:args.sha256,AVID_MCP_JUMPER_IDENTITY:owner.identity}));
+    const mcpClient=new Client({name:"paired-provider-test",version:"1.0"});
+    const [left,right]=InMemoryTransport.createLinkedPair();
+    await Promise.all([mcp.connect(right),mcpClient.connect(left)]);
+    try{
+      const result=await mcpClient.callTool({name:"avid_jumper_read",arguments:{operation:"search",...search}});
+      expect(result.isError).not.toBe(true);expect(result.structuredContent).toMatchObject({ok:true,data:{matches:[],imagesOmitted:true}});
+    }finally{await mcpClient.close();await mcp.close();}
+    expect(requests).toBe(2);
     const refused=new JumperReadClient(options);
     await expect(refused.searchText(search)).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
-    expect(requests).toBe(1);
+    expect(requests).toBe(2);
     await expect(verifyWindowsLoopbackOwner({...args,sha256:"0".repeat(64)})).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
     await expect(verifyWindowsLoopbackOwner({...args,expectedIdentity:"different-process"})).rejects.toMatchObject({code:"PROVIDER_OWNER_UNVERIFIED"});
   }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}

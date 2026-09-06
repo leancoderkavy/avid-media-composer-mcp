@@ -30,7 +30,7 @@ The server also defines a 167-action editing catalog and a tested bridge protoco
 
 ## What works now
 
-The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 132 tools, including offline and bridge tools.
+The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 133 tools, including offline and bridge tools.
 
 - Recursively inventory and classify project, bin, setting, lock, interchange, sidecar, document, and media files.
 - Detect active or orphaned `.lck` bin locks.

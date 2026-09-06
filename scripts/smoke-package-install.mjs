@@ -144,9 +144,11 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_ping", arguments: {} }),
   ]);
-  if (tools.tools.length !== 132 || ping.isError || ping.structuredContent?.ok !== true) {
+  if (tools.tools.length !== 133 || ping.isError || ping.structuredContent?.ok !== true) {
     throw new Error("Fresh package installation did not pass MCP discovery and ping");
   }
+  const optionalProvider=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});
+  if(!optionalProvider.isError||!JSON.stringify(optionalProvider).includes("Optional Jumper provider is not configured"))throw new Error("Unconfigured installed provider did not fail closed");
   // Tool count alone cannot detect schema changes from newly resolved dependencies.
   const checkoutClient = new Client({name:"avid-mcp-checkout-schema-reference",version:"1.0.0"});
   try {

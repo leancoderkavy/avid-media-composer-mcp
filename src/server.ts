@@ -41,6 +41,7 @@ import { telemetry } from "./telemetry.js";
 import { SERVER_VERSION } from "./version.js";
 import { NativeAdapter, nativeActionSchema } from "./native/adapter.js";
 import { registerLibraryTools } from "./library/tools.js";
+import {configuredJumperClient} from "./integrations/jumper.js";
 
 const INSTRUCTIONS = `Avid Media Composer MCP separates verified capability from aspiration.
 
@@ -180,6 +181,21 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
   );
 
   const native = new NativeAdapter(config);
+  server.registerTool("avid_jumper_read",{
+    description:"Optional licensed Jumper provider: paired Windows loopback health or text search over explicit authorized media. Requires configured license/executable/hash/process identity. No analysis loading or writes. Images omitted; provider frame indices use 1 FPS, not Avid edit frames. Runtime version and licensed-provider behavior remain unqualified.",
+    inputSchema:{operation:z.enum(["health","search"]),query:z.string().min(1).max(4096).optional(),cacheDirectory:z.string().optional(),mediaPaths:z.array(z.string()).min(1).max(100).optional(),limit:z.number().int().min(1).max(100).optional()},
+    outputSchema:TOOL_OUTPUT_SCHEMA,annotations:NETWORK_READ_ANNOTATIONS,
+  },args=>execute("avid_jumper_read",async()=>{
+    requireInspect(config);
+    const provider=configuredJumperClient(config.jumperEnvironment??{},config.allowedRoots);
+    if(!provider)throw new Error("Optional Jumper provider is not configured");
+    if(args.operation==="health"){
+      if(args.query!==undefined||args.cacheDirectory!==undefined||args.mediaPaths!==undefined||args.limit!==undefined)throw new Error("Health does not accept search fields");
+      return provider.health();
+    }
+    if(!args.query||!args.cacheDirectory||!args.mediaPaths)throw new Error("Search requires query, cacheDirectory and explicit mediaPaths");
+    return provider.searchText({query:args.query,cacheDirectory:args.cacheDirectory,mediaPaths:args.mediaPaths,...(args.limit!==undefined?{limit:args.limit}:{})});
+  }));
   const lockRecovery=new NativeLockRecovery(config);
   server.registerTool("avid_native_lock_status", {description:"Inspect the per-user native lock and scoped retained export/import evidence. Import status includes current source/bin hashes and an evidence checksum for separate stopped-host recovery. No lock is released.",inputSchema:{},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:READ_ONLY_ANNOTATIONS},
     ()=>execute("avid_native_lock_status",()=>lockRecovery.inspect()));

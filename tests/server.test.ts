@@ -32,7 +32,10 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(132);
+      expect(tools.tools).toHaveLength(133);
+      const unconfigured=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});
+      expect(unconfigured.isError).toBe(true);
+      expect(JSON.stringify(unconfigured)).toContain("Optional Jumper provider is not configured");
       expect(tools.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining([
           "avid_prepare_source_clock_media",
