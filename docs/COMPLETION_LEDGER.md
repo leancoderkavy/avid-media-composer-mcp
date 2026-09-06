@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Saved Comments capture, discovery and semantic diffs
+
+Full local `npm run check` passed: 615 TypeScript tests, Python checks, 139 tools, five matching skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-saved-comments.log`). Native harness syntax also passed after updating its expected graph. Prior bb897c3 CodeQL passed while CI remained running at the last check. Current remote checks and broader plan qualification remain open.
+
+The AVB parser now reads only the known _USER.Comments field with bounded string validation, preserving absence as null and explicit empty strings as text. Snapshot validation retains this optional field for backward compatibility. Capture and paginated mob discovery distinguish absent, recorded and historical not_recorded status. Full mob diffs now detect comment-only changes; unknown historical comment coverage is not equivalent to a known absence.
+
+Actual MCP staged the retained native baseline/set/clear AVBs under one owned path, captured each, reconnected, and paged mob discovery. Set and clear each produced exactly one comment-only changed mob; baseline-to-cleared produced zero decoded changes while retaining incomplete effect coverage. Original retained inputs stayed unchanged. Evidence: `.avid-mcp-analysis/saved-comments-20a5d735-53bb-44be-a86c-47d4d5d3b8f7/evidence.json`. Updated the native research harness to expect the newly captured comment field rather than claiming it is excluded from decoded mobs. No new native mutation was performed this turn. Focused validation passed: 14 Python timeline tests and 28 TypeScript snapshot tests.
+
 ### Guarded native Comments set and clear
 
 Added `set_clip_comment` with exact expectedComment, bounded printable-ASCII new text (including empty clearing), writable String column checks, empty-inclusive value reads, existing edit/token/state/lock gates, expected listener-owner dispatch and explicit commentVerified readback. Native failure reports or differing values stay unverified; no automatic retry/restoration is attempted. Tests cover stale values, missing/read-only columns, authority, reported/unapplied writes, clearing and consumed tokens.

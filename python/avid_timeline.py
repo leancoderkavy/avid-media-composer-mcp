@@ -6,6 +6,22 @@ import math
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from collections.abc import Mapping
+
+
+def saved_comment(attributes):
+    """Read only the known user Comments field; absence is distinct from empty."""
+    user = attributes.get('_USER')
+    if user is None:
+        return None
+    if not isinstance(user, Mapping):
+        raise ValueError('Invalid user attribute collection')
+    if 'Comments' not in user:
+        return None
+    value = user['Comments']
+    if not isinstance(value, str) or len(value) > 65536:
+        raise ValueError('Invalid or oversized saved Comments')
+    return value
 
 
 def parameter_fingerprint(value):
@@ -276,7 +292,7 @@ def index_bin(filename, max_nodes=10000):
                                'mediaKind':str(track.media_kind),'nodes':nodes})
             mobs.append({'mobId':str(mob.mob_id),'name':mob.name or '', 'mobType':mob.mob_type,
                          'usageCode':int(mob.usage_code),'rate':rate,'duration':end-start,
-                         'sourceBounds':{'start':start,'end':end},'tracks':tracks,
+                         'sourceBounds':{'start':start,'end':end},'tracks':tracks,'comment':saved_comment(attributes),
                          'descriptor':descriptor_metadata(getattr(mob,'descriptor',None))})
     if hashlib.sha256(file.read_bytes()).hexdigest()!=before:
         raise ValueError('Bin changed while indexing; retry after saving')

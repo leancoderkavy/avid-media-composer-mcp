@@ -18,7 +18,7 @@ const parameterFingerprint=z.object({schema:z.literal(1),sha256:z.string().regex
 const effectInput=z.object({sourceMobId:z.string(),sourceTrackId:z.number().int(),sourceStart:unit,length:unit,rate:z.number().positive(),basis:z.literal('declared-equal-length-input')}).strict();
 const node=z.object({kind:z.string(),timelineStart:unit,timelineEnd:unit,sourceMobId:z.string().optional(),sourceTrackId:z.number().int().optional(),sourceStart:z.number().int().optional(),channelCombiner:z.object({channelIndex:z.union([z.literal(1),z.literal(2)]),channelCount:z.literal(2)}).strict().optional(),effect:z.object({id:z.string().max(1024),hasParameters:z.boolean(),hasKeyframes:z.boolean(),linearLutDeclaration:linearLutDeclaration.optional(),parametersFingerprint:parameterFingerprint.optional(),keyframesFingerprint:parameterFingerprint.optional(),inputReference:effectInput.optional()}).strict().optional(),opaque:z.boolean().optional(),timecode:z.object({start:z.number().int(),fps:z.number().int().positive(),flags:z.number().int()}).optional()});
 const track=z.object({ordinal:unit,index:z.number().int(),mediaKind:z.string(),nodes:z.array(node).max(10000)});
-const mob=z.object({mobId:z.string(),name:z.string(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128),descriptor:descriptor.nullable().optional()}).superRefine((value,ctx)=>{
+const mob=z.object({mobId:z.string(),name:z.string(),comment:z.string().max(65536).nullable().optional(),mobType:z.string(),usageCode:z.number().int(),rate:z.number().positive(),duration:unit,sourceBounds:z.object({start:unit,end:unit}),tracks:z.array(track).max(128),descriptor:descriptor.nullable().optional()}).superRefine((value,ctx)=>{
   if(value.sourceBounds.end-value.sourceBounds.start!==value.duration)ctx.addIssue({code:"custom",message:"Snapshot source bounds disagree with duration"});
   const ordinals=new Set<number>();
   for(const track of value.tracks){
@@ -91,7 +91,7 @@ export class ProjectSnapshots {
     const snapshot=await this.read(revision),mobs=[];let index=0;
     for(const bin of snapshot.bins)for(const mob of bin.mobs){
       const current=index++;
-      if(current>after&&mobs.length<=limit)mobs.push({index:current,bin:bin.file,binPresent:!snapshot.missingBins.includes(bin.file),binSha256:bin.sha256,mobId:mob.mobId,name:mob.name,mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration,trackCount:mob.tracks.length,complete:bin.complete});
+      if(current>after&&mobs.length<=limit)mobs.push({index:current,bin:bin.file,binPresent:!snapshot.missingBins.includes(bin.file),binSha256:bin.sha256,mobId:mob.mobId,name:mob.name,comment:mob.comment??null,commentStatus:mob.comment===undefined?"not_recorded":mob.comment===null?"absent":"recorded",mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration,trackCount:mob.tracks.length,complete:bin.complete});
     }
     const page=mobs.slice(0,limit);
     return {revision,mobs:page,totalMobs:index,nextAfter:mobs.length>limit?page.at(-1)!.index:null,origin:"historical saved snapshot; repeated mob IDs in different bins remain distinct entries"};
@@ -137,7 +137,7 @@ export class ProjectSnapshots {
     const serialized=JSON.stringify(record);
     if(Buffer.byteLength(serialized)>32*1024*1024)throw new Error("Snapshot exceeds size limit");
     await publishSnapshot(path.join(await this.library.directory(),`snapshot-${revision}.json`),serialized);
-    return {revision,complete:bins.every(bin=>bin.complete),bins:bins.map(bin=>({file:bin.file,sha256:bin.sha256,mobs:bin.mobs.map(mob=>({mobId:mob.mobId,name:mob.name,mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration})),warnings:bin.warnings})),origin:"saved-bin; excludes unsaved editor changes"};
+    return {revision,complete:bins.every(bin=>bin.complete),bins:bins.map(bin=>({file:bin.file,sha256:bin.sha256,mobs:bin.mobs.map(mob=>({mobId:mob.mobId,name:mob.name,comment:mob.comment??null,commentStatus:mob.comment===undefined?"not_recorded":mob.comment===null?"absent":"recorded",mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration})),warnings:bin.warnings})),origin:"saved-bin; excludes unsaved editor changes"};
   }
   private async read(revision:string){
     z.string().uuid().parse(revision);const directory=await this.library.directory();

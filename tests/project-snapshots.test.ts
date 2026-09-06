@@ -16,6 +16,18 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it('distinguishes historical unknown comments and detects saved comment-only changes',async()=>{
+    const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;
+    let revision=await save();expect((await snapshots.mobs(revision)).mobs[0]).toMatchObject({comment:null,commentStatus:'not_recorded'});
+    Object.assign(mob,{comment:null});record.revision=randomUUID();revision=await save();
+    expect((await snapshots.mobs(revision)).mobs[0]).toMatchObject({comment:null,commentStatus:'absent'});
+    Object.assign(mob,{comment:'Reviewed'});record.revision=randomUUID();const changed=await save();
+    const diff=await snapshots.diff(revision,changed);expect(diff.totalChanges).toBe(1);
+    expect(diff.changes[0]).toMatchObject({change:'changed',before:{comment:null},after:{comment:'Reviewed'}});
+    expect((await snapshots.mobs(changed)).mobs[0]).toMatchObject({comment:'Reviewed',commentStatus:'recorded'});
+    Object.assign(mob,{comment:''});await save();expect((await snapshots.mobs(changed)).mobs[0]).toMatchObject({comment:'',commentStatus:'recorded'});
+    Object.assign(mob,{comment:'x'.repeat(65537)});await save();await expect(snapshots.mobs(changed)).rejects.toThrow();
+  });
   it("bounds saved effect IDs while retaining aggregate and unidentified counts",async()=>{
     const {record,save,snapshots}=await fixture(),track=record.bins[0]!.mobs[0]!.tracks[0]!,template=track.nodes[0]!;
     const make=(id:string)=>({...template,kind:'TKFX',opaque:true,effect:{id,hasParameters:false,hasKeyframes:false}});

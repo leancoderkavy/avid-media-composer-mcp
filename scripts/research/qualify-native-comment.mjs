@@ -29,9 +29,11 @@ try{
  for(const [label,expectedComment,comment] of [['set','','MCP comment qualification - reviewed'],['clear','MCP comment qualification - reviewed','']]){
   const result=await apply({action:'set_clip_comment',bin,mobId,expectedComment,comment});assert.equal(result.commentVerified,true,'Uncertain write: stop and inspect retained events before any retry');
   assert.equal(await read(),comment);await reopen();assert.equal(await read(),comment);
-  assert.deepEqual(await graph(),baseline);await copyFile(file,path.join(root,`${label}.avb`));
+  const expected=structuredClone(baseline),sequence=expected.find(m=>m.name===clips[0].mob_name);assert.ok(sequence);
+  sequence.comment=comment||null;
+  assert.deepEqual(await graph(),expected);await copyFile(file,path.join(root,`${label}.avb`));
  }
  assert.equal(await sha256File(sourceFile),sourceHash);assert.equal(await sha256File(media),mediaHash);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({project,bin,mobId,sourceBin,sourceHash,mediaHash,sourceUnchanged:true,setAndClearReopened:true,decodedMobsUnchanged:true,events,scope:'Temporary ASCII Comments set and clear on a new owned copy, each saved/reopened with native value readback and identical decoded timeline mobs. Not atomic undo, application restart, arbitrary metadata fields or Unicode support.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({project,bin,mobId,sourceBin,sourceHash,mediaHash,sourceUnchanged:true,setAndClearReopened:true,decodedMobsMatchExpectedComments:true,events,scope:'Temporary ASCII Comments set and clear on a new owned copy, each saved/reopened with native value readback and decoded mobs matching only the expected comment change. Not atomic undo, application restart, arbitrary metadata fields or Unicode support.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({root,bin,mobId,passed:true}));
 }finally{await client.close();}

@@ -4,12 +4,32 @@ import unittest
 from pathlib import Path
 import avb
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint, color_adapter_input
+from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint, color_adapter_input, saved_comment
 from unittest.mock import patch
 from types import SimpleNamespace
 
 
 class TimelineTests(unittest.TestCase):
+    def test_saved_comments_preserve_absence_empty_text_and_bounds(self):
+        self.assertIsNone(saved_comment({}))
+        self.assertIsNone(saved_comment({'_USER': {}}))
+        self.assertEqual(saved_comment({'_USER': {'Comments': ''}}), '')
+        self.assertEqual(saved_comment({'_USER': {'Comments': 'Café reviewed'}}), 'Café reviewed')
+        for value in [False, 12, None, 'x' * 65537]:
+            with self.assertRaises(ValueError):
+                saved_comment({'_USER': {'Comments': value}})
+        with self.assertRaises(ValueError):
+            saved_comment({'_USER': []})
+        with tempfile.TemporaryDirectory() as directory:
+            original = self.fixture(directory)
+            self.assertIsNone(index_bin(original)['mobs'][0]['comment'])
+            target = Path(directory) / 'commented.avb'
+            with avb.open(str(original)) as file:
+                mob = next(iter(file.content.mobs))
+                user = file.create.Attributes();user['Comments'] = 'Reviewed'
+                mob.attributes['_USER'] = user
+                file.write(str(target))
+            self.assertEqual(index_bin(target)['mobs'][0]['comment'], 'Reviewed')
     def test_color_input_reference_requires_single_equal_length_picture_source(self):
         clip=SimpleNamespace(class_id=b'SCLP',media_kind='picture',edit_rate=30,length=60,start_time=2850,track_id=1,mob_id='source')
         filler=SimpleNamespace(class_id=b'FILL',media_kind='picture',edit_rate=30,length=0)
