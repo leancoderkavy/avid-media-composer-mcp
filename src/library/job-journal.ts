@@ -8,7 +8,7 @@ import {readBoundedJson} from "../security/bounded-read.js";
 import * as z from "zod/v4";
 
 const uuid=z.string().uuid();
-const recordSchema=z.object({id:uuid,session:uuid,scope:z.string(),status:z.enum(["queued","running","cancelling","completed","failed","cancelled"]),createdAt:z.string(),updatedAt:z.string(),spec:z.unknown(),result:z.unknown().optional(),error:z.string().optional()});
+const recordSchema=z.object({id:uuid,session:uuid,scope:z.string(),status:z.enum(["queued","running","cancelling","completed","failed","cancelled"]),createdAt:z.string(),updatedAt:z.string(),spec:z.unknown(),result:z.unknown().optional(),error:z.string().optional(),treeTermination:z.object({method:z.literal("windows-taskkill"),succeeded:z.boolean(),reason:z.string().optional()}).optional()});
 export type JobRecord=z.infer<typeof recordSchema>;
 
 /** One writer per random job ID. Credentials and runtime configuration are never persisted. */

@@ -6,13 +6,32 @@ import {PassThrough} from "node:stream";
 import {it,expect,vi,beforeEach} from "vitest";
 import {AnalysisJobs} from "../src/library/jobs.js";
 import {loadConfig} from "../src/config.js";
-const state=vi.hoisted(()=>({workers:[] as any[]}));
+const state=vi.hoisted(()=>({workers:[] as any[],terminate:vi.fn()}));
+vi.mock("../src/process-tree.js",()=>({terminateWindowsTree:state.terminate}));
 vi.mock("node:child_process",()=>({spawn:vi.fn((command:string)=>{
   const child=Object.assign(new EventEmitter(),{pid:12345,stdout:new PassThrough(),stderr:new PassThrough(),stdin:new PassThrough(),kill:vi.fn()});
   if(command===process.execPath)state.workers.push(child);return child;
 })}));
-beforeEach(()=>{state.workers=[];});
+beforeEach(()=>{state.workers=[];state.terminate.mockReset().mockResolvedValue({method:"windows-taskkill",succeeded:true});});
 async function fixture(){const root=await mkdtemp(path.join(os.tmpdir(),"avid-worker-"));return new AnalysisJobs(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"}));}
+it.skipIf(process.platform!=="win32")("retains failed tree termination and waits for worker closure",async()=>{
+ const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
+ state.terminate.mockResolvedValueOnce({method:"windows-taskkill",succeeded:false,reason:"Tree termination timed out"});
+ jobs.cancel(first.id);await new Promise(resolve=>setImmediate(resolve));
+ expect(jobs.status(first.id)).toMatchObject({status:"cancelling",treeTermination:{succeeded:false}});
+ expect(state.workers[0].kill).toHaveBeenCalledOnce();
+ state.workers[0].emit("close",1);await jobs.readStatus(first.id);
+ expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:false,reason:"Tree termination timed out"}});jobs.close();
+});
+it.skipIf(process.platform!=="win32")("persists a tree result arriving after worker closure without killing another worker",async()=>{
+ let resolve!: (value:any)=>void;state.terminate.mockReturnValueOnce(new Promise(done=>{resolve=done;}));
+ const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
+ const second=await jobs.start({kind:"index",files:["second.mp4"]});jobs.cancel(first.id);state.workers[0].emit("close",1);
+ resolve({method:"windows-taskkill",succeeded:false,reason:"Tree termination did not report success"});await new Promise(done=>setImmediate(done));
+ expect(state.workers[0].kill).not.toHaveBeenCalled();expect(state.workers[1].kill).not.toHaveBeenCalled();
+ await jobs.readStatus(first.id);expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:false}});
+ jobs.close();state.workers[1].emit("close",1);await jobs.readStatus(second.id);
+});
 it("keeps cancellation pending and does not dispatch the next worker until close",async()=>{
   const jobs=await fixture();const first=await jobs.start({kind:"index",files:["first.mp4"]}),second=await jobs.start({kind:"index",files:["second.mp4"]});
   expect(jobs.cancel(first.id).status).toBe("cancelling");expect(jobs.status(second.id).status).toBe("queued");expect(state.workers).toHaveLength(1);

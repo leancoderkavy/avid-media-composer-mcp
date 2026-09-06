@@ -2,6 +2,7 @@ import {diarizationOptions} from "./diarization.js";
 import {visualSummaryReferences} from "./visual-summaries.js";
 import {captionTimes} from "./caption-batches.js";
 import {spawn, type ChildProcess} from "node:child_process";
+import {terminateWindowsTree,type TreeTermination} from "../process-tree.js";
 import {fileURLToPath} from "node:url";
 import {randomUUID} from "node:crypto";
 import * as z from "zod/v4";
@@ -37,7 +38,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
   z.object({kind:z.literal("artifact"),id,format:z.enum(["thumbnail","clip","copy"]),start:z.number().nonnegative(),end:z.number().positive().optional()}).strict(),
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string}
+interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
@@ -79,9 +80,13 @@ export class AnalysisJobs {
     if(job.child?.pid){
       if(process.platform==="win32"){
         // The PID belongs to the worker created below; terminate its ffmpeg descendants too.
-        const killer=spawn("taskkill.exe",["/PID",String(job.child.pid),"/T","/F"],{windowsHide:true,stdio:"ignore",shell:false});
-        killer.on("error",()=>job.child?.kill());
-        killer.on("close",code=>{if(code!==0&&job.child)job.child.kill();});
+        const child=job.child;
+        void terminateWindowsTree(child)!.then(result=>{
+          job.treeTermination=result;
+          this.checkpoint(job);
+          // A failed tree kill is not proof that descendants stopped.
+          if(!result.succeeded&&job.child===child)child.kill();
+        });
       }else job.child.kill("SIGTERM");
     }
     this.pump();return this.status(id);
