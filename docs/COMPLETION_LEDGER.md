@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Guarded native Comments set and clear
+
+Added `set_clip_comment` with exact expectedComment, bounded printable-ASCII new text (including empty clearing), writable String column checks, empty-inclusive value reads, existing edit/token/state/lock gates, expected listener-owner dispatch and explicit commentVerified readback. Native failure reports or differing values stay unverified; no automatic retry/restoration is attempted. Tests cover stale values, missing/read-only columns, authority, reported/unapplied writes, clearing and consumed tokens.
+
+Actual MCP created a separate owned copy in MCP_Comment_d097e352ed0f.avb, set a comment, saved/reopened, cleared, and saved/reopened again. Each native value matched; decoded timeline mobs and original source-bin/media hashes stayed unchanged. Independent pyavb inspection found _USER.Comments absent/present-with-exact-text/absent across retained baseline/set/clear bins. Evidence: `.avid-mcp-analysis/native-comment-d684d7b5-4806-4a62-b15d-31c7e7a6c9df/evidence.json` and `saved-comment-attributes.json`. See NATIVE_CLIP_COMMENTS.md.
+
+Full local check passed: 614 TypeScript tests, 40 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-comments.log`). Prior 8eba71f CI/CodeQL passed; current-change remote checks remain pending. Unicode, arbitrary metadata fields, atomic undo, full application restart and remaining plan requirements stay open.
+
 ### Explicit empty native clip-column reads
 
 Full local `npm run check` passed: 608 TypeScript tests, Python checks, 139 tools, five matching skills, transports and fresh-package/Python/AAF checks. Log: `.avid-mcp-analysis/check-native-clip-columns.log`. Current-change remote verification remains pending.

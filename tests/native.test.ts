@@ -43,6 +43,36 @@ async function hostFixture(capabilities="inspect,edit,project-write,export"){
 }
 
 describe("native boundaries", () => {
+  it('sets and clears Comments with expected-value checks and single-use plans',async()=>{
+    const f=await hostFixture(),original=f.client.call.bind(f.client);let current='',writes=0;
+    vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+      if(method==='GetBinColumnInfo')return [{column:[{column_name:'Comments',column_value_type:'String',column_hidden:false,column_is_custom:true,column_is_readonly:false}]}];
+      if(method==='GetMobInfo')return [{column_name:'Comments',column_value:current}];
+      if(method==='SetMobInfo'){writes++;expect(body?.column.column_name).toBe('Comments');current=body?.column.column_value;return [];}
+      return original(method,body);
+    });
+    const operation={action:'set_clip_comment' as const,bin:'fixture.avb',mobId:'clip',expectedComment:'',comment:'Reviewed'};
+    const stale=await f.adapter.preview(operation);current='External';await expect(f.adapter.apply(stale.token)).rejects.toThrow('expectedComment');expect(writes).toBe(0);current='';
+    for(const action of [operation,{...operation,expectedComment:'Reviewed',comment:''}]){
+      const plan=await f.adapter.preview(action);expect(await f.adapter.apply(plan.token)).toMatchObject({commentVerified:true,persistenceVerified:false});
+      await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');
+    }
+    expect(writes).toBe(2);expect(current).toBe('');
+  });
+  it.each(['readonly','missing','mismatch','reported','authority'])('refuses or reports unverified %s Comments edits',async variant=>{
+    const f=await hostFixture(variant==='authority'?'inspect':'inspect,edit'),original=f.client.call.bind(f.client);let current='',writes=0;
+    vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+      if(method==='GetBinColumnInfo')return [{column:[{column_name:'Comments',column_value_type:'String',column_hidden:false,column_is_custom:true,column_is_readonly:variant==='readonly'}]}];
+      if(method==='GetMobInfo')return variant==='missing'?[]:[{column_name:'Comments',column_value:current}];
+      if(method==='SetMobInfo'){writes++;if(variant==='reported'){current='Review';return [{mob_failure:[{mob_id:'clip'}]}];}return [];}
+      return original(method,body);
+    });
+    const action={action:'set_clip_comment' as const,bin:'fixture.avb',mobId:'clip',expectedComment:'',comment:'Review'};
+    if(['readonly','missing'].includes(variant)){await expect(f.adapter.preview(action)).rejects.toThrow();expect(writes).toBe(0);return;}
+    const plan=await f.adapter.preview(action);
+    if(variant==='authority'){await expect(f.adapter.apply(plan.token)).rejects.toThrow();expect(writes).toBe(0);return;}
+    expect(await f.adapter.apply(plan.token)).toMatchObject({commentVerified:false});expect(writes).toBe(1);
+  });
   it('reads empty clip columns without inventing missing rows',async()=>{
     const f=await hostFixture('inspect'),original=f.client.call.bind(f.client);
     vi.spyOn(f.client,'call').mockImplementation((method,body)=>{

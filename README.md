@@ -2,6 +2,8 @@
 
 Original [workflow skills](docs/WORKFLOW_SKILLS.md) are included for ingest/QC, selects, review markers, turnover and export in this development branch.
 
+The development native adapter also supports [guarded clip Comments set/clear](docs/NATIVE_CLIP_COMMENTS.md), with expected-value checks, native readback and disposable-fixture save/reopen evidence.
+
 > Unreleased development: this checkout adds a separate Windows native adapter and local media/search tools. See [local setup](docs/LOCAL_SETUP.md) and [implementation status](docs/IMPLEMENTATION_STATUS.md). These changes are not yet in the public 1.1.0 package.
 
 The development adapter now includes [guarded AAF selects import](docs/NATIVE_AAF_IMPORT.md): inspect source ranges and local media, preview an import into an empty bin, apply once, and verify native composition metadata. Save/reopen, source-graph and render evidence remain separately reported. [Native bin-column discovery](docs/NATIVE_BIN_COLUMNS.md) reports Avid's column names, types and flags without implying support for arbitrary field edits.

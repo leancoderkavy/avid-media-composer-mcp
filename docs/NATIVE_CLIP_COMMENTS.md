@@ -1,0 +1,13 @@
+# Native clip Comments
+
+The Windows adapter provides `set_clip_comment` through `avid_native_preview` and `avid_native_apply`. Supply `bin`, `mobId`, `expectedComment` and `comment`. Only the exact Comments field is supported; callers cannot select arbitrary metadata columns. New comments allow at most 1,024 printable ASCII characters; an empty string requests clearing. This avoids extending the observed native Unicode-loss risk to new writes.
+
+Preview and apply both require a declared writable String Comments column and exactly one matching current value from the empty-inclusive clip read. Missing rows are unavailable, never assumed empty. Changed values, missing columns and read-only declarations refuse the operation before writing. Apply additionally requires edit authority, a single-use unexpired token, matching captured state and the native write lock. The write dispatch checks the expected listener owner.
+
+After SetMobInfo, the adapter rereads the scoped clip values and checks both exact value equality and any native reported failures. `commentVerified` reports this readback independently of `persistenceVerified`, which remains false. A false result or transport error requires inspection; no automatic replay or compensating write is performed. This does not establish atomic editor isolation, undo grouping, application-restart persistence or arbitrary field-edit support.
+
+`scripts/research/qualify-native-comment.mjs` creates an owned copy of the fixed Sonoma PCM/color sequence, checks its initial empty Comments value, sets an ASCII comment, saves/reopens and checks it, then clears and repeats. It compares decoded timeline mobs and original source-bin/media hashes, retaining every operation and the before/set/clear AVBs for inspection. It stops on an unverified result instead of blindly restoring or retrying.
+
+Actual qualification passed on `MCP_Comment_d097e352ed0f.avb`: both set and clear returned verified native readback, survived bin close/reopen, and retained identical decoded timeline mobs. The original color bin and preview MP4 hashes stayed unchanged. Evidence: `.avid-mcp-analysis/native-comment-d684d7b5-4806-4a62-b15d-31c7e7a6c9df/evidence.json`.
+
+Independent `verify-native-comment-attributes.py` reads of the retained AVBs found `_USER.Comments` absent at baseline, present with the exact test text after setting, and absent again after clearing. Its output is `saved-comment-attributes.json` in that evidence directory. All retained file hashes were unchanged by inspection. This qualifies this host/fixture; it does not prove equivalence of unknown binary fields or atomic undo.

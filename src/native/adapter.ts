@@ -40,6 +40,7 @@ export const nativeActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("delete_marker"), bin: z.string().min(1), mobId: id, guid: id }).strict(),
   z.object({ action: z.literal("show_clip"), bin: z.string().min(1), mobId: id }).strict(),
   z.object({action:z.literal("rename_clip"),bin:z.string().min(1),mobId:id,expectedName:z.string().min(1).max(1024),name:clipName}).strict(),
+  z.object({action:z.literal('set_clip_comment'),bin:z.string().min(1),mobId:id,expectedComment:z.string().max(65536),comment:z.string().max(1024).regex(/^[\x20-\x7e]*$/,'Native comments currently require printable ASCII')}).strict(),
   z.object({action:z.literal("create_subclip"),bin:z.string().min(1),mobId:id,startFrame:z.number().int().nonnegative().max(2147483647),endFrame:z.number().int().positive().max(2147483647)}).strict().refine(value=>value.endFrame>value.startFrame,"Subclip end must follow start"),
 ]);
 type Action = z.infer<typeof nativeActionSchema>;
@@ -188,6 +189,14 @@ export class NativeAdapter {
     if(action.action==="rename_clip"){
       const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),names=info.filter(row=>row.column_name==="Name");
       if(names.length!==1||names[0]!.column_value!==action.expectedName)throw new Error("Native clip name differs from expectedName; inspect before renaming");
+    }
+    if(action.action==='set_clip_comment'){
+      const declarations=await this.read('bin_columns',action.bin) as {columns:{column_name:string;column_value_type:string;column_is_readonly:boolean}[]};
+      const declaration=declarations.columns.find(c=>c.column_name==='Comments');
+      if(!declaration||declaration.column_value_type!=='String'||declaration.column_is_readonly)throw new Error('Writable Comments string column is unavailable');
+      const values=await this.read('clip_columns',action.bin,action.mobId) as {columns:{column_name:string;column_value:string}[]};
+      const comments=values.columns.filter(c=>c.column_name==='Comments');
+      if(comments.length!==1||comments[0]!.column_value!==action.expectedComment)throw new Error('Native Comments differs from expectedComment or is unavailable');
     }
     const markers = "mobId" in action ? (await this.client.call("GetMarkers",{mob_id:action.mobId})).flatMap(body=>Array.isArray(body.info)?body.info:[]) : [];
     if ("guid" in action && !(markers as Record<string, unknown>[]).some(marker => marker.guid === action.guid)) throw new Error("Target marker does not exist");
@@ -392,6 +401,10 @@ export class NativeAdapter {
           }
           case "show_clip": result = await this.client.call("LoadMobsIntoViewer", { mob_ids: [action.mobId], view_type: "Source" }); break;
           case "rename_clip": result=await this.client.call("SetMobInfo",{mob_id:action.mobId,column:{column_name:"Name",column_value:action.name}});break;
+          case 'set_clip_comment': {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error('Comment host or project changed before dispatch');
+            result=await this.client.call('SetMobInfo',{mob_id:action.mobId,column:{column_name:'Comments',column_value:action.comment}},observedState.owner);break;
+          }
           case "create_subclip": result=await this.client.call("CreateSubClip",{
             destination_bin_path:path.relative(project.path,await this.binPath(project.path,action.bin)),mob_id:action.mobId,
             head_frame:action.startFrame,end_frame:action.endFrame,create_new_sequence:true,
@@ -426,6 +439,10 @@ export class NativeAdapter {
             postState=await this.read("clip",action.bin,action.mobId);
             const names=(postState as Record<string,any>[]).filter(row=>row.column_name==="Name");
             if(result.some(body=>Array.isArray(body.mob_failure)&&body.mob_failure.length)||names.length!==1||names[0]!.column_value!==action.name)throw new Error("Native rename was not verified; inspect clip before another attempt");
+          }else if(action.action==='set_clip_comment'){
+            postState=await this.read('clip_columns',action.bin,action.mobId);
+            const comments=(postState as {columns:{column_name:string;column_value:string}[]}).columns.filter(c=>c.column_name==='Comments');
+            if(result.some(body=>Array.isArray(body.mob_failure)&&body.mob_failure.length)||comments.length!==1||comments[0]!.column_value!==action.comment)throw new Error('Native comment was not verified; inspect before another attempt');
           }else if(action.action==="show_clip"){
             const viewers=await this.read("viewers",action.bin) as {viewers:{mob_id:string;view_type:string}[]};postState=viewers;
             if(!viewers.viewers.some(viewer=>viewer.mob_id===action.mobId&&viewer.view_type==="Source"))throw new Error("Requested clip was not observed in the Source viewer; inspect state before another attempt");
@@ -437,7 +454,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false,...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
+          persistenceVerified: false,...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;
