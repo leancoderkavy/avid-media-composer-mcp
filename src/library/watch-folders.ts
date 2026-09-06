@@ -53,6 +53,13 @@ export class WatchFolders {
     throw new Error("Watch lock recovery is active or unresolved; inspect its recovery guard");
   }
   async lockStatus(id:string){
+    const status=await this.ownerLockStatus(id),file=path.join(await this.directory(),`${id}.recovery.lock`);
+    try{if((await lstat(file)).isSymbolicLink())throw new Error("Watch recovery guard cannot be a symbolic link");}
+    catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return {...status,blockedByRecoveryGuard:false};throw error;}
+    const bytes=await readBoundedFile(file,4096),sha256=createHash("sha256").update(bytes).digest("hex");
+    return {...status,recoverable:false,blockedByRecoveryGuard:true,recoveryGuard:{sha256,bytes:bytes.length,reason:"Recovery is active or interrupted; this guard requires separate inspection and is never automatically released"}};
+  }
+  private async ownerLockStatus(id:string){
     requireCapability(this.config.capabilities,"inspect");z.string().uuid().parse(id);
     const directory=await this.directory();let configurationPresent=true;
     // A process can die after taking a creation lock but before its first manifest.
@@ -77,11 +84,11 @@ export class WatchFolders {
     const directory=await this.directory(),guardFile=path.join(directory,`${id}.recovery.lock`),guard=await open(guardFile,"wx");
     try{
       await guard.writeFile(JSON.stringify({pid:process.pid,at:new Date().toISOString()}));
-      const status=await this.lockStatus(id);
+      const status=await this.ownerLockStatus(id);
       if(!status.locked||!status.recoverable||status.sha256!==expectedSha256)throw new Error("Watch lock is absent, changed or not eligible for recovery; inspect again");
       const file=path.join(directory,`${id}.lock`),archive=path.join(directory,`${id}.recovered-${randomUUID()}.json`);
       await writeFile(archive,JSON.stringify({state:"prepared-for-release",preparedAt:new Date().toISOString(),lock:status,checkpointModified:false,mediaModified:false}),{flag:"wx"});
-      const current=await this.lockStatus(id);
+      const current=await this.ownerLockStatus(id);
       if(!current.locked||!current.recoverable||current.sha256!==expectedSha256)throw new Error("Watch owner or lock changed before recovery release");
       await unlink(file);
       return {id,released:true,archive,checkpointModified:false,mediaModified:false,scanRetried:false};
@@ -108,14 +115,14 @@ export class WatchFolders {
   async list(){
     const directory=await this.directory();
     const names=await readdir(directory),files=new Set(names.filter(name=>/^[a-f0-9-]{36}\.json$/.test(name)));
-    const ids=[...new Set(names.filter(name=>/^[a-f0-9-]{36}\.(json|lock)$/.test(name)).map(name=>name.slice(0,36)))];
+    const ids=[...new Set(names.filter(name=>/^[a-f0-9-]{36}\.(json|lock|recovery\.lock)$/.test(name)).map(name=>name.slice(0,36)))];
     if(ids.length>100)throw new Error("Watch count exceeds limit");
     const records=[];
     for(const id of ids){
       try{
-        if(!files.has(`${id}.json`)){
-          const lock=await this.lockStatus(id);if(!lock.locked)continue;
-          records.push({id,unavailable:true,configurationMissing:true,lock,error:"Watch owner lock exists without a published configuration; inspect before recovery"});continue;
+        if(!files.has(`${id}.json`)||names.includes(`${id}.recovery.lock`)){
+          const lock=await this.lockStatus(id);if(!lock.locked&&!lock.blockedByRecoveryGuard)continue;
+          records.push({id,unavailable:true,configurationMissing:!lock.configurationPresent,lock,error:lock.blockedByRecoveryGuard?"Watch recovery guard is active or interrupted; separate inspection required":"Watch owner lock exists without a published configuration; inspect before recovery"});continue;
         }
         const record=await this.read(id);records.push({id:record.id,options:record.options,scannedAt:record.scannedAt,files:Object.keys(record.observations).length});
       }catch(error){records.push({id,unavailable:true,error:(error as Error).message});}

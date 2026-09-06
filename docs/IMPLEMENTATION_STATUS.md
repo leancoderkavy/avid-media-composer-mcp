@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Watch inspection now distinguishes an absent owner lock from a retained recovery guard. Guard-only IDs remain discoverable after reconnect, `blockedByRecoveryGuard` explains why scans are refused, and the guard checksum is returned without releasing it. Actual fresh installed-runtime recovery-process termination passed; see [interrupted recovery status](WATCH_FOLDER_RECOVERY.md#interrupted-recovery-status).
+
 Interrupted watch creation is now discoverable and recoverable even when no initial manifest was published. Listing reports the orphan ID and lock status; actual manifest absence is distinguished from damaged configuration. A fresh installed-runtime process-crash test passed live-owner refusal, orphan discovery after reconnect, release without inventing a manifest and new configuration creation. See [watch recovery](WATCH_FOLDER_RECOVERY.md).
 
 Watch lock inspection and explicit stopped-local-owner recovery are available through `avid_watch_lock_status` and `avid_recover_watch_lock`, bringing development discovery to 142 tools. Recovery binds the inspected checksum to matching host/watch/scope metadata, requires an absent owner PID, retains an evidence archive and preserves checkpoints/media without replaying scans. Actual owned-process termination, MCP reconnect and resumed Sonoma indexing passed, including from a fresh managed installation. Legacy, remote, uncertain and retained recovery-guard cases remain manual; see [watch recovery](WATCH_FOLDER_RECOVERY.md).

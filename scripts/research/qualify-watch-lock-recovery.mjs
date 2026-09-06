@@ -11,9 +11,9 @@ import {sha256File} from '../../dist/analysis/file-inventory.js';
 import {runProcess} from '../../dist/process.js';
 
 const root=path.resolve('.avid-mcp-analysis',`watch-lock-recovery-${randomUUID()}`),folder=path.join(root,'incoming');await mkdir(folder,{recursive:true});
-assert.ok(process.argv.length===2||process.argv.length===3&&process.argv[2]==='--installed');
+assert.ok(process.argv.slice(2).every(value=>['--installed','--guard-crash'].includes(value)));
 let entry=path.resolve('dist/index.js'),installation;
-if(process.argv[2]==='--installed'){
+if(process.argv.includes('--installed')){
  const run=async args=>{const result=await runProcess(process.execPath,args,{timeoutMs:120000,maxOutputBytes:4*1024*1024});assert.equal(result.exitCode,0,result.stderr);return JSON.parse(result.stdout);};
  const npm=path.join(path.dirname(process.execPath),'node_modules/npm/bin/npm-cli.js'),packed=await run([npm,'pack','--json','--ignore-scripts','--pack-destination',root]);
  assert.equal(path.basename(packed[0].filename),packed[0].filename);
@@ -65,10 +65,28 @@ await new WatchFolders(loadConfig(process.env)).configure({folder:${JSON.stringi
  await call('avid_recover_watch_lock',{watchId:orphanId,expectedSha256:liveOrphan.sha256},true);
  child.kill('SIGKILL');const creationExit=await creationExited;await client.close();client=await connect();
  const orphanDiscovery=(await call('avid_list_watch_folders',{})).find(item=>item.id===orphanId);assert.equal(orphanDiscovery.configurationMissing,true);assert.equal(orphanDiscovery.lock.recoverable,true);
- const orphanRecovery=await call('avid_recover_watch_lock',{watchId:orphanId,expectedSha256:orphanDiscovery.lock.sha256});assert.equal(orphanRecovery.released,true);await assert.rejects(readFile(orphanManifest),{code:'ENOENT'});
- assert.equal((await call('avid_list_watch_folders',{})).some(item=>item.id===orphanId),false);
- const replacement=await call('avid_configure_watch_folder',{options:{folder}});assert.notEqual(replacement.id,orphanId);
- const creation={ownerPid:child.pid,exit:creationExit,liveOrphan,orphanDiscovery,orphanRecovery,replacement,manifestNeverPublished:true};
+ const creation={ownerPid:child.pid,exit:creationExit,liveOrphan,orphanDiscovery,manifestNeverPublished:true};
+ if(process.argv.includes('--guard-crash')){
+  const guardFile=path.join(root,'avid-mcp-library','watches',orphanId+'.recovery.lock');
+  const recoveryScript=`import fs from 'node:fs/promises';import {syncBuiltinESMExports} from 'node:module';
+const original=fs.open;fs.open=async function(file,...args){const handle=await original(file,...args);if(file===${JSON.stringify(guardFile)}){const close=handle.close.bind(handle);handle.close=async()=>{await close();console.log('GUARD_PAUSED');setInterval(()=>{},1000);await new Promise(()=>{});};}return handle;};syncBuiltinESMExports();
+const {WatchFolders}=await import(${module('library/watch-folders.js')});const {loadConfig}=await import(${module('config.js')});
+await new WatchFolders(loadConfig(process.env)).recoverLock(${JSON.stringify(orphanId)},${JSON.stringify(orphanDiscovery.lock.sha256)});`;
+  const recoveryFile=path.join(root,'owned-recovery-worker.mjs');await writeFile(recoveryFile,recoveryScript,{flag:'wx'});
+  child=spawn(process.execPath,[recoveryFile],{env,stdio:['ignore','pipe','pipe'],windowsHide:true});const recoveryExited=once(child,'exit');let errors='';child.stderr.on('data',data=>{errors+=data.toString();});
+  await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(new Error('Guard pause timeout: '+errors)),30000);child.stdout.on('data',data=>{output+=data.toString();if(output.includes('GUARD_PAUSED')){clearTimeout(timer);resolve();}});child.once('error',error=>{clearTimeout(timer);reject(error);});child.once('exit',code=>{clearTimeout(timer);reject(new Error('Recovery exited early: '+code+' '+errors));});});
+  const during=await call('avid_watch_lock_status',{watchId:orphanId});assert.equal(during.locked,false);assert.equal(during.blockedByRecoveryGuard,true);assert.equal(during.recoverable,false);
+  child.kill('SIGKILL');const recoveryExit=await recoveryExited;await client.close();client=await connect();
+  const retained=await call('avid_watch_lock_status',{watchId:orphanId});assert.deepEqual(retained,during);
+  const discovery=(await call('avid_list_watch_folders',{})).find(item=>item.id===orphanId);assert.equal(discovery.lock.blockedByRecoveryGuard,true);
+  await call('avid_scan_watch_folder',{watchId:orphanId},true);await call('avid_recover_watch_lock',{watchId:orphanId,expectedSha256:orphanDiscovery.lock.sha256},true);
+  assert.equal(await sha256File(guardFile),retained.recoveryGuard.sha256);await assert.rejects(readFile(orphanManifest),{code:'ENOENT'});
+  creation.interruptedRecovery={ownerPid:child.pid,exit:recoveryExit,during,retained,discovery,guardPreserved:true};
+ }else{
+  const orphanRecovery=await call('avid_recover_watch_lock',{watchId:orphanId,expectedSha256:orphanDiscovery.lock.sha256});assert.equal(orphanRecovery.released,true);await assert.rejects(readFile(orphanManifest),{code:'ENOENT'});
+  assert.equal((await call('avid_list_watch_folders',{})).some(item=>item.id===orphanId),false);
+  const replacement=await call('avid_configure_watch_folder',{options:{folder}});assert.notEqual(replacement.id,orphanId);Object.assign(creation,{orphanRecovery,replacement});
+ }
  assert.equal(await sha256File(source),id);assert.equal(await sha256File(copy),id);
  assert.equal(await sha256File(entry),entrySha256);
  await writeFile(path.join(root,'evidence.json'),JSON.stringify({entry,entrySha256,installation,watchId:watch.id,ownerPid:scanOwnerPid,exit,live,stopped,recovered,resumed,stable,creation,checkpointPreservedAtRecovery:true,sourceAndCopyUnchanged:true,scope:'Real owned Node processes terminated after Sonoma indexing and during initial watch creation before manifest publication. Actual MCP live-owner refusal, reconnect, discovery, checksum refusal, stopped-owner recovery and resumed scanning/configuration. Not power-loss, shared-host or descendant-containment qualification.'},null,2),{flag:'wx'});

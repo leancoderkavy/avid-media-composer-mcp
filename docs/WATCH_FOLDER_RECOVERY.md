@@ -1,5 +1,11 @@
 # Watch folder recovery
 
+## Interrupted recovery status
+
+`locked` describes the ordinary owner lock only. Always also check `blockedByRecoveryGuard`: a recovery process can release that owner lock and then stop before removing its recovery guard. Inspection reports the guard's SHA-256 and byte size, forces `recoverable: false`, and explains that separate inspection is required. Listing includes a guard-only ID even without a configuration manifest, and polling reports it as unavailable. No guard is silently removed or interpreted as proof of a live process.
+
+The fresh installed-runtime harness with `--installed --guard-crash` paused an owned recovery process after owner-lock deletion and guard-handle closure, then terminated that process before guard deletion. Actual MCP inspection reported `locked: false` together with `blockedByRecoveryGuard: true` both before termination and after reconnect. Listing retained the guard-only ID; scanning and recovery were refused, with guard bytes, media hashes and installed entry unchanged. Evidence: `.avid-mcp-analysis/watch-lock-recovery-186ac1d7-8ddd-4308-804a-2440ac2150ca/evidence.json`. The guard is intentionally retained in that owned evidence directory. This qualifies visibility and refusal, not automatic recovery of an interrupted recovery operation.
+
 ## Stopped local owner recovery
 
 Interrupted creation can leave a lock before the first configuration manifest exists. `avid_list_watch_folders` discovers these orphan IDs with `configurationMissing: true`; `avid_watch_lock_status` reports `configurationPresent: false`. Only actual absence skips manifest validation. A malformed, unreadable or out-of-scope existing manifest still fails. The owner record must still match the watch ID, local hostname and current root scope, and its PID must be absent before recovery. Release does not invent a configuration; create a new watch explicitly afterward.

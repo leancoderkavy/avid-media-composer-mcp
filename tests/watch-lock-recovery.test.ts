@@ -42,6 +42,14 @@ it("refuses a PID that becomes live during recovery",async()=>{
 it("a retained recovery guard prevents scans and further recovery without changing state",async()=>{
  const f=await fixture(),sha=await f.setOwner(f.owner),guard=path.join(f.directory,f.record.id+".recovery.lock");await writeFile(guard,"retained");
  await expect(f.service.scan(f.record.id)).rejects.toThrow(/recovery/);await expect(f.service.recoverLock(f.record.id,sha)).rejects.toThrow(/EEXIST/);expect(await readFile(guard,"utf8")).toBe("retained");
+ expect(await f.service.lockStatus(f.record.id)).toMatchObject({recoverable:false,blockedByRecoveryGuard:true,recoveryGuard:{bytes:8}});
+ expect(await f.service.list()).toEqual([expect.objectContaining({id:f.record.id,unavailable:true,configurationMissing:false,lock:expect.objectContaining({blockedByRecoveryGuard:true})})]);
+});
+it.each([true,false])("reports a recovery-only guard with configuration present=%s",async present=>{
+ const f=await fixture(),guard=path.join(f.directory,f.record.id+".recovery.lock");await writeFile(guard,'retained');if(!present)await unlink(f.manifest);
+ expect(await f.service.lockStatus(f.record.id)).toMatchObject({locked:false,recoverable:false,configurationPresent:present,blockedByRecoveryGuard:true,recoveryGuard:{sha256:createHash('sha256').update('retained').digest('hex')}});
+ expect(await f.service.list()).toEqual([expect.objectContaining({id:f.record.id,unavailable:true,configurationMissing:!present})]);
+ await expect(f.service.scan(f.record.id)).rejects.toThrow(/recovery/);expect(await readFile(guard,'utf8')).toBe('retained');
 });
 it("recovers an orphaned creation lock without creating a missing manifest",async()=>{
  const f=await fixture(),sha=await f.setOwner(f.owner);await unlink(f.manifest);
