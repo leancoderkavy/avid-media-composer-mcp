@@ -275,11 +275,14 @@ export class NativeAdapter {
             const created=after.filter(item=>!before.some((old:Record<string,any>)=>old.mob_id===item.mob_id));
             if(created.length!==1)throw new Error("Expected one new subclip; inspect bin before another attempt");
             postState={created,info:await this.read("clip",action.bin,created[0]!.mob_id)};
+          }else if(action.action==="show_clip"){
+            const viewers=await this.read("viewers",action.bin) as {viewers:{mob_id:string;view_type:string}[]};postState=viewers;
+            if(!viewers.viewers.some(viewer=>viewer.mob_id===action.mobId&&viewer.view_type==="Source"))throw new Error("Requested clip was not observed in the Source viewer; inspect state before another attempt");
           }else postState=action.action==="close_bin" ? await this.client.call("GetBins",{project_path:project.path,request_flag:["OnlyOpen"]}) :
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false, postState, verificationError, postStateRead:!verificationError };
+          persistenceVerified: false, postState, verificationError, postStateRead:!verificationError,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}) };
       });
     });
     queue = task;

@@ -30,6 +30,7 @@ async function hostFixture(){
     if(method==="GetListOfExportSettings")return [{setting_names:["Fixture"]}];
     if(method==="GetListOfBinItems")return [{mob_id:"clip"}];
     if(method==="GetMobTrackInfo")return [{track_info_list:{track_info:[{label:{type:"TRACKTYPE_PICTURE",number:1},num_segments:2}]}}];
+    if(method==="GetViewerMobs"&&failPost)throw new Error("post-read unavailable");
     if(method==="GetViewerMobs")return [{mobs:[{mob_id:"clip",view_type:"Record",current_frame:0,current_timecode:"01:00:00:00"},{mob_id:"other",view_type:"Source",current_frame:3,current_timecode:"PRIVATE"}]}];
     if(method==="GetMobInfo")return [{column_name:"FPS",column_value:"30.00"},{column_name:"Duration",column_value:"3:10:26"},{column_name:"Frame Count Duration",column_value:"5726"},{column_name:"Source File",column_value:"source.mov"},{column_name:"Source Path",column_value:root}];
     if(method==="GetMarkers"){if(failPost)throw new Error("post-read unavailable");return [{info:[marker]}];}
@@ -42,6 +43,15 @@ async function hostFixture(){
 }
 
 describe("native boundaries", () => {
+  it("verifies show_clip only when the requested MOB appears in the Source viewer",async()=>{
+    for(const viewer of ["Record","Source"]){
+      const f=await hostFixture(),original=f.client.call.bind(f.client);
+      vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="LoadMobsIntoViewer"?Promise.resolve([]):method==="GetViewerMobs"?Promise.resolve([{mobs:[{mob_id:"clip",view_type:viewer,current_frame:0,current_timecode:"00:00:00:00"}]}]):original(method,body));
+      const preview=await f.adapter.preview({action:"show_clip",bin:"fixture.avb",mobId:"clip"}),result=await f.adapter.apply(preview.token);
+      expect(result).toMatchObject({applicationCompleted:true,viewerVerified:viewer==="Source",postStateRead:viewer==="Source",persistenceVerified:false});
+      await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");
+    }
+  });
   it("returns only viewer entries belonging to the requested bin",async()=>{
     const f=await hostFixture(),result=await f.adapter.read("viewers","fixture.avb");expect(result).toMatchObject({viewers:[{mob_id:"clip",current_frame:0}],outOfBinOmitted:1});expect(JSON.stringify(result)).not.toContain("PRIVATE");
     f.calls.length=0;await expect(f.adapter.read("viewers","missing.avb")).rejects.toThrow();expect(f.calls.some(call=>call.method==="GetViewerMobs")).toBe(false);
