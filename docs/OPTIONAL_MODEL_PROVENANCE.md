@@ -31,3 +31,11 @@ The audit now follows each conversion card's explicit `base_model` field. It rec
 The observed Florence upstream includes a standalone [license notice](https://huggingface.co/microsoft/Florence-2-base-ft/raw/f6c1a25888ffc1d945ee8a1a77ac833c7303d46e/LICENSE). Its exact bytes, including Microsoft attribution, are retained as `docs/licenses/florence-2-base-ft.LICENSE`; SHA-256 `c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383`. No original upstream revision is asserted for the ONNX conversion. The other observed upstream repository listings supplied README files rather than separate LICENSE/NOTICE files, so their original project notices still need to be reconciled. Metadata declarations alone are not the final licensing determination.
 
 Updated evidence: `.avid-mcp-analysis/model-provenance-70328b00-8f7e-43d8-a868-33ee46022652/evidence.json`. No runtime or installed-cache changes were made by this inventory extension.
+
+## Original project notices
+
+The original [Whisper project](https://github.com/openai/whisper#license) expressly identifies its code and model weights as MIT-licensed. Its inspected Hugging Face model-card metadata declares Apache-2.0. These are distinct source observations; the inventory retains both rather than silently treating the metadata identifier as the complete terms of the original weights or ONNX conversion.
+
+The original [CLIP project](https://github.com/openai/CLIP) supplies an MIT notice with OpenAI attribution. Exact original CLIP and Whisper notices are bundled under `docs/licenses/`; `original-model-notices.json` records immutable source URLs, observed commits, byte lengths and SHA-256 values. The same manifest records the previously retained Florence notice. Those observed project commits do not establish the historical commits used for conversion.
+
+Fresh-package smoke now checks all three original-project notices against the recorded bytes, in addition to the two face-model notices. This proves notice inclusion and integrity, not complete conversion-chain or runtime license clearance. DistilBART's original notice chain, conversion-specific obligations, runtime dependencies and model-cache notice delivery remain outstanding.

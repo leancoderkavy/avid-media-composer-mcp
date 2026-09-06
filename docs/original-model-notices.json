@@ -1,0 +1,26 @@
+[
+  {
+    "repository": "openai/whisper",
+    "observedRevision": "86098128c0b4f24f0e2aa2994de830614b474227",
+    "source": "https://raw.githubusercontent.com/openai/whisper/86098128c0b4f24f0e2aa2994de830614b474227/LICENSE",
+    "file": "docs/licenses/whisper.LICENSE",
+    "bytes": 1063,
+    "sha256": "b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d"
+  },
+  {
+    "repository": "openai/CLIP",
+    "observedRevision": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6",
+    "source": "https://raw.githubusercontent.com/openai/CLIP/d05afc436d78f1c48dc0dbf8e5980a9d471f35f6/LICENSE",
+    "file": "docs/licenses/clip.LICENSE",
+    "bytes": 1064,
+    "sha256": "987e63b32f6c89ff5160e429458a872ff048e6860b590a3912e938f9da8f14db"
+  },
+  {
+    "repository": "microsoft/Florence-2-base-ft (Hugging Face)",
+    "observedRevision": "f6c1a25888ffc1d945ee8a1a77ac833c7303d46e",
+    "source": "https://huggingface.co/microsoft/Florence-2-base-ft/raw/f6c1a25888ffc1d945ee8a1a77ac833c7303d46e/LICENSE",
+    "file": "docs/licenses/florence-2-base-ft.LICENSE",
+    "bytes": 1141,
+    "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+  }
+]

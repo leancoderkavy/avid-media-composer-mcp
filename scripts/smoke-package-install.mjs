@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import {createHash} from "node:crypto";
 import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
@@ -80,6 +81,12 @@ try {
   const installedRoot = path.join(temporary, "node_modules", "avid-media-composer-mcp");
   const {verifyFaceLicenses}=await import(pathToFileURL(path.join(installedRoot,"dist","library","face-runtime.js")).href);
   await verifyFaceLicenses(path.join(installedRoot,"docs","licenses"));
+  const originalNotices=JSON.parse(await readFile(path.join(root,"docs","original-model-notices.json"),"utf8"));
+  for(const notice of originalNotices){
+    if(!/^docs\/licenses\/[a-z0-9-]+\.LICENSE$/.test(notice.file))throw new Error("Unexpected original notice path");
+    const bytes=await readFile(path.join(installedRoot,notice.file));
+    if(bytes.length!==notice.bytes||createHash("sha256").update(bytes).digest("hex")!==notice.sha256)throw new Error(`Packaged upstream notice differs: ${notice.file}`);
+  }
   await runNpm(["audit", "--omit=dev", "--audit-level=high"], temporary, true);
   const installedPackage = JSON.parse(
     await readFile(path.join(installedRoot, "package.json"), "utf8"),
@@ -258,6 +265,7 @@ try {
       snapshotPagination: "synthetic diff, usage, range and source-resolution continuation passed",
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       faceNotices: "both packaged model licenses match pinned upstream bytes",
+      originalNotices: "packaged original-project notices match recorded upstream bytes",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",
