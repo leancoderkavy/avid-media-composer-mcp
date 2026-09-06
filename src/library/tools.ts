@@ -1,4 +1,5 @@
 import {speakerEdits} from "./speaker-edits.js";
+import {mediaFilters} from "./media-filters.js";
 import {SourceClockMedia,sourceClockOptions} from "./source-clock.js";
 import {speakerAssignments} from "./speaker-assignments.js";
 import {SpeakerAnalysis,diarizationOptions} from "./diarization.js";
@@ -162,8 +163,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({after,limit})=>result("avid_analysis_job_history",()=>jobs.journal.list(after,limit)));
   server.registerTool("avid_cancel_analysis_job", {description:"Cancel a queued or running local analysis job. Partial artifacts are retained for inspection; this does not undo completed output.",inputSchema:{jobId:z.string().uuid()},annotations:write},
     ({jobId})=>result("avid_cancel_analysis_job",async()=>jobs.cancelAndReadStatus(jobId)));
-  server.registerTool("avid_media_facets", {description:"Get observed codec, resolution, nominal frame-rate and channel-count facets for a selected library scope.",inputSchema:{ids},annotations:read},
-    ({ids})=>result("avid_media_facets",()=>library.facets(ids)));
+  server.registerTool("avid_media_facets", {description:"Filter selected indexed media by video codec/geometry/nominal frame rate, audio codec/channels/sample rate and inclusive duration bounds. Video constraints must match one video stream; audio constraints one audio stream. Returns matchingIds for visual scope plus observed facets. Uses cached probe metadata, not current content verification or CFR certification.",inputSchema:{ids,filters:mediaFilters.default({})},annotations:read},
+    ({ids,filters})=>result("avid_media_facets",()=>library.facets(ids,filters)));
   server.registerTool("avid_export_transcript", {description:"Export a selected transcript revision as TXT, JSON, CSV, SRT or VTT. Requires export.",inputSchema:{id,revision:z.string().uuid(),format:z.enum(["txt","json","csv","srt","vtt"])},annotations:write},
     ({id,revision,format})=>result("avid_export_transcript",()=>library.exportTranscript(id,revision,format)));
   server.registerTool("avid_transcript_outline", {description:"Build a bounded extractive transcript outline with source-range references. This does not generate a narrative summary.",inputSchema:{id,revision:z.string().uuid(),windowSeconds:z.number().min(10).max(3600).default(60)},annotations:read},

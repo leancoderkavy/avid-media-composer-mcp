@@ -11,6 +11,7 @@ import { runProcess } from "../process.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 import {AvidMcpError} from "../errors.js";
 import {speakerAssignmentProvenance} from "./speaker-assignments.js";
+import {mediaFilters,matchesMediaFilters} from "./media-filters.js";
 
 export const transcriptSchema = z.array(z.object({
   start: z.number().nonnegative(), end: z.number().positive(), text: z.string().max(10000),
@@ -184,9 +185,11 @@ export class MediaLibrary {
     await writeFile(output, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Media inventory</title><style>body{font:16px system-ui;margin:32px;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:10px;border:1px solid #bbb;overflow-wrap:anywhere;text-align:left}section{margin-top:40px}@media(max-width:600px){body{margin:16px}.inventory thead{display:none}.inventory,.inventory tbody,.inventory tr,.inventory td{display:block;width:auto}.inventory td{border-bottom:0}.inventory td:last-child{border-bottom:1px solid #bbb}.inventory td::before{content:attr(data-label);display:block;font-weight:700;margin-bottom:4px}.inventory tr{margin-bottom:16px}}</style><h1>Media inventory</h1><p>Recorded probe metadata. Missing values are not inferred. Camera tags, color declarations and timestamps do not establish camera identity, image fidelity or delivery compliance.</p><table class="inventory"><thead><tr><th>File</th><th>SHA-256</th><th>Seconds</th><th>Bytes</th></tr></thead><tbody>${rows}</tbody></table>${details}</html>`, {flag:"wx"});
     return { output, entries: entries.length };
   }
-  async facets(ids:string[]){
-    const facets:Record<string,Record<string,number>>={codec:{},resolution:{},frameRate:{},audioChannels:{}};
-    for(const entry of await this.metadata(ids)){
+  async facets(ids:string[],filters:z.input<typeof mediaFilters>={}){
+    const parsed=mediaFilters.parse(filters),selected=[...new Set(ids)];
+    const entries=(await this.metadata(selected)).filter(entry=>matchesMediaFilters(entry.metadata,parsed));
+    const facets:Record<string,Record<string,number>>={codec:Object.create(null),resolution:Object.create(null),frameRate:Object.create(null),audioChannels:Object.create(null)};
+    for(const entry of entries){
       const values:Record<string,Set<string>>={codec:new Set(),resolution:new Set(),frameRate:new Set(),audioChannels:new Set()};
       for(const stream of entry.metadata.streams??[]){
         if(stream.codec_name)values.codec!.add(String(stream.codec_name));
@@ -196,7 +199,7 @@ export class MediaLibrary {
       }
       for(const[key,set]of Object.entries(values))for(const value of set)facets[key]![value]=(facets[key]![value]??0)+1;
     }
-    return {mediaCount:ids.length,facets,countMeaning:"Files with each observed value; nominal frame rate does not prove CFR"};
+    return {mediaCount:entries.length,selectedMediaCount:selected.length,matchingIds:entries.map(entry=>entry.id),filters:parsed,facets,countMeaning:"Unique matching files with each observed value; cached probe metadata, not current content verification. Nominal frame rate does not prove CFR"};
   }
   async exportTranscript(id:string,revision:string,format:"txt"|"json"|"csv"|"srt"|"vtt"){
     requireCapability(this.config.capabilities,"export");

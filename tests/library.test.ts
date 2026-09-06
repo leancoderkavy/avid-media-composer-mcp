@@ -20,6 +20,20 @@ async function fixture(){
  return {root,file,id,config,library:new MediaLibrary(config)};
 }
 describe("local library boundaries",()=>{
+ it("filters unique media IDs and reports only matching facets while enforcing path scope",async()=>{
+  const {root,id,config,library}=await fixture(),directory=path.join(root,"avid-mcp-library");
+  const first=JSON.parse(await readFile(path.join(directory,`${id}.json`),"utf8"));
+  first.metadata.streams=[{codec_type:"video",codec_name:"h264",width:1280,height:720,r_frame_rate:"30/1"}];
+  await writeFile(path.join(directory,`${id}.json`),JSON.stringify(first));
+  const secondFile=path.join(root,"second.mp4"),secondId=createHash("sha256").update("second").digest("hex");await writeFile(secondFile,"second");
+  await writeFile(path.join(directory,`${secondId}.json`),JSON.stringify({id:secondId,file:secondFile,bytes:6,transcript:[],metadata:{format:{duration:"20"},streams:[{codec_type:"video",codec_name:"hevc",width:3840,height:2160,r_frame_rate:"25/1"}]}}));
+  const all=await library.facets([secondId,id,secondId]);expect(all.matchingIds).toEqual([secondId,id]);expect(all.mediaCount).toBe(2);
+  const filtered=await library.facets([secondId,id,id],{video:{codec:"H264"},duration:{max:10}});
+  expect(filtered.selectedMediaCount).toBe(2);expect(filtered.matchingIds).toEqual([id]);expect(filtered.facets.codec).toEqual({h264:1});expect(filtered.facets.resolution).toEqual({'1280x720':1});
+  expect((await library.facets([id],{audio:{}})).matchingIds).toEqual([]);
+  const outside=await mkdtemp(path.join(os.tmpdir(),"avid-filter-denied-"));
+  await expect(new MediaLibrary({...config,allowedRoots:[outside]}).facets([id])).rejects.toThrow();
+ });
  it("rediscovers scoped collections across invalid records with stable continuation",async()=>{
   const {config,id,root}=await fixture(),collections=new Collections(config);
   const collection={name:"Private selects",selects:[{id,start:2,end:5,label:"",tags:[],note:""}]};

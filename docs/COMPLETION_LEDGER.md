@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Technical media filtering qualification
+
+`avid_media_facets` now accepts video codec/geometry/nominal rational frame rate, audio codec/channel/sample rate and inclusive duration filters. Each stream-kind conjunction must match one stream; equivalent rational rates match without floating-point tolerance. Results deduplicate selected files, expose matching IDs for visual scope, and count facets over matching files. Unknown metadata does not satisfy requested constraints. These are cached probe declarations, not current content verification or CFR/delivery certification. Six added tests cover cross-stream false positives, invalid/missing values, rational rates, duration boundaries, duplicates and path-scope refusal. Actual MCP filtering and scoped local CLIP search passed on two short owned Sonoma derivatives with different geometry/rates/channels; original and derivative hashes stayed unchanged. Evidence: `.avid-mcp-analysis/media-filters-76b39f88-4c80-4769-a2ee-21153bca23ad/evidence.json`; reproducible script: `scripts/research/qualify-media-filters.mjs`. Full check passed: 529 TypeScript tests, 34 Python tests, 137 tools, five skills, both transports and fresh-package AAF/isolation/recovery. Log: `.avid-mcp-analysis/check-media-filters.log`. The selects skill documents dispatch and empty-result handling. Broad media/model/native-host acceptance remains open. Previous pushed commit 472aaa3 passed CI and CodeQL.
+
 This ledger preserves the complete requested scope across increments. It is not a new, narrower plan. Sources: ROADMAP.md, REVERSE_ENGINEERING_PLAN.md, COMPETITOR_RESEARCH.md, and the user's Windows-first/Mac-later and open-source requirements. The overall goal remains active until each applicable requirement has direct evidence.
 
 | Requirement | Current evidence | Remaining acceptance work |
