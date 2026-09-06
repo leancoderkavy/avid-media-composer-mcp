@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Summary repetition and inherited minimum length
+
+Ran a 36-generation comparison of baseline, stronger repetition controls, removed minimum length, and both changes over eight editorial fixtures plus a short observation. Effective model configuration exposed the inherited 56-token minimum; installed runtime source applies it separately from minimum new tokens. Removing it fixed short-input padding but lost important longer-input decisions. Repetition penalties introduced factual errors including a changed delivery time and unsupported report details. No candidate was adopted and no checkpoint recipe changed.
+
+Evidence: `.avid-mcp-analysis/summary-repetition-84ad0dea-c09b-43a9-be16-4e32859c8d47/evidence.json`; initial comparison: `summary-repetition-510b0f78-7c05-42ec-a352-24a09b054c34`. Added reproducible benchmark with effective-setting assertions and incremental output retention. Manual findings are recorded in SUMMARY_QUALITY_QUALIFICATION.md. These are synthetic fixture/model observations, not source-video dialogue or full semantic-quality acceptance. Syntax/diff checks passed; production code unchanged, so the full suite was not rerun. Full-plan quality requirements remain open.
+
 ### Refuse new runtime imports while setup is locked
 
 Published-runtime status previously ignored a sibling setup lock, allowing a matching historical receipt to pass inference preflight. Status now keeps tree consistency separate from `setup_lock_present`/`passed: false`, and new runtime imports refuse that state. Internal installer status can recognize only its exact owned lock record; success still passes the existing final lock-ownership check and release. Unit coverage verifies lock preservation, refusal and successful local pinned-component loading after removing the test-owned fixture lock. Existing installer reuse tests pass.

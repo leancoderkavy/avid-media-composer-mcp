@@ -2,6 +2,20 @@
 
 The pinned local DistilBART model is implemented and runtime-tested. Its editorial quality is **not accepted as complete**. Tree/source-reference validation and successful resume establish structure and execution, not accurate or comprehensive prose.
 
+## Repetition and inherited minimum-length comparison
+
+`scripts/research/benchmark-summary-repetition.mjs` compares four generation settings across the eight existing editorial evidence fixtures plus one original single-sentence climbing observation. It retains requested/effective options, source review criteria and every output, with incremental progress. Evidence: `.avid-mcp-analysis/summary-repetition-84ad0dea-c09b-43a9-be16-4e32859c8d47/evidence.json` (36 generations). The initial two-setting experiment is retained separately at `summary-repetition-510b0f78-7c05-42ec-a352-24a09b054c34`.
+
+The pinned model's local `generation_config.json` supplies `min_length: 56`. Inspection of the installed Transformers.js 4.2.0 `src/models/modeling_utils.js` shows independent minimum-length and minimum-new-token processors. Setting `min_new_tokens: 0` alone therefore leaves the 56-token minimum active. The final benchmark records effective `min_length` as well as the other settings.
+
+| Candidate | Observed result and limitation |
+| --- | --- |
+| Two-token repetition constraint, penalty 1.2, zero minimum new tokens | Restored Leo's removal assignment in the editorial fixture, but invented dates and report details in the boundary fixture, changed 09:00 to 09:30, and misrepresented quoted slate text as director approval. Rejected as a default. |
+| Zero minimum length and new tokens; otherwise baseline | Returned the short observation exactly and preserved the uncertainty fixture without the padded ending. The editorial summary stopped after Maya's delivery, losing the cellar/music and rejected-reshoot decisions that the baseline retained. Technical identifiers still changed. Rejected as a global default. |
+| Both changes | Improved some prose, but omitted the Monday superseding decision, changed frames into clips in the technical fixture, and added unsupported accessibility details to the climbing observation. Rejected as a default. |
+
+This identifies an inherited length constraint contributing to short-input padding; removing it is not sufficient for general editorial quality. No production generation or checkpoint recipe changed. Short-input improvements do not establish broad coverage, and terminal punctuation does not establish completeness. Future candidates must preserve final decisions, names, numbers, negation and uncertainty against the supplied review criteria.
+
 ## Sentence-aware input partitioning
 
 New runs record checkpoint recipe 2. Inside a long transcript segment, the chunker prefers the last sentence-ending boundary within 2,000 characters, then whitespace, then a bounded character split for an unbroken token. Forced boundaries preserve UTF-16 surrogate pairs. Sentence detection is heuristic; it does not parse abbreviations or prove linguistic completeness. The existing 64-chunk and model-token bounds remain. Every source character is retained; original segment references remain attached to its chunks. This is not multilingual generation qualification.
