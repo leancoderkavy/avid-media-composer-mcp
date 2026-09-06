@@ -1,5 +1,15 @@
 # One-frame native UI trim and undo qualification
 
+## Descriptor versus physical MP4 timing
+
+The read-only `qualify-sonoma-descriptor-media.mjs` compares a separately named authorized Sonoma preview MP4 against the retained descriptor evidence. It requires the two saved WINF strings to equal the known fixture declaration (`D//Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4`); it never constructs a filesystem path from those strings. This is a fixture-specific correspondence check, not a general locator resolver or historical essence-identity proof.
+
+Full FFprobe decoding produced 5,725 video frames versus the descriptor's 5,726 at 30 fps. Both declare 1280x720. The MP4 video stream starts at 0.033333 seconds and declares duration 190.833333 seconds. No corrective offset is inferred merely from this one-frame difference.
+
+Audio decoding produced 9,192,704 samples versus the descriptor's 9,164,224, both at 48 kHz with two channels. With the observed 1/48000 audio time base, integer timestamp accounting found 960 ticks of gaps and 32,640 ticks of overlaps across 49 nonzero inter-frame discontinuities. Thus `9,192,704 + 960 - 32,640 = 9,161,024`, the decoded presentation span from timestamp zero to the final frame end. The descriptor remains 3,200 samples longer than that span. This demonstrates why sample sums, presentation spans and Avid descriptor lengths must remain distinct. It does not identify the cause of the descriptor offset or certify synchronization.
+
+Evidence: `.avid-mcp-analysis/sonoma-descriptor-media-4294b24e-7de0-4b12-9806-26928ebfedd6/evidence.json` retains stream metadata, raw audio frame timestamps/sample counts, decoded video count and arithmetic. The MP4 and prior evidence hashes were unchanged before/after. Script syntax and full execution passed. Physical handle acceptance still requires qualified mapping of the selected ranges to the actual essence clock, including these discontinuities; descriptor length alone is insufficient.
+
 ## Captured descriptor declarations
 
 New saved snapshots retain selected descriptor declarations per mob. `avid_trace_saved_sources` returns one `descriptors` entry per visited bin/mob, with status `recorded`, `absent` (captured null descriptor), or `not_recorded` (historical snapshot without this field). Each recorded entry includes the descriptor class ID, available numeric fields, one locator's declared path variants and identity, and the physical-media descriptor class ID when present. This is a bounded subset; descriptor attributes, multiple/nested descriptors and physical-media contents are not decoded here. Unknown locator classes remain identified without inferring a path.

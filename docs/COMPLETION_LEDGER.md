@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Sonoma descriptor versus decoded media timing
+
+Executed a read-only full MP4 comparison using a separately specified authorized file, exact known locator-declaration checks and before/after hashes. Actual video decode counted 5,725 frames versus Avid's 5,726. Audio decoded 9,192,704 samples versus declared 9,164,224; integer presentation accounting found 960 gap ticks and 32,640 overlap ticks across 49 discontinuities, yielding a 9,161,024-sample presentation span (3,200 below the descriptor). Evidence: `.avid-mcp-analysis/sonoma-descriptor-media-4294b24e-7de0-4b12-9806-26928ebfedd6/evidence.json`; script: `qualify-sonoma-descriptor-media.mjs`. Syntax and actual execution passed; source/evidence hashes unchanged. No production code changed. These mismatches constrain the future physical-handle verifier; they do not establish essence identity, correction offsets or playback fidelity. See NATIVE_UI_TRIM_QUALIFICATION.md.
+
 ### Saved source descriptors and locator declarations
 
 Full local check passed: 552 TypeScript tests, 36 Python tests, 137 tools, five skills, both transports and fresh-package checks (`.avid-mcp-analysis/check-source-descriptors.log`).
