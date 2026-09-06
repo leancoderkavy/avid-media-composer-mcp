@@ -771,3 +771,8 @@ One dual-roller one-frame trim was performed on the owned copy through computer 
 
 Guarded MCP close/reopen of the trimmed-then-undone disposable bin passed after checking its current checksum against the retained undo artifact. The expected single sequence remained and every decoded AVB mob equaled the pre-edit baseline after reopening. Evidence: .avid-mcp-analysis/native-ui-undo-reopen-05c6a9f4-3c68-4b6f-900a-697bc4d1dc52/evidence.json; script: scripts/research/qualify-native-ui-undo-reopen.mjs. Undo-history persistence, redo, intermediate-trim reopening and the shipping UI adapter remain open. CI and CodeQL for 7c1660a completed successfully; later heads have separate checks.
 
+
+### Reusable saved trim verifier
+
+src/native/trim-verifier.ts now checks exact one-frame dual-roller transformations for explicitly selected picture/sound track ordinals against complete, warning-free decoded graphs. It preserves and compares every decoded mob field, rejects ambiguous identities/tracks, overlaps, opaque/combiner components, empty clips, unresolved or mixed-rate direct sources and unrelated edits. Five focused tests and build passed; the verifier also passed against the captured real Avid trim and inverse undo graphs. It does not execute commands, authenticate input files, prove available media handles or qualify general timeline editing. The UI adapter remains unfinished.
+
