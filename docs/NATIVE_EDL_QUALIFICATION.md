@@ -47,3 +47,9 @@ The fixture-only `--test-owned-collision` mode requires the exact SHA of the fir
 Evidence: `.avid-mcp-analysis/native-edl-53dc8a7b-8e77-4be5-8582-6a342bd4edb1/` contains request/responses, preserved original, sentinel observation and restoration receipt. The numbered file SHA is `2a0d4cb9ccf21e4fdbae3bdd376acc8303549d4f7cedd92333a0be1a9870e12d`, identical to the first native export. Independent saved-bin verification passed (`edl-saved-oracle-f380635a-0398-4281-ac52-0aa0b29c586f`). The harness refuses if the numbered output already exists, preventing an accidental replay of this experiment.
 
 This demonstrates preservation of one occupied target through suffix allocation on the qualified host. It does not prove concurrent suffix allocation, arbitrary filenames, directory redirection, other host versions or power-loss behavior. A shipping adapter must use and validate the returned path rather than assume the unsuffixed filename.
+
+## Returned output validator
+
+`src/native/edl-output.ts` validates one native response, rejects reported dialogs, requires a canonical `.edl` file directly within the authorized export directory, rejects paths present in the caller's pre-export inventory, and delegates to the exact cut verifier. It accepts suffix allocation by using the returned path. Tests cover suffixed output, pre-existing paths, dialogs, empty/multiple bodies, relative/outside paths and unknown response fields.
+
+This is an internal post-dispatch component, not yet an exposed action. The caller must capture a complete canonical inventory before dispatch (at most 4096 entries); passing an empty inventory is not proof that a file is new. The component cannot prevent an unexpected native write before checking its response, prove allocation atomicity or replace pre-dispatch destination/authority controls.
