@@ -7,16 +7,16 @@ import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/
 import {sha256File} from '../../dist/analysis/file-inventory.js';
 const file='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
 const expectedSha256=await sha256File(file);
-assert.ok(process.argv.length===2||process.argv.length===3&&process.argv[2]==='--cancel');
-const testCancellation=process.argv[2]==='--cancel';
+assert.ok(process.argv.length===2||process.argv.length===3&&['--cancel','--trace-cancel','--fault-cancel'].includes(process.argv[2]));
+const testCancellation=process.argv.length===3,fault=process.argv[2]==='--fault-cancel',trace=fault||process.argv[2]==='--trace-cancel';
 assert.equal(expectedSha256,'3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca');
 const root=path.resolve('.avid-mcp-analysis',`source-clock-jobs-${randomUUID()}`);await mkdir(root);
 console.log(JSON.stringify({root}));
 const clients=[],events=[];
 async function connect(){
  const client=new Client({name:'source-clock-jobs',version:'1'});clients.push(client);
- await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',
-  env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(file),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));
+ await client.connect(new StdioClientTransport({command:process.execPath,args:[...(trace?['--import',new URL('./trace-taskkill.mjs',import.meta.url).href]:[]),path.resolve('dist/index.js')],stderr:'pipe',
+  env:{...getDefaultEnvironment(),AVID_MCP_RESEARCH_TRACE:root,AVID_MCP_RESEARCH_TREE_FAILURE:fault?'1':'0',AVID_MCP_ALLOWED_ROOTS:path.dirname(file),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));
  return client;
 }
 async function call(client,name,args){
@@ -45,7 +45,7 @@ try{
  assert.equal(complete.result.verified,true);assert.equal(await sha256File(complete.result.output),complete.result.outputSha256);
  const bad=await call(client,'avid_start_analysis_job',{job:{...job,options:{...job.options,expectedSha256:'0'.repeat(64)}}});
  const failure=await terminal(client,bad.id);assert.equal(failure.status,'failed');assert.match(failure.error,/checksum changed/);
- let stopped,interruptedRun;
+ let stopped,interruptedRun,held;
  if(testCancellation){
  const library=path.join(root,'avid-mcp-library'),before=new Set(await readdir(library));
  const active=await call(client,'avid_start_analysis_job',{job});
@@ -57,8 +57,17 @@ try{
   if(!interruptedRun)await new Promise(resolve=>setTimeout(resolve,50));
  }
  assert.ok(interruptedRun,'Preparation attempt must exist before cancellation');
+ if(fault){held=await call(client,'avid_start_analysis_job',{job});assert.equal(held.status,'queued');}
  await call(client,'avid_cancel_analysis_job',{jobId:active.id});
  stopped=await terminal(client,active.id);assert.equal(stopped.status,'cancelled');assert.ok(stopped.workerExit);
+ if(fault){
+  assert.equal(stopped.schedulingPaused,true);assert.equal(stopped.treeTermination.succeeded,false);
+  const waiting=await call(client,'avid_analysis_job_status',{jobId:held.id});assert.equal(waiting.status,'queued');assert.equal(waiting.schedulingPaused,true);
+  const refused=await client.callTool({name:'avid_start_analysis_job',arguments:{job}});
+  events.push({name:'fault-followup-start',response:refused});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));
+  assert.equal(refused.isError,true);assert.match(JSON.stringify(refused),/scheduling is paused/);
+  held=await call(client,'avid_cancel_analysis_job',{jobId:held.id});assert.equal(held.status,'cancelled');
+ }
  }
  await client.close();client=await connect();
  for(const record of [complete,cancelled,failure,...(stopped?[stopped]:[])]){
@@ -70,9 +79,9 @@ try{
  const interrupted=interruptedRun?await call(client,'avid_source_clock_status',{runId:interruptedRun}):undefined;
  if(interrupted)assert.equal(interrupted.state,'unresolved');
  assert.equal(await sha256File(file),expectedSha256);
- const passed=!testCancellation||process.platform==='win32'&&stopped.treeTermination?.succeeded===true;
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed,testCancellation,complete,cancelled,failure,stopped,interrupted,status,sourceUnchanged:true,
+ const passed=!testCancellation||process.platform==='win32'&&(fault?stopped.schedulingPaused===true:stopped.treeTermination?.succeeded===true);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed,testCancellation,faultInjected:fault,held,complete,cancelled,failure,stopped,interrupted,status,sourceUnchanged:true,
   scope:'Actual Sonoma queued preparation, queued cancellation without dispatch, checksum refusal, output hash and preparation receipt inspection, persisted results across fresh MCP connection. Optional --cancel requires successful Windows tree termination after attempt creation; failed termination remains failed acceptance. Abrupt parent exit, power loss and host import are separate qualifications.'},null,2),{flag:'wx'});
- assert.ok(passed,'Active cancellation did not qualify Windows tree termination');
+ assert.ok(passed,'Active cancellation or injected-failure guard acceptance failed');
  console.log(JSON.stringify({root,passed:true}));
 }finally{for(const client of clients)await client.close().catch(()=>{});}

@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Pause analysis scheduling after uncertain worker-tree termination
+
+Investigating the retained source-clock cancellation failure found that the queue could start another worker after a failed tree-termination result. The session now exposes `schedulingPaused`, preserves queued jobs without dispatch and refuses new starts; queued cancellation remains available. A late successful termination still advances the queue. Focused job/journal/process tests passed (34 tests).
+
+The complete TypeScript suite passed all 792 tests (`.avid-mcp-analysis/test-cancellation-pause.log`); the final strengthened early-failure queue assertion also passed all 19 job tests. Typecheck/build passed. The prior full Python/package checks are unchanged historical validation, distinct from these final guard checks.
+
+Actual MCP fault injection verified the pause/refusal/cancellation behavior after a real successful owned-tree kill was reported as failed. Separately, two traced and one uninstrumented active-cancellation runs passed. The original intermittent failure remains unresolved, and the guard is session-local rather than a cross-session orphan lock. See [queued preparation evidence](SOURCE_CLOCK_PREPARATION.md#queued-preparation).
+
 ### Source-clock preparation in durable jobs
 
 Added `source_clock` to the existing bounded job queue and worker, sharing the direct preparation schema and verifier. Export authority is checked before journal/worker creation; queued cancellation avoids dispatch. Sonoma execution verified output and receipt checks, checksum refusal and completed/cancelled/failed history across reconnect. Focused jobs, journal and preparation tests passed (36 tests), with typecheck/build.

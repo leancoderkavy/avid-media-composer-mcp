@@ -51,10 +51,12 @@ export class AnalysisJobs {
   private terminations=new Map<string,Promise<void>>();
   private active=0;
   private closing=false;
+  private schedulingPaused=false;
   readonly journal:JobJournal;
   constructor(private readonly config:ServerConfig){this.journal=new JobJournal(config);}
   async start(input:JobSpec){
     if(this.closing)throw new Error("Analysis service is closing");
+    if(this.schedulingPaused)throw new Error("Analysis scheduling is paused because worker-tree termination was not verified. Inspect retained cancellation evidence and resolve possible descendants before starting another session.");
     requireCapability(this.config.capabilities,"inspect");
     const spec=jobSchema.parse(input);
     if(!["index","summary","summary_resume","visual_summary"].includes(spec.kind))requireCapability(this.config.capabilities,"export");
@@ -76,7 +78,7 @@ export class AnalysisJobs {
     do{pending=this.checkpoints.get(id);await pending;}while(pending!==this.checkpoints.get(id));
     const current=this.jobs.get(id);return current?this.status(id):this.journal.read(id);
   }
-  status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return value;}
+  status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return {...value,schedulingPaused:this.schedulingPaused};}
   async cancelAndReadStatus(id:string){this.cancel(id);return this.readStatus(id);}
   cancel(id:string,reason:CancellationReason="user"){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");
@@ -90,6 +92,7 @@ export class AnalysisJobs {
         const child=job.child;
         const termination=terminateWindowsTree(child)!.then(result=>{
           job.treeTermination=result;
+          if(!result.succeeded)this.schedulingPaused=true;
           this.checkpoint(job);
           // A failed tree kill is not proof that descendants stopped.
           if(!result.succeeded&&job.child===child)child.kill();
@@ -109,7 +112,7 @@ export class AnalysisJobs {
     await Promise.all([...this.checkpoints.values()]);
   }
   private pump(){
-    if(this.closing||this.active>=1)return; // Bound model memory; future concurrency must be measured.
+    if(this.closing||this.schedulingPaused||this.active>=1)return; // Bound model memory; future concurrency must be measured.
     const job=[...this.jobs.values()].find(job=>job.status==="queued");
     if(!job)return;
     this.active++;job.status="running";

@@ -60,12 +60,14 @@ it('records timeout as distinct from user cancellation',async()=>{
 });
 it.skipIf(process.platform!=="win32")("retains failed tree termination and waits for worker closure",async()=>{
  const jobs=await fixture(),first=await jobs.start({kind:"index",files:["first.mp4"]});
+ const second=await jobs.start({kind:"index",files:["second.mp4"]});
  state.terminate.mockResolvedValueOnce({method:"windows-taskkill",succeeded:false,reason:"Tree termination timed out"});
  jobs.cancel(first.id);await new Promise(resolve=>setImmediate(resolve));
- expect(jobs.status(first.id)).toMatchObject({status:"cancelling",treeTermination:{succeeded:false}});
+ expect(jobs.status(first.id)).toMatchObject({status:"cancelling",treeTermination:{succeeded:false},schedulingPaused:true});
  expect(state.workers[0].kill).toHaveBeenCalledOnce();
  state.workers[0].emit("close",1);await jobs.readStatus(first.id);
- expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:false,reason:"Tree termination timed out"}});jobs.close();
+ expect(state.workers).toHaveLength(1);expect(jobs.status(second.id)).toMatchObject({status:"queued",schedulingPaused:true});
+ expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded:false,reason:"Tree termination timed out"}});jobs.close();await jobs.readStatus(second.id);
 });
 it.skipIf(process.platform!=="win32").each([true,false])("waits for a late tree result (success=%s) before advancing the queue",async succeeded=>{
  let resolve!: (value:any)=>void;state.terminate.mockReturnValueOnce(new Promise(done=>{resolve=done;}));
@@ -74,9 +76,13 @@ it.skipIf(process.platform!=="win32").each([true,false])("waits for a late tree 
  expect(await jobs.readStatus(first.id)).toMatchObject({status:"cancelling",workerExit:{code:1}});
  expect(state.workers).toHaveLength(1);expect(jobs.status(second.id).status).toBe("queued");
  resolve({method:"windows-taskkill",succeeded,...(!succeeded?{reason:"Tree termination did not report success"}:{})});await new Promise(done=>setImmediate(done));
- expect(state.workers[0].kill).not.toHaveBeenCalled();expect(state.workers[1].kill).not.toHaveBeenCalled();
+ expect(state.workers[0].kill).not.toHaveBeenCalled();
+ expect(state.workers).toHaveLength(succeeded?2:1);
+ expect(jobs.status(second.id)).toMatchObject({status:succeeded?"running":"queued",schedulingPaused:!succeeded});
+ if(succeeded)expect(state.workers[1].kill).not.toHaveBeenCalled();
+ else await expect(jobs.start({kind:"index",files:["third.mp4"]})).rejects.toThrow("worker-tree termination was not verified");
  await jobs.readStatus(first.id);expect(await jobs.journal.read(first.id)).toMatchObject({status:"cancelled",treeTermination:{succeeded}});
- jobs.close();state.workers[1].emit("close",1);await jobs.readStatus(second.id);
+ jobs.close();if(succeeded)state.workers[1].emit("close",1);await jobs.readStatus(second.id);
 });
 it.skipIf(process.platform!=="win32")("shutdown during a pending tree result cancels the queue without dispatching it",async()=>{
  let release!:(value:any)=>void;state.terminate.mockReturnValueOnce(new Promise(resolve=>{release=resolve;}));
