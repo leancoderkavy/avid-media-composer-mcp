@@ -1,7 +1,7 @@
 import {runProcess} from '../../dist/process.js';import {verifyEdlCuts} from '../../dist/native/edl-verifier.js';import {sha256File} from '../../dist/analysis/file-inventory.js';
 import {mkdir,writeFile} from 'node:fs/promises';import path from 'node:path';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
 const root=path.resolve('.avid-mcp-analysis',`edl-saved-oracle-${randomUUID()}`);await mkdir(root);
-const bin='D:/Avid Projects/MCP_Sonoma_30p_20260905/MCP_AAF_Selects_20260905.avb',edl=path.resolve('.avid-mcp-analysis/sonoma-file129-ui-20260905.edl');
+const bin='D:/Avid Projects/MCP_Sonoma_30p_20260905/MCP_AAF_Selects_20260905.avb',edl=path.resolve(process.argv[2]??'.avid-mcp-analysis/sonoma-file129-ui-20260905.edl');
 const parsed=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',bin],{timeoutMs:30000,maxOutputBytes:2*1024*1024});assert.equal(parsed.exitCode,0,parsed.stderr);const saved=JSON.parse(parsed.stdout);await writeFile(path.join(root,'saved.json'),JSON.stringify(saved,null,2));
 const one=(items,label)=>{assert.equal(items.length,1,label);return items[0];};
 const sequence=one(saved.mobs.filter(m=>m.name==='MCP_Sonoma_AAF_Selects'),'sequence');assert.equal(sequence.rate,30);
@@ -20,4 +20,4 @@ const format=frame=>{assert.ok(Number.isInteger(frame)&&frame>=0&&frame<24*3600*
 const recordBase=tc(sequence,0,sequence.duration);assert.ok(Number.isInteger(recordBase));
 const contract={frameRate:30,events:mapped[0].map(n=>({reel:n.reel,track:'AA/V',sourceIn:format(n.start),sourceOut:format(n.end),recordIn:format(recordBase+n.recordStart),recordOut:format(recordBase+n.recordEnd)}))};
 await writeFile(path.join(root,'contract.json'),JSON.stringify({contract,mapped},null,2));const result=await verifyEdlCuts(edl,contract);assert.equal(await sha256File(bin),saved.sha256);
-await writeFile(path.join(root,'evidence.json'),JSON.stringify({result,binSha256:saved.sha256,contractOrigin:'Independent saved AVB source-chain and timecode traversal; combined AA/V label is the observed export layout, not separate channel proof.'},null,2));console.log(JSON.stringify({root,verified:true,contract}));
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({edl,result,binSha256:saved.sha256,contractOrigin:'Independent saved AVB source-chain and timecode traversal; combined AA/V label is the observed export layout, not separate channel proof.'},null,2));console.log(JSON.stringify({root,verified:true,contract}));
