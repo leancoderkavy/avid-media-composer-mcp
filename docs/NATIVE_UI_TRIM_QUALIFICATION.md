@@ -1,5 +1,13 @@
 # One-frame native UI trim and undo qualification
 
+## Editor-state observation limits
+
+On 2026-09-06, computer use resumed the interrupted Copy.05 observation and confirmed dual-roller trim mode at 01:00:02:00 with zero/zero counters and V1/A1/A2 selected. Opening Edit visibly exposed disabled Undo and enabled `Redo Trim Tail+Head -1`. The menu was dismissed, U exited trim mode, and a fresh screenshot confirmed the normal source/record layout with no trim counters. No trim, save, undo or redo was executed during this observation.
+
+The accessibility objects were exactly equal across trim mode, the open Edit menu and normal editing. They contained the top-level window, two CW_monitor panes, a generic AvidMediaComposer pane and system title-bar controls. Focus was reported only as the top-level window. The visible sequence name, timecode, selected tracks, rollers, counters and history command were absent. Thus this accessibility route cannot supply the preconditions for an unattended trim executor on this host. This result applies to the observed computer-use accessibility interface, not every possible Windows or Avid interface.
+
+Evidence: `.avid-mcp-analysis/native-ui-state-eb39fd34-26f6-45c5-843f-7fc0a1c34b64/evidence.json` retains the raw accessibility states, equality results and manually observed screenshot facts. The saved bin remained SHA-256 `8b8ccefa6225a38acc6aae30be05d05b469c14b8758afc12bdd80494df785822`. Screenshots were inspected during the experiment; their interpretation is not a shipped detector. A future executor needs a separately qualified observation mechanism for mode, focus, selection and history, including unknown-state refusal and layout/version tests. Native viewer identity/position and saved-bin verification remain useful independent checks but cannot replace these missing editor-state signals.
+
 ## Declared source-duration checks
 
 Source bounds now also require exactly one source track with the referenced numeric index and matching media kind. The union of the before/after intervals must be covered by direct SCLP nodes on that track. Missing/ambiguous tracks, malformed or overlapping ranges, gaps, filler and opaque/combiner coverage are refused. Adjacent direct nodes can cover an interval. This prevents a longer picture track or overall mob duration from concealing a shorter sound track; picture and sound may legitimately share a numeric index.

@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Trim-state accessibility experiment
+
+Actual computer-use observation found exactly equal accessibility objects for dual-roller trim, the visible Edit history menu and normal editing on the owned Copy.05 fixture. Screenshots distinguished these states; accessibility exposed no track selection, trim counters, mode or contextual history command. The menu was dismissed and trim mode exited without editing or saving; the saved bin retained its baseline SHA-256. Evidence: `.avid-mcp-analysis/native-ui-state-eb39fd34-26f6-45c5-843f-7fc0a1c34b64/evidence.json`; conclusions and required observation work are in NATIVE_UI_TRIM_QUALIFICATION.md. This rules out this accessibility route alone as an unattended editing precondition source; no UI executor was shipped. Commit 96b15df's CodeQL analysis and separate security gate both passed, clearing the previously reported PR findings for that head; remaining CI jobs were still running at this observation.
+
 ### CodeQL finding hardening
 
 Full local check passed: 547 TypeScript tests, 34 Python tests, 137 tools, five skills, stdio/HTTP and fresh-package checks. Log: `.avid-mcp-analysis/check-codeql-hardening.log`.
