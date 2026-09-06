@@ -42,3 +42,9 @@ The subsequent real MCP command `node scripts/research/qualify-aaf-workflow-mcp.
 The independent audio report `native-export-69f2def4-78ed-4191-8e93-67aba9b95014/export/audio-comparison-baa622db-1e15-47d6-8ff0-b11e84115a95/evidence.json` beneath that directory confirms exact complete source-clock 24-bit PCM agreement with distinct output channels. This qualifies the prepared-path native workflow for this Windows 2024.12 Sonoma fixture. General color, additional media/rates/builds, relink and undo acceptance remain open.
 
 The corresponding frame report (`frame-comparison-acf72933-49c9-41c7-a220-75901a1115e6/evidence.json` beside the audio report) matches all 120 source presentation times within 0.334 microseconds and reproduces the earlier decoded-frame checksum `f2febfe806558dfc4f118a07d1b73b24b4e539698d89df69eff5e3136be964c6`. The known range-declaration/color error persists; matching the earlier render is not color acceptance.
+
+## Fractional-rate preparation evidence
+
+On 2026-09-06, `node scripts/research/qualify-source-clock-rates.mjs` generated owned two-second derivatives of the checksum-pinned Sonoma preview at 24000/1001, 25 and 30000/1001 fps. Each passed the actual stdio preparation tool's video essence, per-packet timestamp and source-clock PCM checks. Independent output decoding counted 48, 50 and 60 frames respectively, matching metadata; reported rates were preserved. Original and derivative source hashes were unchanged, and output hashes matched receipts. Evidence: `.avid-mcp-analysis/source-clock-rates-04d3b77a-2741-4124-af09-cac883927dcd/evidence.json`.
+
+This qualifies short-file preparation at those rates. It does not convert video rates, qualify native Avid imports at those rates, authorize mixed-rate AAF cuts, or establish color/perceptual synchronization and long-media behavior. The AAF selects builder continues to require selected source slots to match the composition rate.
