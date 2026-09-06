@@ -109,16 +109,32 @@ try {
     await rename(`${packagedSidecar}.held`, packagedSidecar);
   }
 
+  // Exercise the installed setup CLI from a foreign working directory, then
+  // launch exactly the command it tells users to put into their MCP client.
+  let generatedEntry;
+  for(const format of ["generic","claude","cursor","vscode","lmstudio"]){
+    const generated=spawnSync(process.execPath,[path.join(installedRoot,"dist","cli.js"),
+      "--client",format,"--root",path.resolve(root,"tests","fixtures","sample-project"),
+      "--output",temporary,...(withPython&&path.isAbsolute(python)?["--python",python]:[])],
+      {cwd:temporary,env:getDefaultEnvironment(),encoding:"utf8",timeout:10000,windowsHide:true});
+    if(generated.error||generated.status!==0)throw new Error(`Installed ${format} setup failed: ${generated.stderr}`);
+    const config=JSON.parse(generated.stdout),entry=(format==="vscode"?config.servers:config.mcpServers)?.["avid-media-composer"];
+    if(format==="vscode"){
+      if(entry?.type!=="stdio")throw new Error("Installed VS Code setup omitted stdio type");
+      delete entry.type;
+    }
+    if(!entry||entry.command!==process.execPath||!isDeepStrictEqual(entry.args,[path.join(installedRoot,"dist","index.js")])||entry.env?.AVID_MCP_CAPABILITIES!=="inspect")throw new Error(`Installed ${format} setup selected an unexpected server or authority`);
+    if(generatedEntry&&!isDeepStrictEqual(entry,generatedEntry))throw new Error(`Installed ${format} setup differs from generic configuration`);
+    generatedEntry=entry;
+  }
   const transport = new StdioClientTransport({
-    command: process.execPath,
-    args: [path.join(installedRoot, "dist", "index.js")],
+    command: generatedEntry.command,
+    args: generatedEntry.args,
     cwd: temporary,
     stderr: "pipe",
     env: {
       ...getDefaultEnvironment(),
-      AVID_MCP_ALLOWED_ROOTS: path.resolve(root, "tests", "fixtures", "sample-project"),
-      AVID_MCP_CAPABILITIES: "inspect",
-      AVID_MCP_OUTPUT_ROOT: temporary,
+      ...generatedEntry.env,
       ...(withPython ? {AVID_MCP_PYTHON:python} : {}),
     },
   });
@@ -210,6 +226,7 @@ try {
       skills: skillNames.length,
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
+      clientSetup: "five installed CLI formats agree; generated command connected from foreign working directory",
       snapshotPagination: "synthetic diff, usage and range continuation passed",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",

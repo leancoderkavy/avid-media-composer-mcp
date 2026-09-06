@@ -31,6 +31,8 @@ node dist/cli.js --client claude --root 'D:\Avid Projects' --root 'D:\Media' --o
 
 Formats: `claude`, `cursor`, `vscode`, `lmstudio`, `generic`. The command prints configuration by default. Add `--config ABSOLUTE_JSON_FILE --install` to back up and merge it. Existing Avid entries are never replaced; malformed JSON/JSONC is rejected. Keep the checkout at a stable path and restart the client. For Codex, use `codex mcp add` with the generated command/environment. Named-client UI and clean-machine qualification remain pending.
 
+The fresh-package smoke check runs the installed setup CLI for all five formats from a separate working directory, verifies their server command/environment agree (with VS Code's required `stdio` type), and launches that generated command for real MCP discovery and handler checks. This catches package-relative entry and configuration regressions; it does not launch the five named applications.
+
 ### Claude Code CLI qualification
 
 Windows Claude Code 2.1.260 has passed configuration and connection qualification against this checkout's built server. The harness uses a new synthetic project and an isolated `CLAUDE_CONFIG_DIR`, adds the generated stdio entry using `mcp add-json --scope local`, requires connected status from both `mcp get` and `mcp list`, removes the entry and verifies the explicit missing-server response. Existing Claude Code and Desktop configuration hashes remained unchanged.
