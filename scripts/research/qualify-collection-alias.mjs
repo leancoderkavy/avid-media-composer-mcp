@@ -1,0 +1,35 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,copyFile,readFile,writeFile,readdir} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',sourceHash=await sha256File(source);
+const root=path.resolve('.avid-mcp-analysis',`collection-alias-${randomUUID()}`),media=path.join(root,'media');await mkdir(media,{recursive:true});
+const originalRoot=path.join(media,'original');await mkdir(originalRoot);
+const original=path.join(originalRoot,'original.mp4'),alias=path.join(media,'reconnected.mp4');
+const generated=await runProcess('ffmpeg',['-nostdin','-v','error','-n','-i',source,'-t','1','-map','0:v:0','-map','0:a:0','-c:a','aac','-c:v','libx264',original],{timeoutMs:30000,maxOutputBytes:1048576});assert.equal(generated.exitCode,0,generated.stderr);await copyFile(original,alias);const id=await sha256File(original);
+const connect=async(roots=media)=>{const client=new Client({name:'collection-alias-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:roots,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:path.resolve('.avid-mcp-analysis/models'),AVID_MCP_CAPABILITIES:'inspect,export,project-write'}}));return client;};
+let client=await connect();
+const call=async(name,args)=>{const response=await client.callTool({name,arguments:args});assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+import {realpath} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+try{
+ await call('avid_index_media',{files:[original,alias]});
+ const collection=await call('avid_save_collection',{collection:{name:'Alias recovery selects',selects:[{id,start:0,end:0.5,label:'',tags:[],note:''}]}});
+ await client.close();await writeFile(original,'changed disposable source');client=await connect();
+ const discovered=await call('avid_list_collections',{limit:1});assert.equal(discovered.results.length,1);assert.equal(discovered.results[0].revision,collection.revision);assert.equal(discovered.results[0].duration,0.5);assert.equal(discovered.nextAfter,null);
+ const exported=await call('avid_export_collection_otio',{revision:collection.revision,rate:30});
+ const bytes=await readFile(exported.output),document=JSON.parse(bytes.toString()),clip=document.tracks.children[0].children[0];
+ assert.equal(clip.media_references.DEFAULT_MEDIA.target_url,pathToFileURL(await realpath(alias)).href);
+ assert.equal(clip.source_range.start_time.value,0);assert.equal(clip.source_range.duration.value,15);assert.equal(clip.metadata.avid_mcp.sourceSha256,id);
+ const directory=path.dirname(exported.output),before=(await readdir(directory)).sort();
+ await writeFile(alias,'changed disposable alias');
+ const refused=await client.callTool({name:'avid_export_collection_otio',arguments:{revision:collection.revision,rate:30}});
+ assert.equal(refused.isError,true);assert.ok(JSON.stringify(refused).includes('Source changed since indexing'));
+ assert.deepEqual((await readdir(directory)).sort(),before);assert.deepEqual(await readFile(exported.output),bytes);assert.equal(await sha256File(source),sourceHash);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({discovered,exported,collection,id,refused,originalSourceUnchanged:true,scope:'Actual MCP collection discovery and export after reconnect using verified alias; exact OTIO reference and range, stale-source refusal without publication. No native OTIO import qualification.'},null,2));
+ console.log(JSON.stringify({passed:true,root}));
+}finally{await client.close();}

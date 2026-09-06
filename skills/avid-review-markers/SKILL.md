@@ -1,0 +1,37 @@
+---
+name: avid-review-markers
+description: Apply requested review notes as verified native Avid clip markers or whole-clip Comments, or prepare a marker package when a qualified host is unavailable.
+---
+
+Read `avid_get_capabilities` and the current schemas for `avid_native_read`, `avid_native_preview` and `avid_native_apply`. The native adapter requires a qualified local binary and current project access.
+
+For independent saved-bin review, capture the authorized AVBs with `avid_snapshot_saved_bins`, discover the exact MOB/bin, and page `avid_saved_markers` with an unchanged revision, MOB ID and bin path. `not_recorded` means the snapshot predates marker capture; it does not mean the bin has no markers. Keep `unresolved` positions unresolved and treat `declared_effect_input` positions as input declarations, not verified effect output. Saved marker IDs that lack a normalized `guid` are not valid native-write UUIDs. This tool reads saved reachable occurrences and excludes unsaved changes; use native readback for current editor state.
+
+1. Read the project, bins, target clips and existing markers. Resolve the requested clip to an observed MOB ID and bin; ambiguous names require disambiguation before writes.
+2. Convert review timestamps to the target's edit units using its observed rate and time origin. Do not interpret displayed source timecode as a zero-based marker offset. Preserve the requested track, text and color.
+3. Preview each `add_marker`, `change_marker` or `delete_marker` operation. Review the returned state and blockers, then apply the exact token within the user's authorized scope. Tokens are single-use; a stale-state failure requires a fresh read and preview.
+4. For `change_marker`, require `markerChangedVerified: true`. This compares the entire marker list against its captured baseline, permitting only the requested comment/color changes on the single target. It checks unrelated notes, target position and other fields, and rejects an ambiguous target. `applicationCompleted` or `postStateRead` alone does not prove the edit. Read markers again and compare GUID, offset, track, comment and color. After an uncertain write result, read first to avoid duplicate notes. Do not blindly replay a consumed token.
+
+For 1–100 reviewed notes on the same qualified 30 fps clip, `add_markers` can send one batch. Give each marker a unique UUID and preserve the returned lowercase IDs; case-only duplicate IDs are refused. Read the native track inventory first: a stereo A1 track is one track, not separate A1/A2 targets. Supply the observed track labels and zero-based offsets. Batch names/comments require printable ASCII; do not silently rewrite unsupported text. Check `markersVerified` and reread the resulting markers. Native protobuf readback may omit the default picture-track type or frame-zero offset. A completed application is not atomic success or saved persistence, and a partial result must be reconciled by GUID before planning any remaining work.
+
+For single `add_marker`, require `markerAddedVerified: true` and retain the native GUID from `result`. Preflight requires an in-range offset and observed track on a qualified 30 fps clip. Verification checks the returned identity, all requested fields and preservation of every prior marker. On an uncertain result, read current markers before creating another note; do not replay the token or assume absence. Save/reopen remains separate from in-memory verification.
+
+Use an explicit empty comment to clear requested marker text. Native protobuf readback may omit empty strings; the verifier handles that default only for the requested target comment and requested creation name/comment fields. Invalid null values and changes to unrelated notes still fail verification. Do not infer that omitted fields elsewhere permit changes.
+
+For an explicitly requested removal of 1–100 known markers, preview `delete_markers` with their exact `guids` and apply its token. Check `markersRemovedVerified`, then reread markers and verify that notes outside the request remain unchanged. Do not broaden a removal to all markers merely because they share a color or author. An uncertain or partial deletion requires a fresh read; do not replay the consumed token or re-create deleted notes automatically.
+
+For the single-note `delete_marker` operation, require `markerRemovedVerified: true`. The adapter verifies exact removal of the one current identity and preservation of every remaining record. A returned native call or successful read alone is insufficient. Inspect after any verification failure before making a fresh plan; persistence remains a separate save/reopen check.
+
+If native execution is unavailable, use `avid_validate_marker_package` to validate a prepared package against the current schema and report that no host change occurred. Do not substitute an unqualified UI macro for native confirmation.
+
+For a requested whole-clip Comments edit, resolve the exact bin and MOB ID, then use `avid_native_read` with `bin_columns` and `clip_columns`. Require a writable String Comments declaration and a returned Comments row. The empty-inclusive read can report an empty value; an absent row is unavailable and must not be assumed empty. Preserve existing text unless its replacement or removal is within the user's request.
+
+Preview `set_clip_comment` with the exact observed `expectedComment` and requested `comment`, then apply its token within the authorized scope. The qualified write accepts at most 1,024 printable ASCII characters; do not silently transliterate, truncate or remove line breaks from unsupported text. An empty comment explicitly clears the field. Check `commentVerified` and independently reread `clip_columns`; an uncertain result requires inspection before any retry. Do not turn timestamped notes into whole-clip comments unless that is what the user requested.
+
+For saved review evidence, use `avid_snapshot_saved_bins`, `avid_saved_snapshot_mobs` and `avid_diff_saved_snapshots`. `commentStatus: not_recorded` means historical capture lacked this field; `absent` means the attribute was absent; `recorded` includes an explicit empty string. Snapshot differences can reflect newly recorded fields rather than an edit. Native comment readback and saved comment evidence are separate; a successful write alone does not establish persistence. Never save or close unrelated bins merely to obtain evidence.
+
+After timeline edits, refresh native marker identities before another native write. An observed trim and undo changed saved IDs while native UUIDs remained stable within the session. `SAVED_TRIM_MARKER_IDENTITIES_CHANGED` means exact saved-state verification failed; inspect saved and current native markers without automatic rekeying or position/name matching. Do not assume undo restores saved identities or that session UUIDs survive reopen/restart.
+
+An observed bin reload replaced original native UUIDs with saved non-UUID identifiers in the native `guid` field. Refresh after reload; never replay old IDs. `delete_markers` accepts UUIDs and the observed native form `060a2b340101010501010f1013-000000-<16 hex>-<12 hex>-<4 hex>`. Use exact current native identities without conversion or substitution; unsupported forms remain unavailable. New marker creation still requires UUIDs.
+
+Return verified changes and any unresolved notes. Saved-bin persistence needs a separate save/reopen check; an in-memory read proves only the current host state.

@@ -1,0 +1,27 @@
+import {cp,mkdir,writeFile,readFile,unlink} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const root=path.resolve('.avid-mcp-analysis',`runtime-install-proof-${randomUUID()}`);await mkdir(root);const cache=path.join(root,"models");
+const cli=async args=>{const result=await runProcess(process.execPath,['dist/cli.js',...args],{timeoutMs:300000,maxOutputBytes:1024*1024});assert.equal(result.exitCode,0,result.stderr);return JSON.parse(result.stdout);};
+const installed=await cli(['--install-model-runtime','--model-dir',cache]);assert.equal(installed.reused,false);
+const before=await cli(['--model-runtime-status','--model-dir',cache]);assert.equal(before.managed,true);assert.equal(before.unchanged,true);assert.equal(before.receipt.adoptedLegacy,false);
+const lock=path.join(cache,'runtime','package-lock.json'),lockHash=await sha256File(lock);
+const reused=await cli(['--install-model-runtime','--model-dir',cache]);assert.equal(reused.reused,true);assert.equal(reused.treeSha256,before.treeSha256);assert.equal(await sha256File(lock),lockHash);
+const destination=path.join(cache,'Xenova','distilbart-cnn-6-6');await cp(path.resolve('.avid-mcp-analysis/models/Xenova/distilbart-cnn-6-6'),destination,{recursive:true,errorOnExist:true,force:false});
+const code=`import {loadSummaryModel} from './dist/library/summaries.js';const model=await loadSummaryModel(${JSON.stringify(cache)},false);try{console.log(JSON.stringify(await model("A person grips holds on an indoor climbing wall.",{max_new_tokens:40,min_new_tokens:8,do_sample:false,num_beams:1})));}finally{await model.dispose();}`;
+const inference=await runProcess(process.execPath,['--input-type=module','-e',code],{timeoutMs:180000,maxOutputBytes:1024*1024});assert.equal(inference.exitCode,0,inference.stderr);const generated=JSON.parse(inference.stdout);assert.ok(generated[0].summary_text);
+// This owned fixture lock has no installer process; never remove real retained locks this way.
+const setupLock=path.join(cache,'.runtime-install.lock');await writeFile(setupLock,'qualification-owned lock',{flag:'wx'});
+const locked=await cli(['--model-runtime-status','--model-dir',cache]);assert.equal(locked.unchanged,true);assert.equal(locked.inferencePreflight.state,'setup_lock_present');assert.equal(locked.inferencePreflight.passed,false);
+const lockedInference=await runProcess(process.execPath,['--input-type=module','-e',code],{timeoutMs:180000,maxOutputBytes:1024*1024});
+assert.notEqual(lockedInference.exitCode,0);assert.match(lockedInference.stderr,/setup lock exists/);assert.equal(await readFile(setupLock,'utf8'),'qualification-owned lock');await unlink(setupLock);
+const resumedInference=await runProcess(process.execPath,['--input-type=module','-e',code],{timeoutMs:180000,maxOutputBytes:1024*1024});assert.equal(resumedInference.exitCode,0,resumedInference.stderr);assert.deepEqual(JSON.parse(resumedInference.stdout),generated);
+const extra=path.join(cache,'runtime','qualification-extra.txt');await writeFile(extra,'preserve',{flag:'wx'});
+const changed=await cli(['--model-runtime-status','--model-dir',cache]);assert.equal(changed.unchanged,false);
+const refused=await runProcess(process.execPath,['dist/cli.js','--install-model-runtime','--model-dir',cache],{timeoutMs:30000,maxOutputBytes:1024*1024});assert.notEqual(refused.exitCode,0);assert.match(refused.stderr,/tree changed/);assert.equal(await readFile(extra,'utf8'),'preserve');await unlink(extra);
+assert.equal((await cli(['--model-runtime-status','--model-dir',cache])).unchanged,true);assert.equal(await sha256File(lock),lockHash);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({installed,before,reused,fetchRejected:true,lockUnchanged:true,cachedWeightInference:generated,locked,setupLockInferenceRefused:true,fixtureLockPreserved:true,inferenceAfterFixtureLockRemovalMatches:true,changed,changedTreeRefused:true,unexpectedFilePreserved:true,scope:'Actual Windows fresh runtime receipt, idempotent CLI reuse, cached summary model inference, owned setup-lock refusal and changed-tree refusal. Copied existing pinned weights; not real stale-lock recovery, fresh weight download, clean-machine dependencies or named-client proof.'},null,2));
+console.log(JSON.stringify({passed:true,evidence:path.join(root,'evidence.json')}));

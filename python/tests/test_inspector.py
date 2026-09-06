@@ -46,5 +46,35 @@ class InspectorTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
 
 
+
+class InspectorConsoleEncodingTests(unittest.TestCase):
+    def test_unicode_result_is_valid_json_on_a_windows_legacy_stream(self):
+        import io
+        import json
+        from unittest.mock import patch
+        from python.avid_inspector import main
+        buffer = io.BytesIO()
+        output = io.TextIOWrapper(buffer, encoding="cp1252")
+        expected = {"name": "葡萄園 🎬", "metadata": {"字幕": "café"}}
+        with patch("sys.argv", ["inspector", "probe"]), patch("sys.stdout", output), patch("python.avid_inspector.probe", return_value=expected):
+            code = main()
+            output.flush()
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(buffer.getvalue().decode("ascii")), expected)
+
+    def test_unicode_error_is_valid_json_on_a_windows_legacy_stream(self):
+        import io
+        import json
+        from unittest.mock import patch
+        from python.avid_inspector import main
+        buffer = io.BytesIO()
+        output = io.TextIOWrapper(buffer, encoding="cp1252")
+        with patch("sys.argv", ["inspector", "probe"]), patch("sys.stdout", output), patch("python.avid_inspector.probe", side_effect=ValueError("無法讀取 🎬")):
+            code = main()
+            output.flush()
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(buffer.getvalue().decode("ascii"))["error"]["message"], "無法讀取 🎬")
+
+
 if __name__ == "__main__":
     unittest.main()

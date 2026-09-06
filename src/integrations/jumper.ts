@@ -1,0 +1,130 @@
+import {z} from "zod";
+import {AvidMcpError} from "../errors.js";
+import {resolveReadablePath} from "../security/path-policy.js";
+import {verifyWindowsLoopbackOwner,verifyWindowsLoopbackConnection} from "./loopback-owner.js";
+import {verifiedHttpJson} from "./verified-http.js";
+import path from "node:path";
+
+const matchSchema=z.object({
+  frame_idx:z.string().regex(/^\d+$/).max(20),timestamp:z.string().max(32),
+  scene_start_timestamp:z.string().max(32),scene_end_timestamp:z.string().max(32),
+  original_index:z.number().int().nonnegative(),hash_str:z.string().max(256),video_path:z.string().max(32768),
+});
+const responseSchema=z.object({matches:z.array(matchSchema).max(100)});
+const transcriptSchema=z.object({matches:z.array(z.object({media_path:z.string().min(1).max(32768),hash_str:z.string().max(256),start_seconds:z.number().nonnegative(),end_seconds:z.number().nonnegative(),text:z.string().max(65536),start_timestamp:z.string().max(32),end_timestamp:z.string().max(32),speaker:z.string().max(256).optional(),speaker_name:z.string().max(256).optional(),speakers:z.array(z.string().max(256)).max(100).optional()}).refine(match=>match.end_seconds>match.start_seconds)).max(100)});
+const fail=(code:string,message:string)=>new AvidMcpError(`JUMPER_${code}`,message);
+function boundedResult<T>(result:T):T{
+  if(Buffer.byteLength(JSON.stringify(result),"utf8")>256*1024)throw fail("OUTPUT_SIZE","Provider result exceeds 256 KiB; reduce the result limit or media selection");
+  return result;
+}
+interface JumperOptions {baseUrl?:string;licenseKey:string;allowedRoots:readonly string[];timeoutMs?:number;maxResponseBytes?:number;owner?:{binary:string;sha256:string;identity:string}}
+const pairingSchema=z.object({binary:z.string().refine(path.isAbsolute),sha256:z.string().regex(/^[a-f0-9]{64}$/),identity:z.string().regex(/^[1-9]\d*:.+$/).max(128)}).strict();
+
+/** Environment-only credentials; a partially configured provider is never enabled. */
+export function configuredJumperClient(env:NodeJS.ProcessEnv,allowedRoots:readonly string[]){
+  const names=["AVID_MCP_JUMPER_URL","AVID_MCP_JUMPER_LICENSE_KEY","AVID_MCP_JUMPER_BINARY","AVID_MCP_JUMPER_SHA256","AVID_MCP_JUMPER_IDENTITY"] as const;
+  if(names.every(name=>env[name]===undefined))return undefined;
+  if(names.slice(1).some(name=>!env[name]?.trim()))throw fail("CONFIG","Provider configuration requires license, executable, checksum and process identity");
+  return new JumperReadClient({...(env.AVID_MCP_JUMPER_URL!==undefined?{baseUrl:env.AVID_MCP_JUMPER_URL}:{}),licenseKey:env.AVID_MCP_JUMPER_LICENSE_KEY!,allowedRoots,
+    owner:{binary:env.AVID_MCP_JUMPER_BINARY!,sha256:env.AVID_MCP_JUMPER_SHA256!,identity:env.AVID_MCP_JUMPER_IDENTITY!}});
+}
+
+/** Configuration syntax only: no filesystem, process or network probes. */
+export function jumperConfigurationStatus(env:NodeJS.ProcessEnv){
+  let state:"absent"|"invalid"|"configured";
+  try{state=configuredJumperClient(env,[])?"configured":"absent";}catch{state="invalid";}
+  return {state,platformSupported:process.platform==="win32",listenerVerified:false,runtimeVersionVerified:false,
+    nextStep:state==="absent"?"Optional provider is disabled":state==="invalid"?"Correct provider URL, license, binary, checksum and identity configuration":"Use avid_jumper_read health to verify the current paired listener",
+    scope:"Configuration validation only; no provider or listener request performed"};
+}
+
+/** Optional licensed provider. No SDK, model downloads, analysis writes or image output. */
+export class JumperReadClient {
+  private readonly base:string;
+  private readonly options:Readonly<JumperOptions>;
+  constructor(options:JumperOptions){
+    if(options.owner!==undefined&&!pairingSchema.safeParse(options.owner).success)throw fail("PAIRING","Provider pairing requires an absolute executable, checksum and process identity");
+    const base=new URL(options.baseUrl??"http://127.0.0.1:6699/api/v1");
+    if(base.protocol!=="http:"||!["127.0.0.1","[::1]"].includes(base.hostname)||base.username||base.password||base.search||base.hash||base.pathname!=="/api/v1")throw fail("ENDPOINT","Provider must use a literal loopback HTTP address and /api/v1 path");
+    if(!options.licenseKey.trim()||/[\r\n]/.test(options.licenseKey))throw fail("LICENSE","A local provider license key is required");
+    for(const [name,value,min,max] of [["timeout",options.timeoutMs??10000,1,120000],["response limit",options.maxResponseBytes??8*1024*1024,1024,32*1024*1024]] as const){
+      if(!Number.isSafeInteger(value)||value<min||value>max)throw fail("LIMIT",`Invalid ${name}`);
+    }
+    this.base=base.href;
+    this.options=Object.freeze({...options,allowedRoots:Object.freeze([...options.allowedRoots]),...(options.owner?{owner:Object.freeze({...options.owner})}:{})});
+  }
+  private async request(endpoint:"/health"|"/search/text"|"/search/transcript"|"/search/image"|"/search/frame",body?:unknown):Promise<unknown>{
+    if(this.options.owner){
+      const url=new URL(this.base);
+      await verifyWindowsLoopbackOwner({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",binary:this.options.owner.binary,sha256:this.options.owner.sha256,expectedIdentity:this.options.owner.identity});
+      const owner=this.options.owner;
+      return verifiedHttpJson({url:new URL(this.base+endpoint),...(body===undefined?{}:{body:JSON.stringify(body)}),licenseKey:this.options.licenseKey,
+        timeoutMs:this.options.timeoutMs??10000,maxResponseBytes:this.options.maxResponseBytes??8*1024*1024,
+        verify:peerPort=>verifyWindowsLoopbackConnection({port:Number(url.port||80),address:url.hostname==="[::1]"?"::1":"127.0.0.1",peerPort,binary:owner.binary,sha256:owner.sha256,expectedIdentity:owner.identity})});
+    }
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),this.options.timeoutMs??10000);
+    try{
+      const response=await fetch(this.base+endpoint,{method:body===undefined?"GET":"POST",redirect:"error",signal:controller.signal,
+        headers:{accept:"application/json",...(body===undefined?{}:{"content-type":"application/json","X-License-Key":this.options.licenseKey})},
+        ...(body===undefined?{}:{body:JSON.stringify(body)})});
+      if(!response.ok){await response.body?.cancel();throw fail("HTTP",`Provider returned HTTP ${response.status}`);}
+      if(response.headers.get("content-type")?.split(";",1)[0]?.trim().toLowerCase()!=="application/json"){await response.body?.cancel();throw fail("CONTENT_TYPE","Provider did not return JSON");}
+      if(!response.body)throw fail("BODY","Provider response is empty");
+      const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0;
+      try{while(true){const item=await reader.read();if(item.done)break;size+=item.value.byteLength;
+        if(size>(this.options.maxResponseBytes??8*1024*1024)){await reader.cancel();throw fail("SIZE","Provider response exceeds configured bound");}chunks.push(item.value);
+      }}finally{reader.releaseLock();}
+      return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+    }catch(error){
+      if(error instanceof AvidMcpError)throw error;
+      // Never propagate provider bodies, transport URLs or potentially echoed keys.
+      throw fail("REQUEST","Provider request failed or returned invalid JSON");
+    }finally{clearTimeout(timer);}
+  }
+  async health(){
+    const result=z.object({status:z.literal("ok")}).safeParse(await this.request("/health"));
+    if(!result.success)throw fail("SCHEMA","Provider health response does not match the public contract");
+    return {status:result.data.status,provider:"jumper",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"};
+  }
+  async searchTranscript(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number;speaker?:string}){
+    const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50),speaker:z.string().trim().min(1).max(256).optional()}).parse(input);
+    const cache=await resolveReadablePath(args.cacheDirectory,this.options.allowedRoots,"directory");
+    const media=[...new Set(await Promise.all(args.mediaPaths.map(file=>resolveReadablePath(file,this.options.allowedRoots,"file"))))];
+    const parsed=transcriptSchema.safeParse(await this.request("/search/transcript",{query:args.query,cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false,...(args.speaker?{speaker:args.speaker}:{})}));
+    if(!parsed.success||parsed.data.matches.length>args.limit)throw fail("SCHEMA","Provider transcript response has unresolved paths or invalid bounded segments");
+    const matches=[];
+    for(const match of parsed.data.matches){
+      const file=await resolveReadablePath(match.media_path,this.options.allowedRoots,"file");
+      if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
+      matches.push({...match,media_path:file});
+    }
+    return boundedResult({provider:"jumper",matches,matching:"case-insensitive substring per provider contract",timeBasis:"provider source seconds; not independently aligned",speakerBasis:"transcript-local labels, not face identities",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"});
+  }
+  async searchReference(input:{kind:"image"|"frame";referencePath:string;timeSeconds?:number;query?:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
+    const args=z.object({kind:z.enum(["image","frame"]),referencePath:z.string().min(1),timeSeconds:z.number().finite().nonnegative().optional(),query:z.string().trim().min(1).max(4096).optional(),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).strict().parse(input);
+    if(args.kind==="frame"&&args.timeSeconds===undefined)throw fail("INPUT","Frame search requires timeSeconds");
+    if(args.kind==="image"&&args.timeSeconds!==undefined)throw fail("INPUT","Image search does not accept timeSeconds");
+    const reference=await resolveReadablePath(args.referencePath,this.options.allowedRoots,"file");
+    const cache=await resolveReadablePath(args.cacheDirectory,this.options.allowedRoots,"directory");
+    const media=[...new Set(await Promise.all(args.mediaPaths.map(file=>resolveReadablePath(file,this.options.allowedRoots,"file"))))];
+    const result=await this.request(args.kind==="image"?"/search/image":"/search/frame",{...(args.kind==="image"?{image_path:reference}:{media_path:reference,time_seconds:args.timeSeconds}),...(args.query!==undefined?{query:args.query}:{}),cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false});
+    return this.visualResult(result,media,args.limit);
+  }
+  private async visualResult(result:unknown,media:string[],limit:number){
+    const parsed=responseSchema.safeParse(result);
+    if(!parsed.success||parsed.data.matches.length>limit)throw fail("SCHEMA","Provider search response does not match the bounded public contract");
+    const matches=[];
+    for(const match of parsed.data.matches){
+      const file=await resolveReadablePath(match.video_path,this.options.allowedRoots,"file");
+      if(!media.includes(file))throw fail("SCOPE","Provider returned media outside the requested selection");
+      matches.push({...match,video_path:file});
+    }
+    return boundedResult({provider:"jumper",matches,imagesOmitted:true,scoreAvailable:false,indexBasis:"one frame per second; not source edit frames",runtimeVersionVerified:false,ownershipPreflight:this.options.owner?"passed":"not_configured"});
+  }
+  async searchText(input:{query:string;cacheDirectory:string;mediaPaths:string[];limit?:number}){
+    const args=z.object({query:z.string().trim().min(1).max(4096),cacheDirectory:z.string().min(1),mediaPaths:z.array(z.string().min(1)).min(1).max(100),limit:z.number().int().min(1).max(100).default(50)}).parse(input);
+    const cache=await resolveReadablePath(args.cacheDirectory,this.options.allowedRoots,"directory");
+    const media=[...new Set(await Promise.all(args.mediaPaths.map(file=>resolveReadablePath(file,this.options.allowedRoots,"file"))))];
+    return this.visualResult(await this.request("/search/text",{query:args.query,cache_dir:cache,media_paths:media,max_results:args.limit,search_all:false}),media,args.limit);
+  }
+}

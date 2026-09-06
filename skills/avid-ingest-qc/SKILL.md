@@ -1,0 +1,23 @@
+---
+name: avid-ingest-qc
+description: Inventory local editorial media, create contact sheets, and review bounded technical QC with Avid Media Composer MCP.
+---
+
+Use the connected Avid MCP tool schemas as the argument contract. Start with `avid_get_capabilities`; report missing dependencies or path scope before attempting dependent work.
+
+1. Index the requested files with `avid_index_media` in batches of at most 100. Retain returned content IDs; do not substitute filenames for IDs.
+2. Read `avid_library_metadata` and `avid_media_facets`. Flag mixed rates, dimensions, codecs and channel counts using observed values.
+3. Produce `avid_media_report` and, when useful, `avid_contact_sheet` (at most 40 files per sheet). Use `avid_thumbnail_strip` to review up to 120 uniform samples across a clip range, with requested seek-time labels. Keep its HTML, manifest and JPEGs together when sharing. These artifacts require export capability.
+4. Run `avid_media_qc` over explicit source-time ranges. Each call covers at most ten minutes; choose absolute stream indices or omit selectors for the first video/audio streams. For longer material, record each covered interval and any gaps. Review black, freeze and silence findings in context: a fade or still shot can be intentional. Inspect `audioCoverage` for partial or excess sample amounts; matching amounts do not establish synchronization. `videoCoverage.decodedFrames` counts processed frames in the requested range, without inferring continuous coverage or constant frame rate. Do not derive a delivery pass from frame count times nominal rate. An empty selected video range fails without a report. Saved-report `videoCoverageStatus: not_recorded` means legacy coverage is unknown, while `video_not_selected` means video analysis was explicitly absent.
+5. Use `avid_qc_reports` to discover saved reports for a media ID. Follow its cursor even when a page has no matching reports. Read a chosen revision with `avid_read_qc_report`, supplying the returned checksum. These inspect-only tools require the current source and do not rerun QC. A stored report is not authenticated proof of the original analysis.
+6. Return report revisions/checksums, source IDs, coverage intervals and unresolved findings. Loudness measurements and timestamp checks do not certify broadcast delivery or perceptual sync.
+
+For recurring ingest, configure `avid_configure_watch_folder`, then explicitly start `avid_watch_service`. Two stable observations precede indexing. Polling ends with the MCP session; a saved watch configuration does not mean the service is running.
+
+When transcript QA is requested, preserve the selected revision and checksum from `avid_transcript_revisions`. Machine words can be false even when language detection returns a candidate: local negative probes produced words for tone and white noise. Do not treat language-token scores as speech-presence confidence.
+
+Use `avid_speaker_analyses` to discover existing segmentation for the same source/range. Follow discovery cursors and inspect availability. If analysis is needed and local analysis is authorized, `avid_diarize_audio` requires the separately installed runtime and export/project-write capabilities. A missing runtime, failed job or unavailable record is not evidence of no speech.
+
+Read `avid_speaker_analysis` and its `speechPresence` summary. Coverage uses all selected-view spans, not just the returned page; follow span pagination when reviewing intervals. Use machine view to inspect original model evidence and effective view to inspect corrections. Empty effective coverage can reflect removed spans. For checksum-selected transcript/analysis inputs, `avid_align_speakers` provides per-segment overlap and gaps; follow `nextAfter` until null. Flag `no_speech_overlap` for source-audio review, retaining the original text. Do not suppress phrases, infer speaker identities or certify speech absence from these model estimates. Correct a transcript only when the task authorizes review edits and the source supports the correction.
+
+Example request: “Inventory these rushes, make contact sheets, and check the first two minutes of each for black frames and silence.” Do not link media into Avid unless the request includes editor ingest.

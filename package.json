@@ -6,13 +6,22 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
+    "avid-mcp": "dist/cli.js",
     "avid-media-composer-mcp": "dist/index.js"
   },
   "files": [
     "dist",
     "python/avid_inspector.py",
+    "python/avid_timeline.py",
+    "python/avid_markers.py",
+    "python/avid_faces.py",
+    "python/avid_diarization.py",
+    "python/avid_aaf_builder.py",
+    "python/avid_aaf_merge.py",
+    "python/avid_aaf_graph.py",
     "python/requirements.txt",
     "docs",
+    "skills",
     "README.md",
     "llms.txt",
     "CITATION.cff",
@@ -41,7 +50,7 @@
     "pack:dry-run": "npm pack --dry-run",
     "publish:npm": "node scripts/publish-npm.mjs",
     "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run",
-    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run && npm run smoke:package"
+    "check": "npm run typecheck && npm test && npm run test:python && npm run smoke && npm run smoke:http && npm run pack:dry-run && npm run smoke:package -- --with-python"
   },
   "repository": {
     "type": "git",
@@ -85,9 +94,11 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "posthog-node": "^5.49.1",
-    "zod": "^4.4.3"
+    "protobufjs": "^8.8.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@types/node": "^26.2.0",
     "@vitest/coverage-v8": "^4.1.10",
     "tsx": "^4.23.12",
@@ -95,6 +106,8 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "@hono/node-server": "^2.0.11"
+    "@hono/node-server": "^2.0.11",
+    "sharp": "^0.35.0",
+    "adm-zip": "^0.6.0"
   }
 }

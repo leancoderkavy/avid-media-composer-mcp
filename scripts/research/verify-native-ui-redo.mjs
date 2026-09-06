@@ -1,0 +1,12 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {verifySavedDualRollerTrim} from '../../dist/native/trim-verifier.js';
+const root=path.resolve('.avid-mcp-analysis/native-ui-redo-20260906');
+const [trim,undo,redo,restored]=await Promise.all(['trim','undo','redo','restored'].map(async stage=>JSON.parse(await readFile(path.join(root,stage+'.json'),'utf8'))));
+const baseline=JSON.parse(await readFile('.avid-mcp-analysis/native-ui-trim-20260906/baseline.json','utf8'));
+const sequence=baseline.mobs.find(m=>m.name==='MCP_Sonoma_AAF_Selects.Copy.05');assert.ok(sequence);
+const plan={mobId:sequence.mobId,cut:60,delta:1,trackOrdinals:[0,1,2]};
+verifySavedDualRollerTrim(baseline,trim,plan);verifySavedDualRollerTrim(undo,redo,plan);verifySavedDualRollerTrim(redo,restored,{...plan,cut:61,delta:-1});
+const mobs=g=>[...g.mobs].sort((a,b)=>a.mobId.localeCompare(b.mobId));assert.deepEqual(mobs(trim),mobs(redo));assert.deepEqual(mobs(undo),mobs(baseline));assert.deepEqual(mobs(restored),mobs(baseline));
+const result={sameSessionRedoVerified:true,allDecodedMobsRestored:true,hashes:{trim:trim.sha256,undo:undo.sha256,redo:redo.sha256,restored:restored.sha256},scope:'One controlled same-session UI trim/save/undo/save/redo/save/undo/save cycle. Does not establish history after bin closure, arbitrary edits, or playback fidelity.'};await writeFile(path.join(root,'verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));

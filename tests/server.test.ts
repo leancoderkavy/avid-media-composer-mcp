@@ -32,9 +32,22 @@ describe("MCP server surface", () => {
 
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(27);
+      expect(tools.tools).toHaveLength(140);
+      expect(tools.tools.find(tool=>tool.name==="avid_source_clock_status")?.annotations?.readOnlyHint).toBe(true);
+      const unconfigured=await client.callTool({name:"avid_jumper_read",arguments:{operation:"health"}});
+      expect(unconfigured.isError).toBe(true);
+      expect(JSON.stringify(unconfigured)).toContain("Optional Jumper provider is not configured");
       expect(tools.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining([
+          "avid_prepare_source_clock_media",
+          "avid_people_runs", "avid_people_run", "avid_resume_people",
+          "avid_people_indices",
+          "avid_find_similar_faces",
+          "avid_summarize_captions", "avid_visual_summary_node", "avid_list_visual_summaries", "avid_delete_visual_summary", "avid_caption_batch", "avid_caption_runs", "avid_caption_run", "avid_resume_captions", "avid_caption_frame", "avid_read_caption", "avid_list_captions", "avid_correct_caption", "avid_delete_caption",
+          "avid_detect_speech_language",
+          "avid_speech_runs", "avid_speech_run", "avid_resume_speech",
+          "avid_summary_runs", "avid_summary_run", "avid_resume_summary",
+          "avid_visual_index_runs", "avid_visual_index_run", "avid_resume_visual_index",
           "avid_get_compatibility_matrix",
           "avid_check_compatibility",
           "avid_detect_installations",
@@ -45,6 +58,16 @@ describe("MCP server surface", () => {
           "avid_get_extension_capability_manifest",
           "avid_diagnose_integrations",
           "avid_ctms_read",
+          "avid_diarize_audio",
+          "avid_speaker_checkpoint",
+          "avid_resume_speakers",
+          "avid_align_speakers",
+          "avid_correct_speaker_analysis",
+          "avid_assign_transcript_speakers",
+          "avid_transcript_speaker_assignments",
+          "avid_speaker_analysis",
+          "avid_speaker_analyses",
+          "avid_delete_speaker_analysis",
         ]),
       );
       expect(tools.tools.map((tool) => tool.name)).toContain("avid_analyze_project");

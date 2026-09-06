@@ -1,0 +1,44 @@
+import {SpeakerAnalysis} from "./diarization.js";
+import {VisualSummaries} from "./visual-summaries.js";
+import {CaptionBatches} from "./caption-batches.js";
+import {FrameCaptions} from "./captions.js";
+import {MediaSummaries} from "./summaries.js";
+import {MediaQc} from "./qc.js";
+import {ShotDetection} from "./shots.js";
+import {MediaLibrary} from "./media-library.js";
+import {VisualSearch} from "./visual.js";
+import {SpeechAnalysis} from "./speech.js";
+import {People} from "./people.js";
+import {jobSchema} from "./jobs.js";
+import type {ServerConfig} from "../config.js";
+const input:Buffer[]=[];let inputBytes=0;
+for await(const chunk of process.stdin){inputBytes+=chunk.length;if(inputBytes>1024*1024)throw new Error("Worker input exceeds limit");input.push(Buffer.from(chunk));}
+try{
+  const payload=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(Buffer.concat(input)));
+  const config:ServerConfig={...payload.config,capabilities:new Set(payload.config.capabilities)};
+  const spec=jobSchema.parse(payload.spec);
+  const library=new MediaLibrary(config);
+  let result;
+  switch(spec.kind){
+    case "diarization_resume":result=await new SpeakerAnalysis(config).resume(spec.analysisId,spec.expectedSha256);break;
+    case "diarization":result=await new SpeakerAnalysis(config).generate(spec.id,spec.start,spec.end,spec.options);break;
+    case "visual_summary":result=await new VisualSummaries(config).generate(spec.id,spec.references);break;
+    case "caption_batch":result=await new CaptionBatches(config).generate(spec.id,spec.times);break;
+    case "caption_resume":result=await new CaptionBatches(config).resume(spec.runId);break;
+    case "caption":result=await new FrameCaptions(config).generate(spec.id,spec.time);break;
+    case "people_resume":result=await new People(config).resume(spec.indexId);break;
+    case "speech_resume":result=await new SpeechAnalysis(config).resume(spec.runId);break;
+    case "summary_resume":result=await new MediaSummaries(config).resume(spec.runId);break;
+    case "visual_resume":result=await new VisualSearch(config).resume(spec.runId);break;
+    case "visual_shots":result=await new VisualSearch(config).indexShots(spec.id,spec.options);break;
+    case "shots":result=await new ShotDetection(config).detect(spec.id,spec.options);break;
+    case "summary":result=await new MediaSummaries(config).generate(spec.id,spec.transcriptRevision);break;
+    case "qc":result=await new MediaQc(config).analyze(spec.id,spec.options);break;
+    case "index":result=await library.index(spec.files);break;
+    case "visual":result=await new VisualSearch(config).index(spec.ids,spec.samples,spec.range);break;
+    case "speech":result=await new SpeechAnalysis(config).transcribe(spec.id,spec.start,spec.end,spec.options);break;
+    case "people":result=await new People(config).index(spec.ids,spec.samples,spec.threshold,spec.range);break;
+    case "artifact":result=await library.artifact(spec.id,spec.format,spec.start,spec.end);break;
+  }
+  console.log(JSON.stringify(result));
+}catch(error){console.error((error as Error).message);process.exitCode=1;}

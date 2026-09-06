@@ -9,3 +9,5 @@
 *.avb binary
 *.aaf binary
 *.mxf binary
+docs/licenses/*.LICENSE -text
+docs/licenses/onnxruntime.ThirdPartyNotices.txt -text

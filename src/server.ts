@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {NativeLockRecovery} from "./native/lock-recovery.js";
 import * as z from "zod/v4";
 import type { ServerConfig } from "./config.js";
 import { loadConfig } from "./config.js";
@@ -10,7 +11,7 @@ import { analyzeAle } from "./analysis/ale.js";
 import { analyzeConfigurationFile } from "./analysis/configuration.js";
 import { analyzeEdl } from "./analysis/edl.js";
 import { inventoryFiles } from "./analysis/file-inventory.js";
-import { analyzeMediaFile, probeFfprobe } from "./analysis/media.js";
+import { analyzeMediaFile, probeFfmpeg, probeFfprobe } from "./analysis/media.js";
 import { analyzeOtio } from "./analysis/otio.js";
 import { analyzeDnxTurnover } from "./analysis/dnx.js";
 import { validateSourceMarkerPackage } from "./analysis/markers.js";
@@ -38,14 +39,17 @@ import {
 import { detectInstallations } from "./compatibility/installations.js";
 import { telemetry } from "./telemetry.js";
 import { SERVER_VERSION } from "./version.js";
+import { NativeAdapter, nativeActionSchema } from "./native/adapter.js";
+import { registerLibraryTools } from "./library/tools.js";
+import {configuredJumperClient,jumperConfigurationStatus} from "./integrations/jumper.js";
 
 const INSTRUCTIONS = `Avid Media Composer MCP separates verified capability from aspiration.
 
 1. Start with avid_get_capabilities and avid_get_bridge_status.
 2. Use avid_analyze_project for offline project/bin/configuration analysis.
-3. Source media is read-only. Clip analysis uses ffprobe and never transcodes or modifies media.
+3. Source media is read-only. Export tools generate separate artifacts only when export authority is enabled.
 4. Preview every live change with avid_preview_edit_plan. Apply the exact returned token only after reviewing risks and blockers.
-5. Live editing requires a connected Media Composer Extension bridge. Never describe an edit as applied when the bridge is absent or returns an error.
+5. Extension tools require their bridge. Separately configured native tools use a qualified Windows adapter with their own preview tokens. Never substitute one adapter after a failed write.
 6. AVB is an unpublished Avid format. pyavb results are useful independent analysis, not an Avid-supported guarantee.
 7. Treat .lck files as authoritative collaboration signals and never mutate an open or locked bin offline.`;
 
@@ -176,6 +180,52 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
     { instructions: INSTRUCTIONS },
   );
 
+  const native = new NativeAdapter(config);
+  server.registerTool("avid_jumper_read",{
+    description:"Optional licensed Jumper provider: paired Windows loopback health, visual text/image/frame search or transcript substring search over explicit authorized media. Image/frame require authorized referencePath; frame requires nonnegative timeSeconds. Reference searches accept optional query refinement. Requires configured license/executable/hash/process identity. No analysis loading or writes. Images omitted; provider frame indices use 1 FPS, not Avid edit frames. Runtime version and licensed-provider behavior remain unqualified.",
+    inputSchema:{operation:z.enum(["health","search","transcript","image","frame"]),query:z.string().min(1).max(4096).optional(),referencePath:z.string().min(1).optional(),timeSeconds:z.number().finite().nonnegative().optional(),cacheDirectory:z.string().optional(),mediaPaths:z.array(z.string()).min(1).max(100).optional(),limit:z.number().int().min(1).max(100).optional(),speaker:z.string().min(1).max(256).optional()},
+    outputSchema:TOOL_OUTPUT_SCHEMA,annotations:NETWORK_READ_ANNOTATIONS,
+  },args=>execute("avid_jumper_read",async()=>{
+    requireInspect(config);
+    const provider=configuredJumperClient(config.jumperEnvironment??{},config.allowedRoots);
+    if(!provider)throw new Error("Optional Jumper provider is not configured");
+    if(args.operation==="health"){
+      if(args.query!==undefined||args.cacheDirectory!==undefined||args.mediaPaths!==undefined||args.limit!==undefined||args.speaker!==undefined||args.referencePath!==undefined||args.timeSeconds!==undefined)throw new Error("Health does not accept search fields");
+      return provider.health();
+    }
+    if(args.operation==="image"||args.operation==="frame"){
+      if(!args.referencePath||!args.cacheDirectory||!args.mediaPaths)throw new Error("Reference search requires referencePath, cacheDirectory and explicit mediaPaths");
+      if(args.speaker!==undefined)throw new Error("Speaker filter requires transcript search");
+      return provider.searchReference({kind:args.operation,referencePath:args.referencePath,cacheDirectory:args.cacheDirectory,mediaPaths:args.mediaPaths,...(args.timeSeconds!==undefined?{timeSeconds:args.timeSeconds}:{}),...(args.query!==undefined?{query:args.query}:{}),...(args.limit!==undefined?{limit:args.limit}:{})});
+    }
+    if(args.referencePath!==undefined||args.timeSeconds!==undefined)throw new Error("Reference fields require image or frame search");
+    if(!args.query||!args.cacheDirectory||!args.mediaPaths)throw new Error("Search requires query, cacheDirectory and explicit mediaPaths");
+    if(args.operation==="transcript")return provider.searchTranscript({query:args.query,cacheDirectory:args.cacheDirectory,mediaPaths:args.mediaPaths,...(args.limit!==undefined?{limit:args.limit}:{}),...(args.speaker!==undefined?{speaker:args.speaker}:{})});
+    if(args.speaker!==undefined)throw new Error("Speaker filter requires transcript search");
+    return provider.searchText({query:args.query,cacheDirectory:args.cacheDirectory,mediaPaths:args.mediaPaths,...(args.limit!==undefined?{limit:args.limit}:{})});
+  }));
+  const lockRecovery=new NativeLockRecovery(config);
+  server.registerTool("avid_native_lock_status", {description:"Inspect the per-user native lock and scoped retained export/import evidence. Import status includes current source/bin hashes and an evidence checksum for separate stopped-host recovery. No lock is released.",inputSchema:{},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:READ_ONLY_ANNOTATIONS},
+    ()=>execute("avid_native_lock_status",()=>lockRecovery.inspect()));
+  server.registerTool("avid_recover_native_export_lock", {description:"Release an explicitly retained export lock (EDL requires expectedEvidenceSha256 from inspection as well as expectedSha256) after checksum/scope checks and observing that Avid is stopped. Requires export. Archives the lock; never retries export or removes rendered output. Generic abandoned locks are excluded.",inputSchema:{expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),expectedEvidenceSha256:z.string().regex(/^[a-f0-9]{64}$/).optional()},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:EDIT_ANNOTATIONS},
+    ({expectedSha256,expectedEvidenceSha256})=>execute("avid_recover_native_export_lock",()=>lockRecovery.release(expectedSha256,expectedEvidenceSha256)));
+  server.registerTool("avid_recover_native_import_lock", {description:"Release only a retained AAF import lock after inspecting current attempt/bin/source evidence and observing Avid stopped. Requires edit plus export and both lock/evidence checksums. Archives evidence; never retries or undoes import, changes bins or edits media.",inputSchema:{expectedSha256:z.string().regex(/^[a-f0-9]{64}$/),expectedEvidenceSha256:z.string().regex(/^[a-f0-9]{64}$/)},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:EDIT_ANNOTATIONS},
+    ({expectedSha256,expectedEvidenceSha256})=>execute("avid_recover_native_import_lock",()=>lockRecovery.releaseImport(expectedSha256,expectedEvidenceSha256)));
+  registerLibraryTools(server, config);
+  server.registerTool("avid_native_read", {
+    description: "Opt-in Windows native app/project/bin/clip/marker/track inspection. Requires AVID_MCP_NATIVE_BINARY and allowed project roots. Edl_settings lists preset names without verifying preset content or exporting files. Open_bins returns bounded canonical paths in the current authorized project with project checks before and after enumeration; it is not atomic. Viewers requires bin and omits entries outside it. Tracks requires bin and mobId, and returns labels, flags and segment counts with schema defaults; it does not return clip source ranges or a complete live timeline graph.",
+    inputSchema: { query: z.enum(["app", "project", "bins", "mob_bin", "open_bins", "bin", "bin_columns", "clips", "selected_clips", "clip", "clip_columns", "markers", "tracks", "viewers", "link_settings", "export_settings", "edl_settings", "import_settings"]), bin: z.string().optional(), mobId: z.string().optional() },
+    outputSchema: TOOL_OUTPUT_SCHEMA, annotations: READ_ONLY_ANNOTATIONS,
+  }, async ({ query, bin, mobId }) => execute("avid_native_read", () => native.read(query, bin, mobId)));
+  server.registerTool("avid_native_preview", {
+    description: "Preview one native operation with current project and target evidence; returns an expiring single-use token. AAF import inspection writes local evidence manifests and requires edit plus export capabilities; preview does not mutate Avid.",
+    inputSchema: { operation: nativeActionSchema }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: {...READ_ONLY_ANNOTATIONS,readOnlyHint:false,idempotentHint:false},
+  }, async ({ operation }) => execute("avid_native_preview", () => native.preview(operation)));
+  server.registerTool("avid_native_apply", {
+    description: "Apply the exact reviewed native token once. Requires edit, project-write, or export authority for the chosen action; AAF import requires edit plus export. MP4/reference-AAF export and AAF import verify post-state under the native lock; uncertain outcomes retain that lock for inspection. No automatic undo.",
+    inputSchema: { token: z.string().uuid() }, outputSchema: TOOL_OUTPUT_SCHEMA, annotations: EDIT_ANNOTATIONS,
+  }, async ({ token }) => execute("avid_native_apply", () => native.apply(token)));
+
   server.registerTool(
     "avid_ping",
     {
@@ -208,8 +258,9 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
           pythonExecutable: config.pythonExecutable,
           timeoutMs: config.commandTimeoutMs,
         };
-        const [pythonInspector, ffprobe, bridge] = await Promise.all([
+        const [pythonInspector, ffmpeg, ffprobe, bridge] = await Promise.all([
           probePythonInspector(pythonOptions),
+          probeFfmpeg(config.ffmpegExecutable ?? "ffmpeg", config.commandTimeoutMs),
           probeFfprobe(config.ffprobeExecutable, config.commandTimeoutMs),
           getBridgeStatus(config.bridgeDir),
         ]);
@@ -226,7 +277,10 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
             ],
           },
           allowedRoots: config.allowedRoots,
-          dependencies: { pythonInspector, ffprobe },
+          dependencies: { pythonInspector, ffmpeg, ffprobe },
+          native: { configured: Boolean(config.nativeBinary), qualification: "Windows 2024.12.58720 only; see native tools and validation evidence" },
+          jumper:jumperConfigurationStatus(config.jumperEnvironment??{}),
+          mediaLibrary: { configured: Boolean(config.outputRoot), matching: "metadata/transcript substring search and optional local CLIP similarity over sparse frame samples", modelsConfigured: Boolean(config.modelDirectory), speech: "optional local English/multilingual Whisper with explicit model/language selection; review accuracy" },
           bridge,
           compatibility: {
             supportedReleaseTracks: AVID_RELEASE_TRACKS,
@@ -238,6 +292,9 @@ export function createServer(config: ServerConfig = loadConfig()): McpServer {
               "AVP/AVS/config binary fingerprint and string analysis",
               "AVB bin analysis through pyavb when installed",
               "AAF analysis through pyaaf2 when installed",
+              "checksum-verified external-reference AAF merging with collision remapping; requires export and local media access",
+              "same-rate straight-cut AAF selects with explicit stereo channel mappings; native import is a separate operation",
+              "bounded H.264/stereo source-clock preparation with copied-video timing and normalized PCM verification",
               "ALE and CMX-style EDL parsing",
               "bounded OTIO structural analysis and interchange-fidelity warnings",
               "OTIO handoff manifests and local-media checksum previews",

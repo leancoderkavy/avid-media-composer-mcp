@@ -1,0 +1,14 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {VisualSearch} from '../../dist/library/visual.js';
+import {loadConfig} from '../../dist/config.js';
+const output=path.resolve('.avid-mcp-analysis/sonoma-library-20260905');
+const evidence=JSON.parse(await readFile(path.join(output,'results.json'),'utf8'));
+const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:'D:/Sonoma Escape Edit',AVID_MCP_OUTPUT_ROOT:output,AVID_MCP_MODEL_DIR:path.resolve('.avid-mcp-analysis/models'),AVID_MCP_CAPABILITIES:'inspect,export',AVID_MCP_COMMAND_TIMEOUT_MS:'120000'});
+const search=new VisualSearch(config);
+const index=await search.index([evidence.thumbnail.id],6);
+const text=await search.search(index.indexId,{text:'people outdoors'},3);
+const image=await search.search(index.indexId,{image:text.results[0].image},6);
+if(image.results[0].image!==text.results[0].image || image.results[0].score<0.99)throw new Error('Reference-image self-match failed');
+await writeFile(path.join(output,'visual-results.json'),JSON.stringify({index,text,image},null,2));
+console.log(JSON.stringify({index,text,imageSelfMatch:image.results[0].score}));

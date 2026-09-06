@@ -1,0 +1,18 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID,createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id=await sha256File(source),root=path.resolve('.avid-mcp-analysis',`captions-mcp-${randomUUID()}`);await mkdir(root);
+const connect=async()=>{const c=new Client({name:'caption-lifecycle-proof',version:'1.0'});await c.connect(new StdioClientTransport({command:process.execPath,args:['dist/index.js'],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(source),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:path.resolve('.avid-mcp-analysis/models'),AVID_MCP_CAPABILITIES:'inspect,export,project-write'}}));return c;};let client=await connect();
+const call=async(name,args)=>{const r=await client.callTool({name,arguments:args},undefined,{timeout:180000});assert.ok(!r.isError,JSON.stringify(r));if(name==="avid_read_caption"){const image=r.content.find(block=>block.type==="image");assert.ok(image);assert.equal(image.mimeType,"image/jpeg");assert.equal(createHash("sha256").update(Buffer.from(image.data,"base64")).digest("hex"),r.structuredContent.data.imageSha256);}return r.structuredContent.data;};
+try{
+ await call('avid_index_media',{files:[source]});const generated=await call('avid_caption_frame',{id,time:111.2});assert.match(generated.machineText,/barrel/i);assert.equal(generated.edited,false);assert.equal(await sha256File(generated.image),generated.imageSha256);
+ const edited=await call('avid_correct_caption',{captionId:generated.captionId,expectedSha256:generated.sha256,text:'Wooden barrels stacked on racks inside a room.'});assert.equal(edited.machineText,generated.machineText);assert.equal(edited.edited,true);const stale=await client.callTool({name:'avid_correct_caption',arguments:{captionId:generated.captionId,expectedSha256:generated.sha256,text:'Stale update'}});assert.equal(stale.isError,true);
+ await client.close();client=await connect();const discovered=await call('avid_list_captions',{id});assert.equal(discovered.captions.length,1);assert.deepEqual(await call('avid_read_caption',{captionId:edited.captionId}),edited);
+ const started=await call('avid_start_analysis_job',{job:{kind:'caption',id,time:164.866667}});let job;const deadline=Date.now()+180000;do{job=await call('avid_analysis_job_status',{jobId:started.id});if(['completed','failed','cancelled'].includes(job.status))break;await new Promise(r=>setTimeout(r,200));}while(Date.now()<deadline);assert.equal(job.status,'completed',JSON.stringify(job));assert.match(job.result.machineText,/phone|mobile/i);
+ const removed=await call('avid_delete_caption',{captionId:edited.captionId,expectedSha256:edited.sha256});assert.equal(removed.removed,true);assert.equal((await call('avid_list_captions',{id})).captions.length,1);assert.equal(await sha256File(source),id);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({generated,edited,staleRejected:true,reconnectReadEqual:true,job,removed,sourceUnchanged:true,scope:'Actual direct/job generation, checksum correction, reconnect discovery/read and deletion on Sonoma; not caption factual accuracy or hierarchical visual summaries'},null,2));console.log(JSON.stringify({passed:true,evidence:path.join(root,'evidence.json')}));
+}finally{await client.close();}

@@ -1,0 +1,48 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,copyFile,readFile,writeFile,readdir} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',sourceHash=await sha256File(source);
+const root=path.resolve('.avid-mcp-analysis',`alias-reconnect-${randomUUID()}`),media=path.join(root,'media');await mkdir(media,{recursive:true});
+const originalRoot=path.join(media,'original');await mkdir(originalRoot);
+const original=path.join(originalRoot,'original.mp4'),alias=path.join(media,'reconnected.mp4');
+const generated=await runProcess('ffmpeg',['-nostdin','-v','error','-n','-i',source,'-t','1','-map','0:v:0','-map','0:a:0','-c:a','aac','-c:v','libx264',original],{timeoutMs:30000,maxOutputBytes:1048576});assert.equal(generated.exitCode,0,generated.stderr);await copyFile(original,alias);const id=await sha256File(original);
+const connect=async(roots=media)=>{const client=new Client({name:'alias-reconnect-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:roots,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:path.resolve('.avid-mcp-analysis/models'),AVID_MCP_CAPABILITIES:'inspect,export,project-write'}}));return client;};
+let client=await connect();
+const call=async(name,args)=>{const response=await client.callTool({name,arguments:args});assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+try{
+ await call('avid_index_media',{files:[original,alias]});await client.close();await writeFile(original,'changed disposable source');client=await connect();
+ const report=await call('avid_media_report',{ids:[id]}),html=await readFile(report.output,'utf8');assert.ok(html.includes('reconnected.mp4')&&!html.includes('original.mp4'));
+ await client.close();client=await connect(originalRoot);const scopeDenied=await client.callTool({name:'avid_media_report',arguments:{ids:[id]}});assert.equal(scopeDenied.isError,true);assert.ok(JSON.stringify(scopeDenied).includes('Source changed since indexing'));assert.equal(await readFile(report.output,'utf8'),html);await client.close();client=await connect();
+ const copied=await call('avid_media_artifact',{id,kind:'copy'});assert.equal(await sha256File(copied.output),id);
+ const thumbnail=await call('avid_media_artifact',{id,kind:'thumbnail',start:0});assert.ok((await readFile(thumbnail.output)).length>0);assert.equal(await sha256File(alias),id);
+ const shots=await call('avid_detect_shots',{id,options:{start:0,end:0.5}});assert.ok(shots.decodedFrames>0);assert.equal(shots.id,id);const shotBytes=await readFile(shots.output,'utf8');
+ const visual=await call('avid_index_visual',{ids:[id],samplesPerFile:1,range:{start:0,end:0.5}});assert.equal(visual.samples,1);
+ const speech=await call('avid_transcribe_media',{id,start:0,end:0.5,options:{model:'tiny.en',language:'en'}});
+ const people=await call('avid_index_people',{ids:[id],samples:1,range:{start:0,end:0.5}});assert.equal(people.samples,1);
+ const speakers=await call('avid_diarize_audio',{id,start:0,end:0.5});assert.equal(speakers.id,id);
+ const captionBatch=await call('avid_caption_batch',{id,times:[0.25]});assert.equal(captionBatch.state,'completed');assert.equal(captionBatch.completedCaptions,1);
+ const qc=await call('avid_media_qc',{id,options:{start:0,end:0.5,audioStream:null}});await client.close();client=await connect();
+ const visualMatch=await call('avid_search_visual_frame',{indexId:visual.indexId,id,time:0.25,limit:1});
+ assert.equal(visualMatch.matchingSamples,1);assert.equal(visualMatch.results[0].id,id);assert.equal(visualMatch.results[0].time,0.25);assert.ok(visualMatch.results[0].score>0.999);
+ const savedPeople=await call('avid_people_run',{indexId:people.indexId});assert.equal(savedPeople.state,'completed');assert.equal(savedPeople.analyzedFrames,1);
+ const savedSpeakers=await call('avid_speaker_analysis',{analysisId:speakers.analysisId});assert.equal(savedSpeakers.id,id);
+ const savedCaptions=await call('avid_caption_run',{runId:captionBatch.runId});assert.equal(savedCaptions.state,'completed');assert.deepEqual(savedCaptions.captions,captionBatch.captions);
+ const savedSpeech=await call('avid_speech_run',{runId:speech.runId});assert.equal(savedSpeech.state,'completed');
+ const savedQc=await call('avid_read_qc_report',{id,revision:qc.revision});assert.equal(savedQc.report.id,id);
+ await writeFile(alias,'changed disposable alias');const directory=path.dirname(report.output),before=(await readdir(directory)).sort();
+ const visualRefused=await client.callTool({name:'avid_search_visual_frame',arguments:{indexId:visual.indexId,id,time:0.25,limit:1}});assert.equal(visualRefused.isError,true);assert.ok(JSON.stringify(visualRefused).includes('Source changed since indexing'));
+ const peopleRefused=await client.callTool({name:'avid_people_run',arguments:{indexId:people.indexId}});assert.equal(peopleRefused.isError,true);assert.ok(JSON.stringify(peopleRefused).includes('Source changed since indexing'));
+ const speakersRefused=await client.callTool({name:'avid_speaker_analysis',arguments:{analysisId:speakers.analysisId}});assert.equal(speakersRefused.isError,true);assert.ok(JSON.stringify(speakersRefused).includes('Source changed since indexing'));
+ const captionsRefused=await client.callTool({name:'avid_caption_run',arguments:{runId:captionBatch.runId}});assert.equal(captionsRefused.isError,true);assert.ok(JSON.stringify(captionsRefused).includes('Source changed since indexing'));
+ const speechRefused=await client.callTool({name:'avid_speech_run',arguments:{runId:speech.runId}});assert.equal(speechRefused.isError,true);assert.ok(JSON.stringify(speechRefused).includes('Source changed since indexing'));
+ const qcRefused=await client.callTool({name:'avid_read_qc_report',arguments:{id,revision:qc.revision}});assert.equal(qcRefused.isError,true);assert.ok(JSON.stringify(qcRefused).includes('Source changed since indexing'));
+ const shotsRefused=await client.callTool({name:'avid_detect_shots',arguments:{id,options:{start:0,end:0.5}}});assert.equal(shotsRefused.isError,true);assert.ok(JSON.stringify(shotsRefused).includes('Source changed since indexing'));assert.equal(await readFile(shots.output,'utf8'),shotBytes);
+ const refused=await client.callTool({name:'avid_media_report',arguments:{ids:[id]}});assert.equal(refused.isError,true);assert.ok(JSON.stringify(refused).includes('Source changed since indexing'));assert.deepEqual((await readdir(directory)).sort(),before);assert.equal(await readFile(report.output,'utf8'),html);assert.equal(await sha256File(source),sourceHash);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({id,sourceHash,sourceUnchanged:true,narrowedRootsRefused:true,report,copied,thumbnail,qc,savedQc,shots,speech,savedSpeech,visual,visualMatch,captionBatch,savedCaptions,people,savedPeople,speakers,savedSpeakers,allCopiesChangedRefused:true,scope:'Actual MCP reconnect using a one-second Sonoma-derived disposable fixture; report, byte copy, thumbnail, shot decoding, local speech/checkpoint read and video-only QC/read via matching alias'},null,2));console.log(JSON.stringify({passed:true,root}));
+}finally{await client.close();}
+

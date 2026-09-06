@@ -1,0 +1,119 @@
+# Summary quality qualification
+
+The pinned local DistilBART model is implemented and runtime-tested. Its editorial quality is **not accepted as complete**. Tree/source-reference validation and successful resume establish structure and execution, not accurate or comprehensive prose.
+
+## Inspect the model input at each level
+
+`avid_summary_node` now includes `modelInput` for recipe-bearing records: reconstructed text, its UTF-8 SHA-256, and `kind: transcript_chunk` for leaves or `generated_children` for overviews. Overviews list their input child IDs in concatenation order. Compare this input with the generated node and then with original `sources`/`sourceExcerpts` to distinguish a new error from an inherited child error or omission. The response does not automatically classify those errors.
+
+The status is `reconstructed_recipe`: it reproduces the recorded algorithm from verified transcript and saved child text, not an independent execution log or proof of factual entailment. Older records without a recipe return `not_recorded` with null text/hash instead of guessing. Inspection does not load a model or modify saved records.
+
+Fresh-package verification reads an existing boundary-qualification evidence file through two installed stdio MCP processes from a foreign working directory, without model configuration. Run `node scripts/research/qualify-installed-summary-review.mjs ABSOLUTE_BOUNDARY_EVIDENCE_JSON` after building. Overview/leaf inputs and source excerpts matched across reconnect with unchanged saved summary, transcript and original MP4. Evidence: `.avid-mcp-analysis/installed-summary-review-2f6cd477-c4de-4422-98b6-e255d3a6f83e/evidence.json`. This checks installed review behavior, not generation accuracy or a named-client GUI.
+
+## Repetition and inherited minimum-length comparison
+
+`scripts/research/benchmark-summary-repetition.mjs` compares four generation settings across the eight existing editorial evidence fixtures plus one original single-sentence climbing observation. It retains requested/effective options, source review criteria and every output, with incremental progress. Evidence: `.avid-mcp-analysis/summary-repetition-84ad0dea-c09b-43a9-be16-4e32859c8d47/evidence.json` (36 generations). The initial two-setting experiment is retained separately at `summary-repetition-510b0f78-7c05-42ec-a352-24a09b054c34`.
+
+The pinned model's local `generation_config.json` supplies `min_length: 56`. Inspection of the installed Transformers.js 4.2.0 `src/models/modeling_utils.js` shows independent minimum-length and minimum-new-token processors. Setting `min_new_tokens: 0` alone therefore leaves the 56-token minimum active. The final benchmark records effective `min_length` as well as the other settings.
+
+| Candidate | Observed result and limitation |
+| --- | --- |
+| Two-token repetition constraint, penalty 1.2, zero minimum new tokens | Restored Leo's removal assignment in the editorial fixture, but invented dates and report details in the boundary fixture, changed 09:00 to 09:30, and misrepresented quoted slate text as director approval. Rejected as a default. |
+| Zero minimum length and new tokens; otherwise baseline | Returned the short observation exactly and preserved the uncertainty fixture without the padded ending. The editorial summary stopped after Maya's delivery, losing the cellar/music and rejected-reshoot decisions that the baseline retained. Technical identifiers still changed. Rejected as a global default. |
+| Both changes | Improved some prose, but omitted the Monday superseding decision, changed frames into clips in the technical fixture, and added unsupported accessibility details to the climbing observation. Rejected as a default. |
+
+This identifies an inherited length constraint contributing to short-input padding; removing it is not sufficient for general editorial quality. No production generation or checkpoint recipe changed. Short-input improvements do not establish broad coverage, and terminal punctuation does not establish completeness. Future candidates must preserve final decisions, names, numbers, negation and uncertainty against the supplied review criteria.
+
+## Sentence-aware input partitioning
+
+New runs record checkpoint recipe 2. Inside a long transcript segment, the chunker prefers the last sentence-ending boundary within 2,000 characters, then whitespace, then a bounded character split for an unbroken token. Forced boundaries preserve UTF-16 surrogate pairs. Sentence detection is heuristic; it does not parse abbreviations or prove linguistic completeness. The existing 64-chunk and model-token bounds remain. Every source character is retained; original segment references remain attached to its chunks. This is not multilingual generation qualification.
+
+Recipe-1 checkpoints continue using their original fixed-character partitioning on resume. A resumed child inherits its parent's recipe so previously saved input hashes remain meaningful. New-run and legacy-resume tests cover that distinction, alongside Unicode and complete decision preservation.
+
+Actual model and MCP evidence: `.avid-mcp-analysis/summary-boundaries-7435c586-bb3a-487c-9947-fbd72d98440a/evidence.json`, generated by `scripts/research/qualify-summary-boundaries.mjs`. A synthetic repeated note placed Alexandra's roadside-interview removal assignment across the former 2,000-character boundary. Recipe 2 supplied the entire assignment to one model call; recipe 1 split it and its fragment output changed Friday to Thursday. The new leaf retained the assignment but also invented that a driver was a former National Guard member. The overview repeated that unsupported claim. Input preservation passed, but this comparison **does not establish a factual-quality pass**. The original Sonoma MP4 was unchanged and the attached note is explicitly synthetic, not source-video dialogue.
+
+The observed fabrication remains a release-quality gap. Do not infer factual support from a sentence-aware input, successful source-hash verification, terminal punctuation or the presence of the correct assignment alongside other generated text.
+
+## Three-fixture comparison
+
+`scripts/research/benchmark-summary-generation.mjs` runs three original synthetic editorial texts through cached weights, retaining input text, output text, requested/effective settings, elapsed time and simple repetition/terminal-punctuation diagnostics. It instruments the locally installed runtime only for observation; it does not modify the runtime package or production generation settings.
+
+Model: `Xenova/distilbart-cnn-6-6`, revision `6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9`. Runtime: Transformers.js 4.2.0. Baseline uses 80 maximum new tokens and one beam; the candidate requested 160 maximum new tokens, four beams, a three-token repetition constraint and early stopping. Both use deterministic generation. Observed effective settings matched the requested token/beam values. The baseline already inherited a three-token repetition constraint from the model configuration.
+
+Evidence: `.avid-mcp-analysis/summary-generation-ab146037-6b86-4203-b85a-f3cee7f0eced/evidence.json`. Candidate and baseline produced identical text for all three fixtures. Runtime was approximately 1.6 seconds per generation on this Windows machine; this small warm-cache comparison is not a resource benchmark.
+
+| Fixture | Manual source/output comparison |
+| --- | --- |
+| Editorial decisions | Retained the delivery owner, duration/date, cellar/music decisions and rejected drone reshoot. Omitted the instruction for Leo to remove the noisy roadside interview. |
+| Negation and numbers | Retained version approval, publication prohibition, delivery time and no-new-filming decision. Omitted the forty-five-second duration, Nina's caption-review assignment and Omar's stereo-review assignment. Repeated wording and ended with the unfinished phrase “Do not release”. |
+| Repeated notes | Retained the three main topics but produced repetition and awkward wording, including “music against music” and “footage..”. Terminal punctuation and repeated-four-gram counts did not adequately describe this poor prose. |
+
+The fixture with repetitive notes is deliberately artificial. These findings must not be generalized to all footage, transcripts or languages. No numerical factual-accuracy score or acceptance threshold is inferred from this set. Increasing the requested output budget and beams did not demonstrate improvement, so the candidate was not adopted and existing checkpoint recipes were not changed.
+
+## Instruction-model candidate
+
+Evaluated `onnx-community/Qwen3-0.6B-ONNX`, revision `da1453100cf3ff33ef56d17983fc7a8648706db6`, q4 weights on the local CPU. The [conversion card](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX) identifies the upstream model; the [upstream Qwen card](https://huggingface.co/Qwen/Qwen3-0.6B) declares Apache-2.0. Weights were downloaded only into the ignored optional cache and are not bundled or integrated. Final converted-weight licensing/provenance review remains required before release integration.
+
+`scripts/research/benchmark-instruction-summary.mjs` accepts a baseline evidence file, reuses its exact fixture text, disables thinking in the chat template and requests deterministic generation capped at 384 new tokens. Downloads require `--download`; the second evaluation loaded cached files only. Evidence: `.avid-mcp-analysis/instruction-summary-674a7455-44f1-48ca-b76f-c0e8338ffc25/evidence.json`.
+
+| Prompt | Observed result |
+| --- | --- |
+| Concise paragraph | Recovered the roadside-interview removal and produced clean prose for repeated notes. Still omitted version approval, publication prohibition and delivery time in the negation fixture. |
+| Compact decision list | Recovered those missing details in the negation fixture. Added unsupported category labels to the editorial fixture and returned category names instead of source facts for repeated notes. |
+
+Cached model load took 2.152 seconds. Six generation calls took 1.665–6.893 seconds each. Peak process RSS sampled during generation was 2,470,891,520 bytes (about 2.30 GiB); this excludes unsampled loading peaks and is not a clean-machine resource guarantee. Prompt format affected omissions and fabrication. The candidate was not adopted: these fixtures do not support replacing the production summary model or relaxing review requirements.
+
+### Larger candidate under the same test
+
+The same script now accepts `--model=1.7b`, selecting `onnx-community/Qwen3-1.7B-ONNX` at `cc6a06a21d614e9b8e92a6adfab1074d4e7d2438`. [Conversion metadata](https://huggingface.co/onnx-community/Qwen3-1.7B-ONNX) links the [upstream Apache-2.0 model](https://huggingface.co/Qwen/Qwen3-1.7B). The fixture text, two prompts, q4 CPU execution and generation limits were unchanged. Evidence: `.avid-mcp-analysis/instruction-summary-20244936-5bd7-4275-be0a-979450528ef1/evidence.json`.
+
+The paragraph prompt retained the roadside-interview decision and all seven distinct items in the negation/numbers fixture. For repeated notes, however, it added “This process repeats multiple times”, which incorrectly interprets textual duplication as evidence about events. The decision-list prompt added a publication prohibition to the roadside-interview fixture that was not stated in its source, and repeated bullets in the repeated-notes fixture. The larger model therefore improves coverage in these normal fixtures but does not eliminate unsupported inference.
+
+The first load, including model download, took 46.667 seconds. Generation took 4.810–19.436 seconds per call; sampled generation peak RSS was 4,770,107,392 bytes (about 4.44 GiB). Those costs are substantially material for local setup and need clean-machine and sustained-workload qualification. The candidate remains research-only at this point; any future optional integration must retain review requirements and distinguish textual repetition from event recurrence.
+
+## Remaining work
+
+### Evidence-returning instruction prompt: eight cases
+
+`scripts/research/benchmark-summary-evidence.mjs` tests the same cached Qwen3-1.7B q4 revision with an explicit fact/quote contract and no downloads. The committed `scripts/research/fixtures/summary-evidence.json` includes the original three fixtures plus the boundary assignment, superseded decisions, uncertainty, exact technical identifiers, and an instruction quoted on a slate. Review criteria are retained with each input. [Full raw results](summary-evidence-benchmark.json) retain the prompt, model/revision, outputs, timing and literal-quote checks. Evidence directory: `.avid-mcp-analysis/summary-evidence-c4c792a5-f06b-45cd-8a99-e2712031319d`.
+
+The requested output was one object containing `facts`, each with a concise `statement` and exact supporting `source_quote`. This is a structured review experiment, not narrative summary or hierarchy integration. Quote-presence checks do not establish entailment; validation failures retain the raw output for review rather than repairing it silently.
+
+| Case | Observed result |
+| --- | --- |
+| Editorial decisions | Valid requested shape; all four review decisions retained, mostly by copying source sentences. |
+| Negation/numbers | Valid shape; all seven required facts retained with matching quotations. |
+| Repeated notes | Returned an array instead of the requested object and repeated the three facts seven times (21 entries). Took 100.218 seconds. |
+| Boundary assignment | Returned an array; retained both source facts without the fabricated National Guard detail seen in DistilBART. |
+| Superseded decision | Valid shape and source facts retained, but the first statement includes `10:00` while its associated quotation omits that time. All quotes occur in the source, demonstrating that literal presence alone is insufficient support. |
+| Uncertainty | Returned an array; preserved proposal status, conditional Friday delivery, pending captions and lack of a confirmed date. |
+| Technical identities | Valid shape; preserved reel/clip IDs, inclusive frame range, rational rate, conversion prohibition, channel mapping and frame count. |
+| Quoted instruction | Returned a fenced array; retained that public release is unapproved and treated the slate as quoted test content. The slate quote also contains extra literal backslashes, so it is not an exact original excerpt. |
+
+Four of these eight outputs met the requested shape; this is an observed fixture count, not a general success-rate estimate. Cached loading took 5.609 seconds. Per-case generation took 10.897–100.218 seconds; peak sampled process RSS was 5,082,202,112 bytes (about 4.73 GiB), excluding unsampled peaks and other processes. Most statements copied source text, limiting the benefit as a concise summary.
+
+This candidate remains research-only. It does not justify replacing DistilBART, automatically accepting fact/quote output, or marking the summary-quality requirement complete. Future work must address both factual/omission quality and useful compression within a practical local resource budget. Exact source-excerpt access already exists independently of generated summaries.
+
+Evaluate better local summary models or generation strategies against a larger, varied set of permissioned editorial transcripts. Review factual support, essential decisions, negation, names/numbers, assignment attribution, repetitions and incomplete sentences. Preserve human-reviewed reference decisions and distinguish acceptable compression from consequential omissions. Measure memory, latency and long-input behavior. Visual-only grounding and broader language coverage remain separate requirements. Keep all summaries review-required until that evidence supports stronger claims.
+
+### Reviewing overview sources
+
+`avid_summary_node` returns original transcript excerpts for the requested node, including all descendant leaves for an overview. Shared references from split segments appear once, in transcript order. `sourceScope` distinguishes `direct_leaf` from `descendant_leaves`. The stored node structure remains unchanged. These excerpts show the input coverage; they do not prove that the generated text preserves every fact or contains no invented claims. `reviewRequired` remains true and `factualEntailmentVerified` remains false.
+
+Read-only qualification: `scripts/research/qualify-summary-sources.mjs <summary-resume-evidence.json>` checked all nine nodes in a previously generated hierarchy against the exact saved transcript through stdio MCP.
+# Extractive candidate evaluation
+
+The research-only `benchmark-extractive-summary.mjs` evaluates an original sentence-selection candidate against the existing eight synthetic editorial cases and a new cancellation/reinstatement case. It retains exact character-offset quotations, removes identical sentence text, and ranks candidates using term frequency with a redundancy penalty under a five-sentence/600-character budget. The source-spans assertions passed for all nine cases. This verifies literal extraction, not summary accuracy.
+
+Two acceptance failures prevent adoption. In `negation-and-numbers`, the budget omitted Nina's caption-review assignment and the prohibition on new filming. In `reinstated-identical-instruction`, the input is "Use version two. Cancel that instruction. Use version two." Deduplication kept only the first two sentences, losing the reinstatement and changing the apparent final instruction. The raw record now retains omitted occurrences as well as omitted distinct sentences: a distinct-text coverage score alone would miss this failure.
+
+Seven other cases retained every distinct sentence, often providing little compression beyond removing repeated text. This does not establish general English quality, multilingual support or long-transcript relevance. No production backend or default changed. Future candidates must preserve occurrence/order semantics and explicitly evaluate assignments, prohibitions, quantities and correction chains; exact quotation alone is not an acceptance gate.
+
+Committed raw results: `extractive-summary-benchmark.json`. Local evidence: `.avid-mcp-analysis/extractive-summary-ba7ae7da-2d54-48ad-839e-0a64855fd215/evidence.json`. Script syntax and actual execution passed; no models, media or external services were used.
+# Exact source spans for review
+
+New generated summary documents record `chunkRecipe`. `avid_summary_node` returns `sourceExcerpts` for the selected leaf or all descendant leaves: original transcript index, leaf node ID, half-open UTF-16 `charStart`/`charEnd`, and the exact text slice. These reconstruct the recorded recipe's leaf inputs; separator spaces between transcript segments are not source characters. The existing `sources` array continues returning full deduplicated segments. Character offsets are not word-level timestamps.
+
+Records without a chunk recipe return null excerpts and `sourceExcerptsStatus: not_recorded`; the reader does not guess an older recipe. Recipe-bearing records must match the reconstructed leaf count, IDs and source-index ordering. Both historical checkpoint recipes retain their input hashes and resume behavior. As with other saved metadata, recipe/source consistency is not proof of publisher authenticity or factual entailment.
+
+Actual cached-model/MCP evidence: `.avid-mcp-analysis/summary-boundaries-e330bc6d-4ebe-4a39-83cb-fdb832bfb30b/evidence.json`. Returned excerpts exactly reconstructed the synthetic boundary-crossing editorial note attached to Sonoma, and every leaf slice matched its source offsets. The source MP4 hash stayed unchanged. The model still invented National Guard details; generated factual quality remains unaccepted. Unit tests cover split-segment reconstruction, leaf-only scope, legacy absence and inconsistent leaf ordering.

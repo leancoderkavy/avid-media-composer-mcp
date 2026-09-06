@@ -1,0 +1,30 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const libraryRoot=path.resolve('.avid-mcp-analysis/speaker-alignment-e03bb90d-246b-48dd-9ce8-ee64746f7266'),prior=JSON.parse(await readFile(path.join(libraryRoot,'evidence.json'),'utf8'));
+const root=path.resolve('.avid-mcp-analysis',`speaker-corrections-${randomUUID()}`);await mkdir(root);
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id=await sha256File(source);
+const connect=async(readOnly=false)=>{const client=new Client({name:'speaker-correction-proof',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:['dist/index.js'],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(source),AVID_MCP_OUTPUT_ROOT:libraryRoot,AVID_MCP_MODEL_DIR:'',AVID_MCP_CAPABILITIES:readOnly?'inspect':'inspect,project-write'}}));return client;};
+let client=await connect();
+const raw=(name,args)=>client.callTool({name,arguments:args},undefined,{timeout:120000});
+const call=async(name,args)=>{const response=await raw(name,args);assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+try{
+  const original=await call('avid_speaker_analysis',{analysisId:prior.reference.analysisId});assert.equal(original.sha256,prior.reference.analysisSha256);assert.equal(original.totalSpans,original.spans.length);
+  const first=original.spans[0],last=original.spans.at(-1),middle=(first.start+first.end)/2;
+  const edits=[{action:'replace',spanId:first.spanId,start:first.start,end:middle,speaker:'speaker-3'},{action:'remove',spanId:last.spanId},{action:'add',start:middle,end:first.end,speaker:'speaker-4'}];
+  assert.equal((await raw('avid_correct_speaker_analysis',{analysisId:original.analysisId,expectedSha256:'0'.repeat(64),edits})).isError,true);
+  const child=await call('avid_correct_speaker_analysis',{analysisId:original.analysisId,expectedSha256:original.sha256,edits});assert.ok(child.edited);assert.equal(child.parentAnalysisId,original.analysisId);assert.equal(child.audioSha256,original.audioSha256);assert.ok(child.spans.some(span=>span.speaker==='speaker-3'));assert.ok(child.spans.some(span=>span.speaker==='speaker-4'));assert.ok(!child.spans.some(span=>span.spanId===last.spanId));
+  assert.deepEqual((await call('avid_speaker_analysis',{analysisId:child.analysisId,view:'machine'})).spans,original.spans);
+  const merged=await call('avid_correct_speaker_analysis',{analysisId:child.analysisId,expectedSha256:child.sha256,edits:[{action:'merge',from:'speaker-4',into:'speaker-3'}]});assert.ok(!merged.spans.some(span=>span.speaker==='speaker-4'));
+  const transcript=await call('avid_import_transcript',{id,segments:[{start:first.start,end:middle,text:'Correction fixture; not a spoken transcript.'}]});
+  const aligned=await call('avid_align_speakers',{analysisId:merged.analysisId,analysisSha256:merged.sha256,transcriptRevision:transcript.revision,transcriptSha256:await sha256File(transcript.path)});assert.ok(aligned.segments[0].candidates.some(candidate=>candidate.speaker==='speaker-3'));
+  await call('avid_delete_speaker_analysis',{analysisId:child.analysisId,expectedSha256:child.sha256});
+  await client.close();client=await connect(true);const reopened=await call('avid_speaker_analysis',{analysisId:merged.analysisId});assert.deepEqual(reopened.spans,merged.spans);assert.equal(reopened.sha256,merged.sha256);assert.deepEqual((await call('avid_speaker_analysis',{analysisId:merged.analysisId,view:'machine'})).spans,original.spans);
+  assert.equal((await raw('avid_correct_speaker_analysis',{analysisId:merged.analysisId,expectedSha256:merged.sha256,edits:[{action:'remove',spanId:first.spanId}]})).isError,true);
+  assert.equal((await call('avid_speaker_analysis',{analysisId:original.analysisId})).sha256,original.sha256);assert.equal(await sha256File(source),id);
+  await writeFile(path.join(root,'evidence.json'),JSON.stringify({original,edits,child,merged,aligned,sourceUnchanged:true,originalUnchanged:true,childReadableAfterIntermediateDeletion:true,scope:'Actual MCP correction workflow against saved Sonoma analysis without models/export. Deliberate fixture boundaries and anonymous test labels are not accuracy annotations. Original machine view, corrected alignment, immutable ancestry, reconnect and capability denial checked.'},null,2));console.log(JSON.stringify({passed:true,evidence:path.join(root,'evidence.json')}));
+}finally{await client.close();}

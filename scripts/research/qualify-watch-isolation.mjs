@@ -1,0 +1,31 @@
+import {mkdir,copyFile,writeFile,readFile,unlink} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const root=path.resolve('.avid-mcp-analysis',`watch-isolation-${randomUUID()}`),folder=path.join(root,'media');await mkdir(folder,{recursive:true});
+const source='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4',id='3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca',copy=path.join(folder,'clip.mp4');
+assert.equal(await sha256File(source),id);await copyFile(source,copy,1);
+const client=new Client({name:'watch-isolation',version:'1.0'});await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,project-write'}}));
+const events=[];let lock;
+const call=async(name,args)=>{const response=await client.callTool({name,arguments:args});events.push({name,args,response});assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+const until=async(predicate)=>{const deadline=Date.now()+60000;while(Date.now()<deadline){if(await predicate())return;await new Promise(resolve=>setTimeout(resolve,1000));}throw new Error('Polling qualification timed out');};
+try{
+ await call('avid_configure_watch_folder',{options:{folder}});await call('avid_configure_watch_folder',{options:{folder}});
+ const [first,second]=await call('avid_list_watch_folders',{});
+ lock=path.join(root,'avid-mcp-library','watches',first.id+'.lock');await writeFile(lock,'owned isolation fixture',{flag:'wx'});
+ const manifest=watch=>path.join(root,'avid-mcp-library','watches',watch.id+'.json');
+ const indexed=async watch=>Object.values(JSON.parse(await readFile(manifest(watch),'utf8')).observations).some(record=>record.mediaId===id);
+ await call('avid_watch_service',{action:'start',intervalSeconds:10});
+ await until(()=>indexed(second));
+ const failed=await call('avid_watch_service',{action:'status'});assert.equal(failed.watchErrors[0].id,first.id);assert.match(failed.watchErrors[0].error,/EEXIST/);assert.equal(await indexed(first),false);assert.equal(await readFile(lock,'utf8'),'owned isolation fixture');
+ await unlink(lock);lock=undefined;
+ await until(()=>indexed(first));
+ await until(async()=>!(await call('avid_watch_service',{action:'status'})).scanInProgress);
+ const recovered=await call('avid_watch_service',{action:'stop'});assert.deepEqual(recovered.watchErrors,[]);assert.equal(recovered.lastError,null);
+ assert.equal(await sha256File(source),id);assert.equal(await sha256File(copy),id);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({failed,recovered,sourceAndCopyUnchanged:true,events,scope:'Real MCP timer with two watches, first locked and second indexed; explicit removal of owned fixture lock restores first watch. Not general stale-lock recovery.'},null,2),{flag:'wx'});
+ console.log(JSON.stringify({root,passed:true}));
+}finally{await client.close();if(lock)await unlink(lock);}

@@ -1,0 +1,181 @@
+import {installModelNotice} from "./model-notices.js";
+import { writeFile } from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import * as z from "zod/v4";
+import type { ServerConfig } from "../config.js";
+import { resolveReadablePath } from "../security/path-policy.js";
+import { requireCapability } from "../security/capabilities.js";
+import { MediaLibrary } from "./media-library.js";
+import { modelRuntime } from "./model-runtime.js";
+import {readBoundedJson,readBoundedFile} from "../security/bounded-read.js";
+import {ShotDetection,shotOptions} from "./shots.js";
+import {VisualCheckpoints,type VisualPlanItem} from "./visual-checkpoints.js";
+import {sha256File} from "../analysis/file-inventory.js";
+import {AvidMcpError} from "../errors.js";
+
+export const VISUAL_MODEL = "Xenova/clip-vit-base-patch32";
+export const VISUAL_REVISION = "d15189d7028b43f1d3e65039190477f6af591c2a";
+export const VISUAL_TEXT_TOKEN_LIMIT = 77; // Pinned text_config.max_position_embeddings, including special tokens.
+export async function loadVisualModels(cache: string, download = false) {
+  if(download)await installModelNotice(cache,VISUAL_MODEL,VISUAL_REVISION);
+  const {AutoTokenizer,AutoProcessor,CLIPTextModelWithProjection,CLIPVisionModelWithProjection,RawImage} = await modelRuntime(cache,download);
+  const options = {cache_dir:cache,revision:VISUAL_REVISION,local_files_only:!download,dtype:"q8" as const};
+  const location=download?VISUAL_MODEL:path.resolve(cache,VISUAL_MODEL,VISUAL_REVISION);
+  const tokenizer = await AutoTokenizer.from_pretrained(location,options);
+  const processor = await AutoProcessor.from_pretrained(location,options);
+  const text = await CLIPTextModelWithProjection.from_pretrained(location,options);
+  const vision = await CLIPVisionModelWithProjection.from_pretrained(location,options);
+  return {tokenizer,processor,text,vision,RawImage};
+}
+export function cosine(a: number[], b: number[]) {
+  if(a.length!==b.length || !a.length || [...a,...b].some(x=>!Number.isFinite(x))) throw new Error("Invalid embedding vectors");
+  let dot=0,aa=0,bb=0;
+  for(let i=0;i<a.length;i++){dot+=a[i]!*b[i]!;aa+=a[i]!**2;bb+=b[i]!**2;}
+  return aa&&bb ? dot/Math.sqrt(aa*bb) : 0;
+}
+const vector=z.array(z.number().finite()).length(512);
+export const visualRange=z.object({start:z.number().nonnegative(),end:z.number().positive()}).strict().refine(value=>value.end>value.start,"Range end must follow start");
+export const visualScope=z.object({ids:z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1).max(100).optional(),range:visualRange.optional()}).strict();
+export const visualRefinement=z.object({exclude:z.array(z.string().trim().min(1).max(500)).max(8).default([]),weight:z.number().finite().min(0).max(1).default(0.25)}).strict();
+export function sampleTimes(duration:number,count:number,range?:z.infer<typeof visualRange>){
+  if(!Number.isFinite(duration)||duration<=0||!Number.isInteger(count)||count<1||count>120)throw new Error("Invalid sampling limits");
+  const {start,end}=range?visualRange.parse(range):{start:0,end:duration};
+  if(end>duration)throw new Error("Sampling range exceeds media duration");
+  return Array.from({length:count},(_,n)=>start+(end-start)*(n+0.5)/count);
+}
+const sampleSchema=z.object({id:z.string().regex(/^[a-f0-9]{64}$/),time:z.number().nonnegative(),image:z.string(),vector,shot:visualRange.optional()}).refine(sample=>!sample.shot||(sample.time>=sample.shot.start&&sample.time<sample.shot.end),"Sample must lie within its shot");
+const legacyRecord=z.object({schemaVersion:z.undefined().optional(),model:z.literal(VISUAL_MODEL),revision:z.literal(VISUAL_REVISION),samples:z.array(sampleSchema).max(1200)});
+const recordSchema=z.union([legacyRecord,legacyRecord.extend({schemaVersion:z.literal(2),samples:z.array(sampleSchema.extend({imageSha256:z.string().regex(/^[a-f0-9]{64}$/)})).max(1200)})]);
+export class VisualSearch {
+  readonly checkpoints:VisualCheckpoints;
+  private models: ReturnType<typeof loadVisualModels>|undefined;
+  private readonly library: MediaLibrary;
+  constructor(private readonly config: ServerConfig){this.library=new MediaLibrary(config);this.checkpoints=new VisualCheckpoints(config,VISUAL_MODEL,VISUAL_REVISION);}
+  private load(){
+    requireCapability(this.config.capabilities,"inspect");
+    if(!this.config.modelDirectory)throw new Error("Set AVID_MCP_MODEL_DIR after explicitly downloading models with avid-mcp --download-models --model-dir PATH");
+    this.models ??= loadVisualModels(this.config.modelDirectory).catch(error=>{this.models=undefined;throw error;});
+    return this.models;
+  }
+  async dispose(){const pending=this.models;this.models=undefined;if(pending){const models=await pending;await Promise.all([models.text.dispose(),models.vision.dispose()]);}}
+  async index(ids:string[],samplesPerFile:number,range?:z.infer<typeof visualRange>){
+    requireCapability(this.config.capabilities,"export");
+    if(ids.length>100||!ids.length||!Number.isInteger(samplesPerFile)||samplesPerFile<1||samplesPerFile>120||ids.length*samplesPerFile>1200)throw new Error("Visual sample limit exceeded (120 per file, 1200 total)");
+    const entries=await Promise.all([...new Set(ids)].map(id=>this.library.validatedMetadata(id)));
+    const plans=entries.map(entry=>({entry,times:sampleTimes(Number(entry.metadata.format?.duration),samplesPerFile,range)}));
+    return this.indexPlan(plans.flatMap(({entry,times})=>times.map(time=>({id:entry.id,time}))));
+  }
+  async indexShots(id:string,options:z.input<typeof shotOptions>){
+    requireCapability(this.config.capabilities,"export");
+    const report=await new ShotDetection(this.config).detect(id,options);
+    if(report.shots.length>1200)throw new Error("Shot index exceeds 1200 samples; use a shorter range. No shots were silently skipped.");
+    const index=await this.indexPlan(report.shots.map(shot=>({id,time:shot.representativeSeconds,shot:{start:shot.start,end:shot.end}})));
+    return {...index,shotReport:report.output,detectedShots:report.shots.length,coverage:"One midpoint per detected shot; detection can miss cuts and each shot can contain unsampled visual changes"};
+  }
+  async resume(runId:string){
+    requireCapability(this.config.capabilities,"export");
+    const previous=await this.checkpoints.read(runId,true);
+    if(previous.indexId)throw new Error(`Visual run is already completed; use index ${previous.indexId}`);
+    return this.indexPlan(previous.record.plan,runId);
+  }
+  private async indexPlan(plan:VisualPlanItem[],parentRunId?:string){
+    const previous=parentRunId?await this.checkpoints.read(parentRunId,true):undefined;
+    const runId=await this.checkpoints.create(plan,parentRunId);
+    try{
+    const samples=previous?.samples??[],reusedSamples=samples.length;
+    for(let i=0;i<samples.length;i++)await this.checkpoints.append(runId,i,samples[i]!);
+    const models=await this.load();
+    for(const {id,time,shot} of plan.slice(samples.length)){
+        const image=await this.library.artifact(id,"thumbnail",time);
+        const inputs=await models.processor(await models.RawImage.read(image.output));
+        const result=await models.vision(inputs);
+        const saved={id,time,shot,image:image.output,imageSha256:await sha256File(image.output),vector:Array.from(result.image_embeds.data,Number)};
+        await this.checkpoints.append(runId,samples.length,saved);samples.push(saved);
+    }
+    for(const id of new Set(plan.map(item=>item.id)))await this.library.validatedMetadata(id);
+    const record=recordSchema.parse({schemaVersion:2,model:VISUAL_MODEL,revision:VISUAL_REVISION,samples});
+    const indexId=randomUUID();
+    await writeFile(path.join(await this.library.directory(),`visual-${indexId}.json`),JSON.stringify(record),{flag:"wx"});
+    await this.checkpoints.finish(runId,indexId);
+    return {indexId,runId,parentRunId,reusedSamples,samples:samples.length,model:VISUAL_MODEL,coverage:"Sparse frame samples; does not identify every shot or continuous matching scene"};
+    }catch(error){throw new AvidMcpError("VISUAL_INDEX_INCOMPLETE",(error as Error).message,{runId,parentRunId,resumeTool:"avid_resume_visual_index"});}
+  }
+  private async record(indexId:string){
+    z.string().uuid().parse(indexId);
+    const directory=await this.library.directory();
+    const file=await resolveReadablePath(path.join(directory,`visual-${indexId}.json`),[directory],"file");
+    const record=recordSchema.parse(await readBoundedJson(file,32*1024*1024));
+    // Cached embeddings belong to content, not whichever bytes now occupy a path.
+    // Check one source at a time to bound hashing work on multi-file indexes.
+    for(const id of new Set(record.samples.map(sample=>sample.id)))await this.library.validatedMetadata(id);
+    return {record,directory};
+  }
+  async samples(indexId:string,scope:z.infer<typeof visualScope>={},after=-1,limit=50){
+    scope=visualScope.parse(scope);z.number().int().min(-1).parse(after);z.number().int().min(1).max(100).parse(limit);
+    const {record,directory}=await this.record(indexId);
+    const matches=record.samples.map((sample,index)=>({...sample,index})).filter(sample=>sample.index>after&&(!scope.ids||scope.ids.includes(sample.id))&&(!scope.range||sample.time>=scope.range.start&&sample.time<scope.range.end));
+    const page=[];for(const {vector,...sample} of matches.slice(0,limit))page.push({...sample,...await this.thumbnail(sample,directory)});
+    return {indexId,samples:page,totalSamples:record.samples.length,nextAfter:matches.length>limit?page.at(-1)?.index:null,coverage:"Sample points only; ranges are half-open"};
+  }
+  async searchFrame(indexId:string,id:string,time:number,limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={},text?:string){
+    requireCapability(this.config.capabilities,"export");
+    z.number().finite().nonnegative().parse(time);z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
+    if(text!==undefined)text=z.string().trim().min(1).max(500).parse(text);
+    const controls=visualRefinement.parse(refinement);
+    await this.record(indexId); // Validate index authority before creating an artifact.
+    // A rejected query must not create a thumbnail as a side effect.
+    for(const concept of new Set(controls.exclude))await this.tokenize(concept);
+    if(text!==undefined)await this.tokenize(text);
+    const frame=await this.library.artifact(id,"thumbnail",time);
+    return {...await this.search(indexId,{image:frame.output,...(text!==undefined?{text}:{})},limit,scope,controls),reference:{id,time,image:frame.output}};
+  }
+  private async thumbnail(sample:{image:string;imageSha256?:string},directory:string){
+    const image=await resolveReadablePath(sample.image,[directory],"file");
+    if(sample.imageSha256!==undefined&&await sha256File(image)!==sample.imageSha256)throw new Error("Visual thumbnail changed since embedding; rebuild the index");
+    return {image,thumbnailIntegrity:sample.imageSha256===undefined?"unverified_legacy":"sha256_verified"};
+  }
+  private async tokenize(value:string){
+    const text=z.string().trim().min(1).max(500).parse(value),models=await this.load();
+    const tokens=await models.tokenizer(text,{padding:true,truncation:false});
+    const tokenCount=tokens.input_ids.dims.at(-1);
+    if(!Number.isInteger(tokenCount)||tokenCount!<1)throw new Error("Visual tokenizer returned an invalid token shape");
+    if(tokenCount!>VISUAL_TEXT_TOKEN_LIMIT)throw new AvidMcpError("VISUAL_QUERY_TOO_LONG","Visual query exceeds the pinned model context; shorten it or search distinct concepts separately. No query text was silently discarded.",{tokenCount,maxTokens:VISUAL_TEXT_TOKEN_LIMIT});
+    return tokens;
+  }
+  async search(indexId:string,query:{text:string}|{image:string;text?:string|undefined},limit:number,scope:z.infer<typeof visualScope>={},refinement:z.input<typeof visualRefinement>={}){
+    z.number().int().min(1).max(100).parse(limit);scope=visualScope.parse(scope);
+    const controls=visualRefinement.parse(refinement);
+    const {record,directory}=await this.record(indexId);
+    const models=await this.load();
+    // Validate all text before any embedding inference; duplicates have no extra effect.
+    const negativeTokens=[];for(const text of new Set(controls.exclude))negativeTokens.push(await this.tokenize(text));
+    const positiveTokens="text" in query&&query.text!==undefined?await this.tokenize(query.text):undefined;
+    let embedding:number[];
+    if(!("image" in query)){
+      if(!positiveTokens)throw new Error("Visual query requires text or an image");
+      const result=await models.text(positiveTokens);
+      embedding=Array.from(result.text_embeds.data,Number);
+    }else{
+      const image=await resolveReadablePath(query.image,[...this.config.allowedRoots,directory],"file");
+      if(![".jpg",".jpeg",".png"].includes(path.extname(image).toLowerCase()))throw new Error("Reference image must be a bounded JPEG or PNG");
+      const bytes=await readBoundedFile(image,20*1024*1024);
+      const decoded=await models.RawImage.fromBlob(new Blob([new Uint8Array(bytes)]));
+      const result=await models.vision(await models.processor(decoded));
+      embedding=Array.from(result.image_embeds.data,Number);
+    }
+    const textEmbedding="image" in query&&positiveTokens?Array.from((await models.text(positiveTokens)).text_embeds.data,Number):undefined;
+    const negatives:number[][]=[];for(const tokens of negativeTokens)negatives.push(Array.from((await models.text(tokens)).text_embeds.data,Number));
+    const ranked=record.samples.filter(sample=>(!scope.ids||scope.ids.includes(sample.id))&&(!scope.range||sample.time>=scope.range.start&&sample.time<scope.range.end)).map(({vector,...sample})=>{
+      const primarySimilarity=cosine(embedding,vector),textSimilarity=textEmbedding?cosine(textEmbedding,vector):undefined;
+      const similarity=textSimilarity===undefined?primarySimilarity:(primarySimilarity+textSimilarity)/2;
+      const components=textSimilarity===undefined?{}:{imageSimilarity:primarySimilarity,textSimilarity,similarity};
+      if(!negatives.length)return {...sample,...components,score:similarity};
+      const exclusionSimilarity=Math.max(0,...negatives.map(negative=>cosine(negative,vector)));
+      return {...sample,...components,score:similarity-controls.weight*exclusionSimilarity,similarity,exclusionSimilarity};
+    }).sort((a,b)=>b.score-a.score);
+    const results=[];for(const sample of ranked.slice(0,limit))results.push({...sample,...await this.thumbnail(sample,directory)});
+    const baseMeaning=textEmbedding?"Equal-weight mean of image and text CLIP cosine similarities":"CLIP cosine similarity";
+    return {model:VISUAL_MODEL,scoreMeaning:negatives.length?`${baseMeaning} minus weight times maximum nonnegative excluded-concept cosine; soft ranking only, not guaranteed absence`:`${baseMeaning}, not probability or verified identity`,...(negatives.length?{refinement:{exclude:[...new Set(controls.exclude)],weight:controls.weight}}:{}),matchingSamples:ranked.length,truncated:ranked.length>limit,results};
+  }
+}

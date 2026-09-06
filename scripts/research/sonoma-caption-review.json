@@ -1,0 +1,18 @@
+{
+  "sourceId":"3025fb298baee4c3beec50480a3d9376c99d0fc79d05f55f91e2e1c500539fca",
+  "reviewMethod":"Assistant visually inspected each retained JPEG. Development reference descriptions, not independent held-out human labels. Times are requested seeks; no continuous coverage or real-world event order is inferred.",
+  "samples":[
+    {"time":2,"text":"An airplane wing is visible through a window above a city and distant hills."},
+    {"time":20,"text":"People walk along a sidewalk beside restaurant buildings and a covered outdoor dining area."},
+    {"time":40,"text":"A person wearing a backpack walks on a dirt path through dry grass beneath a gray sky."},
+    {"time":60,"text":"People with backpacks stand beneath trees near a small building and parked vehicles in foggy surroundings."},
+    {"time":80,"text":"Rows of grapevines flank a large tree, with shadows on bare ground and hills behind."},
+    {"time":100,"text":"A small green open-sided passenger vehicle is on a paved path beside trees and a stone pillar."},
+    {"time":111.2,"text":"A person is beside wooden barrels stacked on racks inside a dim room."},
+    {"time":130,"text":"People sit with drinking glasses on an outdoor patio beneath green umbrellas, with a tablet or laptop on the table."},
+    {"time":150,"text":"People stand on a sidewalk beside outdoor dining tables with white cloths and yellow chairs."},
+    {"time":164.866667,"text":"A hand holds a phone displaying a colorful game on a sidewalk near pedestrians and a van."},
+    {"time":180,"text":"A person grips holds on an indoor climbing wall."},
+    {"time":189,"text":"A person wearing glasses holds a drinking glass on a patio with green umbrellas, plants and a fountain."}
+  ]
+}

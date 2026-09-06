@@ -1,0 +1,38 @@
+import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID,createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const input=process.argv[2];assert.ok(input&&path.isAbsolute(input)&&process.argv.length===3,'Pass absolute successful retained scale evidence.json');
+const prior=JSON.parse(await readFile(input,'utf8'));assert.equal(prior.markersRetained,true);assert.equal(prior.markers.length,100);assert.match(prior.bin,/^MCP_Batch_[a-f0-9]{8}\.avb$/);
+const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',sourceBin=path.join(project,'MCP_Color_ac0a950e18ee.avb'),media='D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4';
+const protectedFiles=[sourceBin,media,input],before=await Promise.all(protectedFiles.map(sha256File));assert.deepEqual(before.slice(0,2),prior.sourceHashes);
+const root=path.resolve('.avid-mcp-analysis',`native-batch-removal-${randomUUID()}`);await mkdir(root);const events=[],bin=prior.bin,mobId=prior.mobId;
+const client=new Client({name:'native-batch-removal-qualification',version:'1.0'});
+await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit'}}));
+const call=async(tool,args)=>{const response=await client.callTool({name:tool,arguments:args},undefined,{timeout:120000});events.push({tool,args,response});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));assert.ok(!response.isError,JSON.stringify(response));return response.structuredContent.data;};
+const apply=async operation=>call('avid_native_apply',{token:(await call('avid_native_preview',{operation})).token});
+const reopen=async()=>{for(const action of ['close_bin','open_bin'])assert.equal((await apply({action,bin})).binStateVerified,true);};
+const digest=items=>items.map(item=>createHash('sha256').update(JSON.stringify(item)).digest('hex')).sort();
+const snapshots=[];
+const snapshot=async label=>{const source=path.join(project,bin),file=path.join(root,label+'.avb'),sha256=await sha256File(source);await copyFile(source,file,1);assert.equal(await sha256File(file),sha256);assert.equal(await sha256File(source),sha256);snapshots.push({label,file,sha256});await writeFile(path.join(root,'snapshots.json'),JSON.stringify(snapshots,null,2));};
+try{
+ const initial=await call('avid_native_read',{query:'markers',bin,mobId});assert.deepEqual(digest(initial),digest(prior.persisted));
+ await snapshot('initial-100');
+ const sentinel={guid:randomUUID(),offset:110,track:{type:'TRACKTYPE_PICTURE',number:1},name:'Preserve this marker',comment:'Outside the requested 100-marker removal',color:'Blue'};
+ assert.equal((await apply({action:'add_markers',bin,mobId,markers:[sentinel]})).markersVerified,true);
+ await reopen();
+ const baseline=await call('avid_native_read',{query:'markers',bin,mobId}),preserved=baseline.filter(marker=>marker.guid===sentinel.guid);assert.equal(preserved.length,1);
+ await snapshot('with-sentinel');
+ const removed=await apply({action:'delete_markers',bin,mobId,guids:prior.markers.map(marker=>marker.guid)});assert.equal(removed.markersRemovedVerified,true,JSON.stringify(removed));
+ await reopen();const after=await call('avid_native_read',{query:'markers',bin,mobId});assert.deepEqual(after,preserved);
+ await snapshot('sentinel-only');
+ const cleanup=await apply({action:'delete_markers',bin,mobId,guids:[sentinel.guid]});assert.equal(cleanup.markersRemovedVerified,true);
+ await reopen();const final=await call('avid_native_read',{query:'markers',bin,mobId});assert.deepEqual(final,[]);
+ await snapshot('cleaned');
+ assert.deepEqual(await Promise.all(protectedFiles.map(sha256File)),before);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({input,bin,mobId,snapshots,initial,baseline,sentinel,final,removedCount:100,unrequestedMarkerPreserved:true,persisted:true,finalMarkerCount:0,sourceAndPriorEvidenceUnchanged:true,removed,after,cleanup,scope:'Explicit 100-marker deletion preserves one outside-request marker across save/reopen, followed by separate sentinel cleanup. No atomicity, restart, cross-build or whole-bin graph restoration claim.'},null,2),{flag:'wx'});
+ console.log(JSON.stringify({root,removedCount:100,unrequestedMarkerPreserved:true,finalMarkerCount:0,sourceAndPriorEvidenceUnchanged:true}));
+}finally{await client.close();}

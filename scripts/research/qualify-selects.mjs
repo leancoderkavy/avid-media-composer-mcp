@@ -1,0 +1,15 @@
+import {Collections} from '../../dist/library/collections.js';
+import {loadConfig} from '../../dist/config.js';
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const output=path.resolve('.avid-mcp-analysis/sonoma-library-20260905');
+const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:'D:/Sonoma Escape Edit',AVID_MCP_OUTPUT_ROOT:output,AVID_MCP_CAPABILITIES:'inspect,export,project-write'});
+const collections=new Collections(config);
+const prior=JSON.parse(await readFile(path.join(output,'results.json'),'utf8'));
+const saved=await collections.save({name:'Sonoma MCP selects',selects:[{id:prior.thumbnail.id,start:95,end:97,label:'Preview select',tags:['smoke-test'],note:'Two-second source range'},{id:prior.thumbnail.id,start:143,end:146,label:'Outdoor select',tags:['outdoors'],note:'Review sampled visual match'}]});
+const range=await collections.range(saved.revision,1,3);
+assert.deepEqual(range.results.map(result=>[result.overlapSourceStart,result.overlapSourceEnd]),[[96,97],[143,144]]);
+const exported=await collections.exportOtio(saved.revision,30);
+await writeFile(path.join(output,'selects-results.json'),JSON.stringify({saved,range,exported},null,2));
+console.log(JSON.stringify(exported));

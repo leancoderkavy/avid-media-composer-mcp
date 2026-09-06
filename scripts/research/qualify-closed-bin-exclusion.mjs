@@ -1,0 +1,13 @@
+import {NativeClient} from '../../dist/native/client.js';import {NativeAdapter} from '../../dist/native/adapter.js';import {loadConfig} from '../../dist/config.js';
+import {mkdir,writeFile} from 'node:fs/promises';import path from 'node:path';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',bin='MCP_AAF_Selects_20260905.avb',binary='C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',root=path.resolve('.avid-mcp-analysis',`closed-bin-exclusion-${randomUUID()}`);await mkdir(root);
+const client=new NativeClient(binary),adapter=new NativeAdapter(loadConfig({AVID_MCP_NATIVE_BINARY:binary,AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_CAPABILITIES:'inspect,edit'}));
+const before=await client.call('GetBinInfo',{relative_bin_path:bin});assert.equal(before[0]?.is_open,true,'Target must initially be open');
+const change=async action=>{const plan=await adapter.preview({action,bin});const result=await adapter.apply(plan.token);await writeFile(path.join(root,`${action}.json`),JSON.stringify(result,null,2));assert.equal(result.binStateVerified,true);return result;};
+await change('close_bin');
+const inventory=await client.call('GetBins',{request_flag:['AllTypes','OnlyOpen']}),afterEnumeration=await client.call('GetBinInfo',{relative_bin_path:bin});
+await writeFile(path.join(root,'closed-observation.json'),JSON.stringify({inventory,afterEnumeration},null,2));
+await change('open_bin');
+const after=await client.call('GetBinInfo',{relative_bin_path:bin}),target=path.resolve(project,bin).toLowerCase(),listed=inventory.some(item=>typeof item.absolute_path==='string'&&path.resolve(item.absolute_path).toLowerCase()===target);
+await writeFile(path.join(root,'evidence.json'),JSON.stringify({before,inventory,afterEnumeration,after,listedWhileClosed:listed,scope:'Explicit disposable-bin close, open-bin enumeration, direct state check and reopen. No atomic snapshot or saved-media fidelity claim.'},null,2));
+console.log(JSON.stringify({root,listedWhileClosed:listed,stillClosed:afterEnumeration[0]?.is_open===false,restoredOpen:after[0]?.is_open===true}));assert.equal(listed,false);assert.equal(afterEnumeration[0]?.is_open,false);assert.equal(after[0]?.is_open,true);

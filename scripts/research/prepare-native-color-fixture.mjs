@@ -1,0 +1,35 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,writeFile,copyFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {runProcess} from '../../dist/process.js';
+assert.ok(process.argv.slice(2).every(arg=>arg==='--pcm'),'Unsupported fixture option');
+const pcm=process.argv.includes('--pcm');
+const project='D:/Avid Projects/MCP_Sonoma_30p_20260905',sourceBin=pcm?'MCP_PCMAAF_dcf153d5.avb':'MCP_CopyMCP_93108dc0c7b8.avb',sourceFile=path.join(project,sourceBin);
+const sourceMobId=pcm?'060a2b340101010501010f1013-000000-a376a03c12888806-8062d8bbc16d-18d9':'060a2b340101010501010f1013-000000-184e5ee212898806-7c27d8bbc16d-18d9',sourceName=pcm?'MCP_PCM_AAF_Selects':'MCP_Sonoma_AAF_Selects.Copy.05';
+const sourceHash=await sha256File(sourceFile);assert.equal(sourceHash,pcm?'0ac72b899c37b45618d2924f5814b3e411e077a04ad4a3b79d427b7099fee81f':'8b8ccefa6225a38acc6aae30be05d05b469c14b8758afc12bdd80494df785822');
+const root=path.resolve('.avid-mcp-analysis',`native-color-fixture-${randomUUID()}`);await mkdir(root);
+await copyFile(sourceFile,path.join(root,'source-baseline.avb'));
+const name=`MCP_Color_${randomUUID().replaceAll('-','').slice(0,12)}`,bin=name+'.avb',events=[];
+const client=new Client({name:'native-color-fixture-preparation',version:'1.0'});
+await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_NATIVE_BINARY:'C:/Program Files/Avid/Avid Media Composer/AvidMediaComposer.exe',AVID_MCP_ALLOWED_ROOTS:project,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,edit,project-write'}}));
+const call=async(tool,args)=>{const result=await client.callTool({name:tool,arguments:args},undefined,{timeout:120000});events.push({tool,args,result});await writeFile(path.join(root,'events.json'),JSON.stringify(events,null,2));assert.ok(!result.isError,JSON.stringify(result));return result.structuredContent.data;};
+const apply=async operation=>call('avid_native_apply',{token:(await call('avid_native_preview',{operation})).token});
+try{
+ const original=await call('avid_native_read',{query:'clips',bin:sourceBin});assert.equal(original.find(c=>c.mob_id===sourceMobId)?.mob_name,sourceName);
+ await apply({action:'create_bin',name});
+ const copied=await apply({action:'copy_clip',bin:sourceBin,mobId:sourceMobId,destinationBin:bin});assert.equal(copied.copyIdentityVerified,true);
+ for(const action of ['close_bin','open_bin'])assert.equal((await apply({action,bin})).binStateVerified,true);
+ const clips=await call('avid_native_read',{query:'clips',bin});assert.equal(clips.length,1);assert.notEqual(clips[0].mob_id,sourceMobId);
+ const graph=async file=>{const result=await runProcess(path.resolve('.venv/Scripts/python.exe'),['python/avid_timeline.py',file],{timeoutMs:30000,maxOutputBytes:4*1024*1024});assert.equal(result.exitCode,0,result.stderr);return JSON.parse(result.stdout);};
+ const before=await graph(path.join(root,'source-baseline.avb')),after=await graph(path.join(project,bin));
+ const sequenceBefore=before.mobs.find(m=>m.name===sourceName),sequenceAfter=after.mobs.find(m=>m.name===clips[0].mob_name);assert.ok(sequenceBefore&&sequenceAfter);
+ const semantics=({mobId,name,...rest})=>rest;assert.deepEqual(semantics(sequenceAfter),semantics(sequenceBefore));
+ assert.equal(await sha256File(sourceFile),sourceHash);
+ await copyFile(path.join(project,bin),path.join(root,'candidate-baseline.avb'));
+ const evidence={project,sourceBin,sourceHash,bin,clips,sequenceSemanticsEqual:true,before,after,scope:'Owned sequence copy and save/reopen baseline only. No source-settings refresh, color correction, render or source effect fidelity claim.'};
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify(evidence,null,2),{flag:'wx'});console.log(JSON.stringify({root,bin,clips,sequenceSemanticsEqual:true}));
+}finally{await client.close();}

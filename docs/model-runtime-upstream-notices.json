@@ -1,0 +1,60 @@
+{
+  "checkedAt": "2026-09-06T08:59:21.824Z",
+  "runtimeTreeSha256": "d5a5b75a002b5394092af3a6b95078b81e31721295e825e9b1b0c9c285a18553",
+  "reports": [
+    {
+      "name": "onnxruntime-node",
+      "version": "1.24.3",
+      "ref": "v1.24.3",
+      "commit": "3a728b75062256951b6e19ce718907cf1a1d4cf0",
+      "basis": "Release version tag; not independent binary build provenance",
+      "registryUrl": "https://registry.npmjs.org/onnxruntime-node/1.24.3",
+      "registryIntegrityMatchesLock": true,
+      "registryGitHead": null,
+      "notices": [
+        {
+          "file": "LICENSE",
+          "source": "https://raw.githubusercontent.com/microsoft/onnxruntime/3a728b75062256951b6e19ce718907cf1a1d4cf0/LICENSE",
+          "bytes": 1073,
+          "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+        },
+        {
+          "file": "ThirdPartyNotices.txt",
+          "source": "https://raw.githubusercontent.com/microsoft/onnxruntime/3a728b75062256951b6e19ce718907cf1a1d4cf0/ThirdPartyNotices.txt",
+          "bytes": 325054,
+          "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+        }
+      ]
+    },
+    {
+      "name": "onnxruntime-web",
+      "version": "1.26.0-dev.20260416-b7804b056c",
+      "ref": "b7804b056c",
+      "commit": "b7804b056c30aa35c1748f8e4e239d0e2ff25d6d",
+      "basis": "Commit suffix in package version; registry supplies no gitHead, not independent binary build provenance",
+      "registryUrl": "https://registry.npmjs.org/onnxruntime-web/1.26.0-dev.20260416-b7804b056c",
+      "registryIntegrityMatchesLock": true,
+      "registryGitHead": null,
+      "notices": [
+        {
+          "file": "LICENSE",
+          "source": "https://raw.githubusercontent.com/microsoft/onnxruntime/b7804b056c30aa35c1748f8e4e239d0e2ff25d6d/LICENSE",
+          "bytes": 1073,
+          "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+        },
+        {
+          "file": "ThirdPartyNotices.txt",
+          "source": "https://raw.githubusercontent.com/microsoft/onnxruntime/b7804b056c30aa35c1748f8e4e239d0e2ff25d6d/ThirdPartyNotices.txt",
+          "bytes": 325054,
+          "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Notice sources correlated to versions; no assertion that every listed component is in a particular binary",
+    "No package archive download, binary source reproduction or legal compatibility determination",
+    "Guid repository returned 404 in the accompanying investigation; its original notice remains unresolved",
+    "No installed runtime or model cache changed"
+  ]
+}

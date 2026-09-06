@@ -15,6 +15,7 @@ function config(overrides: Partial<ServerConfig> = {}): ServerConfig {
     capabilities: new Set(["inspect"]),
     pythonExecutable: "definitely-missing-python",
     ffprobeExecutable: "definitely-missing-ffprobe",
+    ffmpegExecutable: "definitely-missing-ffmpeg",
     maxFiles: 1_000,
     maxBins: 20,
     maxMediaFiles: 20,
@@ -62,6 +63,7 @@ describe("MCP tool handlers", () => {
       authority: { default: ["inspect"] },
       dependencies: {
         pythonInspector: { available: false },
+        ffmpeg: { available: false },
         ffprobe: { available: false },
       },
     });
