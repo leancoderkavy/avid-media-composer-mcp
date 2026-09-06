@@ -17,8 +17,12 @@ const checkpoint=z.object({captionId:uuid,sha256:sha,time:z.number().nonnegative
 const digest=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 async function publish(file:string,value:unknown){const temporary=file+`.${randomUUID()}.tmp`;try{await writeFile(temporary,JSON.stringify(value),{flag:"wx",mode:0o600});await link(temporary,file);}finally{await unlink(temporary).catch(error=>{if(error.code!=="ENOENT")throw error;});}}
 export class CaptionBatches{
+  private tail:Promise<unknown>=Promise.resolve();
+  private closing=false;
+  private disposing:Promise<void>|undefined;
   constructor(private config:ServerConfig,private captions=new FrameCaptions(config)){}
-  async dispose(){await this.captions.dispose();}
+  private serialize<T>(fn:()=>Promise<T>){if(this.closing)return Promise.reject(new Error("Caption batch service is closing"));const work=this.tail.then(fn);this.tail=work.catch(()=>{});return work;}
+  dispose(){this.closing=true;return this.disposing??=(async()=>{await this.tail;await this.captions.dispose();})();}
   private async source(id:string){sha.parse(id);const entry=await new MediaLibrary(this.config).validatedMetadata(id);if(!entry)throw new Error("Caption batch media unavailable");const source=await resolveReadablePath(entry.file,this.config.allowedRoots,"file");if(await sha256File(source)!==id)throw new Error("Caption batch source changed");return entry;}
   private async directory(runId:string){uuid.parse(runId);const root=await new MediaLibrary(this.config).directory();return resolveReadablePath(path.join(root,`caption-run-${runId}`),[root],"directory");}
   async read(runId:string){
@@ -37,8 +41,11 @@ export class CaptionBatches{
     for await(const entry of await opendir(root)){if(++scanned>10000)throw new Error("Caption run discovery limit exceeded");if(!entry.isDirectory()||!/^caption-run-[a-f0-9-]{36}$/.test(entry.name)||after&&entry.name.slice(12)<=after)continue;const runId=entry.name.slice(12),directory=await this.directory(runId),record=header.parse(await readBoundedJson(await resolveReadablePath(path.join(directory,"manifest.json"),[directory],"file"),16384));if(record.id===id)names.push(runId);}
     names.sort();const runs=[];for(const runId of names.slice(0,limit)){try{runs.push(await this.status(runId));}catch(error){runs.push({runId,state:"unavailable",message:(error as Error).message});}}return {runs,nextAfter:names.length>limit?names[limit-1]:null};
   }
-  async resume(runId:string){const previous=await this.read(runId);if(previous.complete)throw new Error("Caption run already completed");return this.generate(previous.record.id,previous.record.times,runId);}
+  resume(runId:string){return this.serialize(async()=>{const previous=await this.read(runId);if(previous.complete)throw new Error("Caption run already completed");return this.generateInner(previous.record.id,previous.record.times,runId);});}
   async generate(id:string,times:number[],parentRunId?:string){
+    return this.serialize(()=>this.generateInner(id,times,parentRunId));
+  }
+  private async generateInner(id:string,times:number[],parentRunId?:string){
     requireCapability(this.config.capabilities,"export");requireCapability(this.config.capabilities,"project-write");captionTimes.parse(times);const entry=await this.source(id),duration=Number(entry.metadata.format?.duration);if(!Number.isFinite(duration)||times.at(-1)!>=duration)throw new Error("Caption batch times exceed source duration");
     const previous=parentRunId?await this.read(parentRunId):undefined;if(previous&&(previous.complete||previous.record.id!==id||JSON.stringify(previous.record.times)!==JSON.stringify(times)))throw new Error("Caption resume plan changed");
     const runId=randomUUID(),record=header.parse({recipe:1,runId,parentRunId,id,times,model:CAPTION_MODEL,modelRevision:CAPTION_REVISION,task:CAPTION_TASK,runtime:"4.2.0",dtype:"q4"}),root=await new MediaLibrary(this.config).directory(),temporary=path.join(root,`caption-run-${runId}.creating`),directory=path.join(root,`caption-run-${runId}`);await mkdir(temporary);await writeFile(path.join(temporary,"manifest.json"),JSON.stringify(record),{flag:"wx"});await rename(temporary,directory);

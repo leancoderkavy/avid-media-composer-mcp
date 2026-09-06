@@ -1,29 +1,28 @@
 import { spawn } from "node:child_process";
-import net from "node:net";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 const token = "local-http-smoke-token-32-bytes-minimum";
 
-async function unusedPort() {
-  const listener = net.createServer();
-  await new Promise((resolve, reject) => {
-    listener.once("error", reject);
-    listener.listen(0, "127.0.0.1", resolve);
-  });
-  const address = listener.address();
-  const port = typeof address === "object" && address ? address.port : undefined;
-  await new Promise((resolve) => listener.close(resolve));
-  if (!port) throw new Error("Could not allocate a smoke-test port");
-  return port;
+async function listeningPort() {
+  const deadline=Date.now()+20_000;
+  while(Date.now()<deadline){
+    if(spawnError)throw spawnError;
+    if(child.exitCode!==null||child.signalCode!==null)throw new Error("HTTP child exited before readiness");
+    const match=/Streamable HTTP listening on 0\.0\.0\.0:(\d+)/.exec(stderr);
+    if(match){const port=Number(match[1]);if(port>0&&port<=65535)return port;throw new Error("Invalid listener port");}
+    await new Promise(resolve=>setTimeout(resolve,50));
+  }
+  throw new Error("HTTP child did not report a listener within 20 seconds");
 }
 
 async function waitForHealth(url) {
   let lastError;
   for (let attempt = 0; attempt < 100; attempt += 1) {
+    if(child.exitCode!==null||child.signalCode!==null)throw new Error("HTTP child exited during health observation");
     try {
-      const response = await fetch(url);
+      const response = await fetch(url,{signal:AbortSignal.timeout(1000)});
       if (response.ok) return response.json();
       lastError = new Error(`Health returned ${response.status}`);
     } catch (error) {
@@ -34,22 +33,24 @@ async function waitForHealth(url) {
   throw lastError ?? new Error("HTTP server did not become healthy");
 }
 
-const port = await unusedPort();
-const baseUrl = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, [path.resolve("dist/http-server.js")], {
+  windowsHide:true,
   stdio: ["ignore", "pipe", "pipe"],
   env: {
     ...process.env,
-    PORT: String(port),
+    PORT: "0",
     MCP_AUTH_TOKEN: token,
     AVID_MCP_ALLOWED_ROOTS: path.resolve("tests/fixtures/sample-project"),
     AVID_MCP_CAPABILITIES: "inspect",
   },
 });
 let stderr = "";
-child.stderr.on("data", (chunk) => (stderr += chunk));
+let spawnError;
+child.on('error',error=>{spawnError=error;});
+child.stderr.on("data", (chunk) => {stderr=(stderr+chunk).slice(-65536);});
 
 try {
+  const baseUrl = `http://127.0.0.1:${await listeningPort()}`;
   const health = await waitForHealth(`${baseUrl}/health`);
   const unauthorized = await fetch(`${baseUrl}/mcp`, { method: "POST" });
   if (unauthorized.status !== 401) {
@@ -76,12 +77,14 @@ try {
       }),
     );
   } finally {
-    await client.close();
+    try{await transport.terminateSession();}finally{await client.close();}
   }
+} catch(error) {
+  throw new Error(`HTTP smoke failed; child exit=${child.exitCode}, signal=${child.signalCode}\n${stderr}`,{cause:error});
 } finally {
-  child.kill();
+  if(child.pid&&child.exitCode===null&&child.signalCode===null)child.kill();
   await new Promise((resolve) => {
-    if (child.exitCode !== null) resolve();
+    if (!child.pid||child.exitCode !== null||child.signalCode!==null) resolve();
     else child.once("exit", resolve);
   });
 }

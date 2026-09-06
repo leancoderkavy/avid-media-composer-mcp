@@ -1,5 +1,15 @@
 # Completion ledger
 
+### Caption shutdown covers complete batches
+
+CaptionBatches now admits and serializes whole generate/resume operations, stops admission at shutdown, drains accepted batches through checkpoint publication, then disposes its caption service once. MCP registration gives batch and standalone caption tools separate service/model ownership and includes batch disposal in server closure. This prevents standalone disposal from closing batch frame admission between frames. Separate model ownership can retain two Florence instances when both tool families are warm; process-wide memory budgeting remains a separate requirement.
+
+Delayed-generation tests cover a failed first batch followed by a queued successful batch, partial checkpoint inspection, complete queued checkpoints, refusal after shutdown and single model disposal. Real cached Florence qualification first loaded a standalone caption model, then admitted two two-frame batches and simultaneously requested standalone/batch disposal. All four batch captions and completed checkpoints remained valid, disposal followed batch completion, later batches were refused, and source media was unchanged. Evidence: `.avid-mcp-analysis/caption-batch-shutdown-4fb5e0be-fad7-4ea9-a753-1ef8be5d7eab/evidence.json` from the extended `qualify-queued-model-shutdown.mjs caption-batch` harness.
+
+This is graceful service-level draining. It does not establish completion under an MCP client's forced-exit deadline, operating-system shutdown, abrupt parent loss or process-wide allocator/resource limits. Full-plan acceptance remains open.
+
+Full local check passed 744 TypeScript tests, 46 Python tests, both transports and fresh-package/Python/AAF validation (`check-caption-batch-shutdown.log`). Investigation of preceding 2e1c0f6 CI found macOS Node 24 HTTP smoke startup failed with ECONNREFUSED after unit/Python checks passed (run 34057880724, job 101552988006); missing child stderr prevented attributing the cause. The smoke now uses the actual OS-assigned PORT=0 listener, waits on the same child's readiness/exit state, preserves stderr diagnostics and explicitly deletes its MCP session. That final smoke-only change passed locally after the full check; macOS confirmation requires new-head CI.
+
 ### Summary trees drain before model disposal
 
 Transcript summaries previously disposed their shared model without waiting for generation. They now serialize complete generation/resume trees, stop admission at shutdown, drain accepted work and retain one disposal outcome. Visual summaries now stop admission before draining their existing queue and attempt owned-caption cleanup even when summary-model cleanup fails. Reading completed summary evidence remains available after model shutdown.

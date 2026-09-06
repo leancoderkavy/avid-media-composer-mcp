@@ -30,7 +30,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const speakers = new SpeakerAnalysis(config);
   const library = new MediaLibrary(config);
   const captions = new FrameCaptions(config);
-  const captionBatches = new CaptionBatches(config,captions);
+  const captionBatches = new CaptionBatches(config);
   const visual = new VisualSearch(config);
   const speech = new SpeechAnalysis(config);
   const jobs = new AnalysisJobs(config);
@@ -46,7 +46,7 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const aafBuilder = new AafBuilder(config);
   const transcripts = new TranscriptRevisions(config);
   const previousClose=server.server.onclose;
-  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose(),visualSummaries.dispose()]);previousClose?.();};
+  server.server.onclose=()=>{jobs.close();watches.stop();void Promise.allSettled([visual.dispose(),speech.dispose(),summaries.dispose(),captions.dispose(),captionBatches.dispose(),visualSummaries.dispose()]);previousClose?.();};
   const id = z.string().regex(/^[a-f0-9]{64}$/);
   const ids = z.array(id).min(1).max(100);
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
