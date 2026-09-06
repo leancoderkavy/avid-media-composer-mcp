@@ -35,6 +35,10 @@ describe("saved semantic snapshots",()=>{
     expect((await snapshots.range(revision,'sequence',0,30)).results[0]).toMatchObject({opaque:true,effect});
     const trace=await snapshots.traceSources(revision,'sequence',0,30);
     expect(trace.incomplete).toBe(true);expect(trace.steps[0]).toMatchObject({status:'unsupported_component'});
+    Object.assign(effect.linearLutDeclaration,{automaticConversion:true,transformationListName:'From Rec.709 [full range] to Rec.709'});await save();
+    expect((await snapshots.range(revision,'sequence',0,30)).results[0]).toMatchObject({effect});
+    Reflect.deleteProperty(effect.linearLutDeclaration,'transformationListName');await save();await expect(snapshots.range(revision,'sequence',0,30)).rejects.toThrow();
+    Reflect.deleteProperty(effect.linearLutDeclaration,'automaticConversion');
     effect.linearLutDeclaration.white=1024;await save();await expect(snapshots.range(revision,'sequence',0,30)).rejects.toThrow();
     effect.linearLutDeclaration.white=940;effect.id='x'.repeat(1025);await save();await expect(snapshots.range(revision,'sequence',0,30)).rejects.toThrow();
   });

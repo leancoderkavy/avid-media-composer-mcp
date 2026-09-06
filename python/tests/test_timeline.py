@@ -47,6 +47,10 @@ class TimelineTests(unittest.TestCase):
         xml=b'<ColorTransformationList><ColorTransformation><LinearLut><Name>Levels scaling (full range to video levels)</Name><BitDepth>10</BitDepth><Black>64</Black><White>940</White><Inverted/></LinearLut></ColorTransformation></ColorTransformationList>\x00'
         expected={'name':'Levels scaling (full range to video levels)','bitDepth':10,'black':64,'white':940,'invertedFlagPresent':True}
         self.assertEqual(linear_lut_declaration(xml),expected)
+        automatic=xml.replace(b'<ColorTransformationList>',b'<ColorTransformationList automaticConversion="true"><Name>From Rec.709 [full range] to Rec.709</Name>')
+        self.assertEqual(linear_lut_declaration(automatic),{**expected,'automaticConversion':True,'transformationListName':'From Rec.709 [full range] to Rec.709'})
+        for bad in [automatic.replace(b'="true"',b'="false"'),automatic.replace(b'<Name>From',b'<Other>From'),automatic.replace(b'automaticConversion=',b'unknown=')]:
+            self.assertIsNone(linear_lut_declaration(bad))
         for bad in [b'<!DOCTYPE x>'+xml, b'<?xml version="1.0"?>'+xml, b'x'*65537,
                     xml.replace(b'940',b'1024'),xml.replace(b'64',b'940'),xml.replace(b'>10<',b'>33<'),
                     xml.replace(b'<Inverted/>',b'<Inverted>yes</Inverted>'),

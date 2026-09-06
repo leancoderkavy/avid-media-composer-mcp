@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Combined native audio/color qualification
+
+Verified frame timing on the refreshed older AAC sequence; all 120 best matches align with source presentation times, but duplicate output audio channels remain. Created and saved a separate copy of the prepared-PCM sequence, applied UI Color Adapters refresh to that copy, and exported through guarded MCP. The same output now has exact source-clock 24-bit stereo PCM with distinct channels, all 120 technically verified frames, mean full-raster SSIM 0.958711 and maximum diagnostic presentation-time residual 0.334 microseconds. Original bin/media hashes and non-picture track structure stayed unchanged. Combined evidence: `.avid-mcp-analysis/native-color-fixture-3bfb1d55-f1d4-4675-936c-bd2ab3cf8694/combined-evidence.json`. See NATIVE_RENDER_QUALIFICATION.md for the source-bin baseline recheck and all comparison artifacts.
+
+Added recognition/validation of the observed automatic-conversion XML wrapper, preserving its flag/list name as declarations. Actual MCP capture/reconnect/input tracing passed on the new saved bin (`saved-color-effects-c73b53bc-9a3f-44e2-a5f9-79f4d759dacb`). Updated the export workflow guidance to distinguish stereo metadata, actual PCM preservation and color refresh evidence. Full local check passed with 596 TypeScript tests, 40 Python tests, 139 tools, five skills, transports and fresh-package checks (`.avid-mcp-analysis/check-automatic-color-declarations.log`); the 25-test snapshot suite also passed the added automatic-field consistency assertions. Prior ba5fa0c CI/CodeQL passed. General native refresh automation, color residual/perceptual fidelity, other source formats and all remaining full-plan requirements stay open.
+
 ### Diagnostic color-adapter input tracing
 
 Added bounded recognition of the saved color adapter's single equal-length picture input. It requires the supported LUT declaration, non-reversed/zero mode/scalar flags, one input track, one same-rate/full-length source clip and optional zero-length fillers. Saved nodes remain opaque with a separate `effect.inputReference`; trace steps explicitly mark `effectInputOnly` and the whole trace remains incomplete. This follows declared input chains without asserting rendered output correspondence. See COLOR_ADAPTER_INPUT_TRACE.md.

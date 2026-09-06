@@ -1,11 +1,14 @@
 """Inspect the retained owned color-refresh fixture without resolving media locators."""
 import hashlib
 import json
+import sys
 from pathlib import Path
 import avb
 
-ROOT = Path('.avid-mcp-analysis/native-color-fixture-dccc9bf2-5f8a-46ff-9768-3ec701e901e0')
-NAME = 'MCP_Sonoma_AAF_Selects.Copy.05.Copy.01'
+assert all(arg=='--pcm' for arg in sys.argv[1:])
+PCM = '--pcm' in sys.argv
+ROOT = Path('.avid-mcp-analysis/native-color-fixture-3bfb1d55-f1d4-4675-936c-bd2ab3cf8694' if PCM else '.avid-mcp-analysis/native-color-fixture-dccc9bf2-5f8a-46ff-9768-3ec701e901e0')
+NAME = 'MCP_PCM_AAF_Selects.Copy.01' if PCM else 'MCP_Sonoma_AAF_Selects.Copy.05.Copy.01'
 
 
 def inspect(filename):

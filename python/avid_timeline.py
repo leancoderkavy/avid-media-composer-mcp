@@ -62,9 +62,17 @@ def linear_lut_declaration(data):
         if '<!' in text or '<?' in text:
             return None
         root=ET.fromstring(text)
-        if root.tag!='ColorTransformationList' or root.attrib or len(root)!=1:
+        if root.tag!='ColorTransformationList':
             return None
-        transform=root[0]
+        automatic={}
+        if root.attrib=={'automaticConversion':'true'}:
+            if len(root)!=2 or root[0].tag!='Name' or root[0].attrib or len(root[0]):return None
+            list_name=root[0].text or ''
+            if len(list_name)>256:return None
+            automatic={'automaticConversion':True,'transformationListName':list_name}
+            transform=root[1]
+        elif not root.attrib and len(root)==1:transform=root[0]
+        else:return None
         if transform.tag!='ColorTransformation' or transform.attrib or len(transform)!=1:
             return None
         lut=transform[0]
@@ -83,7 +91,7 @@ def linear_lut_declaration(data):
             return None
         if len(lut)==5 and (lut[4].text or '').strip():
             return None
-        return {'name':name,'bitDepth':depth,'black':black,'white':white,'invertedFlagPresent':len(lut)==5}
+        return {'name':name,'bitDepth':depth,'black':black,'white':white,'invertedFlagPresent':len(lut)==5,**automatic}
     except (ET.ParseError,UnicodeError,ValueError):
         return None
 

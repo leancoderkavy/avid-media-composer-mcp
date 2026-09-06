@@ -1,5 +1,21 @@
 # Avid sequence render qualification
 
+## Combined prepared-PCM and color-refresh export, 2026-09-06
+
+Created `MCP_Color_ac0a950e18ee.avb` with `MCP_PCM_AAF_Selects.Copy.01` and verified saved baseline sequence semantics against the current PCM sequence. Its source bin had changed since the historical import hash; fresh parsing confirmed the same 120-frame/30 fps picture and stereo input ranges before selecting the current hash `0ac72b899c37b45618d2924f5814b3e411e077a04ad4a3b79d427b7099fee81f`. The first old-hash attempt refused before mutation. UI Refresh Sequence > Color Adapters was applied to the selected copy, then only its bin was closed/reopened before native export with the stereo/legal preset.
+
+The combined export SHA-256 is `ee3ab16d6e7789a1a06727fabb6fbafc41207fa31b352791e2dec0908b484e0d`. Technical verification decoded all 120 frames. Independent 24-bit PCM hashing exactly matched the original source-clock cuts, with distinct left/right channels and zero best lag for corresponding channels. Full-raster mean SSIM was 0.958711 (minimum 0.901226, RGB RMSE 4.429720); all 120 best source-frame matches aligned to intended presentation times within 0.334 microseconds. No stream retagging was performed.
+
+`verify-pcm-color-evidence.mjs` binds the media checks to the native receipt, confirms unchanged non-picture tracks and picture input identities/ranges, and rechecks the original PCM sequence bin, original MP4, prepared MOV and saved candidate hashes. Evidence: `.avid-mcp-analysis/native-color-fixture-3bfb1d55-f1d4-4675-936c-bd2ab3cf8694/combined-evidence.json`; full-raster comparison: `.avid-mcp-analysis/full-resolution-9a2302fe-441f-49db-adf7-753e9091bfad/evidence.json`. This combines exact audio preservation and improved color in one fixture. Color residual, perceptual acceptance, other media/hosts and general native refresh automation remain open.
+
+The new source creates an automatic-conversion XML wrapper (`automaticConversion="true"`, list name `From Rec.709 [full range] to Rec.709`) around the same linear LUT. Saved inspection now recognizes that observed bounded form and retains both declarations; unknown wrappers still remain unparsed. Actual MCP capture/reconnect and input tracing passed on this prepared-PCM fixture (`saved-color-effects-c73b53bc-9a3f-44e2-a5f9-79f4d759dacb` under `.avid-mcp-analysis`). This metadata does not establish the meaning of the Inverted flag or applied color math.
+
+## Refreshed AAC-sequence frame/audio comparison, 2026-09-06
+
+Independent diagnostics on the color-refreshed Copy.05 render found all 120 best frame matches at decoded source index one below nominal 30 fps indexing, matching the original source's 0.033333-second video start. Maximum presentation-time residual was 0.334 microseconds; mean best-match RGB RMSE was 2.206064 at 96x54. This agrees with the earlier full-resolution color improvement, but correlation ranking does not certify exact frame identity. Evidence: the refreshed export's `frame-comparison-018799ce-e59b-43df-930c-1d4967639fa0/evidence.json`.
+
+The same render still fails audio preservation: its two PCM channels are identical and the source-clock PCM hash differs, with poor bounded-lag correlation. Evidence: `audio-comparison-372cae73-d0b0-40fc-8ff2-5868ef6e0bfb/evidence.json` beside that render. Source and output hashes remained unchanged. Color refresh did not repair the older AAC-linked sequence's known audio issue. The next combined experiment uses an isolated copy of the prepared-PCM sequence, whose earlier audio renders matched exactly, then applies the same color refresh and independently verifies both video and audio.
+
 ## Isolated color-adapter refresh result, 2026-09-06
 
 The retained CFUserParam payload is 243 bytes (SHA-256 `f94ba338bf5b7a57caed1a57d9b05730d830ecdd3ae55a38b2c840d18045c7d5`). Its UTF-8 XML declares a single LinearLut named `Levels scaling (full range to video levels)`, bit depth 10, black 64, white 940 and an empty `Inverted` element. Both wrappers have identical parameter declarations. This confirms saved range-scaling metadata agrees with the observed UI label; the direction/meaning of the Inverted flag and actual color math are not inferred.
