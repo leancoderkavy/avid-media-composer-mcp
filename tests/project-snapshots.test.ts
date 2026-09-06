@@ -192,3 +192,11 @@ it("distinguishes cross-bin matches from missing and repeated source identities"
  first.mobs.push({...source});revision=await save();
  expect(await snapshots.range(revision,"sequence",0,30)).toMatchObject({sourceReferenceCoverage:{allReferencesResolve:true},snapshotSourceReferenceCoverage:{allReferencesResolve:false,ambiguousCount:1}});
 });
+
+it("pages all source identities beyond coverage samples without omission",async()=>{
+ const {record,save,snapshots}=await fixture(),track=record.bins[0]!.mobs[0]!.tracks[0]!;
+ track.nodes=Array.from({length:23},(_,i)=>({...track.nodes[0]!,sourceMobId:`source-${String(i).padStart(2,"0")}`}));
+ const revision=await save(),first=await snapshots.sourceResolution(revision,-1,10),second=await snapshots.sourceResolution(revision,first.nextAfter!,10),last=await snapshots.sourceResolution(revision,second.nextAfter!,10);
+ expect([...first.sources,...second.sources,...last.sources].map(row=>row.sourceMobId)).toEqual(track.nodes.map(node=>node.sourceMobId));expect(last.nextAfter).toBeNull();expect(first.totalSourceIds).toBe(23);expect(first.sources[0]).toMatchObject({status:"unresolved",candidateCount:0,references:1});
+ await expect(snapshots.sourceResolution(revision,-2)).rejects.toThrow();await expect(snapshots.sourceResolution(revision,-1,201)).rejects.toThrow();
+});

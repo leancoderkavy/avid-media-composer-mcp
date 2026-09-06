@@ -26,7 +26,7 @@ try {
     client.listTools(),
     client.callTool({ name: "avid_get_capabilities", arguments: {} }),
   ]);
-  if (tools.tools.length !== 133 || capabilities.isError) {
+  if (tools.tools.length !== 134 || capabilities.isError) {
     throw new Error("Remote MCP protocol validation failed");
   }
   console.log(

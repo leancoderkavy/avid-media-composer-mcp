@@ -46,6 +46,19 @@ export async function publishSnapshot(file:string,serialized:string){
 export class ProjectSnapshots {
   private library:MediaLibrary;
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
+  async sourceResolution(revision:string,after=-1,limit=100){
+    if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>200)throw new Error("Invalid source resolution page");
+    const snapshot=await this.read(revision),counts=new Map<string,number>(),matches=new Map<string,{bin:string;name:string}[]>();
+    for(const bin of snapshot.bins)for(const mob of bin.mobs){
+      const found=matches.get(mob.mobId)??[];found.push({bin:bin.file,name:mob.name});matches.set(mob.mobId,found);
+      for(const track of mob.tracks)for(const node of track.nodes)if(node.sourceMobId!==undefined)counts.set(node.sourceMobId,(counts.get(node.sourceMobId)??0)+1);
+    }
+    const ids=[...counts.keys()].sort(),page=ids.slice(after+1,after+1+limit).map((sourceMobId,offset)=>{
+      const candidates=matches.get(sourceMobId)??[];
+      return {index:after+1+offset,sourceMobId,references:counts.get(sourceMobId)!,status:candidates.length===0?"unresolved":candidates.length===1?"resolved":"ambiguous",candidateCount:candidates.length,candidates:candidates.slice(0,10),candidatesTruncated:candidates.length>10};
+    });
+    return {revision,sources:page,totalSourceIds:ids.length,nextAfter:after+1+page.length<ids.length?page.at(-1)?.index??null:null,complete:snapshot.bins.every(bin=>bin.complete),scope:"Direct source identities across captured saved bins, sorted by ID. Unresolved does not mean missing media; resolved does not validate cycles, source ranges or playback. Candidate samples are bounded; snapshot mob discovery enumerates all matching records."};
+  }
   async mobs(revision:string,after=-1,limit=100){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>100)throw new Error("Invalid snapshot mob page");
     const snapshot=await this.read(revision),mobs=[];let index=0;
