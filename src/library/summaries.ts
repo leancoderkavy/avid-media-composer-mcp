@@ -5,6 +5,7 @@ import * as z from "zod/v4";
 import type {ServerConfig} from "../config.js";
 import {MediaLibrary} from "./media-library.js";
 import {modelRuntime} from "./model-runtime.js";
+import {installModelNotice} from "./model-notices.js";
 import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {readBoundedJson} from "../security/bounded-read.js";
@@ -13,7 +14,7 @@ import {AvidMcpError,errorDetails} from "../errors.js";
 import {validateSummaryTree} from "./summary-tree.js";
 export const SUMMARY_MODEL="Xenova/distilbart-cnn-6-6";
 export const SUMMARY_REVISION="6b476295a3cf27d5b20e8c8b847a54ab8e5d0df9";
-export async function loadSummaryModel(cache:string,download=false){const {pipeline}=await modelRuntime(cache,download);return pipeline("summarization",SUMMARY_MODEL,{cache_dir:cache,revision:SUMMARY_REVISION,local_files_only:!download,dtype:"q8"});}
+export async function loadSummaryModel(cache:string,download=false){if(download)await installModelNotice(cache,SUMMARY_MODEL,SUMMARY_REVISION);const {pipeline}=await modelRuntime(cache,download);return pipeline("summarization",SUMMARY_MODEL,{cache_dir:cache,revision:SUMMARY_REVISION,local_files_only:!download,dtype:"q8"});}
 type Source={start:number;end:number;text:string;index:number};
 const hash=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const nodeSchema=summaryNodeSchema;

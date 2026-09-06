@@ -82,7 +82,7 @@ try {
   const {verifyFaceLicenses}=await import(pathToFileURL(path.join(installedRoot,"dist","library","face-runtime.js")).href);
   await verifyFaceLicenses(path.join(installedRoot,"docs","licenses"));
   const {installModelNotice}=await import(pathToFileURL(path.join(installedRoot,"dist","library","model-notices.js")).href);
-  for(const model of ["onnx-community/whisper-base","Xenova/clip-vit-base-patch32","onnx-community/whisper-tiny","onnx-community/whisper-tiny.en","onnx-community/Florence-2-base-ft"]){
+  for(const model of ["Xenova/distilbart-cnn-6-6","onnx-community/whisper-base","Xenova/clip-vit-base-patch32","onnx-community/whisper-tiny","onnx-community/whisper-tiny.en","onnx-community/Florence-2-base-ft"]){
     const cache=path.join(temporary,"notice-cache");
     if(!(await installModelNotice(cache,model,"a".repeat(40))).created||(await installModelNotice(cache,model,"a".repeat(40))).created)throw new Error("Installed model notice creation/reuse failed");
   }
@@ -271,7 +271,7 @@ try {
       sourceTrace: "installed stereo channels, clipped downstream offsets, unresolved endpoints and invalid-range refusal passed",
       faceNotices: "both packaged model licenses match pinned upstream bytes",
       originalNotices: "packaged original-project notices match recorded upstream bytes",
-      cachedNotices: "five model notice mappings create and reuse from installed package",
+      cachedNotices: "six model notice mappings create and reuse from installed package",
       snapshotRecovery: "revision discovery to mob inventory to timeline query passed",
       sidecarIsolation: "package-only; missing package fails closed",
       pythonMcpIsolation: withPython ? "available; missing rejected; restored" : "not requested",

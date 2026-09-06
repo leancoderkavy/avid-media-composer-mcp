@@ -3,6 +3,9 @@ import {mkdtemp,readFile,writeFile,symlink,readdir} from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {installModelNotice} from "../src/library/model-notices.js";
+it("identifies summary license text without claiming model attribution clearance",async()=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),"avid-summary-notice-"));const result=await installModelNotice(root,"Xenova/distilbart-cnn-6-6","a".repeat(40));expect(result.created).toBe(true);expect(result.scope).toContain("not a model-specific attribution notice");expect(result.sha256).toBe("cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30");
+});
 it("creates and reuses notices but preserves changed files",async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),"avid-notice-")),model="Xenova/clip-vit-base-patch32",revision="a".repeat(40);
  const first=await installModelNotice(root,model,revision);expect(first.created).toBe(true);

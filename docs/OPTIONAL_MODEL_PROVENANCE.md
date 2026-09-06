@@ -41,3 +41,11 @@ The original [Whisper project](https://github.com/openai/whisper#license) expres
 The original [CLIP project](https://github.com/openai/CLIP) supplies an MIT notice with OpenAI attribution. Exact original CLIP and Whisper notices are bundled under `docs/licenses/`; `original-model-notices.json` records immutable source URLs, observed commits, byte lengths and SHA-256 values. The same manifest records the previously retained Florence notice. Those observed project commits do not establish the historical commits used for conversion.
 
 Fresh-package smoke now checks all three original-project notices against the recorded bytes, in addition to the two face-model notices. This proves notice inclusion and integrity, not complete conversion-chain or runtime license clearance. DistilBART's original notice chain, conversion-specific obligations, runtime dependencies and model-cache notice delivery remain outstanding.
+
+## Summary setup license text
+
+Explicit DistilBART setup now retains the standard [Apache-2.0 license text](https://www.apache.org/licenses/LICENSE-2.0.txt), matching the declarations observed in the [upstream model card](https://huggingface.co/sshleifer/distilbart-cnn-6-6) and pinned conversion inventory. The exact downloaded bytes are bundled in `docs/licenses/apache-2.0.LICENSE`: 11,358 bytes, SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`. This is standard license text, not an original model-specific attribution notice; no copyright holder or missing historical conversion revision is invented.
+
+The existing exclusive publication/checksum checks apply to the revision-scoped cache file. Offline summary loading remains read-only. The helper reports the narrower scope for this model explicitly. Original attribution-chain reconciliation, conversion obligations, training-data provenance and runtime dependency review remain open.
+
+Build and 27 focused tests passed across summary behavior, model-notice filesystem checks and loader boundaries. Actual `--download-models --summaries` setup loaded/disposed the pinned model and retained the notice in the existing cache; log: `.avid-mcp-analysis/summary-notice-setup.log`. This proves setup integration, not clean-machine installation or summary factual quality.

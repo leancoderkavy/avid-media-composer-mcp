@@ -6,11 +6,13 @@ import {loadVisualModels,VISUAL_MODEL,VISUAL_REVISION} from "../src/library/visu
 import {loadSpeechModel} from "../src/library/speech.js";
 import {speechModels} from "../src/library/speech-options.js";
 import {loadCaptionModel,CAPTION_MODEL,CAPTION_REVISION} from "../src/library/captions.js";
+import {loadSummaryModel,SUMMARY_MODEL,SUMMARY_REVISION} from "../src/library/summaries.js";
 beforeEach(()=>{
  vi.resetAllMocks();mocks.notice.mockResolvedValue({created:true});mocks.load.mockResolvedValue({});mocks.pipeline.mockResolvedValue({});
  const loader={from_pretrained:mocks.load};mocks.runtime.mockResolvedValue({AutoTokenizer:loader,AutoProcessor:loader,CLIPTextModelWithProjection:loader,CLIPVisionModelWithProjection:loader,Florence2ForConditionalGeneration:loader,pipeline:mocks.pipeline});
 });
 const cases=[
+ {name:"summary",load:loadSummaryModel,model:SUMMARY_MODEL,revision:SUMMARY_REVISION},
  {name:"visual",load:loadVisualModels,model:VISUAL_MODEL,revision:VISUAL_REVISION},
  {name:"captions",load:loadCaptionModel,model:CAPTION_MODEL,revision:CAPTION_REVISION},
  ...(["tiny","tiny.en","base"] as const).map(selection=>({name:selection,load:(cache:string,download:boolean)=>loadSpeechModel(cache,download,selection),...speechModels[selection]})),
