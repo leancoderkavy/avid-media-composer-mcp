@@ -2,6 +2,8 @@
 
 `show_clip` uses the existing preview/apply token flow and requests the Source viewer. Its receipt reports `viewerVerified` only when bin-scoped viewer readback contains the requested MOB ID with viewer type `Source`. Application completion alone does not establish that result. A failed read or identity mismatch leaves verification false and does not replay the request.
 
+`postStateRead` records whether post-state data was obtained, separately from verification. A mismatched viewer can therefore have `postStateRead: true` and `viewerVerified: false`, with the observed data retained for review. A failed read has `postStateRead: false`. Rename receipts use the same distinction with `renameVerified`; clients must not treat successful readback alone as successful application of the requested state.
+
 Viewer reads recheck the authorized project path and bin MOB membership after obtaining viewer data. A changed project or membership is refused before positions are returned. Membership comparison ignores enumeration order and duplicate IDs. This brackets the read with observations; it cannot detect changes that occur and revert between those observations or provide an atomic editor snapshot.
 
 On the qualified Windows 2024.12 host, loading the disposable Sonoma source master completed but reported a different Source MOB ID. Read-only investigation found that ID absent from the bin and `GetMobInfo` returned no columns for it. The load response has no identity mapping field. Evidence: `.avid-mcp-analysis/viewer-identity-investigation.json`. A temporary viewer identity is a possible explanation, not established equivalence; the adapter does not substitute names or file paths to claim success.

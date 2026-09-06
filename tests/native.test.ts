@@ -64,7 +64,7 @@ describe("native boundaries", () => {
         return original(method,body);
       });
       const plan=await f.adapter.preview({action:"rename_clip",bin:"fixture.avb",mobId:"clip",expectedName:"Original",name:"Reviewed"}),result=await f.adapter.apply(plan.token);
-      expect(result).toMatchObject({applicationCompleted:true,renameVerified:false,persistenceVerified:false,postStateRead:false,verificationError:"Native rename was not verified; inspect clip before another attempt"});
+      expect(result).toMatchObject({applicationCompleted:true,renameVerified:false,persistenceVerified:false,postStateRead:true,verificationError:"Native rename was not verified; inspect clip before another attempt"});
       expect(result.postState).toEqual([{column_name:"Name",column_value:current}]);await expect(f.adapter.apply(plan.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
     }
   });
@@ -86,7 +86,7 @@ describe("native boundaries", () => {
       const f=await hostFixture(),original=f.client.call.bind(f.client);
       vi.spyOn(f.client,"call").mockImplementation((method,body)=>method==="LoadMobsIntoViewer"?Promise.resolve([]):method==="GetViewerMobs"?Promise.resolve([{mobs:[{mob_id:"clip",view_type:viewer,current_frame:0,current_timecode:"00:00:00:00"}]}]):original(method,body));
       const preview=await f.adapter.preview({action:"show_clip",bin:"fixture.avb",mobId:"clip"}),result=await f.adapter.apply(preview.token);
-      expect(result).toMatchObject({applicationCompleted:true,viewerVerified:viewer==="Source",postStateRead:viewer==="Source",persistenceVerified:false});
+      expect(result).toMatchObject({applicationCompleted:true,viewerVerified:viewer==="Source",postStateRead:true,persistenceVerified:false});
       await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");
     }
   });
