@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Streamed watch directory selection
+
+Full check passed with 696 TypeScript/46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-watch-directory-page.log`). After adding unordered-enumeration coverage, the final TypeScript rerun passed all 697 tests (`test-directory-page-final.log`). Full-plan acceptance remains open.
+
+Replaced whole-directory `readdir` allocation/sort with streamed iteration and a bounded maximum heap retaining the earliest eligible entries. The capacity is the remaining entry budget plus lookahead, capped at 10,001 per traversal level; depth remains capped. Complete enumeration is still necessary for lexical selection, so this does not bound directory enumeration time or total manifest storage. Tests exercise full page coverage, mixed types/Unicode, reverse/shuffled order, filtering and failures. An initial case-only filename fixture collided on Windows and was corrected to distinct names.
+
+Actual MCP qualification used 10,021 entries and reconnects to cross the 10,000-entry budget, reach a Sonoma copy, index after stable observations and avoid duplicate indexing. Source/copy hashes were unchanged. Evidence: `.avid-mcp-analysis/watch-wide-3549dbf7-ef46-44a4-b9f7-9434211f7053/evidence.json`. This advances bounded storage and large-folder coverage; total process memory, manifest growth, concurrent mutation and full-plan acceptance remain open.
+
 ### Watch traversal continuation
 
 Validation passed: full check with 693 TypeScript/46 Python tests and fresh-package/transport/Python/AAF checks (`check-watch-batches.log`); final TypeScript rerun after the cross-batch error addition passed all 694 tests (`test-watch-batches-final.log`). The real MCP batch harness also passed again on final code: `.avid-mcp-analysis/watch-batches-8ab4f30b-d9c3-431e-a1e6-682ed491e32e/evidence.json`. Inventory remains 140 tools/five skills. Full-plan acceptance remains open.

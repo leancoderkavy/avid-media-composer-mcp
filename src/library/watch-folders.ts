@@ -8,6 +8,7 @@ import {requireCapability} from "../security/capabilities.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
+import {directoryPage} from "./directory-page.js";
 
 export const watchOptions=z.object({folder:z.string().min(1),depth:z.number().int().min(0).max(8).default(2),maxFiles:z.number().int().min(1).max(1000).default(100),enabled:z.boolean().default(true)}).strict();
 const observation=z.object({signature:z.string(),stable:z.boolean(),mediaId:z.string().optional(),error:z.string().optional(),cycle:z.string().uuid().optional()});
@@ -86,7 +87,10 @@ export class WatchFolders {
       };
       const walk=async(folder:string,parts:string[])=>{
         if(++directories>1000){truncated=true;return;}
-        const children=(await readdir(folder,{withFileTypes:true})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
+        const children=await directoryPage(folder,10001-entries,entry=>{
+          const location=[...parts,entry.name],ancestor=cursor&&location.length<=cursor.length&&location.every((part,index)=>part===cursor[index]);
+          return !cursor||compare(location,cursor)>0||Boolean(entry.isDirectory()&&ancestor);
+        });
         for(const entry of children){
           const location=[...parts,entry.name],ancestor=cursor&&location.length<=cursor.length&&location.every((part,index)=>part===cursor[index]);
           if(cursor&&compare(location,cursor)<=0&&!(entry.isDirectory()&&ancestor))continue;
