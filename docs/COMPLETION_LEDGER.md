@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Guarded native batch markers
+
+Added `add_markers` preview/apply for 1–100 caller-identified markers on an existing 30 fps clip/sequence. Preflight checks unique GUIDs, existing markers, duration bounds, track inventory, source membership and printable ASCII text. One AddMarkers dispatch is owner-bound; post-read verifies every requested field, one-frame length, user, prior marker preservation and total count. Partial verification never reports markersVerified, and tokens cannot replay. Native allowlist now contains 15 reads and 16 writes.
+
+The first actual batch created both requested markers but verification failed because Avid omitted the default picture enum. That response remains retained. Comparison now applies the qualified protobuf default. A no-replay fixture recovery verified persisted fields and explicitly deleted those two markers, restoring the original marker list. A fresh corrected-code run then passed preview/apply (`markersVerified: true`), save/reopen, field verification, explicit deletion and marker-list restoration: `.avid-mcp-analysis/native-batch-markers-c8750760-3e8d-4822-8248-a04621e44ba3/evidence.json`. Original source-bin/media hashes remained unchanged in both runs. Initial/recovery evidence: `native-batch-markers-62921df6-59f3-47cb-8ad4-b4bdb287eb02`.
+
+Full check passed: 644 TypeScript tests, 41 Python tests, 139 tools, five skills, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-native-batch-markers.log`). Tests cover omitted enum defaults, partial readback, replay refusal, duplicate IDs, batch/text bounds, offsets and missing tracks. No atomicity, full-bin graph restoration, 100-marker scale, Unicode, mixed-track or cross-rate host qualification is claimed. See NATIVE_BATCH_MARKERS.md. Full-plan scope remains open.
+
 ### Resolve a native MOB to its current project bin
 
 Added `avid_native_read` query `mob_bin` backed by locally derived GetBinFromMob. It requires a MOB ID and accepts exactly one absolute existing AVB path within the current authorized project, with project checks bracketing the call. Malformed/multiple/outside-project/non-AVB results and project changes are refused; unrelated native fields are omitted. No bin is opened and no write occurs. Native allowlist: 15 reads and 15 writes; MCP inventory remains 139 tools.

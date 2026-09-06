@@ -23,6 +23,7 @@ const color = z.enum(["Red", "Green", "Blue", "Cyan", "Magenta", "Yellow", "Blac
 const track = z.object({ type: z.enum(["TRACKTYPE_PICTURE", "TRACKTYPE_SOUND"]), number: z.number().int().min(1).max(64) }).strict();
 const selectionIds=z.array(id).max(4096).refine(ids=>new Set(ids).size===ids.length,"Duplicate selection identities");
 export const nativeActionSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("add_markers"),bin:z.string().min(1),mobId:id,markers:z.array(z.object({guid:z.string().uuid(),offset:z.number().int().nonnegative().max(2147483647),track,comment:z.string().max(1024).regex(/^[\x20-\x7e]*$/),name:z.string().max(120).regex(/^[\x20-\x7e]*$/),color}).strict()).min(1).max(100).refine(items=>new Set(items.map(item=>item.guid)).size===items.length,"Duplicate marker GUIDs")}).strict(),
   z.object({action:z.literal("copy_clips"),bin:z.string().min(1),mobIds:selectionIds.refine(ids=>ids.length>0,"Copy at least one item"),destinationBin:z.string().min(1)}).strict(),
   z.object({action:z.literal("copy_clip"),bin:z.string().min(1),mobId:id,destinationBin:z.string().min(1)}).strict(),
   z.object({action:z.literal("select_clips"),bin:z.string().min(1),mobIds:selectionIds,expectedSelectedMobIds:selectionIds}).strict(),
@@ -176,6 +177,16 @@ export class NativeAdapter {
     if(action.action==="open_bin")return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),action};
     const clips = await this.client.call("GetListOfBinItems", { bin_relative_path:path.relative(project.path,bin),bin_flags:["AllTypes"] });
     if ("mobId" in action && !clips.some(clip => clip.mob_id === action.mobId)) throw new Error("Target clip is not in bin");
+    if(action.action==="add_markers"){
+      const info=await this.client.call("GetMobInfo",{mob_id:action.mobId}),columns=Object.fromEntries(info.map(row=>[row.column_name,row.column_value])),frames=Number(columns["Frame Count Duration"]);
+      if(project.frame_rate?.num!==30||project.frame_rate?.den!==1||Number(columns.FPS)!==30||!Number.isSafeInteger(frames)||frames<1||action.markers.some(marker=>marker.offset>=frames))throw new Error("Batch markers require in-range offsets on a 30 fps clip");
+      const current=await this.read("markers",action.bin,action.mobId) as Record<string,any>[];
+      if(action.markers.some(marker=>current.some(existing=>existing.guid===marker.guid)))throw new Error("Marker GUID already exists; inspect before another attempt");
+      const tracks=await this.read("tracks",action.bin,action.mobId) as Record<string,any>[];
+      const labels=tracks.flatMap(body=>body.track_info_list.track_info.map((item:any)=>item.label));
+      if(action.markers.some(marker=>!labels.some(label=>label.type===marker.track.type&&label.number===marker.track.number)))throw new Error("Marker target track is unavailable");
+      return {project:project.path,owner:this.client.ownerIdentity,bin,binSha256:await sha256File(bin),clips,markers:current,info,tracks,action};
+    }
     if(action.action==="copy_clip"||action.action==="copy_clips"){
       requireCapability(this.config.capabilities,"edit");
       const requested=action.action==="copy_clip"?[action.mobId]:action.mobIds;
@@ -390,6 +401,10 @@ export class NativeAdapter {
           case "open_bin": case "close_bin": result = await this.client.call(action.action === "open_bin" ? "OpenBin" : "CloseBin", { bin_path: await this.binPath(project.path, action.bin) }); break;
           case "link_media": result = await this.client.call("LinkFile", { file_path: await resolveReadablePath(action.media, this.config.allowedRoots, "file"), destination_bin: path.relative(project.path, await this.binPath(project.path, action.bin)) }); break;
           case "add_marker": result = await this.client.call("AddMarker", { mob_id: action.mobId, track_label: action.track, offset: action.offset, length: 1, color: action.color, name: action.name, comment: action.comment, user: "Avid MCP" }); break;
+          case "add_markers": {
+            if(project.path!==observedState.project||this.client.ownerIdentity!==observedState.owner)throw new Error("Marker host or project changed before dispatch");
+            result=await this.client.call("AddMarkers",{mob_id:action.mobId,info:action.markers.map(marker=>({guid:marker.guid,offset:marker.offset,track_label:marker.track,length:1,name:marker.name,comment:marker.comment,color:marker.color,user:"Avid MCP"}))},observedState.owner);break;
+          }
           case "change_marker": {
             const markers=await this.read("markers",action.bin,action.mobId) as Record<string,any>[];
             const existing=markers.find(marker=>marker.guid===action.guid);
@@ -423,6 +438,12 @@ export class NativeAdapter {
         }
         let postState:unknown,verificationError:string|undefined;
         try {
+          if(action.action==="add_markers"){
+            postState=await this.read("markers",action.bin,action.mobId);const after=postState as Record<string,any>[];
+            const before="markers" in observedState?observedState.markers as Record<string,any>[]:[];
+            for(const marker of action.markers){const matched=after.filter(item=>item.guid===marker.guid);if(matched.length!==1||matched[0]!.offset!==marker.offset||matched[0]!.comment!==marker.comment||matched[0]!.name!==marker.name||matched[0]!.color!==marker.color||matched[0]!.length!==1||matched[0]!.user!=="Avid MCP"||(matched[0]!.track_label?.type??"TRACKTYPE_PICTURE")!==marker.track.type||matched[0]!.track_label?.number!==marker.track.number)throw new Error("Batch marker readback mismatch; inspect before retrying");}
+            if(after.length!==before.length+action.markers.length||before.some(marker=>!after.some(item=>digest(item)===digest(marker))))throw new Error("Existing marker preservation not verified");
+          }else
           if(action.action==="copy_clip"||action.action==="copy_clips"){
             const requested=action.action==="copy_clip"?[action.mobId]:action.mobIds;
             const reported=z.array(z.object({mob_id:z.array(id).max(4096)})).length(1).parse(result)[0]!.mob_id;
@@ -463,7 +484,7 @@ export class NativeAdapter {
             await this.read(action.action === "create_bin" ? "bins" : "mobId" in action ? "markers" : "clips", "bin" in action ? action.bin : undefined, "mobId" in action ? action.mobId : undefined);
         } catch(error){verificationError=(error as Error).message;}
         return { operationId: randomUUID(), action, result, applicationCompleted: true,
-          persistenceVerified: false,...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
+          persistenceVerified: false,...(action.action==="add_markers"?{markersVerified:!verificationError}:{}),...(action.action==="set_clip_comment"?{commentVerified:!verificationError}:{}),...((action.action==="copy_clip"||action.action==="copy_clips")?{copyIdentityVerified:!verificationError,sourceFidelityVerified:false}:{}),...(action.action==="select_clips"?{selectionVerified:!verificationError}:{}), postState, verificationError, postStateRead:postState!==undefined,...(action.action==="show_clip"?{viewerVerified:!verificationError}:{}),...(action.action==="rename_clip"?{renameVerified:!verificationError}:{}),...(["open_bin","close_bin"].includes(action.action)?{binStateVerified:!verificationError}:{}) };
       });
     });
     queue = task;
