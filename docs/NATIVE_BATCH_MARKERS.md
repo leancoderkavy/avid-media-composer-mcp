@@ -1,5 +1,11 @@
 # Native batch markers
 
+## Single marker creation
+
+Actual single creation passed twice, at frames 0 and 75, with save/reopen and independent saved-field verification. Avid returned native non-UUID identifiers directly; saved `id` matched and normalized `guid` was null. Native records remained equal across reopen. Single-note deletion preserved the other note, then separate cleanup restored the empty decoded baseline. Original source hashes were unchanged. Evidence: `.avid-mcp-analysis/native-single-creation-80cc36eb-3d10-4ccb-a482-e80eaac860c2/evidence.json` and `creation-persistence-verification.json`. This also qualifies single deletion of those observed non-UUID IDs on the owned fixture. No arbitrary format/rate or atomic undo guarantee is implied.
+
+`add_marker` now requires an observed target track and an in-range offset on a 30 fps clip. Dispatch is bound to the observed project/editor owner. `markerAddedVerified` requires exactly one new record with the GUID returned by Avid, matching offset, track, one-frame length, name, comment, color and user. Omitted frame-zero and picture-type protobuf defaults are interpreted explicitly. Every prior marker must remain equal; duplicates, missing identity, wrong fields or unrelated changes fail verification. No automatic retry occurs. The native result retains the returned GUID for inspection after an uncertain result. Save/reopen is a separate persistence check.
+
 ## Remove an explicit batch
 
 The single-note `delete_marker` operation now uses the same full-list postcondition: the result must equal the captured list minus exactly the requested current `guid`. It reports `markerRemovedVerified`, binds dispatch to the observed owner/project and refuses ambiguous targets before dispatch. Ignored deletion, removal of extra notes or changes to survivors fail verification. It preserves the existing exact-spelling single-ID input; batch normalization does not silently rewrite that contract.

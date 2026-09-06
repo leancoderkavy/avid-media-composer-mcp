@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Verified single marker creation
+
+`add_marker` now shares batch preflight bounds/track discovery on 30 fps targets, uses owner-bound dispatch and verifies the single native returned identity plus every requested field and prior-record preservation. It reports `markerAddedVerified`; ignored/duplicate additions, wrong fields, missing returned identity or changed existing records fail verification without replay. Protocol defaults for frame zero and picture type remain explicit. All 99 focused native tests and full check passed: 674 TypeScript tests, 46 Python tests, 140 tools, five skills and transport/fresh-package/Python/AAF checks (`check-single-marker-creation.log`).
+
+Actual native single creation at frames 0 and 75 returned non-UUID IDs directly. Native records persisted unchanged across reopen; independent saved AVB inspection matched IDs, names, comments, colors and direct-sequence positions with normalized guid null. Subsequent single removal preserved the outside note; final cleanup restored the empty decoded baseline with original sources unchanged. Evidence: `.avid-mcp-analysis/native-single-creation-80cc36eb-3d10-4ccb-a482-e80eaac860c2/evidence.json` and `creation-persistence-verification.json`. The owned fixture is marker-empty. Broader track/rate/encoding, restart and atomic-undo coverage remain open.
+
 ### Single-marker deletion postcondition
 
 Live MCP single UUID deletion, save/reopen and saved survivor inspection passed, followed by separate single deletion/cleanup that restored the empty decoded baseline. Original sources were unchanged. Evidence: `.avid-mcp-analysis/native-single-removal-39124259-a26f-4a7d-a26d-4f95bbe07725/evidence.json`. The owned fixture is marker-empty; general undo/restart and identifier coverage remain open.

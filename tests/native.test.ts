@@ -133,6 +133,23 @@ it.each(['none','ignored','unrelated','extra-deletion'])('verifies single-marker
  expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,markerRemovedVerified:fault==='none',persistenceVerified:false});
  await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
 });
+it.each(['none','ignored','wrong-offset','unrelated','duplicate','missing-guid'])('verifies single-marker creation and prior records (%s)',async fault=>{
+ const f=await hostFixture(),original=f.client.call.bind(f.client);let writes=0;const markers=[structuredClone(f.marker)];
+ vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+  if(method==='GetMarkers')return [{info:structuredClone(markers)}];
+  if(method==='AddMarker'){writes++;const {mob_id,...fields}=body as any;const marker={...structuredClone(fields),guid:'created'};delete marker.track_label.type;delete marker.offset;if(fault==='wrong-offset')marker.offset=2;if(fault!=='ignored')markers.push(marker);if(fault==='unrelated')markers[0]!.comment='changed';if(fault==='duplicate')markers.push(structuredClone(marker));return fault==='missing-guid'?[{}]:[{guid:'created'}];}
+  return original(method,body);
+ });
+ const plan=await f.adapter.preview({action:'add_marker',bin:'fixture.avb',mobId:'clip',offset:0,track:{type:'TRACKTYPE_PICTURE',number:1},name:'New',comment:'Review',color:'Green'});
+ expect(await f.adapter.apply(plan.token)).toMatchObject({applicationCompleted:true,markerAddedVerified:fault==='none',persistenceVerified:false});
+ await expect(f.adapter.apply(plan.token)).rejects.toThrow('consumed');expect(writes).toBe(1);
+});
+it('refuses out-of-range and unavailable-track single markers before writing',async()=>{
+ const f=await hostFixture(),base={action:'add_marker' as const,bin:'fixture.avb',mobId:'clip',offset:0,track:{type:'TRACKTYPE_PICTURE' as const,number:1},name:'New',comment:'Review',color:'Green' as const};
+ await expect(f.adapter.preview({...base,offset:5726})).rejects.toThrow('in-range');
+ await expect(f.adapter.preview({...base,track:{...base.track,number:2}})).rejects.toThrow('track is unavailable');
+ expect(f.calls.some(call=>call.method==='AddMarker')).toBe(false);
+});
 it('refuses missing, duplicate or stale deletion targets before dispatch',async()=>{
  const f=await hostFixture(),guid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',base={action:'delete_markers' as const,bin:'fixture.avb',mobId:'clip'};
  for(const guids of [[],[guid,guid.toUpperCase()],Array.from({length:101},()=>guid)])expect(nativeActionSchema.safeParse({...base,guids}).success).toBe(false);
