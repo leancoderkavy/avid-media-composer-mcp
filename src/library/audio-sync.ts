@@ -13,17 +13,21 @@ const MAX_BINS = 6000;
 /** Fixed 10 ms RMS windows of normalized mono PCM. Partial final windows are
  * discarded; callers must retain decoding/stream/time-origin provenance. */
 export function audioEnvelope(pcm: Float32Array, sampleRate: number): Float64Array {
-  if (!Number.isInteger(sampleRate) || sampleRate < 100 || sampleRate > 192000 || sampleRate % BINS_PER_SECOND !== 0)
-    throw new Error("Sample rate must be a supported multiple of 100");
+  if (!Number.isInteger(sampleRate) || sampleRate < 100 || sampleRate > 192000)
+    throw new Error("Sample rate must be an integer from 100 to 192000");
   if (!pcm.length || pcm.length > sampleRate * 60) throw new Error("PCM must contain at most 60 seconds");
-  const width = sampleRate / BINS_PER_SECOND;
-  const result = new Float64Array(Math.floor(pcm.length / width));
-  let sum = 0;
+  const result = new Float64Array(Math.floor(pcm.length * BINS_PER_SECOND / sampleRate));
+  // Round each absolute 10 ms boundary up to a sample. Never accumulate a
+  // rounded width: fractional-rate windows must not drift over long inputs.
+  let bin = 0, start = 0, end = Math.ceil(sampleRate / BINS_PER_SECOND), sum = 0;
   for (let i = 0; i < pcm.length; i++) {
     const value = pcm[i]!;
     if (!Number.isFinite(value) || Math.abs(value) > 1) throw new Error("PCM must be finite and normalized to [-1, 1]");
     sum += value * value;
-    if ((i + 1) % width === 0) { result[Math.floor(i / width)] = Math.sqrt(sum / width); sum = 0; }
+    if (bin < result.length && i + 1 === end) {
+      result[bin++] = Math.sqrt(sum / (end - start)); sum = 0; start = end;
+      end = Math.ceil((bin + 1) * sampleRate / BINS_PER_SECOND);
+    }
   }
   return result;
 }

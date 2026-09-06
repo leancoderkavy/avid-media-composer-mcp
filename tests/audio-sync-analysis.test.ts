@@ -9,12 +9,12 @@ import {sha256File} from "../src/analysis/file-inventory.js";
 const run = vi.hoisted(() => vi.fn());
 vi.mock("../src/process.js", () => ({runProcess: (...args: unknown[]) => run(...args), runBinaryProcess: (...args: unknown[]) => run(...args)}));
 beforeEach(() => { run.mockReset(); });
-async function fixture() {
+async function fixture(sampleRate = 1000) {
   const root = await mkdtemp(path.join(os.tmpdir(), "avid-sync-test-")), file = path.join(root, "source.wav");
   await writeFile(file, "fixture source"); const id = await sha256File(file);
   const library = path.join(root, "avid-mcp-library"); await mkdir(library);
   await writeFile(path.join(library, id + ".json"), JSON.stringify({id, file, transcript: [], metadata: {streams: [
-    {index: 0, codec_type: "video"}, {index: 3, codec_type: "audio", channels: 2, sample_rate: "1000"},
+    {index: 0, codec_type: "video"}, {index: 3, codec_type: "audio", channels: 2, sample_rate: String(sampleRate)},
   ]}}));
   const config = loadConfig({AVID_MCP_ALLOWED_ROOTS: root, AVID_MCP_OUTPUT_ROOT: root, AVID_MCP_CAPABILITIES: "inspect,export"});
   const source = {id, stream: 3, channel: 1, startSeconds: 0, durationSeconds: 2};
@@ -48,6 +48,17 @@ it("reports discontinuities without converting content offsets to source-clock s
   const result = await new AudioSyncAnalysis(f.config).analyze(f.options);
   expect(result.reference.timing.gapSamples).toBe(100); expect(result.reference.timestampContinuityObserved).toBe(false);
   expect(result.sourceClockOffset).toBeNull(); expect(result.estimate.verifiedSync).toBe(false);
+});
+it("decodes fractional-window sample rates and reports an integer discarded tail", async () => {
+  const f = await fixture(22050);
+  run.mockResolvedValue({exitCode: 0, stdout: Buffer.alloc(44210 * 4),
+    stderr: "[Parsed_ashowinfo_3 @ x] n:0 pts:0 pts_time:0 fmt:flt channels:1 rate:22050 nb_samples:44210"});
+  const source = {...f.options.reference, durationSeconds: 2.005};
+  const result = await new AudioSyncAnalysis(f.config).analyze({reference: source, comparison: source});
+  expect(result.reference).toMatchObject({sampleRate: 22050, decodedSamples: 44210, envelopeSamples: 200,
+    discardedTailSamples: 110, envelopeBoundaryRounding: "ceil-absolute-sample"});
+  expect(result.estimate.status).toBe("insufficient_signal");
+  expect(result.reference.filter).toContain("end_sample=44210");
 });
 it("rejects unavailable selections and export denial before decoding", async () => {
   const f = await fixture();

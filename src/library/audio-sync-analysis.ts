@@ -28,7 +28,7 @@ export class AudioSyncAnalysis {
     const stream = streams[0];
     if (streams.length !== 1 || stream?.codec_type !== "audio") throw new Error("Select an available absolute audio stream index");
     const sampleRate = Number(stream.sample_rate), channels = Number(stream.channels);
-    if (!Number.isInteger(sampleRate) || sampleRate < 100 || sampleRate > 192000 || sampleRate % 100 !== 0)
+    if (!Number.isInteger(sampleRate) || sampleRate < 100 || sampleRate > 192000)
       throw new Error("Audio sync sample rate is unsupported");
     if (!Number.isInteger(channels) || input.channel >= channels) throw new Error("Audio sync channel is unavailable");
     const startSample = Math.floor(input.startSeconds * sampleRate), samples = Math.floor(input.durationSeconds * sampleRate);
@@ -51,10 +51,12 @@ export class AudioSyncAnalysis {
         const bytes = decoded.stdout;
         if (bytes.length !== source.samples * 4) throw new Error("Audio sync PCM and timing sample counts disagree");
         const pcm = Float32Array.from({length: source.samples}, (_, i) => bytes.readFloatLE(i * 4));
-        return {envelope: audioEnvelope(pcm, source.sampleRate), provenance: {
+        const envelope = audioEnvelope(pcm, source.sampleRate);
+        return {envelope, provenance: {
           ...source.input, sampleRate: source.sampleRate, startSample: source.startSample, decodedSamples: source.samples,
-          envelopeSamples: Math.floor(source.samples / (source.sampleRate / 100)),
-          discardedTailSamples: source.samples % (source.sampleRate / 100), pcmSha256: createHash("sha256").update(bytes).digest("hex"),
+          envelopeSamples: envelope.length,
+          envelopeBoundaryRounding: "ceil-absolute-sample" as const,
+          discardedTailSamples: source.samples - Math.ceil(envelope.length * source.sampleRate / 100), pcmSha256: createHash("sha256").update(bytes).digest("hex"),
           timing, filter, timestampContinuityObserved: timing.discontinuities === 0,
         }};
       };

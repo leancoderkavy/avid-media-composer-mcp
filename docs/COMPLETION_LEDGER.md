@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Audio offset support for fractional samples per 10 ms window
+
+The decoder and RMS estimator previously refused integer sample rates not divisible by 100, including 22,050 and 11,025 Hz. Absolute window boundaries now round up to the next source sample rather than accumulating a rounded width. Sample-count provenance records the convention and integer discarded tail. Existing evenly divisible rates retain their boundaries. Regression tests cover boundary impulses, incomplete windows, invalid tail values, full-minute counts and decoder provenance.
+
+Full local `npm run check` passed: 773 TypeScript tests, 46 Python tests, stdio/HTTP, package contents and fresh-install/Python/AAF checks with 143 tools/five skills. Log: `.avid-mcp-analysis/check-audio-sync-fractional-rates.log`. This is local implementation/package evidence; exact-head CI remains separate.
+
+Actual stdio MCP with derived Sonoma fixtures at both newly supported rates passed ±1.24-second offsets, unrelated-channel weak-match detection, invalid-stream refusal, source/fixture preservation and result reconnect. Evidence: `audio-sync-channels-7f8930d8-07d4-46e5-898e-7558dfbeaa6d` and `audio-sync-channels-bc260e74-eb84-4cd5-9c4c-7d513f119bc5` under `.avid-mcp-analysis/`. See [audio research](AUDIO_SYNC_RESEARCH.md). Independent recordings, general rate accuracy and native sync edits remain unqualified.
+
 ### Audio offset matrix across seven original Sonoma exports
 
 The new repeatable `qualify-audio-sync-matrix.mjs` exercised 14 real stdio MCP worker jobs: separate left/right channels on every original Sonoma MP4, including both 4K exports and the 2.68 GB asset. All returned the known -1.23-second decoded-window offset with three supported consistent windows. Fresh connection readback matched each saved result without replay, and every original SHA-256 was unchanged. Evidence: `.avid-mcp-analysis/audio-sync-matrix-b97ca018-5052-45fd-b6d0-b9c0370abdaf/evidence.json`.
