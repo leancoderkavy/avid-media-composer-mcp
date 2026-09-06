@@ -1,0 +1,30 @@
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+import {MediaLibrary} from '../../dist/library/media-library.js';
+import {loadConfig} from '../../dist/config.js';
+const source=path.resolve(process.argv[2]??'D:/Sonoma Escape Edit/Sonoma_Escape_RoughCut_v1_preview.mp4'),id=await sha256File(source),root=path.resolve('.avid-mcp-analysis',`summary-revision-recovery-${randomUUID()}`);await mkdir(root);
+const env={...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:path.dirname(source),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_MODEL_DIR:path.resolve('.avid-mcp-analysis/models'),AVID_MCP_CAPABILITIES:'inspect,project-write'};
+let client;
+const connect=async(inspectOnly=false)=>{client=new Client({name:'summary-revision-recovery',version:'1.0'});const configuration={...env};if(inspectOnly){delete configuration.AVID_MCP_MODEL_DIR;configuration.AVID_MCP_CAPABILITIES='inspect';}await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/index.js')],stderr:'pipe',env:configuration}));};
+const call=async(name,args)=>{const result=await client.callTool({name,arguments:args},undefined,{timeout:180000});assert.ok(!result.isError,JSON.stringify(result));return result.structuredContent.data;};
+try{
+ await connect();await call('avid_index_media',{files:[source]});
+ const transcript=await call('avid_import_transcript',{id,segments:[{start:0,end:5,text:'Synthetic editorial notes: the producer requested a review of the vineyard arrival shot before delivery.'}]}),generated=await call('avid_generate_summary',{id,transcriptRevision:transcript.revision});
+ const directory=await new MediaLibrary(loadConfig(env)).directory(),saved=path.join(directory,`summary-${generated.revision}.json`),savedHash=await sha256File(saved);
+ const damaged='00000000-0000-4000-8000-000000000001',unrelated='00000000-0000-4000-8000-000000000002',badFile=path.join(directory,`summary-${damaged}.json`);
+ await writeFile(badFile,'PRIVATE_DAMAGED_CONTENT',{flag:'wx'});const damagedHash=await sha256File(badFile);
+ await writeFile(path.join(directory,`summary-${unrelated}.json`),JSON.stringify({id:'b'.repeat(64),private:'UNRELATED_CONTENT'}),{flag:'wx'});
+ const first=await call('avid_list_summaries',{id,limit:1});assert.equal(first.nextAfter,damaged);assert.equal(first.summaries.length,0);assert.equal(first.unavailable[0].mediaIdentityVerified,false);
+ await client.close();await connect(true);
+ const second=await call('avid_list_summaries',{id,after:first.nextAfter,limit:1});assert.equal(second.nextAfter,unrelated);assert.equal(second.summaries.length,0);assert.equal(second.unavailable.length,0);
+ const third=await call('avid_list_summaries',{id,after:second.nextAfter,limit:1});assert.equal(third.nextAfter,null);assert.equal(third.summaries[0].revision,generated.revision);
+ assert.ok(!JSON.stringify([first,second,third]).includes('PRIVATE_DAMAGED_CONTENT'));assert.ok(!JSON.stringify([first,second,third]).includes('UNRELATED_CONTENT'));
+ assert.equal(await sha256File(saved),savedHash);assert.equal(await sha256File(badFile),damagedHash);assert.equal(await sha256File(source),id);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({source,id,generated,first,second,third,savedHash,damagedHash,sourceUnchanged:true,scope:'Actual local summary generation from synthetic notes on Sonoma; damaged-record pagination resumed through a new inspect-only MCP process without models. Does not measure summary accuracy or Avid editing.'},null,2));
+ console.log(JSON.stringify({passed:true,root,revision:generated.revision}));
+}finally{await client?.close();}
