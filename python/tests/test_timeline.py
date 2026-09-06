@@ -4,11 +4,28 @@ import unittest
 from pathlib import Path
 import avb
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_timeline import index_bin, descriptor_metadata
+from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration
 from types import SimpleNamespace
 
 
 class TimelineTests(unittest.TestCase):
+    def test_linear_lut_declarations_are_bounded_and_not_xml_execution(self):
+        xml=b'<ColorTransformationList><ColorTransformation><LinearLut><Name>Levels scaling (full range to video levels)</Name><BitDepth>10</BitDepth><Black>64</Black><White>940</White><Inverted/></LinearLut></ColorTransformation></ColorTransformationList>\x00'
+        expected={'name':'Levels scaling (full range to video levels)','bitDepth':10,'black':64,'white':940,'invertedFlagPresent':True}
+        self.assertEqual(linear_lut_declaration(xml),expected)
+        for bad in [b'<!DOCTYPE x>'+xml, b'<?xml version="1.0"?>'+xml, b'x'*65537,
+                    xml.replace(b'940',b'1024'),xml.replace(b'64',b'940'),xml.replace(b'>10<',b'>33<'),
+                    xml.replace(b'<Inverted/>',b'<Inverted>yes</Inverted>'),
+                    xml.replace(b'<Inverted/>',b'<Unknown/>'),xml.replace(b'<Black>',b'<Black x="1">'),
+                    xml.replace(b'<Inverted/>',b'<Inverted/><Inverted/>'),b'\xff',xml+b'\x00']:
+            with self.subTest(bad=bad[:60]):self.assertIsNone(linear_lut_declaration(bad))
+        parameter=SimpleNamespace(uuid='bd7f5cd8-15fd-424e-a34d-11642fbbb867',value_type=4,enable=True,control_track=None,
+                                  value=SimpleNamespace(uuid='219a99cc-2c8b-4224-86fe-c05794055e1d',data=xml))
+        effect=SimpleNamespace(effect_id='EFF2_LUTSFX',param_list=[parameter])
+        self.assertEqual(color_declaration(effect),expected)
+        parameter.enable=False;self.assertIsNone(color_declaration(effect))
+        parameter.enable=True;effect.param_list.append(parameter);self.assertIsNone(color_declaration(effect))
+
     def test_saved_descriptor_and_locator_declarations_roundtrip(self):
         with tempfile.TemporaryDirectory() as directory:
             target=Path(directory)/'descriptor.avb'

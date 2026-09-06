@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Saved linear-LUT declarations
+
+The refreshed fixture's CFUserParam payload declares the same full-to-video-level scaling label observed in Avid UI: 10-bit black 64, white 940 and an Inverted element. Added bounded recognition of this single-LinearLut XML shape under the observed parameter/value UUIDs. Snapshot range reads preserve the optional declaration; effects remain opaque and the flag is not interpreted as applied transform direction. Unknown/disabled/duplicate/controlled parameters and malformed/oversized/DTD XML are not interpreted. Unit tests cover recorded declarations, invalid values, disabled/duplicate parameters, XML rejection and saved-schema bounds.
+
+Actual MCP capture/reconnect returned both declarations with the retained bin hash unchanged: `.avid-mcp-analysis/saved-color-effects-14fd3cac-acd4-4f59-b67f-a8e54bd12864/evidence.json`. An initial invocation against stale compiled TypeScript correctly rejected the new Python field; rerunning after the normal build passed. Full local `npm run check` passed: 594 TypeScript tests, 38 Python tests, 139 tools, five skills, transports and fresh-package/Python checks (`.avid-mcp-analysis/check-linear-lut-declarations.log`). Previous head a9bc437 passed CI and CodeQL. General source mapping through effects, actual LUT math, native refresh automation and broader fidelity remain open.
+
 ### Saved color-effect declarations through MCP
 
 Inspected retained before/after AVB objects: the refreshed picture clips are wrapped by two `EFF2_LUTSFX` effects with PRLS parameters and FXPS keyframes; nested source IDs/track/starts match the original direct clips. Added bounded effect identifier and parameter/keyframe-presence declarations to opaque TKFX nodes and snapshot validation. This improves saved range diagnostics without flattening effects or claiming parameter interpretation/source mapping. Python tests cover roundtrip/bounds and continued opacity; TypeScript tests cover saved range retention, rejected oversized IDs and unsupported source tracing. Actual MCP snapshot capture followed by a new connection returned both effects from the refreshed saved bin, with unchanged hash (`saved-color-effects-8ceef0b0-72dd-4153-bb1b-70988919439f` under `.avid-mcp-analysis`).

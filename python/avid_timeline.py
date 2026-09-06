@@ -3,7 +3,60 @@ import argparse
 import hashlib
 import json
 import math
+import xml.etree.ElementTree as ET
 from pathlib import Path
+
+
+def linear_lut_declaration(data):
+    """Recognize bounded saved XML declarations; never infer applied color math."""
+    if not isinstance(data,(bytes,bytearray)) or len(data)>65536:
+        return None
+    try:
+        text=bytes(data).removesuffix(b'\x00').decode('utf-8')
+        if '<!' in text or '<?' in text:
+            return None
+        root=ET.fromstring(text)
+        if root.tag!='ColorTransformationList' or root.attrib or len(root)!=1:
+            return None
+        transform=root[0]
+        if transform.tag!='ColorTransformation' or transform.attrib or len(transform)!=1:
+            return None
+        lut=transform[0]
+        if lut.tag!='LinearLut' or lut.attrib:
+            return None
+        tags=[child.tag for child in lut]
+        if tags not in (['Name','BitDepth','Black','White'],['Name','BitDepth','Black','White','Inverted']):
+            return None
+        if any(child.attrib or len(child) for child in lut):
+            return None
+        name=lut[0].text or ''
+        if len(name)>256 or any(not (child.text or '').isascii() or not (child.text or '').isdigit() for child in lut[1:4]):
+            return None
+        depth,black,white=(int(child.text) for child in lut[1:4])
+        if not 1<=depth<=32 or not 0<=black<white<2**depth:
+            return None
+        if len(lut)==5 and (lut[4].text or '').strip():
+            return None
+        return {'name':name,'bitDepth':depth,'black':black,'white':white,'invertedFlagPresent':len(lut)==5}
+    except (ET.ParseError,UnicodeError,ValueError):
+        return None
+
+
+def color_declaration(component):
+    if getattr(component,'effect_id',None)!='EFF2_LUTSFX':
+        return None
+    parameters=getattr(component,'param_list',None)
+    if parameters is None or len(parameters)>128:
+        return None
+    matches=[p for p in parameters if str(getattr(p,'uuid',''))=='bd7f5cd8-15fd-424e-a34d-11642fbbb867']
+    if len(matches)!=1:
+        return None
+    parameter=matches[0];value=getattr(parameter,'value',None)
+    if (getattr(parameter,'value_type',None)!=4 or getattr(parameter,'enable',None) is not True
+        or getattr(parameter,'control_track',None) is not None
+        or str(getattr(value,'uuid',''))!='219a99cc-2c8b-4224-86fe-c05794055e1d'):
+        return None
+    return linear_lut_declaration(getattr(value,'data',None))
 
 
 def descriptor_metadata(descriptor):
@@ -123,6 +176,9 @@ def index_bin(filename, max_nodes=10000):
                                 node['effect']={'id':effect_id,
                                                 'hasParameters':getattr(component,'param_list',None) is not None,
                                                 'hasKeyframes':getattr(component,'keyframes',None) is not None}
+                                declaration=color_declaration(component)
+                                if declaration is not None:
+                                    node['effect']['linearLutDeclaration']=declaration
                         warnings.append({'mobId':str(mob.mob_id),'track':ordinal,'code':'OPAQUE_COMPONENT','kind':kind})
                     nodes.append(node)
 

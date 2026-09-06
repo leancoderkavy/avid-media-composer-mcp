@@ -18,14 +18,15 @@ async function fixture(){
 describe("saved semantic snapshots",()=>{
   it("preserves bounded opaque effect declarations through saved range reads",async()=>{
     const {record,save,snapshots}=await fixture(),node=record.bins[0]!.mobs[0]!.tracks[0]!.nodes[0]!;
-    const effect={id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true};
+    const effect={id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true,linearLutDeclaration:{name:'Levels scaling',bitDepth:10,black:64,white:940,invertedFlagPresent:true}};
     Object.assign(node,{kind:'TKFX',opaque:true,effect});
     for(const key of ['sourceMobId','sourceTrackId','sourceStart'])Reflect.deleteProperty(node,key);
     record.bins[0]!.complete=false;const revision=await save();
     expect((await snapshots.range(revision,'sequence',0,30)).results[0]).toMatchObject({opaque:true,effect});
     const trace=await snapshots.traceSources(revision,'sequence',0,30);
     expect(trace.incomplete).toBe(true);expect(trace.steps[0]).toMatchObject({status:'unsupported_component'});
-    effect.id='x'.repeat(1025);await save();await expect(snapshots.range(revision,'sequence',0,30)).rejects.toThrow();
+    effect.linearLutDeclaration.white=1024;await save();await expect(snapshots.range(revision,'sequence',0,30)).rejects.toThrow();
+    effect.linearLutDeclaration.white=940;effect.id='x'.repeat(1025);await save();await expect(snapshots.range(revision,'sequence',0,30)).rejects.toThrow();
   });
   it("retains partial descriptor declarations without resolving untrusted locators",async()=>{
     const {record,save,snapshots}=await fixture(),mob=record.bins[0]!.mobs[0]!;

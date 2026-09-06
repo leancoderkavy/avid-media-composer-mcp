@@ -22,7 +22,7 @@ try{
  const result=await call(client,'avid_saved_timeline_range',{revision:snapshot.revision,mobId:mob.mobId,start:0,end:120,trackOrdinal:0});
  assert.equal(result.results.length,2);
  for(const [index,node] of result.results.entries()){
-  assert.deepEqual(node.effect,{id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true});
+  assert.deepEqual(node.effect,{id:'EFF2_LUTSFX',hasParameters:true,hasKeyframes:true,linearLutDeclaration:{name:'Levels scaling (full range to video levels)',bitDepth:10,black:64,white:940,invertedFlagPresent:true}});
   assert.equal(node.opaque,true);assert.equal(node.timelineStart,index*60);assert.equal(node.timelineEnd,(index+1)*60);
   assert.equal(node.sourceMobId,undefined);assert.equal(node.sourceStart,undefined);
  }
