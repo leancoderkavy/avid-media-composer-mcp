@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Classify taskkill outcomes for cancellation diagnosis
+
+The Windows tree-termination helper previously discarded taskkill output, so an intermittent nonzero exit could not be attributed. It now captures bounded stdout/stderr and records counts only: `terminated`, `notFound`, `accessDenied`, `unclassified`, `rootNotFound` and `truncated`. English message shapes are matched exactly; localized output is counted as unclassified rather than interpreted. Job journal records accept the new optional field and older records are unchanged. Scheduling pause and failure semantics are unchanged.
+
+Eight process-tree unit tests and a journal round-trip test passed; the full TypeScript suite passed 810 tests, typecheck/build passed and the stdio smoke reported 144 tools. No real Windows cancellation run has been recorded with the new field, so the original intermittent failure remains unexplained. The roadmap was reconciled against shipped tools in the same change.
+
 ### Inspect Windows palette targeting before shipping UI commands
 
 Actual computer-use inspection found readable playback labels and an observed reassignment mode that are absent from Avid's accessibility tree. The owned palette also lacked a separately returned window handle; its reported Close element could not be used through the input API. Ctrl+3 and Escape did not close it in that focus state. Screenshot-guided title-bar movement and a visible Close click restored the main view after returning to the original Move tab. No transport/edit/save command was executed. [Command Palette research](WINDOWS_COMMAND_PALETTE_RESEARCH.md) records evidence and the resulting mode/focus/window qualification requirements. This advances the UI investigation without claiming a shipped adapter.
