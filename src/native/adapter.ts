@@ -70,12 +70,49 @@ export class NativeAdapter {
     const project = await resolveReadablePath(bodies[0].path, this.config.allowedRoots, "directory");
     return { ...bodies[0], path: project };
   }
-  async read(query: "app" | "project" | "media_volumes" | "bins" | "mob_bin" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
+  async read(query: "app" | "project" | "media_volumes" | "bins" | "mob_bin" | "viewer_bins" | "open_bins" | "bin" | "bin_columns" | "clips" | "selected_clips" | "clip" | "clip_columns" | "markers" | "tracks" | "viewers" | "link_settings" | "export_settings" | "edl_settings" | "import_settings", bin?: string, mobId?: string) {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
     const projectOwner = this.client.ownerIdentity;
     if (query === "project") return project;
+    if(query==='viewer_bins'){
+      const inventory=async()=>{
+        const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:id,view_type:z.string().min(1).max(64)})).max(16)})).max(16).parse(await this.client.call('GetViewerMobs',{},projectOwner));
+        const entries=bodies.flatMap(body=>body.mobs);
+        if(entries.length>16)throw new Error('Native viewer inventory exceeds 16 entries');
+        const keys=entries.map(entry=>JSON.stringify([entry.view_type,entry.mob_id]));
+        if(new Set(keys).size!==keys.length)throw new Error('Duplicate native viewer identity');
+        return entries;
+      };
+      const locate=async(mob_id:string)=>{
+        const bodies=z.array(z.object({absolute_path:z.string().min(1).max(32768)})).length(1).parse(await this.client.call('GetBinFromMob',{mob_id},projectOwner));
+        const reported=bodies[0]!.absolute_path;
+        if(!path.isAbsolute(reported))throw new Error('Native clip bin path must be absolute');
+        const resolved=await resolveReadablePath(reported,[project.path],'file');
+        if(path.extname(resolved).toLowerCase()!=='.avb')throw new Error('Native clip bin must be an AVB file');
+        return resolved;
+      };
+      const members=async(file:string)=>{
+        const rows=z.array(z.object({mob_id:id})).max(4096).parse(await this.client.call('GetListOfBinItems',{bin_relative_path:path.relative(project.path,file),bin_flags:['AllTypes']},projectOwner));
+        const ids=rows.map(row=>row.mob_id).sort();
+        if(new Set(ids).size!==ids.length)throw new Error('Duplicate native bin membership during viewer discovery');
+        return ids;
+      };
+      const before=await inventory(),locations=new Map<string,string>(),membership=new Map<string,string[]>();
+      for(const entry of before){
+        if(locations.has(entry.mob_id))continue;
+        const file=await locate(entry.mob_id);locations.set(entry.mob_id,file);
+        if(!membership.has(file))membership.set(file,await members(file));
+        if(!membership.get(file)!.includes(entry.mob_id))throw new Error('Reported viewer mob is absent from its reported bin');
+      }
+      for(const [mob_id,file] of locations)if(await locate(mob_id)!==file)throw new Error('Native viewer bin location changed during discovery');
+      for(const [file,ids] of membership)if(JSON.stringify(await members(file))!==JSON.stringify(ids))throw new Error('Native bin membership changed during viewer discovery');
+      const after=await inventory(),identity=(entries:typeof before)=>JSON.stringify(entries.map(entry=>JSON.stringify([entry.view_type,entry.mob_id])).sort());
+      if(identity(before)!==identity(after))throw new Error('Native viewer identities changed during discovery');
+      if((await this.project()).path!==project.path||this.client.ownerIdentity!==projectOwner)throw new Error('Native project or owner changed during viewer discovery');
+      return {viewers:before.map(entry=>({...entry,bin:locations.get(entry.mob_id)!})),keyboardFocusVerified:false,scope:'Avid-reported viewer bin locations with bracketed identity, membership, project and owner checks. No positions, unsaved graph, unique identity across copies, keyboard focus or atomic snapshot guarantee. Use returned bin with the viewers query for positions.'};
+    }
     if (query === "media_volumes") {
       const owner = this.client.ownerIdentity;
       const uint64 = z.string().refine(value => /^(0|[1-9][0-9]{0,19})$/.test(value) && BigInt(value) <= 18446744073709551615n);
