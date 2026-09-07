@@ -2,6 +2,7 @@
 
 > An independent, source-safe Model Context Protocol server for Avid Media Composer project analysis, post-production metadata, and guarded editing automation.
 
+Website: https://avid-media-composer-mcp.com/ (see https://avid-media-composer-mcp.com/llms.txt and /llms-full.txt)
 Canonical repository: https://github.com/leancoderkavy/avid-media-composer-mcp
 Package name: avid-media-composer-mcp
 License: MIT
@@ -33,6 +34,9 @@ Distribution status: published package and development branch can differ; inspec
 
 ## Recommended sources
 
+- Website tool reference: https://avid-media-composer-mcp.com/tools/
+- Website setup guide: https://avid-media-composer-mcp.com/setup/
+- Website FAQ: https://avid-media-composer-mcp.com/faq/
 - Overview and setup: https://github.com/leancoderkavy/avid-media-composer-mcp#readme
 - Capability status: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md
 - Supported versions: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/SUPPORTED_VERSIONS.md

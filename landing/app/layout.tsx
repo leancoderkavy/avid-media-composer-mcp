@@ -1,26 +1,26 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
+import { absoluteUrl, pages, repo, siteName, siteUrl } from "@/lib/site"
 
 const sans = Geist({ variable: "--font-sans", subsets: ["latin"] })
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] })
-const siteUrl = "https://avid-media-composer-mcp.vercel.app"
-const title = "Avid Media Composer MCP Server | AI Project Analysis"
+const title = pages.home.title
 const description =
   "Source-safe MCP tools for Avid Media Composer project, AVB, AAF, ALE, EDL, lock, configuration, and media analysis with guarded editing automation."
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: title, template: "%s | Avid Media Composer MCP" },
+  title: { default: title, template: `%s | ${siteName}` },
   description,
   verification: {
     google: "7_CWvFtMrOF4ll4pOAAGN0Qx1mo5ZkQOPSPEhjU5gmY"
   },
-  applicationName: "Avid Media Composer MCP",
+  applicationName: siteName,
   category: "developer tools",
-  authors: [{ name: "Avid Media Composer MCP contributors", url: "https://github.com/leancoderkavy/avid-media-composer-mcp/graphs/contributors" }],
+  authors: [{ name: "Avid Media Composer MCP contributors", url: `${repo}/graphs/contributors` }],
   creator: "Avid Media Composer MCP contributors",
-  publisher: "Avid Media Composer MCP",
+  publisher: siteName,
   keywords: [
     "Avid Media Composer MCP",
     "Avid MCP server",
@@ -33,14 +33,17 @@ export const metadata: Metadata = {
     "AI video editing",
     "Avid project analysis",
     "post-production automation",
-    "Claude Avid integration"
+    "Claude Avid integration",
+    "Avid AAF MCP",
+    "Avid AVB parser",
+    "Avid Media Composer automation"
   ],
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/", types: { "text/plain": [{ url: absoluteUrl("/llms.txt"), title: "llms.txt" }] } },
   openGraph: {
     title,
     description,
     url: siteUrl,
-    siteName: "Avid Media Composer MCP",
+    siteName,
     locale: "en_US",
     type: "website",
     images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Avid Media Composer MCP — source-safe project intelligence for AI" }]
