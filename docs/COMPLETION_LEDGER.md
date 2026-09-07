@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Explicit saved-bin checksum verification
+
+`avid_verify_snapshot_bin` compares one authorized current bin with the snapshot's captured SHA-256, using 64 KiB buffers and a 512 MiB byte cap. It reports matches/changed/missing, refuses detected descriptor/path metadata changes during reading, and leaves the historical snapshot intact. Tests cover multichunk hashing, size refusal, same-length writes during reading with descriptor closure, changed/missing bins, invalid identities and scope denial. This observation does not lock the bin, inspect unsaved state or authorize a later edit.
+
+An actual owned Sonoma-bin copy passed match, deliberate byte-change, reconnect equality and retained-file rename/missing checks, preserving the original bin and snapshot hashes. Evidence: `.avid-mcp-analysis/snapshot-freshness-015e9c01-f779-4d38-944c-f83d3c615b56/evidence.json`. Full local validation passed 813 TypeScript and 46 Python tests, transports and fresh-package checks (`.avid-mcp-analysis/check-snapshot-freshness.log`), with 144 tools discovered. Hosted CI for preceding `5ed9b14` passed separately; the new tool needs its own hosted result.
+
 ### Model-driven saved search to source ranges
 
 A fresh installed package generated Codex configuration for an inspect-only session over an owned saved Sonoma snapshot. Actual Codex made one filtered mob query and one timeline query, carrying the returned mob/bin identities forward. All three source ranges matched the direct MCP oracle. Snapshot/source/package/runtime/configuration preservation checks passed. The final harness additionally asserts exact identity handoff and requested edit-unit endpoints; evidence is `.avid-mcp-analysis/codex-saved-search-59753ec0-890a-4723-abb4-07f9b9672f7c/evidence.json` (earlier run: `codex-saved-search-a9813e86-000b-4920-9e0d-c5d2b53f6729`). This is named-client ephemeral read workflow acceptance, not universal client or native-edit qualification.

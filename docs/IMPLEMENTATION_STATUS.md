@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+`avid_verify_snapshot_bin` explicitly compares one current saved bin with its captured SHA-256 using bounded streaming, reporting matching, changed or missing bytes. Owned Sonoma-copy and reconnect checks preserve the protected original and historical snapshot. It provides no native lock or unsaved-state guarantee. Development discovery now exposes 144 tools; this is separate from the published package.
+
 Saved snapshot mob discovery now supports case-insensitive name/comment search and exact mob-type, usage-code and numeric-rate filters, with stable original indexes, total-match counts and distinct bin identities. Actual Sonoma search/reconnect and installed synthetic comment-search coverage are described in [saved snapshot search](SAVED_SNAPSHOT_SEARCH.md).
 
 Guarded native `duplicate_clip` now performs one same-bin duplication with token/state/owner checks and explicit identity/preservation verification. Actual MCP execution, replay refusal, saved graph comparison and bin-reopen persistence passed on the owned Sonoma fixture. A further same-session duplication left UI Undo/Redo/history disabled even with the new row focused. Previews explicitly report unqualified undo, possible selection changes and limited state coverage. General undo, restart and rendered fidelity remain open. See [duplication](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action).

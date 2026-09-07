@@ -1,4 +1,4 @@
-import {mkdir,writeFile,readFile,realpath} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,realpath,rename} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
@@ -33,5 +33,9 @@ with avb.open() as f:
   const range=await call(client,'avid_saved_timeline_range',args);assert.equal(range.results.length,1);assert.equal(range.results[0].overlapSourceStart,130);assert.equal(range.results[0].overlapSourceEnd,150);
   await client.close();client=await connect();assert.deepEqual(await call(client,'avid_saved_timeline_range',args),range);assert.deepEqual(await call(client,'avid_saved_snapshot_mobs',search),found);
   const second=await call(client,'avid_snapshot_saved_bins',{bins:[file]});assert.equal((await call(client,'avid_diff_saved_snapshots',{baseline:first.revision,candidate:second.revision})).totalChanges,0);assert.equal(await hash(),before);
+  const verify={revision:first.revision,bin:file};assert.equal((await call(client,'avid_verify_snapshot_bin',verify)).status,'matches');
+  await writeFile(file,'changed synthetic bin');assert.equal((await call(client,'avid_verify_snapshot_bin',verify)).status,'changed');
+  await rename(file,path.join(directory,'retained-source.avb'));assert.equal((await call(client,'avid_verify_snapshot_bin',verify)).status,'missing');
+  assert.deepEqual(await call(client,'avid_saved_timeline_range',args),range);
  }finally{await client.close();}
 }

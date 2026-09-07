@@ -10,7 +10,7 @@ import type {ServerConfig} from "../config.js";
 import {resolveReadablePath} from "../security/path-policy.js";
 import {runProcess} from "../process.js";
 import {MediaLibrary} from "./media-library.js";
-import {readBoundedJson} from "../security/bounded-read.js";
+import {readBoundedJson,hashBoundedFile} from "../security/bounded-read.js";
 
 export const savedMobFilters=z.object({
   query:z.string().min(1).max(500).optional(),
@@ -127,6 +127,15 @@ export class ProjectSnapshots {
       return {index:after+1+offset,sourceMobId,references:counts.get(sourceMobId)!,status:candidates.length===0?"unresolved":candidates.length===1?"resolved":"ambiguous",candidateCount:candidates.length,candidates:candidates.slice(0,10),candidatesTruncated:candidates.length>10};
     });
     return {revision,sources:page,totalSourceIds:ids.length,nextAfter:after+1+page.length<ids.length?page.at(-1)?.index??null:null,complete:snapshot.bins.every(bin=>bin.complete),scope:"Direct source identities across captured saved bins, sorted by ID. Unresolved does not mean missing media; resolved does not validate cycles, source ranges or playback. Candidate samples are bounded; snapshot mob discovery enumerates all matching records."};
+  }
+  async verifyBin(revision:string,binFile:string){
+    const snapshot=await this.read(revision),matches=selectSnapshotBins(snapshot.bins,binFile);
+    if(matches.length!==1)throw new Error('Expected one bin identity in the snapshot');
+    const selected=matches[0]!,base={revision,bin:selected.file,capturedSha256:selected.sha256,liveStateVerified:false,scope:'Current saved-file byte comparison only; no editor lock, unsaved-state, media-availability or future edit authorization guarantee'};
+    if(snapshot.missingBins.includes(selected.file))return {...base,status:'missing',currentSha256:null,bytes:null};
+    const current=await resolveReadablePath(selected.file,this.config.allowedRoots,'file'),checked=await hashBoundedFile(current,512*1024*1024);
+    if(await resolveReadablePath(selected.file,this.config.allowedRoots,'file')!==current)throw new Error('Bin path changed during verification');
+    return {...base,status:checked.sha256===selected.sha256?'matches':'changed',currentSha256:checked.sha256,bytes:checked.bytes};
   }
   async mobs(revision:string,after=-1,limit=100,input:z.input<typeof savedMobFilters>={}){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>100)throw new Error("Invalid snapshot mob page");

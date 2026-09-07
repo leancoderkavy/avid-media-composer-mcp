@@ -1,7 +1,7 @@
 import {mkdtemp,writeFile,readFile,readdir,unlink} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {randomUUID} from "node:crypto";
+import {randomUUID,createHash} from "node:crypto";
 import {describe,it,expect} from "vitest";
 import {loadConfig} from "../src/config.js";
 import {MediaLibrary} from "../src/library/media-library.js";
@@ -16,6 +16,16 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it('compares selected current bin bytes without changing historical snapshots',async()=>{
+    const {record,save,snapshots,config}=await fixture(),bin=record.bins[0]!;
+    bin.sha256=createHash('sha256').update('fixture').digest('hex');const revision=await save();
+    expect(await snapshots.verifyBin(revision,bin.file)).toMatchObject({status:'matches',currentSha256:bin.sha256,liveStateVerified:false});
+    await writeFile(bin.file,'changed');expect(await snapshots.verifyBin(revision,bin.file)).toMatchObject({status:'changed',capturedSha256:bin.sha256});
+    await expect(snapshots.verifyBin(revision,path.join(path.dirname(bin.file),'other.avb'))).rejects.toThrow('one matching bin');
+    await unlink(bin.file);expect(await snapshots.verifyBin(revision,bin.file)).toMatchObject({status:'missing',currentSha256:null});
+    await expect(new ProjectSnapshots({...config,allowedRoots:[]}).verifyBin(revision,bin.file)).rejects.toThrow('outside');
+    expect((await snapshots.mobs(revision)).mobs[0]!.binSha256).toBe(bin.sha256);
+  });
   it('filters historical names/comments and metadata without collapsing duplicate identities or cursors',async()=>{
     const {record,save,snapshots,config}=await fixture(),template=record.bins[0]!.mobs[0]!;
     record.bins[0]!.mobs=[{...template,name:'Café intro'},{...template,name:'Unrelated'}, {...template,name:'Other',comment:'CAFÉ reviewed',usageCode:2}];
