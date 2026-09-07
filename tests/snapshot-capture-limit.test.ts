@@ -9,7 +9,7 @@ vi.mock('../src/process.js',()=>({runProcess:mocked.run}));
 
 it('captures one canonical bin when distinct authorized paths resolve to it',async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),'avid-capture-alias-')),file=path.join(root,'source.avb');await writeFile(file,'fixture');
- mocked.run.mockImplementation(async(_executable,args)=>({exitCode:0,stderr:'',stdout:JSON.stringify({schema:1,file:args[1],sha256:'a'.repeat(64),complete:true,nodeCount:0,stateOrigin:'synthetic',warnings:[],mobs:[]})}));
+ mocked.run.mockImplementation(async(_executable,args)=>({exitCode:0,stderr:'',stdout:JSON.stringify({schema:1,file:args.at(-3),sha256:'a'.repeat(64),complete:true,nodeCount:0,stateOrigin:'synthetic',warnings:[],mobs:[]})}));
  const snapshots=new ProjectSnapshots(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root}));
  const captured=await snapshots.create([file,`${root}${path.sep}.${path.sep}source.avb`]);
  expect(mocked.run).toHaveBeenCalledTimes(1);expect(captured.bins).toHaveLength(1);
@@ -21,7 +21,7 @@ it('stops collecting oversized bin results before inspecting later bins or publi
  const root=await mkdtemp(path.join(os.tmpdir(),'avid-capture-limit-')),files=[];
  for(let i=0;i<6;i++){const file=path.join(root,`${i}.avb`);await writeFile(file,'synthetic');files.push(file);}
  const largeName='x'.repeat(7*1024*1024);
- mocked.run.mockImplementation(async(_executable,args)=>({exitCode:0,stderr:'',stdout:JSON.stringify({schema:1,file:args[1],sha256:'a'.repeat(64),complete:true,nodeCount:0,stateOrigin:'synthetic',warnings:[],mobs:[{mobId:'fixture',name:largeName,mobType:'CompositionMob',usageCode:0,rate:30,duration:0,sourceBounds:{start:0,end:0},tracks:[]}]})}));
+ mocked.run.mockImplementation(async(_executable,args)=>({exitCode:0,stderr:'',stdout:JSON.stringify({schema:1,file:args.at(-3),sha256:'a'.repeat(64),complete:true,nodeCount:0,stateOrigin:'synthetic',warnings:[],mobs:[{mobId:'fixture',name:largeName,mobType:'CompositionMob',usageCode:0,rate:30,duration:0,sourceBounds:{start:0,end:0},tracks:[]}]})}));
  const snapshots=new ProjectSnapshots(loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root}));
  await expect(snapshots.create(files)).rejects.toThrow('while collecting bins');
  expect(mocked.run).toHaveBeenCalledTimes(5);

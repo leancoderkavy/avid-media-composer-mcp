@@ -9,7 +9,7 @@ import {loadConfig} from "../src/config.js";
 
 const state=vi.hoisted(()=>({mode:"intact",media:""}));
 vi.mock("../src/process.js",()=>({runProcess:async(_binary:string,args:string[])=>{
-  const request=JSON.parse(await readFile(args[1]!,"utf8"));
+  const request=JSON.parse(await readFile(args.at(-1)!,"utf8"));
   let result:unknown={masters:[{mobId:"urn:smpte:umid:aa",name:"fixture",slots:[]}],locators:[pathToFileURL(state.media).href]};
   if(request.action==="build"){
     await writeFile(request.output,"verified fixture");
@@ -29,4 +29,3 @@ it.each(["intact","output","template"])("binds Python build evidence to current 
   if(mode==="intact")expect(await operation).toMatchObject({sourceGraphVerified:true,conformanceVerified:true,sourceModified:false});
   else await expect(operation).rejects.toThrow(mode==="output"?"output changed after conformance":"template changed after conformance");
 });
-

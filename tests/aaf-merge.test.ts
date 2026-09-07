@@ -13,7 +13,7 @@ async function fixture(change=false){
  const sources=[];for(const name of ["a.aaf","b.aaf"]){const file=path.join(root,name);await writeFile(file,name);sources.push({file,expectedSha256:await sha256File(file)});}
  const config=loadConfig({AVID_MCP_ALLOWED_ROOTS:root,AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:"inspect,export"});
  mock.run.mockReset();mock.run.mockImplementation(async(_exe:string,args:string[])=>{
-  const request=JSON.parse(await readFile(args[1]!,"utf8"));
+  const request=JSON.parse(await readFile(args.at(-1)!,"utf8"));
   let data:unknown={masters:[{mobId:"urn:smpte:umid:aa",name:"source",slots:[]}],locators:[pathToFileURL(media).href]};
   if(request.action==="merge"){
    await writeFile(request.output,"merged");if(change)await writeFile(media,"changed");

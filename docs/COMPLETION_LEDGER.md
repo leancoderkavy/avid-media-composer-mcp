@@ -1,5 +1,49 @@
 # Completion ledger
 
+### Inspect Windows palette targeting before shipping UI commands
+
+Actual computer-use inspection found readable playback labels and an observed reassignment mode that are absent from Avid's accessibility tree. The owned palette also lacked a separately returned window handle; its reported Close element could not be used through the input API. Ctrl+3 and Escape did not close it in that focus state. Screenshot-guided title-bar movement and a visible Close click restored the main view after returning to the original Move tab. No transport/edit/save command was executed. [Command Palette research](WINDOWS_COMMAND_PALETTE_RESEARCH.md) records evidence and the resulting mode/focus/window qualification requirements. This advances the UI investigation without claiming a shipped adapter.
+
+### Bound Python snapshot hashing independently of the caller
+
+The saved-bin decoder already compared hashes before and after indexing. Both passes now stream 64 KiB chunks, enforce their own 512 MiB cap, and reject detected growth or descriptor/path identity changes instead of allocating the entire file for each digest. This bounds hashing memory, not the AVB decoder's total memory, and does not establish an atomic editor snapshot. Descriptor-based comparisons avoid the observed Python/Windows `stat` versus `fstat` creation/change-time mismatch on an unchanged Sonoma file.
+
+All 49 Python tests and fresh-package checks passed (`.avid-mcp-analysis/check-streamed-snapshot-hash.log`), including growth, same-length mutation during hashing, and changed bytes between indexing hashes. Actual managed-runtime Sonoma capture/search/range/reconnect passed with unchanged source/runtime hashes: `.avid-mcp-analysis/managed-python-snapshots-3d6d915a-afa8-4056-9988-fa9c1021c85a/evidence.json`. CI and CodeQL for preceding `fec7f3a` passed separately. No TypeScript production code changed in this checkpoint.
+
+### Explicit saved-bin checksum verification
+
+`avid_verify_snapshot_bin` compares one authorized current bin with the snapshot's captured SHA-256, using 64 KiB buffers and a 512 MiB byte cap. It reports matches/changed/missing, refuses detected descriptor/path metadata changes during reading, and leaves the historical snapshot intact. Tests cover multichunk hashing, size refusal, same-length writes during reading with descriptor closure, changed/missing bins, invalid identities and scope denial. This observation does not lock the bin, inspect unsaved state or authorize a later edit.
+
+An actual owned Sonoma-bin copy passed match, deliberate byte-change, reconnect equality and retained-file rename/missing checks, preserving the original bin and snapshot hashes. Evidence: `.avid-mcp-analysis/snapshot-freshness-015e9c01-f779-4d38-944c-f83d3c615b56/evidence.json`. Full local validation passed 813 TypeScript and 46 Python tests, transports and fresh-package checks (`.avid-mcp-analysis/check-snapshot-freshness.log`), with 144 tools discovered. Hosted CI for preceding `5ed9b14` passed separately; the new tool needs its own hosted result.
+
+### Model-driven saved search to source ranges
+
+A fresh installed package generated Codex configuration for an inspect-only session over an owned saved Sonoma snapshot. Actual Codex made one filtered mob query and one timeline query, carrying the returned mob/bin identities forward. All three source ranges matched the direct MCP oracle. Snapshot/source/package/runtime/configuration preservation checks passed. The final harness additionally asserts exact identity handoff and requested edit-unit endpoints; evidence is `.avid-mcp-analysis/codex-saved-search-59753ec0-890a-4723-abb4-07f9b9672f7c/evidence.json` (earlier run: `codex-saved-search-a9813e86-000b-4920-9e0d-c5d2b53f6729`). This is named-client ephemeral read workflow acceptance, not universal client or native-edit qualification.
+
+CI run 34070329850 and CodeQL run 34070329845 passed for search implementation head `5021437`, including Windows/macOS Node 20/24. No production code changed in the subsequent acceptance-harness/documentation checkpoint.
+
+### Search saved clip identities before timeline queries
+
+`avid_saved_snapshot_mobs` now accepts bounded name/comment substring and exact metadata filters. Pagination retains original snapshot indexes and distinct bin identities, with separate total snapshot and matching counts. Tests cover sparse matches, comment-only search, Unicode case matching, combined filters, repeated IDs across bins, empty results and root denial. The actual Sonoma filtered query matched its known subclip and survived reconnect without source/runtime changes; evidence is linked in [saved snapshot search](SAVED_SNAPSHOT_SEARCH.md).
+
+The full local pipeline passed 810 TypeScript and 46 Python tests, transports and fresh-package verification including synthetic comment search, field exclusion and reconnect (`.avid-mcp-analysis/check-saved-mob-search.log`). Hosted CI for preceding isolation commit `b6728bd` passed separately; this feature's hosted checks must be verified on its own head.
+
+### Managed Python saved-bin capture and reconnect
+
+Saved-bin capture now ignores Python environment/user-site overrides and disables bytecode writes, retaining the packaged marker helper directory. The pre-fix `PYTHONPATH` failure is retained in `.avid-mcp-analysis/managed-snapshots-baseline.log`. Using the managed runtime, the corrected workflow captured the Sonoma media bin, verified all three 2850-2880 source ranges for its 30-frame subclip, returned identical ranges after MCP reconnect and produced a zero-change second snapshot. Source/server/helper hashes and the managed runtime tree were unchanged. Evidence: `.avid-mcp-analysis/managed-python-snapshots-491c5e8e-b88f-4ca2-a081-1185a2aff423/evidence.json`.
+
+A new fresh-package gate creates a synthetic AVB, captures and queries it with conflicting working-directory/PYTHONPATH modules, reconnects and verifies range equality and unchanged source hashes. The full local pipeline passed 809 TypeScript tests, 46 Python tests, transports and package gates (`.avid-mcp-analysis/check-managed-python-snapshots.log`). These checks cover saved file state, not unsaved editor state, native operations, optional model runtimes or clean-OS setup.
+
+### Managed Python AAF authoring
+
+The installed pre-fix AAF builder loaded an untrusted `aaf2.py` through `PYTHONPATH` and failed before authoring. The baseline is retained in `.avid-mcp-analysis/managed-aaf-baseline.log`. AAF subprocesses now ignore Python environment overrides and user-site packages and disable bytecode writes while retaining the packaged script directory for graph/merge sibling imports.
+
+With the updated builder, the existing managed Python environment merged two real Sonoma AAF references, authored a 120-frame picture/stereo composition, inspected both source ranges, and rejected a mismatched rate. Runtime tree, packaged/source code, input AAF and referenced media hashes were unchanged. Evidence: `.avid-mcp-analysis/managed-python-aaf-601b0f52-3481-46a2-9f53-e128b193c76c/evidence.json`. This is file authoring/inspection evidence; it does not establish a new Avid import, playback or render qualification.
+
+The installed-package AAF smoke gate now supplies conflicting working-directory modules through `PYTHONPATH` during merge, stereo authoring and inspection. Managed Python qualification for other workloads and clean-machine setup remains open.
+
+The complete local pipeline passed 809 TypeScript and 46 Python tests, transport checks and fresh-package validation including that conflicting-module AAF case. Log: `.avid-mcp-analysis/check-managed-python-aaf-final.log`. Hosted checks remain separate.
+
 ### Named-client managed Python acceptance
 
 The installed package generated Codex settings with the managed interpreter and inspection-only authority. Actual Codex execution exposed only `avid_analyze_bin` and made one successful bounded Sonoma bin call. The tool response matched an independent inspector read; source, package entrypoints, managed runtime tree and user `config.toml` were unchanged. Evidence: `.avid-mcp-analysis/codex-managed-python-1d982365-49d7-472e-b5f0-2cbed636628f/evidence.json`. This qualifies ephemeral model-selected inspection, not persistent GUI setup or native edits.

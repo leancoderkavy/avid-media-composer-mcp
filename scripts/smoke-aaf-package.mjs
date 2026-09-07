@@ -31,8 +31,9 @@ print(json.dumps(files))
   assert.equal(generated.exitCode,0,generated.stderr);
   const hash=async file=>createHash('sha256').update(await readFile(file)).digest('hex');
   const sources=await Promise.all(JSON.parse(generated.stdout).map(async file=>({file,expectedSha256:await hash(file)})));
+  for(const name of ['aaf2','avid_aaf_graph','avid_aaf_merge'])await writeFile(path.join(directory,`${name}.py`),"raise RuntimeError('untrusted AAF working-directory module')\n");
   const client=new Client({name:'installed-aaf-smoke',version:'1.0'});
-  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(installedRoot,'dist/index.js')],cwd:directory,stderr:'pipe',env:{...getDefaultEnvironment(),AVID_MCP_ALLOWED_ROOTS:directory,AVID_MCP_OUTPUT_ROOT:directory,AVID_MCP_PYTHON:python,AVID_MCP_CAPABILITIES:'inspect,export'}}));
+  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(installedRoot,'dist/index.js')],cwd:directory,stderr:'pipe',env:{...getDefaultEnvironment(),PYTHONPATH:directory,AVID_MCP_ALLOWED_ROOTS:directory,AVID_MCP_OUTPUT_ROOT:directory,AVID_MCP_PYTHON:python,AVID_MCP_CAPABILITIES:'inspect,export'}}));
   const call=async(name,args)=>{
     const result=await client.callTool({name,arguments:args},undefined,{timeout:120000});
     assert.ok(!result.isError,JSON.stringify(result));return result.structuredContent.data;
