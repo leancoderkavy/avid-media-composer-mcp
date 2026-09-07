@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Model-driven saved search to source ranges
+
+A fresh installed package generated Codex configuration for an inspect-only session over an owned saved Sonoma snapshot. Actual Codex made one filtered mob query and one timeline query, carrying the returned mob/bin identities forward. All three source ranges matched the direct MCP oracle. Snapshot/source/package/runtime/configuration preservation checks passed. The final harness additionally asserts exact identity handoff and requested edit-unit endpoints; evidence is `.avid-mcp-analysis/codex-saved-search-59753ec0-890a-4723-abb4-07f9b9672f7c/evidence.json` (earlier run: `codex-saved-search-a9813e86-000b-4920-9e0d-c5d2b53f6729`). This is named-client ephemeral read workflow acceptance, not universal client or native-edit qualification.
+
+CI run 34070329850 and CodeQL run 34070329845 passed for search implementation head `5021437`, including Windows/macOS Node 20/24. No production code changed in the subsequent acceptance-harness/documentation checkpoint.
+
 ### Search saved clip identities before timeline queries
 
 `avid_saved_snapshot_mobs` now accepts bounded name/comment substring and exact metadata filters. Pagination retains original snapshot indexes and distinct bin identities, with separate total snapshot and matching counts. Tests cover sparse matches, comment-only search, Unicode case matching, combined filters, repeated IDs across bins, empty results and root denial. The actual Sonoma filtered query matched its known subclip and survived reconnect without source/runtime changes; evidence is linked in [saved snapshot search](SAVED_SNAPSHOT_SEARCH.md).
