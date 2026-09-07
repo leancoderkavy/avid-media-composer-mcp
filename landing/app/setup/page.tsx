@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs"
 import { JsonLd } from "@/components/json-ld"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteNav } from "@/components/site-nav"
-import { absoluteUrl, breadcrumbs, docs, lastUpdated, npmUrl, pages, repo } from "@/lib/site"
+import { absoluteUrl, breadcrumbs, docs, lastUpdated, npmUrl, ogImage, pages, repo } from "@/lib/site"
 
 const description =
   "Install the Avid Media Composer MCP server with npx, set allowed project roots, and connect Claude Desktop, Claude Code, Cursor, VS Code, Codex or LM Studio in a few minutes."
@@ -13,7 +13,8 @@ export const metadata: Metadata = {
   title: { absolute: "Install the Avid Media Composer MCP Server: Setup Guide" },
   description,
   alternates: { canonical: pages.setup.path },
-  openGraph: { title: pages.setup.title, description, url: absoluteUrl(pages.setup.path), type: "article" }
+  openGraph: { title: pages.setup.title, description, url: absoluteUrl(pages.setup.path), type: "article", images: [ogImage] },
+  twitter: { card: "summary_large_image", title: pages.setup.title, description, images: [ogImage.url] }
 }
 
 const crumbs = [{ name: "Setup", path: pages.setup.path }]

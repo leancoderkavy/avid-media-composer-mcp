@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs"
 import { JsonLd } from "@/components/json-ld"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteNav } from "@/components/site-nav"
-import { absoluteUrl, breadcrumbs, docs, lastUpdated, pages, repo } from "@/lib/site"
+import { absoluteUrl, breadcrumbs, docs, lastUpdated, ogImage, pages, repo } from "@/lib/site"
 import { toolCount, toolGroups } from "@/lib/tools"
 
 const description =
@@ -14,7 +14,8 @@ export const metadata: Metadata = {
   title: { absolute: "Avid Media Composer MCP Tools: Full Reference for the MCP Server" },
   description,
   alternates: { canonical: pages.tools.path },
-  openGraph: { title: pages.tools.title, description, url: absoluteUrl(pages.tools.path), type: "article" }
+  openGraph: { title: pages.tools.title, description, url: absoluteUrl(pages.tools.path), type: "article", images: [ogImage] },
+  twitter: { card: "summary_large_image", title: pages.tools.title, description, images: [ogImage.url] }
 }
 
 const crumbs = [{ name: "Tools", path: pages.tools.path }]

@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/json-ld"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteNav } from "@/components/site-nav"
 import { faq } from "@/lib/faq"
+import { guidePath, guides } from "@/lib/guides"
 import { absoluteUrl, docs, lastUpdated, npmUrl, packageVersion, pages, repo, siteName, siteUrl } from "@/lib/site"
 
 
@@ -63,6 +64,18 @@ const structuredData = {
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       url: siteUrl,
       sameAs: [repo, npmUrl]
+    },
+    {
+      "@type": "ItemList",
+      "@id": absoluteUrl("/#guides"),
+      name: "Avid format and workflow guides",
+      numberOfItems: guides.length,
+      itemListElement: guides.map((guide, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: guide.metaTitle,
+        url: absoluteUrl(guidePath(guide.slug))
+      }))
     },
     {
       "@type": "FAQPage",
@@ -150,6 +163,22 @@ export default function Home() {
           <pre><code><span className="muted"># PowerShell</span>{"\n"}git clone {repo}{"\n"}cd avid-media-composer-mcp{"\n"}npm ci{"\n"}python -m pip install -r python/requirements.txt{"\n"}npm run build{"\n\n"}<span className="prompt">$env:AVID_MCP_CAPABILITIES = &quot;inspect&quot;</span>{"\n"}node .\dist\index.js</code></pre>
         </div>
         <p className="boundary"><ShieldCheck /> Live Media Composer editing requires a separately installed, compatible Avid Extension bridge. The server does not claim edits from previews or catalog entries. Full client configuration for Claude, Cursor, VS Code and Codex is on the <a className="inline-link" href={pages.setup.path}>setup page</a>.</p>
+      </section>
+
+      <section className="section shell" id="guides">
+        <div className="section-heading">
+          <p>Format and workflow guides</p><h2>Know the file <em>before you open it.</em></h2>
+          <span>Reference pages for the Avid formats and workflow states these tools read: what each file contains, how it fails, and which MCP tool inspects it.</span>
+        </div>
+        <div className="feature-grid">
+          {guides.map(guide => (
+            <article key={guide.slug}>
+              <FileSearch />
+              <h3><a className="inline-link" href={guidePath(guide.slug)}>{guide.navLabel}</a></h3>
+              <p>{guide.description}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="section shell faq" id="faq">
