@@ -1,3 +1,4 @@
+import { guidePath, guides } from "@/lib/guides"
 import { docs, lastUpdated, npmUrl, pages } from "@/lib/site"
 
 export function SiteFooter() {
@@ -9,6 +10,9 @@ export function SiteFooter() {
         <a href={pages.tools.path}>Tools</a>
         <a href={pages.setup.path}>Setup</a>
         <a href={pages.faq.path}>FAQ</a>
+        {guides.map(guide => (
+          <a key={guide.slug} href={guidePath(guide.slug)}>{guide.navLabel}</a>
+        ))}
         <a href={npmUrl}>npm</a>
         <a href={docs.security}>Security</a>
         <a href={docs.contributing}>Contributing</a>

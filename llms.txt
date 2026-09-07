@@ -8,6 +8,16 @@ Package name: avid-media-composer-mcp
 License: MIT
 Distribution status: published package and development branch can differ; inspect the installed tool list and docs/IMPLEMENTATION_STATUS.md for the exact build.
 
+## Format and workflow references
+
+- AVB (Avid bin) format: https://avid-media-composer-mcp.com/avb-file/
+- AAF interchange format: https://avid-media-composer-mcp.com/aaf-file/
+- ALE (Avid Log Exchange) format: https://avid-media-composer-mcp.com/ale-file/
+- CMX-style EDL format: https://avid-media-composer-mcp.com/edl-file/
+- Avid bin locking and .lck files: https://avid-media-composer-mcp.com/bin-locking/
+- Media Composer compatibility matrix: https://avid-media-composer-mcp.com/compatibility/
+- AI tools and automation for Media Composer: https://avid-media-composer-mcp.com/ai-automation/
+
 ## Verified capabilities
 
 - Read-only inventory and analysis of Avid project trees.

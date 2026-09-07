@@ -3,11 +3,24 @@ export const siteName = "Avid Media Composer MCP"
 export const repo = "https://github.com/leancoderkavy/avid-media-composer-mcp"
 export const npmUrl = "https://www.npmjs.com/package/avid-media-composer-mcp"
 export const packageVersion = "1.2.0-rc.1"
+/** What `npm install` and `npx ...@latest` actually resolve to; the RC is not on the latest tag. */
+export const stableVersion = "1.1.0"
 
 /** Bump when page content materially changes. Used for sitemap lastmod and visible freshness signals. */
 export const lastUpdated = "2026-09-07"
 
 export const absoluteUrl = (path = "/") => new URL(path, siteUrl).toString()
+
+/**
+ * Next replaces, rather than merges, a child route's `openGraph`, so each page has to
+ * restate the social image or it ships without one.
+ */
+export const ogImage = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Avid Media Composer MCP — source-safe project intelligence for AI"
+} as const
 
 export const pages = {
   home: { path: "/", title: "Avid Media Composer MCP Server | AI Project Analysis" },

@@ -1,5 +1,21 @@
 # Avid Media Composer MCP Server
 
+An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
+
+[Website](https://avid-media-composer-mcp.com/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
+
+Format and workflow references: [AVB files](https://avid-media-composer-mcp.com/avb-file/) · [AAF files](https://avid-media-composer-mcp.com/aaf-file/) · [ALE files](https://avid-media-composer-mcp.com/ale-file/) · [EDL files](https://avid-media-composer-mcp.com/edl-file/) · [Avid bin locking](https://avid-media-composer-mcp.com/bin-locking/) · [Compatibility matrix](https://avid-media-composer-mcp.com/compatibility/) · [AI and automation](https://avid-media-composer-mcp.com/ai-automation/)
+
+Use it with an MCP client that can launch a local process or reach the configured authenticated HTTP server. The published `1.1.0` package provides analysis, interchange and bridge contracts. The `1.2.0-rc.1` release candidate additionally provides local media intelligence, installation helpers and a separate Windows native adapter. A compatibility-rule result is not proof of this connector running on that host; native runtime evidence currently covers the qualified Windows Media Composer 2024.12 build described in [implementation status](docs/IMPLEMENTATION_STATUS.md). Mac implementation and host qualification are deferred.
+
+The server also defines a 167-action editing catalog and a tested bridge protocol. Catalog actions require a compatible Extension that advertises each operation. The separate native adapter has its own bounded operations, authority checks and host qualification; the catalog does not describe its coverage.
+
+> Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
+
+## Development branch notes
+
+> These changes are **not** in the public `1.1.0` package. Skip to [Facts at a glance](#facts-at-a-glance) for the released server.
+
 Original [workflow skills](docs/WORKFLOW_SKILLS.md) are included for ingest/QC, selects, review markers, turnover and export in this development branch.
 
 The development native adapter also supports [guarded clip Comments set/clear](docs/NATIVE_CLIP_COMMENTS.md), with expected-value checks, native readback and disposable-fixture save/reopen evidence.
@@ -10,17 +26,7 @@ The development adapter now includes [guarded AAF selects import](docs/NATIVE_AA
 
 Native inspection also exposes bin-scoped track counts/flags and viewer positions. Clip renaming checks the expected current name before applying and verifies name readback; the disposable Sonoma sequence passed rename, restoration and save/reopen checks. [Source-viewer loading](docs/NATIVE_VIEWER_QUALIFICATION.md) verifies the requested MOB ID: the sequence case passed, while source-master identity mapping remains unresolved. An experimental Record request loaded Source instead, so Record and seek options are not exposed. These operations do not establish full timeline editing or atomic undo.
 
-An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
-
-[Website](https://avid-media-composer-mcp.com/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
-
-Use it with an MCP client that can launch a local process or reach the configured authenticated HTTP server. The published `1.1.0` package provides analysis, interchange and bridge contracts. The `1.2.0-rc.1` release candidate additionally provides local media intelligence, installation helpers and a separate Windows native adapter. A compatibility-rule result is not proof of this connector running on that host; native runtime evidence currently covers the qualified Windows Media Composer 2024.12 build described in [implementation status](docs/IMPLEMENTATION_STATUS.md). Mac implementation and host qualification are deferred.
-
-The server also defines a 167-action editing catalog and a tested bridge protocol. Catalog actions require a compatible Extension that advertises each operation. The separate native adapter has its own bounded operations, authority checks and host qualification; the catalog does not describe its coverage.
-
-> Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
-
-## Facts at a glance
+# Facts at a glance
 
 | Question | Answer |
 | --- | --- |

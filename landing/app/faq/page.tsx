@@ -4,7 +4,7 @@ import { JsonLd } from "@/components/json-ld"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteNav } from "@/components/site-nav"
 import { extendedFaq } from "@/lib/faq"
-import { absoluteUrl, breadcrumbs, docs, lastUpdated, pages } from "@/lib/site"
+import { absoluteUrl, breadcrumbs, docs, lastUpdated, ogImage, pages } from "@/lib/site"
 
 const description =
   "Answers about the Avid Media Composer MCP server: supported formats, AI clients, installation, safety, live editing, HTTP transport, privacy and Avid version compatibility."
@@ -13,7 +13,8 @@ export const metadata: Metadata = {
   title: { absolute: "Avid Media Composer MCP FAQ: Formats, Clients, Safety" },
   description,
   alternates: { canonical: pages.faq.path },
-  openGraph: { title: pages.faq.title, description, url: absoluteUrl(pages.faq.path), type: "article" }
+  openGraph: { title: pages.faq.title, description, url: absoluteUrl(pages.faq.path), type: "article", images: [ogImage] },
+  twitter: { card: "summary_large_image", title: pages.faq.title, description, images: [ogImage.url] }
 }
 
 const crumbs = [{ name: "FAQ", path: pages.faq.path }]
