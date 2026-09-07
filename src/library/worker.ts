@@ -1,5 +1,6 @@
 import {SpeakerAnalysis} from "./diarization.js";
 import {AudioSyncAnalysis} from "./audio-sync-analysis.js";
+import {SourceClockMedia} from "./source-clock.js";
 import {VisualSummaries} from "./visual-summaries.js";
 import {CaptionBatches} from "./caption-batches.js";
 import {FrameCaptions} from "./captions.js";
@@ -21,6 +22,7 @@ try{
   const library=new MediaLibrary(config);
   let result;
   switch(spec.kind){
+    case "source_clock":result=await new SourceClockMedia(config).prepare(spec.options,payload.preparationRunId);break;
     case "audio_sync":result=await new AudioSyncAnalysis(config).analyze(spec.options);break;
     case "diarization_resume":result=await new SpeakerAnalysis(config).resume(spec.analysisId,spec.expectedSha256);break;
     case "diarization":result=await new SpeakerAnalysis(config).generate(spec.id,spec.start,spec.end,spec.options);break;

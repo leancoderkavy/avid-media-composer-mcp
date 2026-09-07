@@ -1,5 +1,85 @@
 # Completion ledger
 
+### Named-client managed Python acceptance
+
+The installed package generated Codex settings with the managed interpreter and inspection-only authority. Actual Codex execution exposed only `avid_analyze_bin` and made one successful bounded Sonoma bin call. The tool response matched an independent inspector read; source, package entrypoints, managed runtime tree and user `config.toml` were unchanged. Evidence: `.avid-mcp-analysis/codex-managed-python-1d982365-49d7-472e-b5f0-2cbed636628f/evidence.json`. This qualifies ephemeral model-selected inspection, not persistent GUI setup or native edits.
+
+CI run 34068200449 for preceding head 1569651 failed Windows Node 20 when PowerShell loopback ownership inspection exceeded its 30-second process deadline. The other jobs passed. The retained log is `.avid-mcp-analysis/ci-34068200449-failure.log`; all three focused ownership/connection tests passed locally in `test-loopback-ci-followup.log`. The failed job was rerun without changing the production timeout or ownership requirements; its result must be checked separately.
+
+Attempt 2 of that exact CI run completed successfully. All Windows/macOS Node 20/24 checks for 1569651 are now successful, with the original timeout retained as intermittent-failure evidence rather than a claimed code fix.
+
+### Publish complete Python receipts and qualify installed lifecycle commands
+
+Python setup now stages and closes its success receipt before exclusive hard-link publication. Concurrent publication tests establish one complete winner and no overwrite. An actual pre-link interruption left status incomplete, retained the staged/attempt bytes and refused retry into the existing directory. Evidence: `.avid-mcp-analysis/python-install-interruption-836703b2-38dc-4bb7-9077-0fdf96eaf4aa/evidence.json`.
+
+A fresh tarball-installed CLI completed a new isolated Python installation, then passed status, overwrite refusal, doctor, actual Sonoma AVB/AAF reads and fresh-session equality with unchanged source/runtime hashes. Evidence: `.avid-mcp-analysis/python-cli-packaged-install.json` and `python-runtime-cli-17935416-659e-4a60-b283-a9dbbb4d96c3/evidence.json`. Typecheck/build and six runtime tests passed. This closes the missing installed-command proof for this fixture; power loss, mid-pip interruption, upgrade/removal and clean-OS acceptance remain open.
+
+The full TypeScript suite passed 809 tests (`.avid-mcp-analysis/test-python-receipt-publication.log`). Earlier Python/transport gates and this fresh installed-runtime exercise remain separate evidence.
+
+### Inspect incomplete Python installation attempts
+
+Core Python setup now records its identity before subprocesses/downloads. Status without a success receipt validates that attempt and reports incomplete with no executable and unknown worker state. It does not treat file presence as termination evidence, repair records or retry setup. Completed receipts retain their consistency checks and historical compatibility. Tests cover retained failed setup, corrupt/relocated attempts and no execution on status.
+
+The actual CLI barrier test passed while the installer was live and after confirmed closure, with overwrite refusal and unchanged attempt bytes. A fresh normal install passed doctor and Sonoma AVB/AAF MCP inspection across reconnect without changing the runtime tree. Evidence: `python-install-interruption-cce8e4b0-95b3-4463-8153-81dae4ad17e3` and `python-runtime-cli-500e0a0e-a24b-4d27-9954-610139ff9018` under `.avid-mcp-analysis`. Typecheck/build and five focused runtime tests passed. Mid-worker interruption, removal/upgrade and power-loss acceptance remain open.
+
+All 808 TypeScript tests passed (`.avid-mcp-analysis/test-python-install-attempt.log`). Hosted CI and CodeQL for preceding commit `bcc05c1` also passed, including Windows/macOS Node 20/24. That hosted result is distinct from the updated attempt-status code's current checks.
+
+### Ship explicit core Python installation and status
+
+Added `--install-python-runtime NEW_ABSOLUTE_DIRECTORY --python ABSOLUTE_BASE_PYTHON` and read-only `--python-runtime-status`. Installation exclusively claims a new directory, creates an isolated copied venv, bootstraps checksum-verified pip, installs exact binary-only core packages, checks dependencies/imports and records the environment tree. Existing/partial destinations are not overwritten; status checks files without executing Python. Tests cover path refusal, failed-attempt retention, changed trees, receipt relocation and no execution during status.
+
+Actual CLI setup passed, then doctor and two MCP sessions read real Sonoma AVB/AAF data identically. The environment tree and original files stayed unchanged. Core inspection now uses isolated Python with bytecode writes disabled; a working-directory/PYTHONPATH conflict test passed. Evidence: `.avid-mcp-analysis/core-cli-install.json` and `python-runtime-cli-fb980ead-cae5-49c3-8a1c-5c3e3493feff/evidence.json` beneath the analysis root. This adds an install/status path; upgrades/removal, all other Python workflows, clean OS and abrupt-install recovery remain open.
+
+Full local check passed 807 TypeScript and 46 Python tests, transports and fresh-package/Python/AAF checks (`.avid-mcp-analysis/check-core-python-runtime.log`). The production install/status CLI was exercised from the checkout; the generic package check does not yet establish fresh-installed execution of these new lifecycle commands.
+
+### Fresh isolated core Python setup
+
+Added a repeatable research harness for a new core-inspection venv from an explicit base interpreter. It uses the existing hash-verified pip bootstrap, verifies agreement with the shipped core requirements, installs binary-only exact pyavb/pyaaf2 versions and runs dependency checks. Two actual MCP sessions read the Sonoma AVB and AAF fixtures identically. Original file hashes and base-interpreter package inventory remained unchanged.
+
+Evidence: `.avid-mcp-analysis/core-python-setup-02bde60a-7931-47b7-862a-98d3b39fe4ca/evidence.json`. The earlier `core-python-setup-4bed6c2c-e909-47c8-a4a4-f8695880bc10` run independently passed setup/reads before the explicit base-inventory assertion was added. Script syntax and diff checks passed. No production code changed; this qualifies the dependency setup recipe on the existing Windows machine, not clean-OS installation or an automatic installer lifecycle.
+
+### Diagnose explicitly configured dependency executables
+
+`--doctor` now accepts absolute `--ffmpeg`, `--ffprobe` and `--python` paths, matching client configuration options. Explicit values override ambient settings without changing the environment or falling back when a selected executable is missing. Relative paths and doctor capability overrides are rejected. CLI help and local setup instructions document the options.
+
+Actual built-CLI tests with broken ambient executable settings passed for the system Python (correctly unready: no pyavb/pyaaf2) and prepared project Python (ready), with working FFmpeg/ffprobe. Evidence directories: `doctor-runtime-paths-8cd39a11-6481-44a0-a2b5-bc5f2997ac47` and `doctor-runtime-paths-7b90e51d-4e7a-4408-a34f-7819df700df5` under `.avid-mcp-analysis`. Full check passed 803 TypeScript and 46 Python tests plus transport/package checks. A new permanent installed-CLI missing-executable gate passed a separate fresh-package/Python run (`package-doctor-paths.log`). Clean-machine dependency installation remains open.
+
+### Direct job-to-preparation recovery identity
+
+Source-clock jobs now allocate and journal `preparationRunId` before dispatch, pass it to the worker and retain it through terminal status/reconnect. The preparation verifier validates the UUID and refuses directory collisions without changing existing outputs. Historical records do not gain guessed IDs. Tests cover worker payload binding, failed-job history, invalid IDs and collision preservation.
+
+Actual Sonoma MCP execution followed completed and interrupted preparations from job status to `avid_source_clock_status`, with ID equality across reconnect and absent attempts for queued cancellation/early checksum refusal. Evidence: `.avid-mcp-analysis/source-clock-jobs-1533fa2a-8615-4bfb-ac55-d8952f8ccef0/evidence.json`. Full local check passed 802 TypeScript and 46 Python tests plus transport/fresh-package/Python/AAF checks (`check-preparation-job-identity.log` in the analysis directory). Cross-session process recovery and general cancellation reliability remain open.
+
+### Fresh installed source-clock jobs
+
+Extended the research harness to accept an absolute installed entrypoint, use its directory as the server working directory and checksum six relevant runtime files before and after execution. A fresh development tarball installation matched the checkout build, then passed real Sonoma queued preparation, queued/active cancellation, bad-checksum refusal, receipt verification and fresh-session status. A separate installed fault-injection run verified scheduling pause, new-start refusal and queued cancellation.
+
+Evidence: `.avid-mcp-analysis/preparation-installed-runtime.json`, `source-clock-jobs-2d077ddf-1c7e-4552-a1b1-6f6cc60e294f/evidence.json` and `source-clock-jobs-40094408-5776-44aa-91a7-5202b92df78f/evidence.json`. All paths are beneath the analysis root. Original source/runtime hashes were unchanged. No production code changed in this checkpoint; original intermittent cancellation, cross-session recovery and clean-machine setup remain open. See [installed preparation qualification](SOURCE_CLOCK_PREPARATION.md#fresh-installed-worker-qualification).
+
+### Retain helper termination diagnostics across reconnect
+
+Windows taskkill closure now preserves its exit code in both process errors and job history. Nonzero/null remains failure, absent closure remains unknown, and late closure cannot rewrite a timeout. Focused process/job/journal checks passed 43 tests, with typecheck/build. A real Sonoma MCP injected-failure test preserved exit code 1 across a fresh connection at `source-clock-jobs-8b7ef637-158e-4afe-8f4d-a4697bf9bdd2` beneath `.avid-mcp-analysis`.
+
+The full TypeScript suite then passed all 799 tests (`.avid-mcp-analysis/test-tree-exit-code.log`). This does not replace fresh installed-runtime or hosted checks for the updated commit.
+
+Five additional traced cancellation attempts succeeded but did not reproduce the original intermittent failure. The existing scheduling pause still protects only the current session; persisted recovery guards, orphan containment and root-cause diagnosis remain open. See [preparation cancellation evidence](SOURCE_CLOCK_PREPARATION.md#queued-preparation).
+
+### Pause analysis scheduling after uncertain worker-tree termination
+
+Investigating the retained source-clock cancellation failure found that the queue could start another worker after a failed tree-termination result. The session now exposes `schedulingPaused`, preserves queued jobs without dispatch and refuses new starts; queued cancellation remains available. A late successful termination still advances the queue. Focused job/journal/process tests passed (34 tests).
+
+The complete TypeScript suite passed all 792 tests (`.avid-mcp-analysis/test-cancellation-pause.log`); the final strengthened early-failure queue assertion also passed all 19 job tests. Typecheck/build passed. The prior full Python/package checks are unchanged historical validation, distinct from these final guard checks.
+
+Actual MCP fault injection verified the pause/refusal/cancellation behavior after a real successful owned-tree kill was reported as failed. Separately, two traced and one uninstrumented active-cancellation runs passed. The original intermittent failure remains unresolved, and the guard is session-local rather than a cross-session orphan lock. See [queued preparation evidence](SOURCE_CLOCK_PREPARATION.md#queued-preparation).
+
+### Source-clock preparation in durable jobs
+
+Added `source_clock` to the existing bounded job queue and worker, sharing the direct preparation schema and verifier. Export authority is checked before journal/worker creation; queued cancellation avoids dispatch. Sonoma execution verified output and receipt checks, checksum refusal and completed/cancelled/failed history across reconnect. Focused jobs, journal and preparation tests passed (36 tests), with typecheck/build.
+
+Final complete local check passed: 792 TypeScript tests, 46 Python tests, transports, and fresh-package/Python/AAF checks with 143 exact matching tool definitions. Log: `.avid-mcp-analysis/check-source-clock-jobs.log`. Final harness rerun passed at `.avid-mcp-analysis/source-clock-jobs-81c0d3c1-f704-405a-a1b8-b8c529c9b6ed/evidence.json`. This rerun exercises queued cancellation; it does not supersede the separate active-cancellation failure.
+
+Active cancellation is not qualified: worker closure was observed but Windows tree termination reported failure. The failed acceptance is retained rather than treating cancelled status as full process-tree proof. See [queued preparation](SOURCE_CLOCK_PREPARATION.md#queued-preparation) for evidence and limits. This does not complete the broader resource/recovery or host-editing requirements.
+
 ### Duplicate undo observation and preview disclosure
 
 The explicit research `--history` mode duplicated the owned fixture from three to four items. Original identities/names and protected file hashes were preserved; token replay was refused. UI Undo, Redo and Undo-Redo List stayed disabled before and after, including with the new row focused and Duplicate/selection commands enabled. No Undo or explicit save was issued for this fourth item. Evidence: `.avid-mcp-analysis/native-duplicate-mcp-23cbe67e-e3aa-40a8-ac32-e12b5901477a/evidence.json` and observed UI captures.

@@ -38,7 +38,7 @@ async function callInspector(
   filePath?: string,
 ): Promise<unknown> {
   const sidecar = await resolvePythonSidecar();
-  const args = [sidecar, command];
+  const args = ["-I", "-B", sidecar, command];
   if (filePath) args.push("--path", filePath);
   if (options.maxDepth !== undefined) args.push("--max-depth", String(options.maxDepth));
   if (options.maxItems !== undefined) args.push("--max-items", String(options.maxItems));

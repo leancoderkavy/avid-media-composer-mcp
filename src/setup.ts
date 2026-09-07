@@ -51,13 +51,13 @@ export function codexSetupCommand(roots:string[],outputRoot?:string,nativeBinary
   return {command:"codex",args,note:"Run this argument array with the installed Codex CLI, without a shell. Codex writes its own configuration. Inspect any existing avid-media-composer entry before replacing it."};
 }
 
-export function doctorConfiguration(options:{roots?:string[]|undefined;outputRoot?:string|undefined;nativeBinary?:string|undefined;modelDirectory?:string|undefined},environment:NodeJS.ProcessEnv=process.env){
+export function doctorConfiguration(options:{roots?:string[]|undefined;outputRoot?:string|undefined;nativeBinary?:string|undefined;modelDirectory?:string|undefined;ffmpeg?:string|undefined;ffprobe?:string|undefined;python?:string|undefined},environment:NodeJS.ProcessEnv=process.env){
   const env={...environment};
   if(options.roots!==undefined){
     if(!options.roots.length||options.roots.some(root=>!path.isAbsolute(root)||root.includes(path.delimiter)))throw new Error('Doctor roots must be absolute paths without path-list separators');
     env.AVID_MCP_ALLOWED_ROOTS=options.roots.join(path.delimiter);
   }
-  for(const [key,value] of [['AVID_MCP_OUTPUT_ROOT',options.outputRoot],['AVID_MCP_NATIVE_BINARY',options.nativeBinary],['AVID_MCP_MODEL_DIR',options.modelDirectory]] as const){
+  for(const [key,value] of [['AVID_MCP_OUTPUT_ROOT',options.outputRoot],['AVID_MCP_NATIVE_BINARY',options.nativeBinary],['AVID_MCP_MODEL_DIR',options.modelDirectory],['AVID_MCP_FFMPEG',options.ffmpeg],['AVID_MCP_FFPROBE',options.ffprobe],['AVID_MCP_PYTHON',options.python]] as const){
     if(value!==undefined){if(!path.isAbsolute(value))throw new Error('Doctor path overrides must be absolute');env[key]=value;}
   }
   return loadConfig(env);

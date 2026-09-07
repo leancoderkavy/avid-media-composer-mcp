@@ -114,8 +114,9 @@ export class SourceClockMedia {
     }
     return {runId,state,source,sourceSha256:attempt.sourceSha256,videoStream:attempt.videoStream,audioStream:attempt.audioStream,startedAt:attempt.startedAt,output,outputSha256,workerState:"unknown",meaning:"Saved record inspection with current source/output checksum checks; not a new essence verification or authenticated receipt. No worker termination, retry, cleanup or Avid import is inferred."};
   }
-  async prepare(input:z.infer<typeof sourceClockOptions>){
+  async prepare(input:z.infer<typeof sourceClockOptions>,runId:string=randomUUID()){
     requireCapability(this.config.capabilities,"export");
+    z.string().uuid().parse(runId);
     const options=sourceClockOptions.parse(input),source=await resolveReadablePath(options.file,this.config.allowedRoots,"file");
     if(![".mp4",".mov"].includes(path.extname(source).toLowerCase()))throw new Error("Expected a local MP4 or MOV source");
     if((await stat(source)).size>MAX_MEDIA_BYTES)throw new Error("Source exceeds 4 GiB preparation limit");
@@ -123,7 +124,7 @@ export class SourceClockMedia {
     const run=async(exe:string,args:string[])=>{const result=await runProcess(exe,args,{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:8*1024*1024});if(result.exitCode!==0)throw new Error(`Source-clock preparation failed: ${result.stderr.slice(-1500)}`);return result.stdout;};
     const probe=async(file:string)=>JSON.parse(await run(this.config.ffprobeExecutable,["-v","error","-protocol_whitelist","file,pipe","-show_streams","-of","json",file])) as {streams:Stream[]};
     const original=await probe(source),selected=sourceClockStreams(original.streams,options.videoStream,options.audioStream);
-    const directory=path.join(await new MediaLibrary(this.config).directory(),`source-clock-${randomUUID()}`);await mkdir(directory);
+    const directory=path.join(await new MediaLibrary(this.config).directory(),`source-clock-${runId}`);await mkdir(directory);
     await resolveReadablePath(directory,[this.config.outputRoot!],"directory");
     const output=path.join(directory,"prepared.mov"),attempt=path.join(directory,"attempt.json");
     await writeFile(attempt,JSON.stringify({source,sourceSha256:options.expectedSha256,videoStream:options.videoStream,audioStream:options.audioStream,output,recipe:CLOCK,startedAt:new Date().toISOString()}),{flag:"wx"});

@@ -5,6 +5,7 @@ import { clientConfiguration, codexSetupCommand, installConfiguration, doctor, d
 import {configurationStatus,changeConfiguration,type ConfigurationOperation} from "./setup-lifecycle.js";
 
 const { values } = parseArgs({ options: {
+  "install-python-runtime":{type:"string"},"python-runtime-status":{type:"string"},
   "pair-jumper":{type:"string"},"jumper-sha256":{type:"string"},"jumper-port":{type:"string"},
   "server-entry":{type:"string"},"server-entry-sha256":{type:"string"},
   capabilities:{type:"string"},ffmpeg:{type:"string"},ffprobe:{type:"string"},python:{type:"string"},
@@ -19,7 +20,12 @@ const { values } = parseArgs({ options: {
   "package-status":{type:"string"},"package-remove":{type:"string"},"package-recover":{type:"string"},
 } });
 try {
-  if(values["pair-jumper"]!==undefined||values["jumper-sha256"]!==undefined||values["jumper-port"]!==undefined){
+  if(values["install-python-runtime"]!==undefined||values["python-runtime-status"]!==undefined){
+    const installing=values["install-python-runtime"]!==undefined,allowed=new Set(installing?["install-python-runtime","python"]:["python-runtime-status"]);
+    if(Object.keys(values).some(key=>!allowed.has(key))||installing&&!values.python)throw new Error("Use --install-python-runtime ABSOLUTE_NEW_DIRECTORY --python ABSOLUTE_BASE_PYTHON, or --python-runtime-status ABSOLUTE_DIRECTORY, without other options");
+    const {installPythonRuntime,pythonRuntimeStatus}=await import("./python-runtime.js");
+    console.log(JSON.stringify(await (installing?installPythonRuntime(values["install-python-runtime"]!,values.python!):pythonRuntimeStatus(values["python-runtime-status"]!)),null,2));
+  }else if(values["pair-jumper"]!==undefined||values["jumper-sha256"]!==undefined||values["jumper-port"]!==undefined){
     const allowed=new Set(["pair-jumper","jumper-sha256","jumper-port"]);
     if(Object.keys(values).some(key=>!allowed.has(key))||!values["pair-jumper"]||!values["jumper-sha256"]||values["jumper-port"]!==undefined&&!/^\d+$/.test(values["jumper-port"]))throw new Error("Pairing requires --pair-jumper ABSOLUTE_BINARY --jumper-sha256 HASH [--jumper-port PORT] and no other setup options");
     const {verifyWindowsLoopbackOwner}=await import("./integrations/loopback-owner.js");
@@ -27,7 +33,8 @@ try {
     console.log(JSON.stringify({provider:"jumper",baseUrl:`http://127.0.0.1:${owner.port}/api/v1`,owner:{binary:owner.binary,sha256:owner.sha256,identity:owner.identity},scope:"Listener preflight only; process restart requires a new pairing. No provider request or license validation performed."},null,2));
   }else{
   const runtimeOptions={modelDirectory:values["model-dir"],capabilities:values.capabilities,ffmpeg:values.ffmpeg,ffprobe:values.ffprobe,python:values.python};
-  if([values.capabilities,values.ffmpeg,values.ffprobe,values.python].some(value=>value!==undefined)&&(!values.client||values.remove||values.restore||values.doctor||values["download-models"]||values["install-model-runtime"]||values["model-runtime-status"]||values["diarization-runtime-status"]||values["config-status"]||values["package-install"]||values["package-status"]||values["package-remove"]||values["package-recover"]))throw new Error("Client runtime options require configuration generation, installation or update");
+  const runtimeConfiguration=values.client&&!values.remove&&!values.restore&&!values.doctor&&!values["download-models"]&&!values["install-model-runtime"]&&!values["model-runtime-status"]&&!values["diarization-runtime-status"]&&!values["config-status"]&&!values["package-install"]&&!values["package-status"]&&!values["package-remove"]&&!values["package-recover"];
+  if(values.capabilities!==undefined&&!runtimeConfiguration||[values.ffmpeg,values.ffprobe,values.python].some(value=>value!==undefined)&&!runtimeConfiguration&&!values.doctor)throw new Error("Runtime paths require doctor or client configuration; capabilities require client configuration generation, installation or update");
   if(!!values["server-entry"]!==!!values["server-entry-sha256"]||values["server-entry"]&&!values.client)throw new Error("Server entry overrides require --client, --server-entry and --server-entry-sha256");
   const serverEntry=values["server-entry"]?await resolveSetupEntry(values["server-entry"],values["server-entry-sha256"]!):undefined;
   if(values["package-root"]&&!values["package-install"]&&!values["package-status"]&&!values["package-remove"]&&!values["package-recover"])throw new Error("Package root requires a package operation");
@@ -93,7 +100,7 @@ try {
     await models.text.dispose(); await models.vision.dispose();
     console.log(JSON.stringify({downloaded:VISUAL_MODEL,revision:VISUAL_REVISION,directory:values["model-dir"]}));
     }
-  } else if (values.doctor) console.log(JSON.stringify(await doctor(doctorConfiguration({roots:values.root,outputRoot:values.output,nativeBinary:values.native,modelDirectory:values['model-dir']})),null,2));
+  } else if (values.doctor) console.log(JSON.stringify(await doctor(doctorConfiguration({roots:values.root,outputRoot:values.output,nativeBinary:values.native,modelDirectory:values['model-dir'],ffmpeg:values.ffmpeg,ffprobe:values.ffprobe,python:values.python})),null,2));
   else if (values.client === "codex") {
     if(values.install||values.config)throw new Error("Codex setup prints a codex mcp add argument array; run it with Codex. JSON --config/--install does not support Codex TOML.");
     console.log(JSON.stringify(codexSetupCommand(values.root??[],values.output,values.native,serverEntry,runtimeOptions),null,2));
@@ -104,6 +111,6 @@ try {
       if (!values.config) throw new Error("--install requires an explicit --config file");
       console.log(JSON.stringify(await installConfiguration(values.config,config),null,2));
     } else console.log(JSON.stringify(config,null,2));
-  } else console.log("avid-mcp --pair-jumper ABSOLUTE_BINARY --jumper-sha256 HASH [--jumper-port PORT]\navid-mcp --diarization-runtime-status --model-dir PATH\navid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor [--root ABSOLUTE_PATH] [--output ABSOLUTE_PATH] [--native ABSOLUTE_EXE]\navid-mcp --client claude|cursor|vscode|lmstudio|generic|codex --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny|base] | --faces | --summaries | --captions | --diarization]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: --client codex prints a codex mcp add argument array; execute it with Codex. JSON configuration mutation flags do not apply.");
+  } else console.log("avid-mcp --install-python-runtime ABSOLUTE_NEW_DIRECTORY --python ABSOLUTE_BASE_PYTHON\navid-mcp --python-runtime-status ABSOLUTE_DIRECTORY\navid-mcp --pair-jumper ABSOLUTE_BINARY --jumper-sha256 HASH [--jumper-port PORT]\navid-mcp --diarization-runtime-status --model-dir PATH\navid-mcp --install-model-runtime --model-dir PATH\navid-mcp --model-runtime-status --model-dir PATH\navid-mcp --package-install ABSOLUTE_ARCHIVE.tgz --package-root ABSOLUTE_DIRECTORY --package-sha256 HASH\navid-mcp --package-status INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY\navid-mcp --package-remove INSTALLATION_UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --package-recover UUID.removing-UUID --package-root ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH\navid-mcp --doctor [--root ABSOLUTE_PATH] [--output ABSOLUTE_PATH] [--native ABSOLUTE_EXE] [--ffmpeg ABSOLUTE_FILE --ffprobe ABSOLUTE_FILE --python ABSOLUTE_FILE]\navid-mcp --client claude|cursor|vscode|lmstudio|generic|codex --root ABSOLUTE_PATH [--output PATH] [--native AVID_EXE] [--model-dir ABSOLUTE_PATH] [--capabilities inspect,export,project-write] [--ffmpeg FILE --ffprobe FILE --python FILE] [--config FILE --install] [--server-entry FILE --server-entry-sha256 HASH]\navid-mcp --download-models --model-dir PATH [--speech [--speech-model tiny.en|tiny|base] | --faces | --summaries | --captions | --diarization]\navid-mcp --config-status --config FILE\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --update --root PATH\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --remove\navid-mcp --client CLIENT --config FILE --expected-sha256 HASH --restore BACKUP\nWithout a mutation flag, setup only prints configuration. Codex: --client codex prints a codex mcp add argument array; execute it with Codex. JSON configuration mutation flags do not apply.");
   }
 } catch(error) { console.error((error as Error).message); process.exitCode=1; }

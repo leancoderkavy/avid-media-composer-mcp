@@ -1,5 +1,6 @@
 import {diarizationOptions} from "./diarization.js";
 import {audioSyncOptions} from "./audio-sync-analysis.js";
+import {sourceClockOptions} from "./source-clock.js";
 import {visualSummaryReferences} from "./visual-summaries.js";
 import {captionTimes} from "./caption-batches.js";
 import {spawn, type ChildProcess} from "node:child_process";
@@ -18,6 +19,7 @@ import {peopleRange} from "./people.js";
 
 const id=z.string().regex(/^[a-f0-9]{64}$/);
 export const jobSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("source_clock"),options:sourceClockOptions}).strict(),
   z.object({kind:z.literal("audio_sync"),options:audioSyncOptions}).strict(),
   z.object({kind:z.literal("diarization_resume"),analysisId:z.string().uuid(),expectedSha256:id}).strict(),
   z.object({kind:z.literal("diarization"),id,start:z.number().nonnegative(),end:z.number().positive(),options:diarizationOptions.default({speakers:-1,threshold:0.5})}).strict(),
@@ -41,7 +43,7 @@ export const jobSchema=z.discriminatedUnion("kind",[
 ]);
 type JobSpec=z.infer<typeof jobSchema>;
 type CancellationReason="user"|"timeout"|"output_limit"|"shutdown";
-interface Job {id:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null};cancellationReason?:CancellationReason}
+interface Job {id:string;preparationRunId?:string;spec:JobSpec;status:"queued"|"running"|"cancelling"|"completed"|"failed"|"cancelled";createdAt:string;result?:unknown;error?:string;child?:ChildProcess;journalError?:string;treeTermination?:TreeTermination;workerExit?:{code:number|null;signal:string|null};cancellationReason?:CancellationReason}
 
 export class AnalysisJobs {
   private jobs=new Map<string,Job>();
@@ -49,10 +51,12 @@ export class AnalysisJobs {
   private terminations=new Map<string,Promise<void>>();
   private active=0;
   private closing=false;
+  private schedulingPaused=false;
   readonly journal:JobJournal;
   constructor(private readonly config:ServerConfig){this.journal=new JobJournal(config);}
   async start(input:JobSpec){
     if(this.closing)throw new Error("Analysis service is closing");
+    if(this.schedulingPaused)throw new Error("Analysis scheduling is paused because worker-tree termination was not verified. Inspect retained cancellation evidence and resolve possible descendants before starting another session.");
     requireCapability(this.config.capabilities,"inspect");
     const spec=jobSchema.parse(input);
     if(!["index","summary","summary_resume","visual_summary"].includes(spec.kind))requireCapability(this.config.capabilities,"export");
@@ -60,6 +64,7 @@ export class AnalysisJobs {
     if([...this.jobs.values()].filter(job=>["queued","running","cancelling"].includes(job.status)).length>=20)throw new Error("Analysis queue is full");
     if(this.jobs.size>=100){const finished=[...this.jobs.values()].find(job=>!["queued","running","cancelling"].includes(job.status));if(finished){this.jobs.delete(finished.id);this.checkpoints.delete(finished.id);}}
     const job:Job={id:randomUUID(),spec,status:"queued",createdAt:new Date().toISOString()};
+    if(spec.kind==="source_clock")job.preparationRunId=randomUUID();
     this.jobs.set(job.id,job);
     try{await this.persist(job);}catch(error){this.jobs.delete(job.id);throw error;}
     this.pump();return this.status(job.id);
@@ -74,7 +79,7 @@ export class AnalysisJobs {
     do{pending=this.checkpoints.get(id);await pending;}while(pending!==this.checkpoints.get(id));
     const current=this.jobs.get(id);return current?this.status(id):this.journal.read(id);
   }
-  status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return value;}
+  status(id:string){const job=this.jobs.get(id);if(!job)throw new Error("Unknown job in this MCP session");const{child,...value}=job;return {...value,schedulingPaused:this.schedulingPaused};}
   async cancelAndReadStatus(id:string){this.cancel(id);return this.readStatus(id);}
   cancel(id:string,reason:CancellationReason="user"){
     const job=this.jobs.get(id);if(!job)throw new Error("Unknown job");
@@ -88,6 +93,7 @@ export class AnalysisJobs {
         const child=job.child;
         const termination=terminateWindowsTree(child)!.then(result=>{
           job.treeTermination=result;
+          if(!result.succeeded)this.schedulingPaused=true;
           this.checkpoint(job);
           // A failed tree kill is not proof that descendants stopped.
           if(!result.succeeded&&job.child===child)child.kill();
@@ -107,7 +113,7 @@ export class AnalysisJobs {
     await Promise.all([...this.checkpoints.values()]);
   }
   private pump(){
-    if(this.closing||this.active>=1)return; // Bound model memory; future concurrency must be measured.
+    if(this.closing||this.schedulingPaused||this.active>=1)return; // Bound model memory; future concurrency must be measured.
     const job=[...this.jobs.values()].find(job=>job.status==="queued");
     if(!job)return;
     this.active++;job.status="running";
@@ -151,6 +157,6 @@ export class AnalysisJobs {
       else finish(failure);
     });
     child.stdin.on("error",()=>{});
-    child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec}));
+    child.stdin.end(JSON.stringify({config:{...this.config,capabilities:[...this.config.capabilities]},spec:job.spec,preparationRunId:job.preparationRunId}));
   }
 }
