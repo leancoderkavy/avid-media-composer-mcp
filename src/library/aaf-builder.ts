@@ -23,7 +23,8 @@ export class AafBuilder {
   constructor(private config:ServerConfig){this.library=new MediaLibrary(config);}
   private async run(request:unknown,directory:string){
     const manifest=path.join(directory,`request-${randomUUID()}.json`);await writeFile(manifest,JSON.stringify(request),{flag:"wx"});
-    const result=await runProcess(this.config.pythonExecutable,[fileURLToPath(new URL("../../python/avid_aaf_builder.py",import.meta.url)),manifest],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:2*1024*1024});
+    // Retain the packaged script directory for sibling imports, excluding Python env/user-site overrides and cache writes.
+    const result=await runProcess(this.config.pythonExecutable,["-E","-s","-B",fileURLToPath(new URL("../../python/avid_aaf_builder.py",import.meta.url)),manifest],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:2*1024*1024});
     if(result.exitCode!==0)throw new Error(`AAF builder failed: ${result.stderr.slice(-1500)}`);return JSON.parse(result.stdout);
   }
   private async prepare(template:string,selects=false){

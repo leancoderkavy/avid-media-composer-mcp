@@ -1,5 +1,15 @@
 # Completion ledger
 
+### Managed Python AAF authoring
+
+The installed pre-fix AAF builder loaded an untrusted `aaf2.py` through `PYTHONPATH` and failed before authoring. The baseline is retained in `.avid-mcp-analysis/managed-aaf-baseline.log`. AAF subprocesses now ignore Python environment overrides and user-site packages and disable bytecode writes while retaining the packaged script directory for graph/merge sibling imports.
+
+With the updated builder, the existing managed Python environment merged two real Sonoma AAF references, authored a 120-frame picture/stereo composition, inspected both source ranges, and rejected a mismatched rate. Runtime tree, packaged/source code, input AAF and referenced media hashes were unchanged. Evidence: `.avid-mcp-analysis/managed-python-aaf-601b0f52-3481-46a2-9f53-e128b193c76c/evidence.json`. This is file authoring/inspection evidence; it does not establish a new Avid import, playback or render qualification.
+
+The installed-package AAF smoke gate now supplies conflicting working-directory modules through `PYTHONPATH` during merge, stereo authoring and inspection. Managed Python qualification for other workloads and clean-machine setup remains open.
+
+The complete local pipeline passed 809 TypeScript and 46 Python tests, transport checks and fresh-package validation including that conflicting-module AAF case. Log: `.avid-mcp-analysis/check-managed-python-aaf-final.log`. Hosted checks remain separate.
+
 ### Named-client managed Python acceptance
 
 The installed package generated Codex settings with the managed interpreter and inspection-only authority. Actual Codex execution exposed only `avid_analyze_bin` and made one successful bounded Sonoma bin call. The tool response matched an independent inspector read; source, package entrypoints, managed runtime tree and user `config.toml` were unchanged. Evidence: `.avid-mcp-analysis/codex-managed-python-1d982365-49d7-472e-b5f0-2cbed636628f/evidence.json`. This qualifies ephemeral model-selected inspection, not persistent GUI setup or native edits.
