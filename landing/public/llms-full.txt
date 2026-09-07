@@ -1,0 +1,186 @@
+# Avid Media Composer MCP — full site content
+
+Source: https://avid-media-composer-mcp.com/ (see /llms.txt for the index). Last reviewed 2026-09-06.
+
+## What it is
+
+Avid Media Composer MCP is an independent, open-source Model Context Protocol (MCP) server for Avid Media Composer project analysis, bin inspection, post-production metadata and guarded editing automation. It lets any standards-compatible MCP client, including Claude Desktop, Claude Code, ChatGPT, Cursor, VS Code, Codex and LM Studio, inspect Avid evidence through read-only tools. It is MIT licensed and is not affiliated with or endorsed by Avid Technology, Inc. Avid, Media Composer and MediaCentral are trademarks of Avid Technology, Inc.
+
+Canonical repository: https://github.com/leancoderkavy/avid-media-composer-mcp
+npm package: https://www.npmjs.com/package/avid-media-composer-mcp (version 1.1.0)
+
+## Facts at a glance
+
+- What can it inspect? AVB bins, AAF files, ALE logs, EDLs, OTIO JSON, AVP/AVS configuration evidence, project trees, bin locks and media metadata.
+- Does it modify Avid projects offline? No. Offline analysis is read-only and source media is never modified.
+- Can it edit a live Media Composer session? Only through a separately installed, compatible Avid Extension bridge that advertises each operation. Without a fresh bridge, live editing fails closed.
+- Which systems are supported? Compatibility contracts cover Media Composer 2025.12.x, 2025.6 and the 2024.12.x long-term-maintenance track on qualified Windows and macOS combinations. A compatibility-rule result is not proof of a workstation qualification.
+- Which AI clients can use it? Any MCP client that can launch a local stdio server or connect to authenticated Streamable HTTP.
+- Is it an official Avid product? No. It is an independent MIT-licensed project.
+
+## Capabilities
+
+- Recursively inventory and classify project, bin, setting, lock, interchange, sidecar, document and media files.
+- Detect active or orphaned `.lck` bin locks.
+- Analyze AVB object graphs, bin views, mobs, tracks, clips, sequences and metadata through pyavb.
+- Analyze AAF mobs, slots, components, essence, descriptors, definitions and metadata through pyaaf2.
+- Parse every ALE heading, column and row.
+- Parse CMX-style EDL events, transitions, comments, clip names and motion-effect lines.
+- Read OTIO JSON structurally with bounded input, depth and object limits, flagging transitions, effects, retimes, nested timelines, media references and audio-routing risks.
+- Validate source-marker packages and a strict static SVG-overlay subset before import.
+- Compare transcript revisions locally without returning transcript text.
+- Assess supplied DNx and DNx 4.0 turnover metadata and compatibility risks without transcoding.
+- Decode text-like AVP, AVS and configuration files; fingerprint, measure and string-extract opaque binary files without pretending their semantics are known.
+- Inspect container and stream metadata through ffprobe, with optional frame and packet counting and SHA-256 hashing.
+- Preview compound editing plans, classify risk, require destructive opt-in and bind approval to an exact SHA-256 confirmation token.
+- Report enabled authority, dependency health, source coverage, truncation, provider gates and live bridge status.
+- Evaluate Media Composer, Windows, macOS and architecture combinations against source-linked Avid rules.
+- Detect standard Media Composer application locations on Windows and macOS.
+- Read an explicitly configured, allowlisted MediaCentral CTMS HAL registry without mutation.
+
+## Common use cases
+
+- Audit an Avid project before conform, turnover, migration or archive.
+- Summarize bins, sequences, tracks, clips, markers and metadata from AVB or AAF evidence.
+- Validate ALE, EDL and OTIO interchange files and identify missing, opaque, malformed or fidelity-sensitive data.
+- Inventory project files, detect active or orphaned bin locks and report collaboration risks.
+- Inspect codec, container, duration, frame rate, timecode and stream metadata through ffprobe.
+- Check whether a Media Composer version is qualified for the detected Windows or macOS environment.
+- Preview a bounded edit plan and require exact confirmation before a connected extension can apply it.
+
+## Architecture
+
+An MCP client talks to the TypeScript server over stdio or authenticated Streamable HTTP. The server enforces allowed roots, runs native project, ALE, EDL and configuration analyzers, a bounded Python inspector for AVB (pyavb) and AAF (pyaaf2), and optional ffprobe. Offline inspection and the Extension bridge are separate lanes: a missing bridge cannot silently fall back to native operations, UI automation or raw scripts. Live control requires a signed plan token and a compatible Media Composer Extension bridge.
+
+## Tools in the published package (27)
+
+Health, capabilities and compatibility:
+- avid_ping: server health and mode.
+- avid_get_capabilities: authority, dependency, coverage and bridge report.
+- avid_get_bridge_status: validate bridge heartbeat and advertised support.
+- avid_get_compatibility_matrix: report the latest three release/platform contracts.
+- avid_check_compatibility: evaluate a Media Composer/OS/architecture combination.
+- avid_detect_installations: find standard Windows/macOS installations.
+- avid_diagnose_integrations: distinguish AMA, AMT, AVX, AAX, NEXIS and Distributed Processing prerequisites.
+
+Project discovery and inventory:
+- avid_discover_projects: find directories containing .avp files.
+- avid_inventory_project_files: classify and optionally hash a project tree, including bin locks.
+- avid_analyze_project: aggregate project, configuration, bin, interchange and media report.
+- avid_analyze_configuration: decode or fingerprint AVP, AVS and configuration files.
+
+Bin and interchange analysis:
+- avid_analyze_bin: deep .avb analysis through pyavb.
+- avid_analyze_aaf: deep .aaf analysis through pyaaf2.
+- avid_analyze_ale: parse ALE headings, columns and rows.
+- avid_analyze_edl: parse CMX-style EDL data.
+- avid_analyze_otio: validate bounded OTIO JSON structure and report interchange-fidelity risks.
+- avid_preview_otio_handoff: build a local-media manifest, checksums, blockers and manual-import readiness report.
+- avid_analyze_dnx_turnover: assess supplied DNx/DNx 4.0 turnover metadata and target-version risks.
+
+Media, markers and transcripts:
+- avid_analyze_clip: full ffprobe metadata and editorial summary.
+- avid_validate_marker_package: validate source markers and reject unsafe SVG overlays.
+- avid_compare_transcripts: compare transcript revisions locally and return aggregate timing/speaker QC without text.
+
+Guarded editing and bridge:
+- avid_get_edit_operation_catalog: browse the 167 planned editing actions.
+- avid_get_extension_capability_manifest: report SDK, onboarding, implementation and host-evidence status for all catalog actions.
+- avid_get_live_state: read live state through an Extension bridge (bridge request only).
+- avid_preview_edit_plan: validate, risk-label and tokenize a plan.
+- avid_apply_edit_plan: apply an exact confirmed plan through the bridge (the only mutating tool).
+
+Enterprise reads:
+- avid_ctms_read: discover or follow one allowlisted read-only MediaCentral CTMS HAL relation.
+
+Also exposed: resource avid://catalog/edit-actions, prompts avid-project-audit and avid-safe-edit. Tool discovery through tools/list is authoritative for the installed package; the development branch exposes additional local media intelligence, saved-snapshot and native Windows tools.
+
+Bounded output limits: AVID_MCP_MAX_FILES (10000), AVID_MCP_MAX_BINS (100), AVID_MCP_MAX_MEDIA_FILES (100), AVID_MCP_COMMAND_TIMEOUT_MS (30000). Reports always identify truncation.
+
+## Setup
+
+Requirements: Node.js 20 or newer; Python 3.9 or newer with pinned pyavb and pyaaf2 for AVB/AAF analysis; ffprobe on PATH for clip analysis.
+
+Run the published package (PowerShell):
+
+    $env:AVID_MCP_ALLOWED_ROOTS = "C:\Users\you\Documents\Avid Projects"
+    $env:AVID_MCP_CAPABILITIES = "inspect"
+    npx -y avid-media-composer-mcp@latest
+
+Client configuration (Claude Desktop, Claude Code, Cursor, VS Code, LM Studio):
+
+    {
+      "mcpServers": {
+        "avid-media-composer": {
+          "command": "npx",
+          "args": ["-y", "avid-media-composer-mcp@latest"],
+          "env": {
+            "AVID_MCP_ALLOWED_ROOTS": "C:\\Users\\you\\Documents\\Avid Projects",
+            "AVID_MCP_CAPABILITIES": "inspect"
+          }
+        }
+      }
+    }
+
+The CLI prints configuration with `avid-mcp --client claude|cursor|vscode|lmstudio|generic --root ABSOLUTE_PATH` and a Codex argument array with `--client codex`.
+
+Authenticated HTTP transport: set MCP_AUTH_TOKEN and run `npm run start:http`. The MCP endpoint is /mcp and requires `Authorization: Bearer <token>`; /health is unauthenticated for provider health checks.
+
+Guarded editing: after installing and testing a compatible Extension bridge, set AVID_MCP_CAPABILITIES to `inspect,edit`, AVID_MCP_BRIDGE_DIR to the bridge mailbox and AVID_MCP_BRIDGE_AUTH_SECRET to a unique 32+ character secret shared with the Extension. Protocol v3 rejects unauthenticated legacy bridge documents.
+
+Safe edit workflow: call avid_get_bridge_status, then avid_get_live_state, then avid_preview_edit_plan, review the risk classification, and only then call avid_apply_edit_plan with the exact confirmation token.
+
+## FAQ
+
+Q: Is there an MCP server for Avid Media Composer?
+A: Yes. Avid Media Composer MCP is an open-source Model Context Protocol server that gives AI clients read-only analysis of Avid Media Composer projects, AVB bins, AAF, ALE, EDL, configuration and media files. Guarded live editing requires a compatible Avid Extension bridge.
+
+Q: Which Avid formats can it analyze?
+A: AVB bins through pyavb, AAF through pyaaf2, ALE and CMX-style EDL with native parsers, OTIO JSON structurally, AVP and AVS as text or bounded binary evidence, and media containers through ffprobe.
+
+Q: Does it modify project files or footage?
+A: No. Offline analysis is read-only and source media is never modified. The server enforces explicit allowed roots and reports opaque data as labeled evidence instead of guessing.
+
+Q: Can it edit a live Media Composer timeline?
+A: Only through a separately installed, compatible Avid Extension bridge. Without a fresh bridge that advertises the requested operation, live editing fails closed.
+
+Q: Which Media Composer releases are supported?
+A: The current compatibility contracts cover Media Composer 2025.12.x, 2025.6 and the 2024.12.x long-term-maintenance release track on qualified Windows and macOS combinations.
+
+Q: Which AI clients work with it?
+A: Any standards-compatible MCP client that can launch a local stdio process or connect to an authenticated Streamable HTTP endpoint, including Claude Desktop, Claude Code, Cursor, VS Code, Codex and LM Studio.
+
+Q: Is it an official Avid product?
+A: No. It is an independent, MIT-licensed open-source project, not affiliated with or endorsed by Avid Technology, Inc.
+
+Q: How do I install it?
+A: Install Node.js 20 or newer, set AVID_MCP_ALLOWED_ROOTS and AVID_MCP_CAPABILITIES=inspect, then run `npx -y avid-media-composer-mcp@latest`. Add Python 3.9+ with pyavb and pyaaf2 for AVB/AAF, and ffprobe for media.
+
+Q: Can it run over HTTP for a remote AI client?
+A: Yes. The Streamable HTTP transport serves MCP at /mcp and requires a bearer token on every request.
+
+Q: How does the guarded edit workflow stay safe?
+A: Plans are previewed, risk-classified and bound to an exact SHA-256 confirmation token. Destructive operations require explicit opt-in, and application happens only through a bridge that advertises each operation.
+
+Q: What are AVB and AVP files?
+A: AVB is the Avid bin file format storing clips, sequences, tracks and bin views. AVP is the project file and AVS files hold settings. They are not public Avid-supported interchange specifications, so the server reads them as bounded evidence.
+
+Q: How is this different from screen scraping or UI automation?
+A: It parses structured project, bin, interchange and media data directly. It never drives the Media Composer user interface, never runs arbitrary scripts, and reports missing, malformed, truncated or opaque data explicitly.
+
+Q: Does it send project data to the cloud?
+A: The server runs locally and reads only allowed roots. Optional PostHog operations telemetry is disabled by default and never includes prompts, arguments, results, paths, media or project names.
+
+Q: Which workflow skills are included?
+A: Five MIT-licensed skills: avid-ingest-qc, avid-selects, avid-review-markers, avid-turnover and avid-export.
+
+## Links
+
+- Website: https://avid-media-composer-mcp.com/
+- Tools: https://avid-media-composer-mcp.com/tools/
+- Setup: https://avid-media-composer-mcp.com/setup/
+- FAQ: https://avid-media-composer-mcp.com/faq/
+- Repository: https://github.com/leancoderkavy/avid-media-composer-mcp
+- Capability matrix: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md
+- Supported versions: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/SUPPORTED_VERSIONS.md
+- Security: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/SECURITY.md

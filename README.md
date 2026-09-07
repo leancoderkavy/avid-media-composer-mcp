@@ -12,7 +12,7 @@ Native inspection also exposes bin-scoped track counts/flags and viewer position
 
 An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
 
-[Website](https://avid-media-composer-mcp.vercel.app/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
+[Website](https://avid-media-composer-mcp.com/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
 
 Use it with an MCP client that can launch a local process or reach the configured authenticated HTTP server. The published `1.1.0` package provides analysis, interchange and bridge contracts. This unreleased branch additionally provides local media intelligence, installation helpers and a separate Windows native adapter. A compatibility-rule result is not proof of this connector running on that host; native runtime evidence currently covers the qualified Windows Media Composer 2024.12 build described in [implementation status](docs/IMPLEMENTATION_STATUS.md). Mac implementation and host qualification are deferred.
 
