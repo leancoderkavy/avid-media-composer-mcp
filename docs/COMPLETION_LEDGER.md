@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Search saved clip identities before timeline queries
+
+`avid_saved_snapshot_mobs` now accepts bounded name/comment substring and exact metadata filters. Pagination retains original snapshot indexes and distinct bin identities, with separate total snapshot and matching counts. Tests cover sparse matches, comment-only search, Unicode case matching, combined filters, repeated IDs across bins, empty results and root denial. The actual Sonoma filtered query matched its known subclip and survived reconnect without source/runtime changes; evidence is linked in [saved snapshot search](SAVED_SNAPSHOT_SEARCH.md).
+
+The full local pipeline passed 810 TypeScript and 46 Python tests, transports and fresh-package verification including synthetic comment search, field exclusion and reconnect (`.avid-mcp-analysis/check-saved-mob-search.log`). Hosted CI for preceding isolation commit `b6728bd` passed separately; this feature's hosted checks must be verified on its own head.
+
 ### Managed Python saved-bin capture and reconnect
 
 Saved-bin capture now ignores Python environment/user-site overrides and disables bytecode writes, retaining the packaged marker helper directory. The pre-fix `PYTHONPATH` failure is retained in `.avid-mcp-analysis/managed-snapshots-baseline.log`. Using the managed runtime, the corrected workflow captured the Sonoma media bin, verified all three 2850-2880 source ranges for its 30-frame subclip, returned identical ranges after MCP reconnect and produced a zero-change second snapshot. Source/server/helper hashes and the managed runtime tree were unchanged. Evidence: `.avid-mcp-analysis/managed-python-snapshots-491c5e8e-b88f-4ca2-a081-1185a2aff423/evidence.json`.

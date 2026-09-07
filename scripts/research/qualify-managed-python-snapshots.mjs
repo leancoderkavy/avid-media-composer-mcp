@@ -19,13 +19,16 @@ let client=await connect();
 try{
  const first=await call(client,'avid_snapshot_saved_bins',{bins:[bin]});
  const target=first.bins[0].mobs.find(m=>m.name.endsWith('.sub.04'));assert.ok(target);assert.equal(target.duration,30);
+ const search={revision:first.revision,limit:1,filters:{query:'.SUB.04',fields:['name'],rate:30,mobType:target.mobType}};
+ const found=await call(client,'avid_saved_snapshot_mobs',search);assert.equal(found.totalMatches,1);assert.equal(found.mobs[0].mobId,target.mobId);assert.equal(found.nextAfter,null);
  const args={revision:first.revision,mobId:target.mobId,start:0,end:30};
  const range=await call(client,'avid_saved_timeline_range',args);assert.equal(range.results.length,3);assert.ok(range.results.every(n=>n.overlapSourceStart===2850&&n.overlapSourceEnd===2880));
  await client.close();client=await connect();
  assert.deepEqual(await call(client,'avid_saved_timeline_range',args),range);
+ assert.deepEqual(await call(client,'avid_saved_snapshot_mobs',search),found);
  const second=await call(client,'avid_snapshot_saved_bins',{bins:[bin]});
  const diff=await call(client,'avid_diff_saved_snapshots',{baseline:first.revision,candidate:second.revision});assert.equal(diff.totalChanges,0);
  assert.deepEqual(await Promise.all(files.map(sha256File)),hashes);const after=await runtime();assert.equal(after.unchanged,true);assert.equal(after.treeSha256,before.treeSha256);
- await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed:true,files,hashes,before,after,first,second,range,diff,scope:'Saved Sonoma AVB capture, three source ranges, reconnect equality and unchanged runtime/source hashes. Excludes live unsaved state and native edits.'},null,2),{flag:'wx'});
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed:true,files,hashes,before,after,first,second,search,found,range,diff,scope:'Saved Sonoma AVB capture, filtered mob discovery, three source ranges, reconnect equality and unchanged runtime/source hashes. Excludes live unsaved state and native edits.'},null,2),{flag:'wx'});
  console.log(JSON.stringify({passed:true,root}));
 }finally{await client.close();}

@@ -16,6 +16,23 @@ async function fixture(){
   return {config,record,save,snapshots:new ProjectSnapshots(config)};
 }
 describe("saved semantic snapshots",()=>{
+  it('filters historical names/comments and metadata without collapsing duplicate identities or cursors',async()=>{
+    const {record,save,snapshots,config}=await fixture(),template=record.bins[0]!.mobs[0]!;
+    record.bins[0]!.mobs=[{...template,name:'Café intro'},{...template,name:'Unrelated'}, {...template,name:'Other',comment:'CAFÉ reviewed',usageCode:2}];
+    const otherFile=path.join(path.dirname(record.bins[0]!.file),'other.avb');await writeFile(otherFile,'second fixture');
+    record.bins.push({...record.bins[0]!,file:otherFile,mobs:[{...template,name:'Café outro',rate:24}]});
+    const revision=await save(),filters={query:'café'},first=await snapshots.mobs(revision,-1,1,filters);
+    expect(first.totalMobs).toBe(4);expect(first.totalMatches).toBe(3);expect(first.nextAfter).toBe(0);
+    const second=await snapshots.mobs(revision,first.nextAfter!,1,filters),last=await snapshots.mobs(revision,second.nextAfter!,1,filters);
+    expect(second.mobs[0]!.index).toBe(2);expect(last.mobs[0]!.index).toBe(3);expect(last.nextAfter).toBeNull();
+    expect((await snapshots.mobs(revision,-1,100,{query:'café',fields:['comment'],usageCode:2,rate:30,mobType:'CompositionMob'})).mobs.map(m=>m.index)).toEqual([2]);
+    expect((await snapshots.mobs(revision,-1,100,{query:'café',fields:['name'],rate:30})).mobs.map(m=>m.index)).toEqual([0]);
+    expect((await snapshots.mobs(revision,-1,100,{mobType:'MasterMob'})).totalMatches).toBe(0);
+    expect((await snapshots.mobs(revision,3,1,filters)).mobs).toEqual([]);
+    await expect(snapshots.mobs(revision,-1,10,{query:''})).rejects.toThrow();
+    await expect(snapshots.mobs(revision,-1,10,{fields:[]})).rejects.toThrow();
+    await expect(new ProjectSnapshots({...config,allowedRoots:[]}).mobs(revision,-1,1,filters)).rejects.toThrow('outside');
+  });
   it('retains missing-bin evidence on every locator page without claiming current bin hash verification',async()=>{
     const {record,save,snapshots}=await fixture(),file=record.bins[0]!.file,revision=await save();
     const before=await snapshots.locatorAvailability(revision);

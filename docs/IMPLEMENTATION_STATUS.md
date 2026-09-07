@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Saved snapshot mob discovery now supports case-insensitive name/comment search and exact mob-type, usage-code and numeric-rate filters, with stable original indexes, total-match counts and distinct bin identities. Actual Sonoma search/reconnect and installed synthetic comment-search coverage are described in [saved snapshot search](SAVED_SNAPSHOT_SEARCH.md).
+
 Guarded native `duplicate_clip` now performs one same-bin duplication with token/state/owner checks and explicit identity/preservation verification. Actual MCP execution, replay refusal, saved graph comparison and bin-reopen persistence passed on the owned Sonoma fixture. A further same-session duplication left UI Undo/Redo/history disabled even with the new row focused. Previews explicitly report unqualified undo, possible selection changes and limited state coverage. General undo, restart and rendered fidelity remain open. See [duplication](NATIVE_DUPLICATION_RESEARCH.md#guarded-mcp-action).
 
 `avid_native_read` now supports `media_volumes`: bounded host-wide volume declarations gated by an authorized current project, with exact raw uint64 strings, omitted defaults and explicit unknown units/path/online status. Two fresh inspect-only MCP sessions passed on the qualified Windows host with protected source/bin hashes unchanged. See [media-volume diagnostic](NATIVE_MEDIA_VOLUMES.md).

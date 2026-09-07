@@ -17,7 +17,7 @@ import {speechOptions} from "./speech-options.js";
 import { AnalysisJobs, jobSchema } from "./jobs.js";
 import {Collections, collectionSchema} from "./collections.js";
 import {WatchFolders,watchOptions} from "./watch-folders.js";
-import {ProjectSnapshots} from "./project-snapshots.js";
+import {ProjectSnapshots,savedMobFilters} from "./project-snapshots.js";
 import {AafBuilder,aafBuildSchema,aafMergeSchema} from "./aaf-builder.js";
 import {MediaSummaries} from "./summaries.js";
 import {MediaQc,qcOptions} from "./qc.js";
@@ -210,8 +210,8 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
     ({bins})=>result("avid_snapshot_saved_bins",()=>snapshots.create(bins)));
   server.registerTool("avid_saved_snapshots",{description:"Discover historical snapshot revisions allowed by current roots. Pages scan files; follow nextAfter even for empty pages. Does not check whether bins still match their captured hashes.",inputSchema:{after:z.string().uuid().optional(),limit:z.number().int().min(1).max(50).default(20)},annotations:read},
     ({after,limit})=>result("avid_saved_snapshots",()=>snapshots.list(after,limit)));
-  server.registerTool("avid_saved_snapshot_mobs",{description:"List paginated mob identities and structural metadata in an authorized historical snapshot. Use the returned mobId for range or complexity queries; use the returned bin path to disambiguate repeated IDs in range/complexity queries.",inputSchema:{revision:z.string().uuid(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(100)},annotations:read},
-    ({revision,after,limit})=>result("avid_saved_snapshot_mobs",()=>snapshots.mobs(revision,after,limit)));
+  server.registerTool("avid_saved_snapshot_mobs",{description:"Find paginated mob identities in an authorized historical snapshot. Optional filters search name/comments by case-insensitive substring and match mobType, usageCode and numeric rate exactly. Keep filters unchanged while paging. No semantic search or current-bin freshness claim. Use returned mobId and bin path for range/complexity queries; repeated IDs remain distinct.",inputSchema:{revision:z.string().uuid(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(100).default(100),filters:savedMobFilters.optional()},annotations:read},
+    ({revision,after,limit,filters})=>result("avid_saved_snapshot_mobs",()=>snapshots.mobs(revision,after,limit,filters)));
   server.registerTool("avid_saved_locator_availability",{description:"Explicitly check at most 50 saved locator declarations per page for file metadata under configured roots. Optional Windows letter//path interpretation preserves the raw declaration. Reports missing, inaccessible, unsupported and unrecorded paths separately; refuses locator symlinks and does not search, hash, open media content or relink. File presence is not Avid online or playback verification.",inputSchema:{revision:z.string().uuid(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(50).default(50),interpretAvidDrivePaths:z.boolean().default(false)},annotations:read},
     ({revision,after,limit,interpretAvidDrivePaths})=>result("avid_saved_locator_availability",()=>snapshots.locatorAvailability(revision,after,limit,interpretAvidDrivePaths)));
   server.registerTool("avid_diff_saved_snapshots", {description:"Compare paginated semantic mob/track/source changes between saved-bin snapshots. Follow nextAfter using the same baseline/candidate pair. Excludes volatile save metadata.",inputSchema:{baseline:z.string().uuid(),candidate:z.string().uuid(),after:z.number().int().min(-1).default(-1),limit:z.number().int().min(1).max(200).default(200)},annotations:read},

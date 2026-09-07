@@ -12,6 +12,7 @@ export async function smokeSnapshotPackage({installedRoot,temporary,python}){
  await writeFile(script,`import sys,avb
 with avb.open() as f:
  m=f.create.Composition(mob_type='CompositionMob');m.name='Snapshot fixture';m.edit_rate=30;m.length=60
+ u=f.create.Attributes();u['Comments']='Reviewed take';m.attributes['_USER']=u
  t=f.create.Track();t.index=1
  c=f.create.SourceClip(edit_rate=30,media_kind='picture');c.length=60;c.start_time=120;c.track_id=1
  t.component=c;m.tracks.append(t);f.content.add_mob(m);f.write(sys.argv[1])
@@ -25,9 +26,12 @@ with avb.open() as f:
  let client=await connect();
  try{
   const first=await call(client,'avid_snapshot_saved_bins',{bins:[file]});assert.equal(first.complete,true);assert.equal(first.bins[0].sha256,before);assert.equal(first.bins[0].mobs.length,1);
+  const search={revision:first.revision,filters:{query:'REVIEWED',fields:['comment'],rate:30}};
+  const found=await call(client,'avid_saved_snapshot_mobs',search);assert.equal(found.totalMatches,1);assert.equal(found.mobs[0].name,'Snapshot fixture');
+  assert.equal((await call(client,'avid_saved_snapshot_mobs',{...search,filters:{...search.filters,fields:['name']}})).totalMatches,0);
   const args={revision:first.revision,mobId:first.bins[0].mobs[0].mobId,start:10,end:30};
   const range=await call(client,'avid_saved_timeline_range',args);assert.equal(range.results.length,1);assert.equal(range.results[0].overlapSourceStart,130);assert.equal(range.results[0].overlapSourceEnd,150);
-  await client.close();client=await connect();assert.deepEqual(await call(client,'avid_saved_timeline_range',args),range);
+  await client.close();client=await connect();assert.deepEqual(await call(client,'avid_saved_timeline_range',args),range);assert.deepEqual(await call(client,'avid_saved_snapshot_mobs',search),found);
   const second=await call(client,'avid_snapshot_saved_bins',{bins:[file]});assert.equal((await call(client,'avid_diff_saved_snapshots',{baseline:first.revision,candidate:second.revision})).totalChanges,0);assert.equal(await hash(),before);
  }finally{await client.close();}
 }

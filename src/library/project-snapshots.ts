@@ -12,6 +12,14 @@ import {runProcess} from "../process.js";
 import {MediaLibrary} from "./media-library.js";
 import {readBoundedJson} from "../security/bounded-read.js";
 
+export const savedMobFilters=z.object({
+  query:z.string().min(1).max(500).optional(),
+  fields:z.array(z.enum(['name','comment'])).min(1).max(2).default(['name','comment']),
+  mobType:z.string().min(1).max(100).optional(),
+  usageCode:z.number().int().optional(),
+  rate:z.number().positive().optional(),
+}).strict();
+
 const unit=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const markerLocation=z.union([
   z.object({status:z.literal('unresolved'),reason:z.string().max(128),sequenceFrame:z.null()}).strict(),
@@ -120,15 +128,19 @@ export class ProjectSnapshots {
     });
     return {revision,sources:page,totalSourceIds:ids.length,nextAfter:after+1+page.length<ids.length?page.at(-1)?.index??null:null,complete:snapshot.bins.every(bin=>bin.complete),scope:"Direct source identities across captured saved bins, sorted by ID. Unresolved does not mean missing media; resolved does not validate cycles, source ranges or playback. Candidate samples are bounded; snapshot mob discovery enumerates all matching records."};
   }
-  async mobs(revision:string,after=-1,limit=100){
+  async mobs(revision:string,after=-1,limit=100,input:z.input<typeof savedMobFilters>={}){
     if(!Number.isSafeInteger(after)||after< -1||!Number.isInteger(limit)||limit<1||limit>100)throw new Error("Invalid snapshot mob page");
-    const snapshot=await this.read(revision),mobs=[];let index=0;
+    const filters=savedMobFilters.parse(input),query=filters.query?.toLowerCase();
+    const snapshot=await this.read(revision),mobs=[];let index=0,totalMatches=0;
     for(const bin of snapshot.bins)for(const mob of bin.mobs){
       const current=index++;
+      if((filters.mobType!==undefined&&mob.mobType!==filters.mobType)||(filters.usageCode!==undefined&&mob.usageCode!==filters.usageCode)||(filters.rate!==undefined&&mob.rate!==filters.rate))continue;
+      if(query!==undefined&&!filters.fields.some(field=>(field==='name'?mob.name:mob.comment??'').toLowerCase().includes(query)))continue;
+      totalMatches++;
       if(current>after&&mobs.length<=limit)mobs.push({index:current,bin:bin.file,binPresent:!snapshot.missingBins.includes(bin.file),binSha256:bin.sha256,mobId:mob.mobId,name:mob.name,comment:mob.comment??null,commentStatus:mob.comment===undefined?"not_recorded":mob.comment===null?"absent":"recorded",mobType:mob.mobType,usageCode:mob.usageCode,rate:mob.rate,duration:mob.duration,trackCount:mob.tracks.length,complete:bin.complete});
     }
     const page=mobs.slice(0,limit);
-    return {revision,mobs:page,totalMobs:index,nextAfter:mobs.length>limit?page.at(-1)!.index:null,origin:"historical saved snapshot; repeated mob IDs in different bins remain distinct entries"};
+    return {revision,mobs:page,totalMobs:index,totalMatches,filters,nextAfter:mobs.length>limit?page.at(-1)!.index:null,origin:"historical saved snapshot; repeated mob IDs in different bins remain distinct entries; text is case-insensitive substring matching, metadata filters are exact; keep filters unchanged while paging"};
   }
   async list(after?:string,limit=20){
     if(after!==undefined)z.string().uuid().parse(after);
