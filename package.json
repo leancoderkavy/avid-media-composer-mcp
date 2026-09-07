@@ -1,6 +1,6 @@
 {
   "name": "avid-media-composer-mcp",
-  "version": "1.1.0",
+  "version": "1.2.0-rc.1",
   "description": "MCP server for source-safe Avid Media Composer project, AVB bin, AAF, ALE, EDL, and media analysis with guarded editing automation.",
   "type": "module",
   "main": "./dist/index.js",

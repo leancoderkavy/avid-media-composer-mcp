@@ -4,7 +4,7 @@
 
 Key facts:
 
-- Package: `avid-media-composer-mcp` on npm, version 1.1.0. Run with `npx -y avid-media-composer-mcp@latest`.
+- Package: `avid-media-composer-mcp` on npm, version 1.2.0-rc.1 (stable 1.1.0). Run with `npx -y avid-media-composer-mcp@latest`; use `@next` for the release candidate.
 - Languages: TypeScript server with a bounded Python inspector (pyavb 1.4.0, pyaaf2 1.7.1) and optional ffprobe.
 - Transports: local stdio, or authenticated Streamable HTTP at `/mcp` with a bearer token.
 - Safety model: explicit allowed roots, read-only offline analysis, opaque data reported as evidence, guarded edit plans bound to an exact SHA-256 confirmation token, fail-closed bridge.
