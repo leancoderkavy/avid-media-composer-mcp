@@ -52,7 +52,7 @@ writing with Avid before committing to a live-control date.
 ## Phase 3 — deeper analysis
 
 - [x] VFR, field-order, color-space and channel-layout declarations in `avid_media_qc`; offline-media checks in `avid_saved_locator_availability`.
-- [ ] Timecode continuity QC.
+- [x] Timecode continuity QC (`avid_timecode_continuity`, declared metadata only; no decoded verification).
 - [x] Loudness, silence and black/freeze detection in `avid_media_qc`; audio-content offset analysis through `audio_sync` jobs.
 - [ ] Slate/clap detection and perceptual sync analysis.
 - [x] Privacy-safe local transcript revision/timing/speaker QC.

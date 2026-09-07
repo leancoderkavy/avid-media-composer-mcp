@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Declared timecode continuity across indexed media
+
+Added `avid_timecode_continuity` (inspect-only) over cached probe metadata. Parsing accepts `HH:MM:SS:FF` and `HH:MM:SS;FF`, rejects out-of-range fields, frame numbers at or above the nominal rate, drop-frame separators on non-29.97/59.94 declarations and skipped drop-frame numbers. Formatting round-trips drop-frame counts including ten-minute boundaries. Pairs compare declared end (start plus `nb_frames`) with the next declared start; differing nominal rate or drop-frame flag is reported as incomparable rather than computed. Ends beyond 24 hours are flagged. Missing rate, timecode or frame count is reported per file and excluded from pairs.
+
+Ten unit tests cover parsing, formatting, ordering, gap/overlap/contiguous classification, unassessed files, incomparable pairs, source precedence, invalid declarations and the library/capability path; the full TypeScript suite passed 821 tests with typecheck, stdio/HTTP smoke at 145 tools and the pack dry run. This is declared-metadata evidence only. No decoded frame verification, real camera-card fixtures or Avid import qualification were run.
+
 ### Classify taskkill outcomes for cancellation diagnosis
 
 The Windows tree-termination helper previously discarded taskkill output, so an intermittent nonzero exit could not be attributed. It now captures bounded stdout/stderr and records counts only: `terminated`, `notFound`, `accessDenied`, `unclassified`, `rootNotFound` and `truncated`. English message shapes are matched exactly; localized output is counted as unclassified rather than interpreted. Job journal records accept the new optional field and older records are unchanged. Scheduling pause and failure semantics are unchanged.

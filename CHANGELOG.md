@@ -23,8 +23,9 @@
 - Added an optional bounded Jumper search client and Windows command-palette navigation research.
 - Refreshed dependencies (Zod 4.5.4, Next 16.3.4, Motion 13.2.0, PostHog 5.51.6, Lucide 1.40.0,
   @types/node 26) and hardened HTTP transport checks and CodeQL workflow updates.
+- Added `avid_timecode_continuity`: metadata-only continuity assessment of declared container/stream timecode across indexed media, with drop-frame numbering for 29.97/59.94, ordered files and contiguous/gap/overlap/incomparable pairs in nominal frames.
 - Windows tree-termination receipts now classify taskkill output into bounded counts (`treeTermination.outcome`) for cancellation diagnosis, without retaining message text.
-- The server now exposes 144 tools and five bundled workflow skills; unit coverage remains enforced.
+- The server now exposes 145 tools and five bundled workflow skills; unit coverage remains enforced.
 
 ## 1.1.0 - 2026-08-15
 
