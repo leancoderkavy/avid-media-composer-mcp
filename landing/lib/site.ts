@@ -2,10 +2,10 @@ export const siteUrl = "https://avid-media-composer-mcp.com"
 export const siteName = "Avid Media Composer MCP"
 export const repo = "https://github.com/leancoderkavy/avid-media-composer-mcp"
 export const npmUrl = "https://www.npmjs.com/package/avid-media-composer-mcp"
-export const packageVersion = "1.1.0"
+export const packageVersion = "1.2.0-rc.1"
 
 /** Bump when page content materially changes. Used for sitemap lastmod and visible freshness signals. */
-export const lastUpdated = "2026-09-06"
+export const lastUpdated = "2026-09-07"
 
 export const absoluteUrl = (path = "/") => new URL(path, siteUrl).toString()
 

@@ -7,7 +7,7 @@ Source: https://avid-media-composer-mcp.com/ (see /llms.txt for the index). Last
 Avid Media Composer MCP is an independent, open-source Model Context Protocol (MCP) server for Avid Media Composer project analysis, bin inspection, post-production metadata and guarded editing automation. It lets any standards-compatible MCP client, including Claude Desktop, Claude Code, ChatGPT, Cursor, VS Code, Codex and LM Studio, inspect Avid evidence through read-only tools. It is MIT licensed and is not affiliated with or endorsed by Avid Technology, Inc. Avid, Media Composer and MediaCentral are trademarks of Avid Technology, Inc.
 
 Canonical repository: https://github.com/leancoderkavy/avid-media-composer-mcp
-npm package: https://www.npmjs.com/package/avid-media-composer-mcp (version 1.1.0)
+npm package: https://www.npmjs.com/package/avid-media-composer-mcp (release candidate 1.2.0-rc.1; stable 1.1.0)
 
 ## Facts at a glance
 

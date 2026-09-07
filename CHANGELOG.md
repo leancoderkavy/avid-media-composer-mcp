@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 - Unreleased
+## 1.2.0-rc.1 - 2026-09-07
 
 - Added guarded Windows native operations behind capability and host-version checks: clip
   duplication with single-use tokens and post-write identity verification, batch marker removal,
