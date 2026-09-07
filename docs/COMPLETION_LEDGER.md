@@ -1,5 +1,9 @@
 # Completion ledger
 
+### Inspect Windows palette targeting before shipping UI commands
+
+Actual computer-use inspection found readable playback labels and an observed reassignment mode that are absent from Avid's accessibility tree. The owned palette also lacked a separately returned window handle; its reported Close element could not be used through the input API. Ctrl+3 and Escape did not close it in that focus state. Screenshot-guided title-bar movement and a visible Close click restored the main view after returning to the original Move tab. No transport/edit/save command was executed. [Command Palette research](WINDOWS_COMMAND_PALETTE_RESEARCH.md) records evidence and the resulting mode/focus/window qualification requirements. This advances the UI investigation without claiming a shipped adapter.
+
 ### Bound Python snapshot hashing independently of the caller
 
 The saved-bin decoder already compared hashes before and after indexing. Both passes now stream 64 KiB chunks, enforce their own 512 MiB cap, and reject detected growth or descriptor/path identity changes instead of allocating the entire file for each digest. This bounds hashing memory, not the AVB decoder's total memory, and does not establish an atomic editor snapshot. Descriptor-based comparisons avoid the observed Python/Windows `stat` versus `fstat` creation/change-time mismatch on an unchanged Sonoma file.
