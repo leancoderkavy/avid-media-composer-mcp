@@ -84,6 +84,51 @@ it.each(["pass","missing","extra","renamed","reused","uncertain"])("verifies dup
   }
   await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
 });
+it.each(['stable','empty','viewer-change','duplicate-viewer','missing-member','duplicate-member','owner-change','outside-bin','relative-bin','changed-bin'])("discovers viewer bins with scoped stable identities: %s",async mode=>{
+  const f=await hostFixture(),original=f.client.call.bind(f.client),file=path.join(path.dirname(f.source),'fixture.avb');let viewerReads=0,locations=0;
+  const outside=await mkdtemp(path.join(os.tmpdir(),'avid-viewer-outside-')),outsideBin=path.join(outside,'outside.avb');await writeFile(outsideBin,'outside');
+  const other=path.join(path.dirname(f.source),'other.avb');await writeFile(other,'other');
+  vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+    if(method==='GetViewerMobs'){
+      viewerReads++;
+      if(mode==='empty')return [];
+      const source={mob_id:mode==='viewer-change'&&viewerReads===2?'new':'clip',view_type:'Source'};
+      const rows=[source,{mob_id:'clip',view_type:mode==='duplicate-viewer'?'Source':'Record'}];
+      return [{mobs:viewerReads===2?rows.reverse():rows}];
+    }
+    if(method==='GetBinFromMob'){
+      locations++;
+      if(mode==='owner-change')f.client.ownerIdentity='new:epoch';
+      return [{absolute_path:mode==='outside-bin'?outsideBin:mode==='relative-bin'?'fixture.avb':mode==='changed-bin'&&locations===2?other:file}];
+    }
+    if(method==='GetListOfBinItems'){
+      if(mode==='missing-member')return [{mob_id:'other'}];
+      if(mode==='duplicate-member')return [{mob_id:'clip'},{mob_id:'clip'}];
+    }
+    return original(method,body);
+  });
+  if(mode==='stable'){
+    const result=await f.adapter.read('viewer_bins');
+    expect(result).toMatchObject({viewers:[{mob_id:'clip',view_type:'Source',bin:await realpath(file)},{mob_id:'clip',view_type:'Record',bin:await realpath(file)}],keyboardFocusVerified:false});
+    expect(locations).toBe(2);expect(viewerReads).toBe(2);expect(JSON.stringify(result)).not.toContain('current_frame');
+  }else if(mode==='empty')expect(await f.adapter.read('viewer_bins')).toMatchObject({viewers:[],keyboardFocusVerified:false});
+  else await expect(f.adapter.read('viewer_bins')).rejects.toThrow();
+});
+
+it.each(['duplicate-before','duplicate-after','invalid-id','owner-change'])("refuses ambiguous viewer context: %s",async mode=>{
+  const f=await hostFixture(),original=f.client.call.bind(f.client);let memberships=0;
+  vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+    if(method==='GetListOfBinItems'){
+      memberships++;
+      if(mode==='invalid-id')return [{mob_id:undefined}];
+      if((mode==='duplicate-before'&&memberships===1)||(mode==='duplicate-after'&&memberships===2))return [{mob_id:'clip'},{mob_id:'clip'}];
+    }
+    if(method==='GetViewerMobs'&&mode==='owner-change')f.client.ownerIdentity='replacement:epoch';
+    return original(method,body);
+  });
+  await expect(f.adapter.read('viewers','fixture.avb')).rejects.toThrow();
+});
+
 it("refuses stale duplicate previews before dispatch",async()=>{
   const f=await hostFixture(),plan=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
   await writeFile(path.join(path.dirname(f.source),"fixture.avb"),"changed saved bin");
