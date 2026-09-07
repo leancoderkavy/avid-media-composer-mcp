@@ -160,7 +160,8 @@ export class ProjectSnapshots {
       capturedFiles.add(file);
       if(path.extname(file).toLowerCase()!==".avb")throw new Error("Expected AVB bin");
       if((await stat(file)).size>512*1024*1024)throw new Error("Bin exceeds snapshot size limit");
-      const response=await runProcess(this.config.pythonExecutable,[sidecar,file,"--max-nodes","10000"],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:8*1024*1024});
+      // Keep packaged marker helpers available without Python environment/user-site overrides or bytecode writes.
+      const response=await runProcess(this.config.pythonExecutable,["-E","-s","-B",sidecar,file,"--max-nodes","10000"],{timeoutMs:this.config.commandTimeoutMs,maxOutputBytes:8*1024*1024});
       if(response.exitCode!==0)throw new Error(`Saved-bin index failed: ${response.stderr.slice(-2000)}`);
       const inspected=bin.parse(JSON.parse(response.stdout));
       accumulatedBytes+=Buffer.byteLength(JSON.stringify(inspected))+1;

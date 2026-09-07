@@ -1,0 +1,31 @@
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport,getDefaultEnvironment} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {runProcess} from '../../dist/process.js';
+import {sha256File} from '../../dist/analysis/file-inventory.js';
+const [directory,server]=process.argv.slice(2);assert.equal(process.argv.length,4);assert.ok(path.isAbsolute(directory)&&path.isAbsolute(server));
+const root=path.resolve('.avid-mcp-analysis',`managed-python-snapshots-${randomUUID()}`);await mkdir(root);
+for(const name of ['avb','avid_markers'])await writeFile(path.join(root,`${name}.py`),"raise RuntimeError('untrusted snapshot module selected')\n",{flag:'wx'});
+const runtime=async()=>{const r=await runProcess(process.execPath,[path.join(path.dirname(server),'cli.js'),'--python-runtime-status',directory],{timeoutMs:120000,maxOutputBytes:1024*1024});assert.equal(r.exitCode,0,r.stderr);return JSON.parse(r.stdout);};
+const before=await runtime();assert.equal(before.unchanged,true);
+const bin='D:/Avid Projects/MCP_Sonoma_30p_20260905/MCP_Sonoma_Media.avb';
+const files=[bin,server,path.join(path.dirname(server),'library/project-snapshots.js'),...['avid_timeline.py','avid_markers.py'].map(n=>path.resolve(path.dirname(server),'../python',n))],hashes=await Promise.all(files.map(sha256File)),calls=[];
+const connect=async()=>{const client=new Client({name:'managed-snapshots',version:'1'});await client.connect(new StdioClientTransport({command:process.execPath,args:[server],cwd:root,stderr:'pipe',env:{...getDefaultEnvironment(),PYTHONPATH:root,AVID_MCP_PYTHON:before.executable,AVID_MCP_ALLOWED_ROOTS:path.dirname(bin),AVID_MCP_OUTPUT_ROOT:root,AVID_MCP_CAPABILITIES:'inspect,export'}}));return client;};
+const call=async(client,name,args)=>{const result=await client.callTool({name,arguments:args},undefined,{timeout:120000});calls.push({name,args,result});await writeFile(path.join(root,'calls.json'),JSON.stringify(calls,null,2));assert.ok(!result.isError,JSON.stringify(result));return result.structuredContent.data;};
+let client=await connect();
+try{
+ const first=await call(client,'avid_snapshot_saved_bins',{bins:[bin]});
+ const target=first.bins[0].mobs.find(m=>m.name.endsWith('.sub.04'));assert.ok(target);assert.equal(target.duration,30);
+ const args={revision:first.revision,mobId:target.mobId,start:0,end:30};
+ const range=await call(client,'avid_saved_timeline_range',args);assert.equal(range.results.length,3);assert.ok(range.results.every(n=>n.overlapSourceStart===2850&&n.overlapSourceEnd===2880));
+ await client.close();client=await connect();
+ assert.deepEqual(await call(client,'avid_saved_timeline_range',args),range);
+ const second=await call(client,'avid_snapshot_saved_bins',{bins:[bin]});
+ const diff=await call(client,'avid_diff_saved_snapshots',{baseline:first.revision,candidate:second.revision});assert.equal(diff.totalChanges,0);
+ assert.deepEqual(await Promise.all(files.map(sha256File)),hashes);const after=await runtime();assert.equal(after.unchanged,true);assert.equal(after.treeSha256,before.treeSha256);
+ await writeFile(path.join(root,'evidence.json'),JSON.stringify({passed:true,files,hashes,before,after,first,second,range,diff,scope:'Saved Sonoma AVB capture, three source ranges, reconnect equality and unchanged runtime/source hashes. Excludes live unsaved state and native edits.'},null,2),{flag:'wx'});
+ console.log(JSON.stringify({passed:true,root}));
+}finally{await client.close();}

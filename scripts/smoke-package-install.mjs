@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {smokeAafPackage} from "./smoke-aaf-package.mjs";
+import {smokeSnapshotPackage} from "./smoke-snapshot-package.mjs";
 import {
   StdioClientTransport,
   getDefaultEnvironment,
@@ -399,6 +400,7 @@ try {
     if(!isDeepStrictEqual(await readFile(collectionSource),collectionBytes))throw new Error("Installed color inspection changed the source fixture");
   }finally{await colorClient.close();}
   if (withPython) {
+    await smokeSnapshotPackage({installedRoot,temporary,python});
     await smokeAafPackage({installedRoot,temporary,python});
     const inspectDependency = async () => {
       const result = await client.callTool({name:"avid_get_capabilities",arguments:{}});

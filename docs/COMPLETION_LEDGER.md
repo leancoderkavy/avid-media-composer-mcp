@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Managed Python saved-bin capture and reconnect
+
+Saved-bin capture now ignores Python environment/user-site overrides and disables bytecode writes, retaining the packaged marker helper directory. The pre-fix `PYTHONPATH` failure is retained in `.avid-mcp-analysis/managed-snapshots-baseline.log`. Using the managed runtime, the corrected workflow captured the Sonoma media bin, verified all three 2850-2880 source ranges for its 30-frame subclip, returned identical ranges after MCP reconnect and produced a zero-change second snapshot. Source/server/helper hashes and the managed runtime tree were unchanged. Evidence: `.avid-mcp-analysis/managed-python-snapshots-491c5e8e-b88f-4ca2-a081-1185a2aff423/evidence.json`.
+
+A new fresh-package gate creates a synthetic AVB, captures and queries it with conflicting working-directory/PYTHONPATH modules, reconnects and verifies range equality and unchanged source hashes. The full local pipeline passed 809 TypeScript tests, 46 Python tests, transports and package gates (`.avid-mcp-analysis/check-managed-python-snapshots.log`). These checks cover saved file state, not unsaved editor state, native operations, optional model runtimes or clean-OS setup.
+
 ### Managed Python AAF authoring
 
 The installed pre-fix AAF builder loaded an untrusted `aaf2.py` through `PYTHONPATH` and failed before authoring. The baseline is retained in `.avid-mcp-analysis/managed-aaf-baseline.log`. AAF subprocesses now ignore Python environment overrides and user-site packages and disable bytecode writes while retaining the packaged script directory for graph/merge sibling imports.
