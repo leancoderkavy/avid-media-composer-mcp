@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.2.0 - Unreleased
+
+- Added guarded Windows native operations behind capability and host-version checks: clip
+  duplication with single-use tokens and post-write identity verification, batch marker removal,
+  clip comments, bin columns/state reads, media-volume diagnostics, viewer position queries and
+  viewer-bin discovery.
+- Added local media workflows: persistent library indexing, watch folders with checkpoint recovery
+  and crashed-owner lock recovery, visual/speech/people/summary analysis jobs, and queued
+  source-clock media preparation with persistent attempt IDs and cancellation evidence.
+- Added audio-content offset jobs with multi-window correlation that reports ambiguous, weak or
+  inconsistent offsets instead of guessing a single value.
+- Added saved AVB/AAF graph, marker and source-range inspection, filtered saved-clip search,
+  snapshot checksum verification, saved-locator availability checks and AAF selects/stereo
+  authoring qualified against Sonoma fixtures.
+- Added isolated Python runtime installation with read-only status, verified pip bootstrap,
+  exact core packages and overwrite refusal; core AVB/AAF inspection now runs on that runtime
+  without bytecode writes. Doctor accepts explicit FFmpeg, ffprobe and Python executables.
+- Preserved initialized HTTP MCP sessions across responses with bounded capacity and idle
+  lifetime; analysis workers, journals, watch polling and model admission now drain cleanly on
+  stdio EOF or HTTP shutdown.
+- Added an optional bounded Jumper search client and Windows command-palette navigation research.
+- Refreshed dependencies (Zod 4.5.4, Next 16.3.4, Motion 13.2.0, PostHog 5.51.6, Lucide 1.40.0,
+  @types/node 26) and hardened HTTP transport checks and CodeQL workflow updates.
+- Windows tree-termination receipts now classify taskkill output into bounded counts (`treeTermination.outcome`) for cancellation diagnosis, without retaining message text.
+- The server now exposes 144 tools and five bundled workflow skills; unit coverage remains enforced.
+
 ## 1.1.0 - 2026-08-15
 
 - Added product-scoped Avid compatibility provenance, weekly documentation-drift detection, and a

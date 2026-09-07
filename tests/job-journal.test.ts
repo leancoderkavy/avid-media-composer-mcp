@@ -63,3 +63,9 @@ it("paginates past damaged records without returning their contents or losing he
  const last=await journal.list(page.nextAfter!,1);
  expect(last.records[0]!.id).toBe(second.id);expect(last.nextAfter).toBeNull();
 });
+it("retains the classified taskkill outcome counts after reconnect",async()=>{
+ const {config,journal}=await fixture(),value=job();
+ const outcome={terminated:0,notFound:1,accessDenied:0,unclassified:0,rootNotFound:true,truncated:false};
+ await journal.save({...value,status:"cancelled",treeTermination:{method:"windows-taskkill",succeeded:false,exitCode:128,outcome}});
+ expect(await new JobJournal(config).read(value.id)).toMatchObject({treeTermination:{exitCode:128,succeeded:false,outcome}});
+});
