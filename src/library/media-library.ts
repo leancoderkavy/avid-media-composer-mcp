@@ -12,6 +12,7 @@ import {readBoundedJson} from "../security/bounded-read.js";
 import {AvidMcpError} from "../errors.js";
 import {speakerAssignmentProvenance} from "./speaker-assignments.js";
 import {mediaFilters,matchesMediaFilters} from "./media-filters.js";
+import {assessTimecodeContinuity} from "./timecode-continuity.js";
 
 export const transcriptSchema = z.array(z.object({
   start: z.number().nonnegative(), end: z.number().positive(), text: z.string().max(10000),
@@ -184,6 +185,11 @@ export class MediaLibrary {
     const details=entries.map(entry=>`<section><h2>${escape(path.basename(entry.file))}</h2>${inventoryStreamDetails(entry.metadata)}</section>`).join("");
     await writeFile(output, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Media inventory</title><style>body{font:16px system-ui;margin:32px;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:10px;border:1px solid #bbb;overflow-wrap:anywhere;text-align:left}section{margin-top:40px}@media(max-width:600px){body{margin:16px}.inventory thead{display:none}.inventory,.inventory tbody,.inventory tr,.inventory td{display:block;width:auto}.inventory td{border-bottom:0}.inventory td:last-child{border-bottom:1px solid #bbb}.inventory td::before{content:attr(data-label);display:block;font-weight:700;margin-bottom:4px}.inventory tr{margin-bottom:16px}}</style><h1>Media inventory</h1><p>Recorded probe metadata. Missing values are not inferred. Camera tags, color declarations and timestamps do not establish camera identity, image fidelity or delivery compliance.</p><table class="inventory"><thead><tr><th>File</th><th>SHA-256</th><th>Seconds</th><th>Bytes</th></tr></thead><tbody>${rows}</tbody></table>${details}</html>`, {flag:"wx"});
     return { output, entries: entries.length };
+  }
+  async timecodeContinuity(ids:string[]){
+    requireCapability(this.config.capabilities,"inspect");
+    const entries=await this.metadata([...new Set(ids)]);
+    return {...assessTimecodeContinuity(entries),meaning:"Declared container/stream timecode, nominal frame rate and frame counts from cached probe metadata, ordered by declared start. Pairs compare each file's declared end with the next declared start in nominal frames; drop-frame seconds use the nominal rate. Nothing is decoded; no camera, card, clip identity, wall-clock continuity or current-file verification is inferred. Files without a supported rate, timecode or frame count are listed but excluded from pairs."};
   }
   async facets(ids:string[],filters:z.input<typeof mediaFilters>={}){
     const parsed=mediaFilters.parse(filters),selected=[...new Set(ids)];
