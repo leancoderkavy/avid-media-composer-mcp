@@ -1,5 +1,13 @@
 # Completion ledger
 
+### Named-client managed Python acceptance
+
+The installed package generated Codex settings with the managed interpreter and inspection-only authority. Actual Codex execution exposed only `avid_analyze_bin` and made one successful bounded Sonoma bin call. The tool response matched an independent inspector read; source, package entrypoints, managed runtime tree and user `config.toml` were unchanged. Evidence: `.avid-mcp-analysis/codex-managed-python-1d982365-49d7-472e-b5f0-2cbed636628f/evidence.json`. This qualifies ephemeral model-selected inspection, not persistent GUI setup or native edits.
+
+CI run 34068200449 for preceding head 1569651 failed Windows Node 20 when PowerShell loopback ownership inspection exceeded its 30-second process deadline. The other jobs passed. The retained log is `.avid-mcp-analysis/ci-34068200449-failure.log`; all three focused ownership/connection tests passed locally in `test-loopback-ci-followup.log`. The failed job was rerun without changing the production timeout or ownership requirements; its result must be checked separately.
+
+Attempt 2 of that exact CI run completed successfully. All Windows/macOS Node 20/24 checks for 1569651 are now successful, with the original timeout retained as intermittent-failure evidence rather than a claimed code fix.
+
 ### Publish complete Python receipts and qualify installed lifecycle commands
 
 Python setup now stages and closes its success receipt before exclusive hard-link publication. Concurrent publication tests establish one complete winner and no overwrite. An actual pre-link interruption left status incomplete, retained the staged/attempt bytes and refused retry into the existing directory. Evidence: `.avid-mcp-analysis/python-install-interruption-836703b2-38dc-4bb7-9077-0fdf96eaf4aa/evidence.json`.
