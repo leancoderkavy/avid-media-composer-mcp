@@ -1,7 +1,7 @@
 import { plainText } from "@/components/rich-text"
 import { extendedFaq } from "./faq"
 import { guidePath, guides } from "./guides"
-import { absoluteUrl, docs, lastUpdated, npmUrl, packageVersion, repo, siteName } from "./site"
+import { absoluteUrl, docs, lastUpdated, npmUrl, packageVersion, repo, siteName, stableVersion } from "./site"
 import { toolCount, toolGroups } from "./tools"
 
 /**
@@ -13,7 +13,7 @@ const summary =
   `${siteName} is an independent, open-source Model Context Protocol (MCP) server that gives AI clients such as Claude, ChatGPT, Cursor and Codex source-safe, read-only analysis of Avid Media Composer projects, AVB bins, AAF, ALE, EDL, OTIO, configuration files and media metadata, plus guarded editing automation through a compatible Avid Extension bridge. MIT licensed. Not affiliated with or endorsed by Avid Technology, Inc.`
 
 const keyFacts = [
-  `Package: \`avid-media-composer-mcp\` on npm, version ${packageVersion}. Run with \`npx -y avid-media-composer-mcp@latest\`.`,
+  `Package: \`avid-media-composer-mcp\` on npm — stable ${stableVersion}, release candidate ${packageVersion}. Run the stable build with \`npx -y avid-media-composer-mcp@latest\`.`,
   "Languages: TypeScript server with a bounded Python inspector (pyavb, pyaaf2) and optional ffprobe.",
   "Transports: local stdio, or authenticated Streamable HTTP at `/mcp` with a bearer token.",
   "Safety model: explicit allowed roots, read-only offline analysis, opaque data reported as evidence, guarded edit plans bound to an exact SHA-256 confirmation token, fail-closed bridge.",

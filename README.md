@@ -6,7 +6,7 @@ An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextp
 
 Format and workflow references: [AVB files](https://avid-media-composer-mcp.com/avb-file/) · [AAF files](https://avid-media-composer-mcp.com/aaf-file/) · [ALE files](https://avid-media-composer-mcp.com/ale-file/) · [EDL files](https://avid-media-composer-mcp.com/edl-file/) · [Avid bin locking](https://avid-media-composer-mcp.com/bin-locking/) · [Compatibility matrix](https://avid-media-composer-mcp.com/compatibility/) · [AI and automation](https://avid-media-composer-mcp.com/ai-automation/)
 
-Use it with an MCP client that can launch a local process or reach the configured authenticated HTTP server. The published `1.1.0` package provides analysis, interchange and bridge contracts. This unreleased branch additionally provides local media intelligence, installation helpers and a separate Windows native adapter. A compatibility-rule result is not proof of this connector running on that host; native runtime evidence currently covers the qualified Windows Media Composer 2024.12 build described in [implementation status](docs/IMPLEMENTATION_STATUS.md). Mac implementation and host qualification are deferred.
+Use it with an MCP client that can launch a local process or reach the configured authenticated HTTP server. The published `1.1.0` package provides analysis, interchange and bridge contracts. The `1.2.0-rc.1` release candidate additionally provides local media intelligence, installation helpers and a separate Windows native adapter. A compatibility-rule result is not proof of this connector running on that host; native runtime evidence currently covers the qualified Windows Media Composer 2024.12 build described in [implementation status](docs/IMPLEMENTATION_STATUS.md). Mac implementation and host qualification are deferred.
 
 The server also defines a 167-action editing catalog and a tested bridge protocol. Catalog actions require a compatible Extension that advertises each operation. The separate native adapter has its own bounded operations, authority checks and host qualification; the catalog does not describe its coverage.
 
@@ -26,7 +26,7 @@ The development adapter now includes [guarded AAF selects import](docs/NATIVE_AA
 
 Native inspection also exposes bin-scoped track counts/flags and viewer positions. Clip renaming checks the expected current name before applying and verifies name readback; the disposable Sonoma sequence passed rename, restoration and save/reopen checks. [Source-viewer loading](docs/NATIVE_VIEWER_QUALIFICATION.md) verifies the requested MOB ID: the sequence case passed, while source-master identity mapping remains unresolved. An experimental Record request loaded Source instead, so Record and seek options are not exposed. These operations do not establish full timeline editing or atomic undo.
 
-## Facts at a glance
+# Facts at a glance
 
 | Question | Answer |
 | --- | --- |
@@ -40,7 +40,7 @@ Native inspection also exposes bin-scoped track counts/flags and viewer position
 
 ## What works now
 
-The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 144 tools, including offline and bridge tools.
+The following list describes the published analysis foundation. For the development branch's local visual search, transcription, people/speaker workflows, QC, saved snapshots and native operations, see the [current implementation and remaining acceptance work](docs/IMPLEMENTATION_STATUS.md). Tool discovery through `tools/list` is authoritative for the installed package; the development package currently exposes 145 tools, including offline and bridge tools.
 
 Development snapshots support [saved-marker inspection](docs/SAVED_MARKERS.md) with paginated text, color declarations and explicitly unresolved or effect-input locations. This is independent of current unsaved Avid state.
 
