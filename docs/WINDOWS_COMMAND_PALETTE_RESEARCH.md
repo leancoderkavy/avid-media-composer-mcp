@@ -20,3 +20,11 @@ The palette position changed during restoration. Reassignment mode was not chang
 Evidence remains local under `.avid-mcp-analysis/ui-command-palette-063e433b-f2aa-49a7-ab49-d93af3c54d51/`: `observation.json`, full and palette screenshots, and `restoration.json`. Screenshots are not reusable coordinates. The result qualifies neither generic UI Automation targeting nor a production playback adapter.
 
 The next controlled execution experiment must establish source/record viewer identity and native frame position independently, detect palette mode and unexpected windows, execute exactly one named command, and verify its result before any retry. A shipping adapter also needs verified focus, shortcut remapping, layout/scale changes and mode detection. A screenshot-guided human-equivalent action is not evidence that a fixed coordinate or arbitrary keyboard sequence is suitable for unattended use. See the separate [source playback observations](NATIVE_SOURCE_PLAYBACK.md).
+
+## Follow-up navigation checkpoint
+
+The read-only `scripts/research/capture-palette-position.mjs` observer records native Source identity/frame and before/after hashes of the fixture bin, protected AAF bin, original MP4 and server entry point. It accepts a label alone for a baseline, or a label, baseline evidence path and expected frame for comparison. It is specific to this local research fixture and does not perform UI input.
+
+The first attempted baseline used the visible selected bin, which did not contain the loaded native source. Read-only bin discovery identified `MCP_Load_7006b4d8.avb`; the corrected baseline reported frame 0. With Active Palette selected, one observed Go to End click left the native source at frame 0 rather than the expected 119. The observer rejected that expectation and confirmed unchanged file hashes. This is a failed navigation qualification, not a supported command.
+
+Retained local evidence: `.avid-mcp-analysis/palette-position-active-baseline-938a5ea4-d6ec-4724-a7de-ef45f0b9a282/evidence.json` and `.avid-mcp-analysis/palette-position-go-end-a9d60539-c5fc-4db7-bd07-a366c9eaabb2/evidence.json`. A subsequent source-focus observation was interrupted before its output could be assessed; no successful second navigation or final palette-mode restoration is established by this checkpoint.
