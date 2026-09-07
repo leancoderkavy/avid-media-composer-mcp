@@ -1,5 +1,7 @@
 # Open-source implementation status
 
+Windows tree termination now classifies taskkill output into bounded counts on `treeTermination.outcome` (terminated, not found, access denied, unclassified, root not found, truncated) for process errors and job history, without retaining message text. Unit fixtures cover success, missing-root, refusal-reason, localized and truncated lines plus journal round-trip; the original intermittent cancellation failure has not been reproduced on the host, so this is diagnosis support rather than a root-cause fix. The roadmap has been reconciled against shipped tools; see [roadmap](ROADMAP.md).
+
 `avid_verify_snapshot_bin` explicitly compares one current saved bin with its captured SHA-256 using bounded streaming, reporting matching, changed or missing bytes. Owned Sonoma-copy and reconnect checks preserve the protected original and historical snapshot. It provides no native lock or unsaved-state guarantee. Development discovery now exposes 144 tools; this is separate from the published package.
 
 Saved snapshot mob discovery now supports case-insensitive name/comment search and exact mob-type, usage-code and numeric-rate filters, with stable original indexes, total-match counts and distinct bin identities. Actual Sonoma search/reconnect and installed synthetic comment-search coverage are described in [saved snapshot search](SAVED_SNAPSHOT_SEARCH.md).

@@ -5,9 +5,9 @@
 The [competitor review and staged plan additions](COMPETITOR_RESEARCH.md) supplement the original phases below. Deliver Windows local setup and a separately qualified native adapter first, then richer media/interchange workflows, optional analysis providers and named UI automation. Mac code follows on a Mac. The user cannot obtain Avid SDK access; it is not a prerequisite for the native research route. A sanctioned Extension remains a separate optional path with its own SDK requirements.
 
 - [x] Package the 16 demonstrated native operations behind individual capability and host-version checks; research smoke tests alone are not production support.
-- [ ] Add bounded timeline/source queries, local reports, verified outputs and reusable workflow skills as described in the competitor review.
+- [x] Add bounded timeline/source queries, local reports, verified outputs and reusable workflow skills as described in the competitor review. Shipped as `avid_saved_timeline_range`, `avid_saved_source_usage`, `avid_saved_source_resolution`, `avid_trace_saved_sources`, `avid_media_facets`, `avid_media_report`, `avid_qc_reports`, `avid_contact_sheet`, `avid_thumbnail_strip`, receipt-bearing `avid_media_artifact` copies/trims and the five bundled skills. Real-host acceptance rows remain tracked in the completion ledger.
 - [ ] Qualify the seven Sonoma MP4 exports in a disposable Windows project; original Premiere media and Mac qualification remain later work.
-- [ ] Evaluate optional Jumper search integration using its public API without making it a core dependency.
+- [x] Evaluate optional Jumper search integration using its public API without making it a core dependency. A bounded loopback client ships as `avid_jumper_read` (see [Jumper provider](JUMPER_PROVIDER.md)); licensed-runtime qualification remains open.
 
 The native packaging item is implemented in [NativeClient](../src/native/client.ts) and [NativeAdapter](../src/native/adapter.ts). All 16 methods from the historical [native smoke test](NATIVE_API_SMOKE_TEST.md) are in the current allowlist and have adapter call paths. The allowlist now contains 16 reads and 17 writes, including guarded duplication, media-volume declarations, batch markers, clip-bin lookup, bin-column discovery, subclips, viewer/selection and export/import operations. Reads require inspection authority; writes go through action-specific capabilities and guarded preview/apply. The client binds schema loading to the qualified executable hash and verifies the loopback listener owner. This closes the packaging item only: operation-specific real-host evidence, version limits and remaining acceptance work are tracked in [implementation status](IMPLEMENTATION_STATUS.md) and the [completion ledger](COMPLETION_LEDGER.md).
 
@@ -51,12 +51,15 @@ writing with Avid before committing to a live-control date.
 
 ## Phase 3 — deeper analysis
 
-- [ ] Timecode continuity, VFR, field-order, color-space, channel-layout, and offline-media QC.
-- [ ] Optional loudness, silence, black/freeze frame, slate/clap, and sync analysis.
+- [x] VFR, field-order, color-space and channel-layout declarations in `avid_media_qc`; offline-media checks in `avid_saved_locator_availability`.
+- [ ] Timecode continuity QC.
+- [x] Loudness, silence and black/freeze detection in `avid_media_qc`; audio-content offset analysis through `audio_sync` jobs.
+- [ ] Slate/clap detection and perceptual sync analysis.
 - [x] Privacy-safe local transcript revision/timing/speaker QC.
-- [ ] Project snapshot/diff reports.
-- [ ] Cross-bin mob/source usage graph.
-- [ ] Sequence complexity, effect, render, relink, and turnover reports.
+- [x] Project snapshot/diff reports (`avid_snapshot_saved_bins`, `avid_diff_saved_snapshots`, `avid_verify_snapshot_bin`).
+- [ ] Cross-bin mob/source usage graph. Per-source cross-bin usage exists in `avid_saved_source_usage`; a whole-snapshot graph does not.
+- [x] Sequence complexity (`avid_saved_sequence_complexity`) and metadata-only DNx turnover reports.
+- [ ] Effect inventory, render and relink reports.
 - [x] Add conservative OTIO inspection and handoff preview with local-media manifest, checksums, and fidelity blockers. Real-host import/relink validation remains required.
 - [x] Add source-marker and strict static SVG-overlay validation.
 - [x] Add metadata-only DNx 4.0 turnover QC.
