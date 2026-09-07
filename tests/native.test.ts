@@ -84,6 +84,20 @@ it.each(["pass","missing","extra","renamed","reused","uncertain"])("verifies dup
   }
   await expect(f.adapter.apply(preview.token)).rejects.toThrow("consumed");expect(writes).toBe(1);
 });
+it.each(['duplicate-before','duplicate-after','invalid-id','owner-change'])("refuses ambiguous viewer context: %s",async mode=>{
+  const f=await hostFixture(),original=f.client.call.bind(f.client);let memberships=0;
+  vi.spyOn(f.client,'call').mockImplementation(async(method,body)=>{
+    if(method==='GetListOfBinItems'){
+      memberships++;
+      if(mode==='invalid-id')return [{mob_id:undefined}];
+      if((mode==='duplicate-before'&&memberships===1)||(mode==='duplicate-after'&&memberships===2))return [{mob_id:'clip'},{mob_id:'clip'}];
+    }
+    if(method==='GetViewerMobs'&&mode==='owner-change')f.client.ownerIdentity='replacement:epoch';
+    return original(method,body);
+  });
+  await expect(f.adapter.read('viewers','fixture.avb')).rejects.toThrow();
+});
+
 it("refuses stale duplicate previews before dispatch",async()=>{
   const f=await hostFixture(),plan=await f.adapter.preview({action:"duplicate_clip",bin:"fixture.avb",mobId:"clip"});
   await writeFile(path.join(path.dirname(f.source),"fixture.avb"),"changed saved bin");

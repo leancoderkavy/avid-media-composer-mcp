@@ -74,6 +74,7 @@ export class NativeAdapter {
     this.enabled();
     if (query === "app") return { build: QUALIFIED_BUILD, app: await this.client.call("GetAppInfo") };
     const project = await this.project();
+    const projectOwner = this.client.ownerIdentity;
     if (query === "project") return project;
     if (query === "media_volumes") {
       const owner = this.client.ownerIdentity;
@@ -150,14 +151,20 @@ export class NativeAdapter {
     }
 
     if(query==="viewers"){
-      const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:z.string().min(1).max(256),view_type:z.string().min(1),current_frame:z.number().int(),current_timecode:z.string().max(64)})).max(16)})).max(16).parse(await this.client.call("GetViewerMobs"));
+      const identities=(items:unknown)=>{
+        const ids=z.array(z.object({mob_id:id})).max(4096).parse(items).map(item=>item.mob_id);
+        if(new Set(ids).size!==ids.length)throw new Error('Duplicate native bin membership during viewer inspection');
+        return ids.sort();
+      };
+      const beforeIds=identities(clips);
+      const bodies=z.array(z.object({mobs:z.array(z.object({mob_id:z.string().min(1).max(256),view_type:z.string().min(1),current_frame:z.number().int(),current_timecode:z.string().max(64)})).max(16)})).max(16).parse(await this.client.call("GetViewerMobs",{},projectOwner));
       const all=bodies.flatMap(body=>body.mobs);if(all.length>16)throw new Error("Native viewer inventory exceeds 16 entries");
       const afterProject=await this.project();if(afterProject.path!==project.path)throw new Error("Native project changed during viewer inspection");
-      const after=await this.client.call("GetListOfBinItems",{bin_relative_path:relative,bin_flags:["AllTypes"]});
-      const identities=(items:Record<string,any>[])=>JSON.stringify([...new Set(items.map(item=>item.mob_id))].sort());
-      if(identities(after)!==identities(clips))throw new Error("Native bin membership changed during viewer inspection; reload before using positions");
-      const members=new Set(clips.map(clip=>clip.mob_id)),viewers=all.filter(viewer=>members.has(viewer.mob_id));
-      return {viewers,outOfBinOmitted:all.length-viewers.length,scope:"Current viewer entries whose MOB IDs belong to the requested bin. Position is reported by Avid; no playback, source mapping or atomic editor snapshot is verified."};
+      const after=await this.client.call("GetListOfBinItems",{bin_relative_path:relative,bin_flags:["AllTypes"]},projectOwner);
+      if(JSON.stringify(identities(after))!==JSON.stringify(beforeIds))throw new Error("Native bin membership changed during viewer inspection; reload before using positions");
+      if(this.client.ownerIdentity!==projectOwner||await this.binPath(project.path,bin??'')!==target)throw new Error('Native owner or bin path changed during viewer inspection');
+      const members=new Set(beforeIds),viewers=all.filter(viewer=>members.has(viewer.mob_id));
+      return {viewers,outOfBinOmitted:all.length-viewers.length,keyboardFocusVerified:false,scope:"Current viewer entries whose MOB IDs belong to the requested bin. Position is reported by Avid; viewer type does not identify keyboard focus. No playback, source mapping or atomic editor snapshot is verified."};
     }
     if (!mobId || !clips.some(clip => clip.mob_id === mobId)) throw new Error("Clip is not in the specified bin");
     if(query==='clip_columns'){

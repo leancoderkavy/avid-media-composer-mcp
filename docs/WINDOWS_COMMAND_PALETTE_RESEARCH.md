@@ -53,3 +53,11 @@ Local evidence directories below contain `evidence.json` and the actual MCP `res
 - Final restoration: `.avid-mcp-analysis/palette-position-final-restored-d384adbb-522f-4395-88f4-fe2fbcc33ecf/`
 
 Palette mode/closure screenshots and `restoration.json` are retained under `.avid-mcp-analysis/ui-palette-navigation-ba574b82-2a39-44f4-a1e0-022ef580333e/`. This establishes screenshot-guided command behavior for this source and host session. It does not establish unattended focus detection, reusable coordinates, record-viewer behavior, shortcut remapping, layout/scale resilience, video fidelity or a shipping UI adapter. The next implementation must preserve this distinction and detect source versus record targeting before issuing input.
+
+## Native context guard
+
+Read-only inspection of the qualified executable's locally derived schema found viewer type fields in `LoadMobsIntoViewerRequestBody` and `MobInViewer`, but no field named for active state or focus. This is evidence about that schema, not proof that no other Avid integration surface can report focus. `avid_native_read` with `query: "viewers"` now returns `keyboardFocusVerified: false` explicitly.
+
+Viewer reads reject malformed or duplicate membership identities on either side of the position read, bind viewer and final membership RPCs to the initially observed listener owner, and recheck owner and canonical bin path. Four regression cases reproduced acceptance by the old implementation and now fail closed. These checks do not lock the editor or turn viewer membership into keyboard-focus evidence.
+
+The full local check passed 817 TypeScript tests, 49 Python tests, stdio/HTTP and fresh-package checks (`.avid-mcp-analysis/check-viewer-context.log`). Actual read-only MCP inspection against the open Avid host returned the known Source at frame 0 with the explicit focus limitation and unchanged protected file hashes: `.avid-mcp-analysis/palette-position-guarded-context-0535da1f-1fd1-469e-b9ba-5ef160d1a990/`. This validates the guarded read, not a newly shipped UI input action.
