@@ -1,11 +1,39 @@
 # Avid Media Composer MCP
 
-> Independent, open-source Model Context Protocol server for source-safe Avid Media Composer project analysis and guarded editing automation.
+> Avid Media Composer MCP is an independent, open-source Model Context Protocol (MCP) server that gives AI clients such as Claude, ChatGPT, Cursor and Codex source-safe, read-only analysis of Avid Media Composer projects, AVB bins, AAF, ALE, EDL, OTIO, configuration files and media metadata, plus guarded editing automation through a compatible Avid Extension bridge. MIT licensed. Not affiliated with or endorsed by Avid Technology, Inc.
 
-- Project: https://avid-media-composer-mcp.vercel.app/
-- Repository: https://github.com/leancoderkavy/avid-media-composer-mcp
-- Documentation: https://github.com/leancoderkavy/avid-media-composer-mcp#readme
-- Capability matrix: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md
-- Security: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/SECURITY.md
+Key facts:
 
-The current release provides read-only analysis for Avid projects, AVB bins, AAF, ALE, EDL, AVP/AVS configuration evidence, locks, and media metadata. Live editing requires a compatible Avid Extension bridge and fails closed when that bridge is unavailable.
+- Package: `avid-media-composer-mcp` on npm, version 1.1.0. Run with `npx -y avid-media-composer-mcp@latest`.
+- Languages: TypeScript server with a bounded Python inspector (pyavb 1.4.0, pyaaf2 1.7.1) and optional ffprobe.
+- Transports: local stdio, or authenticated Streamable HTTP at `/mcp` with a bearer token.
+- Safety model: explicit allowed roots, read-only offline analysis, opaque data reported as evidence, guarded edit plans bound to an exact SHA-256 confirmation token, fail-closed bridge.
+- Supported Media Composer release tracks: 2025.12.x, 2025.6 and 2024.12.x long-term maintenance, on qualified Windows and macOS combinations.
+- Not an Avid product. Avid and Media Composer are trademarks of Avid Technology, Inc.
+
+## Site pages
+
+- [Home](https://avid-media-composer-mcp.com/): overview, capabilities, architecture and core FAQ.
+- [Tool reference](https://avid-media-composer-mcp.com/tools/): every MCP tool in the published package, grouped by job, with mutation status.
+- [Setup guide](https://avid-media-composer-mcp.com/setup/): prerequisites, environment variables, client configuration JSON and the HTTP transport.
+- [FAQ](https://avid-media-composer-mcp.com/faq/): supported formats, AI clients, safety, live editing, privacy and compatibility.
+- [llms-full.txt](https://avid-media-composer-mcp.com/llms-full.txt): the full site content in one Markdown file for AI consumption.
+
+## Source and documentation
+
+- [GitHub repository](https://github.com/leancoderkavy/avid-media-composer-mcp): canonical source, issues and releases.
+- [README](https://github.com/leancoderkavy/avid-media-composer-mcp#readme): quick start, tool table, safe edit workflow.
+- [Capability matrix](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md): implemented, dependency, extension-contract, provider-gated and not-claimed status per area.
+- [Supported versions](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/SUPPORTED_VERSIONS.md): Media Composer release tracks and OS combinations with provenance.
+- [Architecture](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/ARCHITECTURE.md): analysis lane versus live-control lane.
+- [Avid Extension bridge contract](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/AVID_EXTENSION_BRIDGE.md): protocol for guarded live editing.
+- [Workflow skills](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/WORKFLOW_SKILLS.md): ingest QC, selects, review markers, turnover and export skills.
+- [Security policy](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/SECURITY.md): threat model and reporting.
+- [Research and primary sources](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/RESEARCH.md): Avid format and SDK research.
+- [npm package](https://www.npmjs.com/package/avid-media-composer-mcp): published releases.
+
+## Optional
+
+- [Changelog](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/CHANGELOG.md)
+- [Contributing](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/CONTRIBUTING.md)
+- [Implementation status](https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/IMPLEMENTATION_STATUS.md): unreleased development-branch work, including native Windows operations.
