@@ -1,5 +1,11 @@
 # Completion ledger
 
+### Bound Python snapshot hashing independently of the caller
+
+The saved-bin decoder already compared hashes before and after indexing. Both passes now stream 64 KiB chunks, enforce their own 512 MiB cap, and reject detected growth or descriptor/path identity changes instead of allocating the entire file for each digest. This bounds hashing memory, not the AVB decoder's total memory, and does not establish an atomic editor snapshot. Descriptor-based comparisons avoid the observed Python/Windows `stat` versus `fstat` creation/change-time mismatch on an unchanged Sonoma file.
+
+All 49 Python tests and fresh-package checks passed (`.avid-mcp-analysis/check-streamed-snapshot-hash.log`), including growth, same-length mutation during hashing, and changed bytes between indexing hashes. Actual managed-runtime Sonoma capture/search/range/reconnect passed with unchanged source/runtime hashes: `.avid-mcp-analysis/managed-python-snapshots-3d6d915a-afa8-4056-9988-fa9c1021c85a/evidence.json`. CI and CodeQL for preceding `fec7f3a` passed separately. No TypeScript production code changed in this checkpoint.
+
 ### Explicit saved-bin checksum verification
 
 `avid_verify_snapshot_bin` compares one authorized current bin with the snapshot's captured SHA-256, using 64 KiB buffers and a 512 MiB byte cap. It reports matches/changed/missing, refuses detected descriptor/path metadata changes during reading, and leaves the historical snapshot intact. Tests cover multichunk hashing, size refusal, same-length writes during reading with descriptor closure, changed/missing bins, invalid identities and scope denial. This observation does not lock the bin, inspect unsaved state or authorize a later edit.

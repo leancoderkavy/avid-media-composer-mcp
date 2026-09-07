@@ -1,6 +1,8 @@
 """Bounded semantic index of saved AVB tracks, source ranges and subclip bounds."""
 import argparse
 import hashlib
+import os
+import stat
 import json
 import math
 import uuid
@@ -210,11 +212,38 @@ def stereo_combiner_inputs(component):
     return children
 
 
+def hash_saved_bin(file, max_bytes=512*1024*1024):
+    """Bound both hash reads independently; do not allocate the entire bin."""
+    if not isinstance(max_bytes,int) or isinstance(max_bytes,bool) or max_bytes<1:
+        raise ValueError('Invalid saved-bin hash limit')
+    with Path(file).open('rb') as source:
+        before=os.fstat(source.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_size>max_bytes:
+            raise ValueError('Bin exceeds hash size limit or is not a regular file')
+        digest=hashlib.sha256();total=0
+        while True:
+            chunk=source.read(min(65536,max_bytes+1-total))
+            if not chunk:break
+            total+=len(chunk)
+            if total>max_bytes:raise ValueError('Bin grew beyond hash size limit')
+            digest.update(chunk)
+        # Use the same API for both identities: Python/Windows path stat and
+        # descriptor stat can expose different creation/change-time semantics.
+        after_read=os.fstat(source.fileno())
+        with Path(file).open('rb') as current:
+            current_path=os.fstat(current.fileno())
+        for after in (after_read,current_path):
+            if any(getattr(before,key)!=getattr(after,key) for key in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns')):
+                raise ValueError('Bin changed while hashing')
+        if total!=before.st_size:raise ValueError('Bin length changed while hashing')
+        return digest.hexdigest()
+
+
 def index_bin(filename, max_nodes=10000):
     import avb
     from avid_markers import saved_markers
     file=Path(filename)
-    before=hashlib.sha256(file.read_bytes()).hexdigest()
+    before=hash_saved_bin(file)
     warnings=[]
     count=0
     mobs=[]
@@ -305,7 +334,7 @@ def index_bin(filename, max_nodes=10000):
                          'sourceBounds':{'start':start,'end':end},'tracks':tracks,'comment':saved_comment(attributes),
                          'descriptor':descriptor_metadata(getattr(mob,'descriptor',None)),
                          'markers':saved_markers(mob,marker_budget)})
-    if hashlib.sha256(file.read_bytes()).hexdigest()!=before:
+    if hash_saved_bin(file)!=before:
         raise ValueError('Bin changed while indexing; retry after saving')
     return {'schema':1,'file':str(file.resolve()),'sha256':before,'mobs':mobs,'warnings':warnings[:1000],
             'complete':not warnings,'nodeCount':count,'stateOrigin':'saved-bin; unsaved editor changes are not included'}

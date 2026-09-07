@@ -1,15 +1,57 @@
 import sys
+import hashlib
+import os
 import tempfile
 import unittest
 from pathlib import Path
 import avb
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint, color_adapter_input, saved_comment
+from avid_timeline import index_bin, descriptor_metadata, linear_lut_declaration, color_declaration, parameter_fingerprint, color_adapter_input, saved_comment, hash_saved_bin
 from unittest.mock import patch
 from types import SimpleNamespace
 
 
 class TimelineTests(unittest.TestCase):
+    def test_saved_hash_streams_and_enforces_exact_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file=Path(directory)/'bytes.avb';data=b'x'*150000;file.write_bytes(data)
+            self.assertEqual(hash_saved_bin(file,len(data)),hashlib.sha256(data).hexdigest())
+            with self.assertRaisesRegex(ValueError,'size limit'):hash_saved_bin(file,len(data)-1)
+            for invalid in (0,-1,True,1.5):
+                with self.assertRaisesRegex(ValueError,'Invalid'):hash_saved_bin(file,invalid)
+
+    def test_saved_hash_rejects_growth_and_same_length_writes_during_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file=Path(directory)/'bytes.avb'
+            for growth in (True,False):
+                with self.subTest(growth=growth):
+                    file.write_bytes(b'x'*150000);reader=file.open('rb')
+                    class ChangingReader:
+                        changed=False
+                        def __enter__(self):return self
+                        def __exit__(self,*args):reader.close()
+                        def fileno(self):return reader.fileno()
+                        def read(self,size):
+                            data=reader.read(size)
+                            if not self.changed:
+                                self.changed=True
+                                with open(file,'ab' if growth else 'wb') as writer:writer.write(b'y' if growth else b'y'*150000)
+                                if not growth:os.utime(file,ns=(0,0))
+                            return data
+                    with patch.object(Path,'open',return_value=ChangingReader()):
+                        with self.assertRaisesRegex(ValueError,'grew beyond|changed while hashing'):hash_saved_bin(file,150000)
+                    self.assertTrue(reader.closed)
+
+    def test_saved_index_rejects_changed_bytes_between_hashes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file=self.fixture(directory);original_open=avb.open
+            def changed_open(*args,**kwargs):
+                source=original_open(*args,**kwargs)
+                with open(file,'ab') as writer:writer.write(b'owned test mutation')
+                return source
+            with patch('avb.open',side_effect=changed_open):
+                with self.assertRaisesRegex(ValueError,'changed while indexing'):index_bin(file)
+
     def test_saved_comments_preserve_absence_empty_text_and_bounds(self):
         self.assertIsNone(saved_comment({}))
         self.assertIsNone(saved_comment({'_USER': {}}))
