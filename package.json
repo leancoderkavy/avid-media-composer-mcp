@@ -100,10 +100,10 @@
   "devDependencies": {
     "@huggingface/transformers": "^4.2.0",
     "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^5.0.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.0"
   },
   "overrides": {
     "@hono/node-server": "^2.0.11",
