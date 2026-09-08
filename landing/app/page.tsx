@@ -149,7 +149,7 @@ export default function Home() {
         <div id="demo"><HeroDemo /></div>
 
         <div className="proof">
-          <div><Layers /><span><strong>v{packageVersion}</strong><small>Current published release</small></span></div>
+          <div><Layers /><span><strong>v{packageVersion}</strong><small>Current package version</small></span></div>
           <div><HardDrive /><span><strong>Windows + macOS</strong><small>Qualified Avid releases</small></span></div>
           <div><FolderLock /><span><strong>Local-first</strong><small>Media never leaves your machine</small></span></div>
           <div><GitFork /><span><strong>MIT licensed</strong><small>Source available on GitHub</small></span></div>
