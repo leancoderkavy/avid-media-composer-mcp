@@ -5,7 +5,7 @@ import { clientConfiguration, codexSetupCommand, installConfiguration, doctor, d
 import {configurationStatus,changeConfiguration,type ConfigurationOperation} from "./setup-lifecycle.js";
 
 const { values } = parseArgs({ options: {
-  "install-python-runtime":{type:"string"},"python-runtime-status":{type:"string"},
+  "install-python-runtime":{type:"string"},"python-runtime-status":{type:"string"},"remove-python-runtime":{type:"string"},
   "pair-jumper":{type:"string"},"jumper-sha256":{type:"string"},"jumper-port":{type:"string"},
   "server-entry":{type:"string"},"server-entry-sha256":{type:"string"},
   capabilities:{type:"string"},ffmpeg:{type:"string"},ffprobe:{type:"string"},python:{type:"string"},
@@ -20,7 +20,11 @@ const { values } = parseArgs({ options: {
   "package-status":{type:"string"},"package-remove":{type:"string"},"package-recover":{type:"string"},
 } });
 try {
-  if(values["install-python-runtime"]!==undefined||values["python-runtime-status"]!==undefined){
+  if(values['remove-python-runtime']!==undefined){
+    if(Object.keys(values).some(key=>!['remove-python-runtime','expected-sha256'].includes(key))||!values['expected-sha256'])throw new Error('Use --remove-python-runtime ABSOLUTE_DIRECTORY --expected-sha256 RECEIPT_HASH without other options');
+    const {removePythonRuntime}=await import('./python-runtime.js');
+    console.log(JSON.stringify(await removePythonRuntime(values['remove-python-runtime'],values['expected-sha256']),null,2));
+  }else if(values["install-python-runtime"]!==undefined||values["python-runtime-status"]!==undefined){
     const installing=values["install-python-runtime"]!==undefined,allowed=new Set(installing?["install-python-runtime","python"]:["python-runtime-status"]);
     if(Object.keys(values).some(key=>!allowed.has(key))||installing&&!values.python)throw new Error("Use --install-python-runtime ABSOLUTE_NEW_DIRECTORY --python ABSOLUTE_BASE_PYTHON, or --python-runtime-status ABSOLUTE_DIRECTORY, without other options");
     const {installPythonRuntime,pythonRuntimeStatus}=await import("./python-runtime.js");

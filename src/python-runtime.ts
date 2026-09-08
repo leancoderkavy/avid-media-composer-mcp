@@ -1,12 +1,12 @@
-import {mkdir,lstat,realpath,writeFile,readFile,open,link,unlink} from "node:fs/promises";
-import {randomUUID} from "node:crypto";
+import {mkdir,lstat,realpath,writeFile,readFile,open,link,unlink,rename,rm} from "node:fs/promises";
+import {randomUUID,createHash} from "node:crypto";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import * as z from "zod/v4";
 import {runProcess} from "./process.js";
 import {packageTreeHash} from "./package-lifecycle.js";
 import {preparePipWheel,PIP_VERSION} from "./library/python-bootstrap.js";
-import {readBoundedJson} from "./security/bounded-read.js";
+import {readBoundedJson,readBoundedFile} from "./security/bounded-read.js";
 import {resolveReadablePath} from "./security/path-policy.js";
 
 export const CORE_PYTHON_PACKAGES={pyavb:"1.4.0",pyaaf2:"1.7.1"} as const;
@@ -42,12 +42,43 @@ export async function pythonRuntimeStatus(directory:string){
   return {state:"incomplete" as const,directory,attempt,executable:null,unchanged:null,bootstrapCurrent:null,workerState:"unknown" as const,
    note:"No successful installation receipt. This may be active or interrupted setup; no termination, retry or cleanup is inferred. Retain this directory and inspect the installer process."};
  }
- const receipt=receiptSchema.parse(await readBoundedJson(file,16384));
+ const receiptBytes=await readBoundedFile(file,16384),receipt=receiptSchema.parse(JSON.parse(receiptBytes.toString('utf8')));
  if(receipt.directory!==directory)throw new Error("Python runtime receipt location mismatch");
  const executable=await resolveReadablePath(pythonAt(directory),[directory],"file");
  const treeSha256=await packageTreeHash(directory);
- return {state:"receipt_checked" as const,directory,executable,receipt,treeSha256,unchanged:treeSha256===receipt.treeSha256,bootstrapCurrent:receipt.versions.pip===PIP_VERSION,
+ return {state:"receipt_checked" as const,directory,executable,receipt,receiptSha256:createHash('sha256').update(receiptBytes).digest('hex'),treeSha256,unchanged:treeSha256===receipt.treeSha256,bootstrapCurrent:receipt.versions.pip===PIP_VERSION,
   note:"Recorded dependency checks and local file consistency. Base Python/OS libraries remain external; not a current vulnerability audit or clean-machine qualification."};
+}
+
+async function assertPythonRuntimeStopped(directories:string[]){
+ if(process.platform!=='win32')throw new Error('Python runtime removal currently requires Windows process qualification');
+ const quoted=directories.map(directory=>`'${directory.replaceAll("'","''")}'`).join(',');
+ const command=`$ErrorActionPreference='Stop'; $targets=@(${quoted}); $nodes=@(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne ${process.pid} -and $_.Name -match '^(python(w)?|node)\\.exe$' }); if(@($nodes | Where-Object { -not $_.CommandLine -or -not $_.ExecutablePath }).Count -gt 0){throw 'Runtime process metadata unavailable'}; @($nodes | Where-Object { $entry=$_; @($targets | Where-Object { $entry.CommandLine.IndexOf($_,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $entry.ExecutablePath.IndexOf($_,[StringComparison]::OrdinalIgnoreCase) -ge 0 }).Count -gt 0 }).Count`;
+ const result=await runProcess('powershell.exe',['-NoProfile','-NonInteractive','-Command',command],{timeoutMs:15000,maxOutputBytes:4096});
+ if(result.exitCode!==0||!/^\d+$/.test(result.stdout.trim()))throw new Error('Cannot establish runtime process state; files retained');
+ if(Number(result.stdout.trim())!==0)throw new Error('A Python or Node process references this runtime; stop its client before removal');
+}
+
+/** Remove only an explicitly checksum-selected complete, unchanged runtime. */
+export async function removePythonRuntime(directory:string,expectedReceiptSha256:string){
+ z.string().regex(/^[a-f0-9]{64}$/).parse(expectedReceiptSha256);
+ const status=await pythonRuntimeStatus(directory);
+ if(status.state!=='receipt_checked')throw new Error('Incomplete runtime removal is unsupported; installer state is unknown');
+ if(status.receiptSha256!==expectedReceiptSha256||!status.unchanged)throw new Error('Python runtime receipt or files changed; removal refused');
+ const parent=path.dirname(status.directory),quarantine=path.join(parent,`${path.basename(status.directory)}.removing-${randomUUID()}`);
+ if(parent===status.directory||path.dirname(quarantine)!==parent||await direct(status.directory)!==status.directory)throw new Error('Invalid Python runtime removal paths');
+ await assertPythonRuntimeStopped([status.directory]);
+ await rename(status.directory,quarantine);
+ try{
+  if(await direct(quarantine)!==quarantine||await packageTreeHash(quarantine)!==status.treeSha256)throw new Error('Runtime changed during removal preparation');
+  const receiptFile=path.join(quarantine,'installation.json');
+  if((await lstat(receiptFile)).isSymbolicLink())throw new Error('Runtime receipt became a link');
+  if(createHash('sha256').update(await readBoundedFile(receiptFile,16384)).digest('hex')!==expectedReceiptSha256)throw new Error('Runtime receipt changed during removal preparation');
+  await assertPythonRuntimeStopped([status.directory,quarantine]);
+  if(await direct(quarantine)!==quarantine||path.dirname(quarantine)!==parent)throw new Error('Runtime removal path changed');
+  await rm(quarantine,{recursive:true,force:false});
+ }catch(error){throw new Error(`Python runtime removal did not finish; retained files may be at ${quarantine}. ${(error as Error).message}`);}
+ return {directory:status.directory,removed:true,receiptSha256:expectedReceiptSha256,basePythonRemoved:false,configurationChanged:false,note:'Explicit complete-runtime removal with Windows process observations. No client configuration changes, installer interruption recovery or atomic cross-process exclusion.'};
 }
 /** Explicit install only. Existing destinations and interrupted attempts are retained. */
 export async function installPythonRuntime(directory:string,basePython:string){

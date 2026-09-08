@@ -5,8 +5,21 @@ import {it,expect,vi,beforeEach} from "vitest";
 const mock=vi.hoisted(()=>({run:vi.fn(),wheel:vi.fn()}));
 vi.mock("../src/process.js",()=>({runProcess:mock.run}));
 vi.mock("../src/library/python-bootstrap.js",()=>({PIP_VERSION:"26.2.1",preparePipWheel:mock.wheel}));
-import {installPythonRuntime,pythonRuntimeStatus,publishPythonRuntimeReceipt} from "../src/python-runtime.js";
+import {installPythonRuntime,pythonRuntimeStatus,publishPythonRuntimeReceipt,removePythonRuntime} from "../src/python-runtime.js";
 beforeEach(()=>{mock.run.mockReset();mock.wheel.mockReset();});
+it.runIf(process.platform==='win32').each(['remove','busy','unknown','stale','changed','busy-after-rename'])('guards managed Python removal: %s',async mode=>{
+ const {directory}=await fixture(),installed=await installPythonRuntime(directory,process.execPath);let checks=0;
+ mock.run.mockImplementation(async()=>({exitCode:mode==='unknown'?1:0,stderr:'',stdout:mode==='busy'||(mode==='busy-after-rename'&&++checks===2)?'1':'0'}));
+ if(mode==='changed')await writeFile(installed.executable,'changed interpreter');
+ const hash=mode==='stale'?'0'.repeat(64):installed.receiptSha256;
+ if(mode==='remove'){
+  expect(await removePythonRuntime(directory,hash)).toMatchObject({removed:true,basePythonRemoved:false,configurationChanged:false});
+  await expect(readFile(path.join(directory,'installation.json'))).rejects.toMatchObject({code:'ENOENT'});
+ }else{
+  await expect(removePythonRuntime(directory,hash)).rejects.toThrow();
+  if(mode!=='busy-after-rename')expect(await readFile(path.join(directory,'installation.json'),'utf8')).toContain('avid-core-python');
+ }
+});
 it("publishes exactly one complete receipt when writers race and preserves it on retry",async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),"avid-runtime-receipt-"));
  const results=await Promise.allSettled([publishPythonRuntimeReceipt(root,{writer:1}),publishPythonRuntimeReceipt(root,{writer:2})]);
