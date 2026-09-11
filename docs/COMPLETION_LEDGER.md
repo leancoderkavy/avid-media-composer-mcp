@@ -1,5 +1,20 @@
 # Completion ledger
 
+### Validate installed HTTP alongside stdio
+
+Fresh-package acceptance now starts the installed HTTP entry from a disposable
+working directory, checks authentication and exact tool-definition parity with
+installed stdio, and compares source-preserving ALE analysis results. This closes
+the transport packaging gap where HTTP was exercised only from the checkout.
+The independent published `1.1.0` Windows check passed with 27 tools; it does not
+establish current development features as published, named-client GUI acceptance
+or live Avid editing. See [installed HTTP acceptance](LOCAL_SETUP.md#installed-http-transport-acceptance).
+
+Local `npm run check` passed with 841 TypeScript tests, 49 Python tests, and
+145 development tools matching between installed stdio and HTTP. The new HTTP
+check also rejected missing/incorrect credentials and preserved the ALE fixture.
+Hosted CI and merge/deployment evidence are separate from these local results.
+
 ### Declared timecode continuity across indexed media
 
 Added `avid_timecode_continuity` (inspect-only) over cached probe metadata. Parsing accepts `HH:MM:SS:FF` and `HH:MM:SS;FF`, rejects out-of-range fields, frame numbers at or above the nominal rate, drop-frame separators on non-29.97/59.94 declarations and skipped drop-frame numbers. Formatting round-trips drop-frame counts including ten-minute boundaries. Pairs compare declared end (start plus `nb_frames`) with the next declared start; differing nominal rate or drop-frame flag is reported as incomparable rather than computed. Ends beyond 24 hours are flagged. Missing rate, timecode or frame count is reported per file and excluded from pairs.
