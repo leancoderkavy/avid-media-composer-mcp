@@ -12,7 +12,7 @@ import { WorkflowRail } from "@/components/workflow-rail"
 import { faq } from "@/lib/faq"
 import { guidePath, guides } from "@/lib/guides"
 import { toolCount } from "@/lib/tools"
-import { absoluteUrl, docs, lastUpdated, npmUrl, packageVersion, pages, repo, siteName, siteUrl } from "@/lib/site"
+import { absoluteUrl, docs, lastUpdated, npmUrl, packageVersion, pages, repo, siteName, siteUrl, stableVersion } from "@/lib/site"
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -30,7 +30,7 @@ const structuredData = {
       "@type": "SoftwareSourceCode",
       "@id": absoluteUrl("/#software"),
       name: "Avid Media Composer MCP Server",
-      version: packageVersion,
+      version: stableVersion,
       description: "Open-source MCP server for read-only Avid project analysis and guarded editing automation.",
       url: absoluteUrl("/"),
       codeRepository: repo,
@@ -57,7 +57,7 @@ const structuredData = {
       applicationCategory: "DeveloperApplication",
       applicationSubCategory: "Model Context Protocol server",
       operatingSystem: "Windows, macOS",
-      softwareVersion: packageVersion,
+      softwareVersion: stableVersion,
       downloadUrl: npmUrl,
       installUrl: absoluteUrl(pages.setup.path),
       softwareHelp: absoluteUrl(pages.faq.path),
@@ -149,7 +149,7 @@ export default function Home() {
         <div id="demo"><HeroDemo /></div>
 
         <div className="proof">
-          <div><Layers /><span><strong>v{packageVersion}</strong><small>Current package version</small></span></div>
+          <div><Layers /><span><strong>v{stableVersion}</strong><small>Current package version</small></span></div>
           <div><HardDrive /><span><strong>Windows + macOS</strong><small>Qualified Avid releases</small></span></div>
           <div><FolderLock /><span><strong>Local-first</strong><small>Media never leaves your machine</small></span></div>
           <div><GitFork /><span><strong>MIT licensed</strong><small>Source available on GitHub</small></span></div>

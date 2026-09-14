@@ -9,6 +9,7 @@ import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {smokeAafPackage} from "./smoke-aaf-package.mjs";
 import {smokeSnapshotPackage} from "./smoke-snapshot-package.mjs";
+import {smokeInstalledHttp} from "./smoke-installed-http.mjs";
 import {
   StdioClientTransport,
   getDefaultEnvironment,
@@ -227,6 +228,16 @@ try {
       throw new Error(`Installed tool definitions differ from checkout: ${changed.join(", ") || "tool inventory changed"}`);
     }
   } finally {await checkoutClient.close();}
+  const httpFixture = path.join(temporary, "http-fixture");
+  await mkdir(httpFixture);
+  const sourceAlePath = path.join(root, "tests/fixtures/sample-project/Clips.ale");
+  const aleBytes = await readFile(sourceAlePath);
+  const alePath = path.join(httpFixture, "Clips.ale");
+  await writeFile(alePath, aleBytes, { flag: "wx" });
+  const ale = await client.callTool({ name: "avid_analyze_ale", arguments: { ale_path: sourceAlePath } });
+  if (ale.isError || ale.structuredContent?.data?.rowCount !== 2) throw new Error("Installed stdio ALE fixture analysis failed");
+  if (!isDeepStrictEqual(await readFile(sourceAlePath), aleBytes)) throw new Error("Installed stdio analysis changed ALE source bytes");
+  const installedHttp = await smokeInstalledHttp({ installedRoot, fixtureRoot: httpFixture, expectedTools: tools.tools, expectedAle: { ...ale.structuredContent.data, path: await realpath(alePath) } });
   const snapshotDirectory=path.join(temporary,"avid-mcp-library");
   await mkdir(snapshotDirectory,{recursive:true});
   const baseline="00000000-0000-4000-8000-000000000001",candidate="00000000-0000-4000-8000-000000000002";
@@ -440,6 +451,7 @@ try {
       ok: true,
       package: `${installedPackage.name}@${installedPackage.version}`,
       tools: tools.tools.length,
+      installedHttp,
       skills: skillNames.length,
       install: "fresh-tarball",
       toolDefinitions: "exact checkout match",
