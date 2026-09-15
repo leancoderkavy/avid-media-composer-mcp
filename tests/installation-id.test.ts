@@ -16,7 +16,8 @@ afterEach(async () => {
 
 describe("installation ID", () => {
   it("generates a valid UUID when no existing ID is found", async () => {
-    const id = await getOrCreateInstallationId();
+    const nonExistentDir = join(testDir, "nonexistent");
+    const id = await getOrCreateInstallationId({ configDirs: [nonExistentDir] });
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
@@ -30,8 +31,7 @@ describe("installation ID", () => {
       { mode: 0o600 },
     );
 
-    process.env.HOME = testDir;
-    const id = await getOrCreateInstallationId();
+    const id = await getOrCreateInstallationId({ configDirs: [configDir] });
     expect(id).toBe(existingId);
   });
 
@@ -40,17 +40,28 @@ describe("installation ID", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(join(configDir, "avid-mcp-installation-id"), "invalid-id\n", { mode: 0o600 });
 
-    process.env.HOME = testDir;
-    const id = await getOrCreateInstallationId();
+    const id = await getOrCreateInstallationId({ configDirs: [configDir] });
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     expect(id).not.toBe("invalid-id");
   });
 
   it("returns a generated ID even if persistence fails", async () => {
-    process.env.HOME = "/nonexistent-directory-that-cannot-be-created";
-    process.env.TMPDIR = "/another-nonexistent-directory";
-
-    const id = await getOrCreateInstallationId();
+    const readOnlyDir = join(testDir, "readonly");
+    const id = await getOrCreateInstallationId({
+      configDirs: ["/nonexistent-directory-that-cannot-be-created", readOnlyDir],
+    });
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  it("tries multiple directories and uses the first available", async () => {
+    const failDir = "/nonexistent-cannot-create";
+    const workingDir = join(testDir, "working");
+    await mkdir(workingDir, { recursive: true });
+
+    const id1 = await getOrCreateInstallationId({ configDirs: [failDir, workingDir] });
+    expect(id1).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
+    const id2 = await getOrCreateInstallationId({ configDirs: [failDir, workingDir] });
+    expect(id2).toBe(id1);
   });
 });

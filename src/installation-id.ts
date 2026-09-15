@@ -28,11 +28,19 @@ async function tryWriteInstallationId(configDir: string, id: string): Promise<bo
   }
 }
 
-export async function getOrCreateInstallationId(): Promise<string> {
-  const configDirs = [
-    join(homedir(), ".config", "avid-media-composer-mcp"),
-    join(tmpdir(), "avid-media-composer-mcp"),
-  ];
+export interface InstallationIdOptions {
+  configDirs?: string[];
+}
+
+export async function getOrCreateInstallationId(
+  options: InstallationIdOptions = {},
+): Promise<string> {
+  const configDirs =
+    options.configDirs ||
+    [
+      join(homedir(), ".config", "avid-media-composer-mcp"),
+      join(tmpdir(), "avid-media-composer-mcp"),
+    ];
 
   for (const configDir of configDirs) {
     const existing = await tryReadInstallationId(configDir);
