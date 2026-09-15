@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   title: { default: title, template: `%s | ${siteName}` },
   description,
   verification: {
+    other: { "ahrefs-site-verification": "433e9794fce9fecdaa8a314a3b3c3f1d14d146a9a65442cfdc794dfeb38066aa" },
     google: "7_CWvFtMrOF4ll4pOAAGN0Qx1mo5ZkQOPSPEhjU5gmY"
   },
   applicationName: siteName,
