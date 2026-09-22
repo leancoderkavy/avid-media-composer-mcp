@@ -1,10 +1,15 @@
 import type http from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHttpServer } from "../src/http-app.js";
 import packageJson from "../package.json" with { type: "json" };
+import * as telemetryModule from "../src/telemetry.js";
 
 const servers: http.Server[] = [];
 const TEST_TOKEN = "unit-test-token-32-bytes-minimum!";
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
 
 async function startServer(
   token = TEST_TOKEN,
@@ -181,5 +186,69 @@ describe("remote HTTP application", () => {
         })
       ).status,
     ).toBe(429);
+  });
+
+  it("does not capture telemetry for health and root routes", async () => {
+    const captureSpy = vi.spyOn(telemetryModule.telemetry, "capture");
+    const base = await startServer();
+
+    await fetch(`${base}/health`);
+    await fetch(`${base}/`);
+
+    expect(captureSpy).not.toHaveBeenCalled();
+  });
+
+  it("uses session ID as distinct_id for MCP requests", async () => {
+    const captureSpy = vi.spyOn(telemetryModule.telemetry, "capture");
+    const base = await startServer();
+
+    const response = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TEST_TOKEN}`,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+        id: 1,
+      }),
+    });
+
+    expect(response.ok).toBe(true);
+
+    const calls = captureSpy.mock.calls.filter((call) => call[0] === "avid_mcp_request");
+    expect(calls.length).toBeGreaterThan(0);
+
+    const [_event, _properties, distinctId] = calls[0];
+    expect(distinctId).toBeDefined();
+    expect(typeof distinctId).toBe("string");
+    expect(distinctId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  it("uses auth fingerprint as distinct_id for connection attempts", async () => {
+    const captureSpy = vi.spyOn(telemetryModule.telemetry, "capture");
+    const base = await startServer();
+
+    await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: { Authorization: "Bearer wrong" },
+    });
+
+    const unauthorizedCalls = captureSpy.mock.calls.filter(
+      (call) => call[0] === "avid_mcp_connection_attempt" && call[1].outcome === "unauthorized",
+    );
+    expect(unauthorizedCalls.length).toBeGreaterThan(0);
+
+    const [_event, _properties, distinctId] = unauthorizedCalls[0];
+    expect(distinctId).toBeDefined();
+    expect(typeof distinctId).toBe("string");
+    expect(distinctId).toMatch(/^http:[a-f0-9]{16}$/);
   });
 });
