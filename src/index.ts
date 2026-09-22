@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
+import { getOrCreateInstallationId } from "./installation-id.js";
 import { createServer } from "./server.js";
 import { telemetry } from "./telemetry.js";
 import { SERVER_VERSION } from "./version.js";
 
 async function main(): Promise<void> {
+  const installationId = await getOrCreateInstallationId();
   const config = loadConfig();
   const server = createServer(config);
   const transport = new StdioServerTransport();
@@ -24,10 +26,14 @@ async function main(): Promise<void> {
   };
   process.stdin.once("end", close);
   for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, close);
-  telemetry.capture("avid_mcp_server_started", {
-    transport: "stdio",
-    telemetry_enabled: telemetry.enabled,
-  });
+  telemetry.capture(
+    "avid_mcp_server_started",
+    {
+      transport: "stdio",
+      telemetry_enabled: telemetry.enabled,
+    },
+    `stdio:${installationId}`,
+  );
   console.error(
     JSON.stringify({
       type: "avid-media-composer-mcp-ready",
