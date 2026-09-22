@@ -24,6 +24,7 @@ export const ogImage = {
 
 export const pages = {
   home: { path: "/", title: "Avid Media Composer MCP Server | AI Project Analysis" },
+  whatIs: { path: "/what-is-avid-mcp/", title: "What Is Avid Media Composer MCP?" },
   tools: { path: "/tools/", title: "MCP Tools for Avid Media Composer" },
   setup: { path: "/setup/", title: "Install the Avid Media Composer MCP Server" },
   faq: { path: "/faq/", title: "Avid Media Composer MCP FAQ" }
