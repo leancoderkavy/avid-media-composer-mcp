@@ -53,10 +53,15 @@ httpServer.listen(port, "0.0.0.0", () => {
   console.error(
     `[avid-media-composer-mcp] Streamable HTTP listening on 0.0.0.0:${selectedPort}`,
   );
-  telemetry.capture("avid_mcp_server_started", {
-    transport: "streamable-http",
-    telemetry_enabled: telemetry.enabled,
-  });
+  const serviceId = process.env.FLY_APP_NAME?.trim() || "avid-media-composer-mcp";
+  telemetry.capture(
+    "avid_mcp_server_started",
+    {
+      transport: "streamable-http",
+      telemetry_enabled: telemetry.enabled,
+    },
+    `service:${serviceId}`,
+  );
 });
 
 let closing=false;
