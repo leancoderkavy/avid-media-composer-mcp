@@ -7,7 +7,7 @@ describe("PostHog telemetry", () => {
     const factory = vi.fn();
     const telemetry = createTelemetry({}, factory);
 
-    telemetry.capture("avid_mcp_server_started", { transport: "stdio" });
+    telemetry.capture("avid_mcp_server_started", { transport: "stdio" }, "stdio:test-id");
     await telemetry.shutdown();
 
     expect(telemetry.enabled).toBe(false);
@@ -15,6 +15,48 @@ describe("PostHog telemetry", () => {
   });
 
   it("captures only supplied bounded operational metadata and disables profiles", async () => {
+    const captureImmediate = vi.fn(async () => undefined);
+    const shutdown = vi.fn(async () => undefined);
+    const telemetry = createTelemetry(
+      {
+        POSTHOG_API_KEY: "test-project-key",
+        POSTHOG_HOST: "https://example.posthog.test",
+        NODE_ENV: "test",
+      },
+      () => ({ captureImmediate, _shutdown: shutdown }) as never,
+    );
+
+    telemetry.capture(
+      "avid_mcp_tool_call",
+      {
+        tool: "avid_ping",
+        outcome: "succeeded",
+        duration_ms: 3,
+      },
+      "session:test-session-123",
+    );
+    await telemetry.shutdown();
+
+    expect(telemetry.enabled).toBe(true);
+    expect(captureImmediate).toHaveBeenCalledWith({
+      distinctId: "session:test-session-123",
+      event: "avid_mcp_tool_call",
+      properties: {
+        tool: "avid_ping",
+        outcome: "succeeded",
+        duration_ms: 3,
+        service: "avid-media-composer-mcp",
+        server_version: packageJson.version,
+        environment: "test",
+        $geoip_disable: true,
+        $process_person_profile: false,
+      },
+      disableGeoip: true,
+    });
+    expect(shutdown).toHaveBeenCalledWith(5_000);
+  });
+
+  it("uses fallback distinct_id when not provided", async () => {
     const captureImmediate = vi.fn(async () => undefined);
     const shutdown = vi.fn(async () => undefined);
     const telemetry = createTelemetry(

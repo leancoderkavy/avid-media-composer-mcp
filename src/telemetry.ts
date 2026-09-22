@@ -11,7 +11,7 @@ export type TelemetryProperties = Record<string, boolean | number | string | nul
 
 export interface Telemetry {
   readonly enabled: boolean;
-  capture(event: TelemetryEvent, properties?: TelemetryProperties): void;
+  capture(event: TelemetryEvent, properties?: TelemetryProperties, distinctId?: string): void;
   shutdown(): Promise<void>;
 }
 
@@ -22,6 +22,13 @@ const noopTelemetry: Telemetry = {
   capture: () => undefined,
   shutdown: async () => undefined,
 };
+
+function defaultDistinctId(env: NodeJS.ProcessEnv): string {
+  return (
+    env.POSTHOG_DISTINCT_ID?.trim() ||
+    `service:${env.FLY_APP_NAME?.trim() || "avid-media-composer-mcp"}`
+  );
+}
 
 export function createTelemetry(
   env: NodeJS.ProcessEnv = process.env,
@@ -37,17 +44,15 @@ export function createTelemetry(
   if (!apiKey) return noopTelemetry;
 
   const host = env.POSTHOG_HOST?.trim() || DEFAULT_POSTHOG_HOST;
-  const distinctId =
-    env.POSTHOG_DISTINCT_ID?.trim() ||
-    `service:${env.FLY_APP_NAME?.trim() || "avid-media-composer-mcp"}`;
+  const fallbackDistinctId = defaultDistinctId(env);
   const client = clientFactory(apiKey, host);
 
   return {
     enabled: true,
-    capture(event, properties = {}) {
+    capture(event, properties = {}, distinctId) {
       void client
         .captureImmediate({
-          distinctId,
+          distinctId: distinctId || fallbackDistinctId,
           event,
           properties: {
             ...properties,
