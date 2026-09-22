@@ -198,7 +198,7 @@ describe("remote HTTP application", () => {
     expect(captureSpy).not.toHaveBeenCalled();
   });
 
-  it("uses session ID as distinct_id for MCP requests", async () => {
+  it("keeps MCP session IDs out of telemetry", async () => {
     const captureSpy = vi.spyOn(telemetryModule.telemetry, "capture");
     const base = await startServer();
 
@@ -227,12 +227,11 @@ describe("remote HTTP application", () => {
     expect(calls.length).toBeGreaterThan(0);
 
     const [_event, _properties, distinctId] = calls[0];
-    expect(distinctId).toBeDefined();
-    expect(typeof distinctId).toBe("string");
-    expect(distinctId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(distinctId).toBeUndefined();
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(response.headers.get("mcp-session-id"));
   });
 
-  it("uses auth fingerprint as distinct_id for connection attempts", async () => {
+  it("keeps token fingerprints out of telemetry", async () => {
     const captureSpy = vi.spyOn(telemetryModule.telemetry, "capture");
     const base = await startServer();
 
@@ -247,8 +246,7 @@ describe("remote HTTP application", () => {
     expect(unauthorizedCalls.length).toBeGreaterThan(0);
 
     const [_event, _properties, distinctId] = unauthorizedCalls[0];
-    expect(distinctId).toBeDefined();
-    expect(typeof distinctId).toBe("string");
-    expect(distinctId).toMatch(/^http:[a-f0-9]{16}$/);
+    expect(distinctId).toBeUndefined();
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(TEST_TOKEN);
   });
 });

@@ -1,9 +1,11 @@
 "use client"
 
+import { captureLanding, type CopyTarget } from "@/lib/telemetry"
+
 import { Check, Copy } from "lucide-react"
 import { useEffect, useState } from "react"
 
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+export function CopyButton({ value, label = "Copy", telemetryTarget }: { value: string; label?: string; telemetryTarget: CopyTarget }) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -16,8 +18,10 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
     try {
       await navigator.clipboard.writeText(value)
       setCopied(true)
+      captureLanding("avid_landing_copy", telemetryTarget, "succeeded")
     } catch {
       setCopied(false)
+      captureLanding("avid_landing_copy", telemetryTarget, "failed")
     }
   }
 
