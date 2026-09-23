@@ -34,6 +34,17 @@ describe("landing deployment security", () => {
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).not.toContain("unsafe-eval");
-    expect(csp).not.toMatch(/https?:\/\//);
+    
+    // Verify CSP doesn't allow overly-broad URL patterns
+    expect(csp).not.toMatch(/\bhttps?:\s/); // bare http: or https: without //
+    expect(csp).not.toMatch(/https?:\/\/\*/); // wildcard origins like https://*
+    
+    // Allowlist specific PostHog ingestion origins (exact match only)
+    const allowedOrigins = ["https://us.i.posthog.com", "https://eu.i.posthog.com"];
+    const urlPattern = /https?:\/\/[^\s;]+/g;
+    const foundUrls = csp.match(urlPattern) || [];
+    for (const url of foundUrls) {
+      expect(allowedOrigins).toContain(url);
+    }
   });
 });
