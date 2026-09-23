@@ -8,11 +8,20 @@ let distinctId: string | undefined
 export function captureLanding(event: LandingEvent, target: CopyTarget, outcome?: "succeeded" | "failed") {
   try {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim()
-    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com"
+    const hostString = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com"
     if (!key || typeof window === "undefined" || navigator.doNotTrack === "1" ||
       (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl) return
     // Keep destinations and property values bounded even if called from untyped code.
-    if (!["https://us.i.posthog.com", "https://eu.i.posthog.com"].includes(host)) return
+    // Validate host using proper URL parsing to prevent incomplete substring sanitization
+    const allowedOrigins = new Set(["https://us.i.posthog.com", "https://eu.i.posthog.com"])
+    let host: string
+    try {
+      const url = new URL(hostString)
+      if (!allowedOrigins.has(url.origin)) return
+      host = url.origin
+    } catch {
+      return // Invalid URL format
+    }
     if (!["avid_landing_client_selected", "avid_landing_copy"].includes(event) ||
       !["claude", "cursor", "vscode", "cli", "safe_prompt"].includes(target)) return
     if (event === "avid_landing_copy" && outcome !== "succeeded" && outcome !== "failed") return

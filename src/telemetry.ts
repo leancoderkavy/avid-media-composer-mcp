@@ -16,7 +16,7 @@ export interface Telemetry {
 }
 
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
-const ALLOWED_POSTHOG_HOSTS = ["https://us.i.posthog.com", "https://eu.i.posthog.com"];
+const ALLOWED_POSTHOG_ORIGINS = new Set(["https://us.i.posthog.com", "https://eu.i.posthog.com"]);
 
 const noopTelemetry: Telemetry = {
   enabled: false,
@@ -44,9 +44,19 @@ export function createTelemetry(
   const apiKey = env.POSTHOG_API_KEY?.trim();
   if (!apiKey) return noopTelemetry;
 
-  const host = env.POSTHOG_HOST?.trim() || DEFAULT_POSTHOG_HOST;
-  if (!ALLOWED_POSTHOG_HOSTS.includes(host)) {
-    console.warn(`[avid-media-composer-mcp] Invalid PostHog host: ${host}. Telemetry disabled.`);
+  const hostString = env.POSTHOG_HOST?.trim() || DEFAULT_POSTHOG_HOST;
+  
+  // Validate host using proper URL parsing to prevent incomplete substring sanitization
+  let host: string;
+  try {
+    const url = new URL(hostString);
+    if (!ALLOWED_POSTHOG_ORIGINS.has(url.origin)) {
+      console.warn(`[avid-media-composer-mcp] Invalid PostHog origin: ${url.origin}. Telemetry disabled.`);
+      return noopTelemetry;
+    }
+    host = url.origin;
+  } catch {
+    console.warn(`[avid-media-composer-mcp] Invalid PostHog URL: ${hostString}. Telemetry disabled.`);
     return noopTelemetry;
   }
   
