@@ -1,9 +1,13 @@
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ServerConfig } from "../src/config.js";
 import { createServer } from "../src/server.js";
+
+import { telemetry } from "../src/telemetry.js";
+import { MediaLibrary } from "../src/library/media-library.js";
+import { AvidMcpError } from "../src/errors.js";
 
 const fixture = path.resolve("tests/fixtures/sample-project");
 
@@ -125,6 +129,34 @@ describe("MCP server surface", () => {
     } finally {
       await client.close();
       await server.close();
+    }
+  });
+});
+
+
+describe("library critical-path telemetry", () => {
+  it("records success and failure without search text, paths, results or error messages", async () => {
+    const capture = vi.spyOn(telemetry, "capture").mockImplementation(() => undefined);
+    const search = vi.spyOn(MediaLibrary.prototype, "search")
+      .mockResolvedValueOnce({ privateResult: "/private/media.mov" } as never)
+      .mockRejectedValueOnce(new AvidMcpError("PATH_NOT_ALLOWED", "/private/media.mov", { secret: "token" }));
+    const server = createServer(testConfig());
+    const client = new Client({ name: "telemetry-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    try {
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      const request = { name: "avid_search_media", arguments: { ids: ["a".repeat(64)], query: "private transcript" } };
+      expect((await client.callTool(request)).isError).not.toBe(true);
+      expect((await client.callTool(request)).isError).toBe(true);
+      expect(capture.mock.calls).toEqual([
+        ["avid_mcp_tool_call", { tool: "avid_search_media", outcome: "succeeded", duration_ms: expect.any(Number) }],
+        ["avid_mcp_tool_call", { tool: "avid_search_media", outcome: "failed", error_code: "PATH_NOT_ALLOWED", duration_ms: expect.any(Number) }],
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+      search.mockRestore();
+      capture.mockRestore();
     }
   });
 });

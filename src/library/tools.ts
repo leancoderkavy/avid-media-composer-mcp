@@ -10,6 +10,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import type { ServerConfig } from "../config.js";
 import { errorDetails } from "../errors.js";
+import { telemetry } from "../telemetry.js";
 import { MediaLibrary, transcriptSchema } from "./media-library.js";
 import { VisualSearch, visualRange, visualScope, visualRefinement } from "./visual.js";
 import { SpeechAnalysis } from "./speech.js";
@@ -59,8 +60,22 @@ export function registerLibraryTools(server: McpServer, config: ServerConfig) {
   const read = {readOnlyHint:true, destructiveHint:false, openWorldHint:false, idempotentHint:true};
   const write = {readOnlyHint:false, destructiveHint:false, openWorldHint:false, idempotentHint:false};
   const result = async (name: string, fn: () => Promise<unknown>) => {
-    try { const data = {ok:true,tool:name,data:await fn()}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data}; }
-    catch(error) { const data={ok:false,tool:name,error:errorDetails(error)}; return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true}; }
+    const startedAt = performance.now();
+    try {
+      const data = {ok:true,tool:name,data:await fn()};
+      const response = {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data};
+      telemetry.capture("avid_mcp_tool_call", {
+        tool: name, outcome: "succeeded", duration_ms: Math.round(performance.now() - startedAt),
+      });
+      return response;
+    } catch(error) {
+      const data={ok:false,tool:name,error:errorDetails(error)};
+      telemetry.capture("avid_mcp_tool_call", {
+        tool: name, outcome: "failed", error_code: data.error.code,
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
+      return {content:[{type:"text" as const,text:JSON.stringify(data)}],structuredContent:data,isError:true};
+    }
   };
   server.registerTool("avid_prepare_source_clock_media",{description:"Create a new MOV from checksum-selected local MP4/MOV media: copy one H.264 video stream and normalize one stereo audio stream to source-clock 48kHz/24-bit PCM. Explicit absolute stream indexes; at most 600 seconds and 4 GiB. Verifies video metadata/essence, PCM and packet continuity, preserving the source. Requires export; no Avid import/relink or color qualification.",inputSchema:{options:sourceClockOptions},annotations:write},({options})=>result("avid_prepare_source_clock_media",()=>new SourceClockMedia(config).prepare(options)));
   server.registerTool("avid_source_clock_status",{description:"Inspect a saved source-clock preparation by its directory UUID. Validates scoped source identity, outcome records and any completed output checksum. Distinguishes unresolved, failure_recorded and receipt_matches_files. Worker state remains unknown; no retry, cleanup, fresh essence verification or Avid import.",inputSchema:{runId:z.string().uuid()},annotations:read},({runId})=>result("avid_source_clock_status",()=>new SourceClockMedia(config).status(runId)));

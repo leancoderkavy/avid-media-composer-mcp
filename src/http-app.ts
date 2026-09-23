@@ -201,7 +201,6 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
     const now = Date.now();
     const requestStartedAt = performance.now();
-    let mcpSessionId: string | undefined;
     response.once("finish", () => {
       if (pathname === "/health" || pathname === "/") {
         return;
@@ -210,13 +209,13 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
         "avid_mcp_request",
         {
           transport: "streamable-http",
-          method: request.method ?? "UNKNOWN",
+          method: ["GET", "POST", "DELETE", "OPTIONS", "HEAD", "PUT", "PATCH"].includes(request.method ?? "")
+            ? request.method! : "OTHER",
           route:
             pathname === "/mcp" || pathname === "/health" || pathname === "/" ? pathname : "other",
           status_code: response.statusCode,
           duration_ms: Math.round(performance.now() - requestStartedAt),
         },
-        mcpSessionId || `http:${authFingerprint}`,
       );
     });
     if (rateWindows.size > 10_000) {
@@ -287,7 +286,6 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
           transport: "streamable-http",
           outcome: "unauthorized",
         },
-        `http:${authFingerprint}`,
       );
       sendJson(
         response,
@@ -314,7 +312,6 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
         transport: "streamable-http",
         outcome: "authorized",
       },
-      `http:${authFingerprint}`,
     );
 
     if (activeRequests >= maxConcurrentRequests) {
@@ -347,14 +344,12 @@ export function createHttpServer(options: HttpServerOptions): http.Server {
         const server=createServer(options.config??loadConfig());
         const created:Session={server,transport:new StreamableHTTPServerTransport({
           sessionIdGenerator:()=>randomUUID(),
-          onsessioninitialized:id=>{sessions.set(id,created);mcpSessionId=id;},
+          onsessioninitialized:id=>{sessions.set(id,created);},
           onsessionclosed:()=>closeSession(created),
         }),lastUsed:Date.now(),active:0};
         session=created;contexts.add(created);
         try{await server.connect(created.transport as unknown as Transport);}
         catch(error){await closeSession(created);throw error;}
-      } else {
-        mcpSessionId = session.transport.sessionId;
       }
       const current=session;
       if(response.destroyed||response.writableEnded){if(!current.transport.sessionId)await closeSession(current);return;}

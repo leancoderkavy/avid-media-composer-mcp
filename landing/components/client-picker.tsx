@@ -5,8 +5,10 @@ import { Bot, Code2, MonitorSmartphone, Terminal } from "lucide-react"
 import { useState, type ComponentType } from "react"
 import { CopyButton } from "@/components/copy-button"
 
+import { captureLanding, type SetupClient } from "@/lib/telemetry"
+
 type Route = {
-  id: string
+  id: SetupClient
   name: string
   badge: string
   tagline: string
@@ -109,7 +111,10 @@ export function ClientPicker() {
               aria-selected={index === active}
               aria-controls="client-panel"
               className={index === active ? "active" : ""}
-              onClick={() => setActive(index)}
+              onClick={() => {
+                setActive(index)
+                if (index !== active) captureLanding("avid_landing_client_selected", item.id)
+              }}
             >
               <small>{item.badge}</small>
               <RouteIcon />
@@ -134,7 +139,7 @@ export function ClientPicker() {
                 <strong>{route.name}</strong>
                 <small>{route.file}</small>
               </span>
-              <CopyButton value={route.snippet} label="Copy config" />
+              <CopyButton value={route.snippet} label="Copy config" telemetryTarget={route.id} />
             </div>
             <p>{route.detail}</p>
             <pre><code>{route.snippet}</code></pre>
