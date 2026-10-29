@@ -258,6 +258,9 @@ code. It does not send prompts, tool
 arguments or results, paths, media or project names, bearer tokens, IP addresses, or person
 profiles. Use a deployment secret for `POSTHOG_API_KEY`; never commit it.
 
+See [the PostHog event catalog and setup audit](docs/posthog-events.md) for event
+properties, identity/privacy boundaries, and independent opt-in landing setup.
+
 ## Safe edit workflow
 
 1. Call `avid_get_bridge_status`.
