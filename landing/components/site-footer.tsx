@@ -32,6 +32,10 @@ export function SiteFooter() {
           Independent, open-source, local-first MCP tooling for source-safe Avid Media Composer project analysis and
           guarded editing automation.
         </p>
+        <p>
+          Working across NLEs? See also{" "}
+          <a href="https://github.com/leancoderkavy/premiere-pro-mcp">Premiere Pro MCP</a>.
+        </p>
       </div>
 
       <div className="footer-cols">
