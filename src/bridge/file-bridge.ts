@@ -3,7 +3,7 @@ import { lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promi
 import path from "node:path";
 import { evaluateCompatibility } from "../compatibility/releases.js";
 import { AvidMcpError } from "../errors.js";
-import { bridgeCapabilitiesSchema, parseBridgeResponse } from "./schemas.js";
+import { bridgeCapabilitiesSchema, parseBridgeResponse, validateBridgeCommand } from "./schemas.js";
 import {
   bridgeAuthConfig,
   createBridgeAuthentication,
@@ -18,12 +18,32 @@ import {
 } from "./types.js";
 
 const HEARTBEAT_MAX_AGE_MS = 15_000;
+const HEALTH_CHECK_TIMEOUT_MS = 1_000;
+const RESPONSE_RETRY_INITIAL_MS = 50;
+const RESPONSE_RETRY_MAX_MS = 500;
 const clientSessionId = randomUUID();
 const requestSequences = new Map<string, number>();
 const SAFE_FILE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 async function readJson(filePath: string): Promise<unknown> {
   return JSON.parse(await readFile(filePath, "utf8"));
+}
+
+async function withinTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new AvidMcpError("BRIDGE_CONNECTION_TIMEOUT", `Bridge ${operation} timed out`, { timeoutMs })),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function nextRequestSequence(installationId: string): number {
@@ -51,23 +71,30 @@ async function assertRealFile(filePath: string): Promise<void> {
 }
 
 export async function getBridgeStatus(bridgeDir: string | undefined): Promise<BridgeStatus> {
+  const checkedAt = new Date().toISOString();
   if (!bridgeDir) {
     return {
       configured: false,
       connected: false,
+      mode: "read-only",
+      availability: "not-configured",
+      checkedAt,
       reason: "AVID_MCP_BRIDGE_DIR is not configured",
     };
   }
 
   const capabilitiesPath = path.join(bridgeDir, "state", "capabilities.json");
   try {
-    await assertRealFile(capabilitiesPath);
-    const rawDocument = await readJson(capabilitiesPath);
+    await withinTimeout(assertRealFile(capabilitiesPath), HEALTH_CHECK_TIMEOUT_MS, "health check");
+    const rawDocument = await withinTimeout(readJson(capabilitiesPath), HEALTH_CHECK_TIMEOUT_MS, "health check");
     const parsedCapabilities = bridgeCapabilitiesSchema.safeParse(rawDocument);
     if (!parsedCapabilities.success) {
       return {
         configured: true,
         connected: false,
+        mode: "read-only",
+        availability: "unhealthy",
+        checkedAt,
         bridgeDir,
         reason: "Bridge capability document is invalid or uses a different protocol version",
       };
@@ -78,6 +105,9 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
       return {
         configured: true,
         connected: false,
+        mode: "read-only",
+        availability: "unhealthy",
+        checkedAt,
         bridgeDir,
         capabilities: raw,
         reason:
@@ -88,6 +118,9 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
       return {
         configured: true,
         connected: false,
+        mode: "read-only",
+        availability: "unhealthy",
+        checkedAt,
         bridgeDir,
         capabilities: raw,
         reason: "Bridge capability authentication could not be verified",
@@ -98,6 +131,9 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
       return {
         configured: true,
         connected: false,
+        mode: "read-only",
+        availability: "unhealthy",
+        checkedAt,
         bridgeDir,
         reason: "Bridge heartbeat is not a valid timestamp",
         capabilities: raw,
@@ -114,6 +150,9 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
     return {
       configured: true,
       connected: heartbeatAgeMs <= HEARTBEAT_MAX_AGE_MS && compatible,
+      mode: heartbeatAgeMs <= HEARTBEAT_MAX_AGE_MS && compatible ? "live-edit" : "read-only",
+      availability: heartbeatAgeMs <= HEARTBEAT_MAX_AGE_MS && compatible ? "healthy" : "unhealthy",
+      checkedAt,
       bridgeDir,
       heartbeatAgeMs,
       capabilities: raw,
@@ -131,12 +170,18 @@ export async function getBridgeStatus(bridgeDir: string | undefined): Promise<Br
           : {}),
     };
   } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
     return {
       configured: true,
       connected: false,
+      mode: "read-only",
+      availability: code === "ENOENT" ? "not-installed" : "unhealthy",
+      checkedAt,
       bridgeDir,
       reason:
-        error instanceof Error
+        code === "ENOENT"
+          ? "Media Composer Extension bridge is not installed or has not published its capability document"
+          : error instanceof Error
           ? `Bridge state is unavailable: ${error.message}`
           : "Bridge state is unavailable",
     };
@@ -150,6 +195,8 @@ async function waitForResponse(
   auth: NonNullable<ReturnType<typeof bridgeAuthConfig>>,
 ): Promise<BridgeResponse> {
   const deadline = Date.now() + timeoutMs;
+  let retryDelayMs = RESPONSE_RETRY_INITIAL_MS;
+  let retryCount = 0;
   while (Date.now() < deadline) {
     try {
       await assertRealFile(responsePath);
@@ -192,11 +239,16 @@ async function waitForResponse(
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT") throw error;
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(retryDelayMs, remainingMs)));
+    retryDelayMs = Math.min(retryDelayMs * 2, RESPONSE_RETRY_MAX_MS);
+    retryCount += 1;
   }
   throw new AvidMcpError("BRIDGE_TIMEOUT", "Media Composer Extension did not respond in time", {
     operationId: request.operationId,
     timeoutMs,
+    retryCount,
   });
 }
 
@@ -207,17 +259,26 @@ export async function sendBridgeCommand(
   timeoutMs: number,
   operationId = randomUUID(),
 ): Promise<BridgeResponse> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new AvidMcpError("BRIDGE_INVALID_TIMEOUT", "Bridge timeout must be a positive integer", { timeoutMs });
+  }
+  const validatedCommand = validateBridgeCommand(action, payload);
+  if (!validatedCommand) {
+    throw new AvidMcpError("BRIDGE_INVALID_REQUEST", "Bridge action or payload failed validation", { action });
+  }
   const status = await getBridgeStatus(bridgeDir);
   if (!status.connected || !status.bridgeDir || !status.capabilities) {
     throw new AvidMcpError(
-      "BRIDGE_NOT_CONNECTED",
+      status.availability === "not-configured" || status.availability === "not-installed"
+        ? "BRIDGE_NOT_INSTALLED"
+        : "BRIDGE_NOT_CONNECTED",
       status.reason ?? "Media Composer Extension bridge is not connected",
-      { status },
+      { status, readOnlyMode: true },
     );
   }
-  if (!status.capabilities.supportedActions.includes(action)) {
-    throw new AvidMcpError("BRIDGE_ACTION_UNSUPPORTED", `Bridge does not support '${action}'`, {
-      action,
+  if (!status.capabilities.supportedActions.includes(validatedCommand.action)) {
+    throw new AvidMcpError("BRIDGE_ACTION_UNSUPPORTED", `Bridge does not support '${validatedCommand.action}'`, {
+      action: validatedCommand.action,
       supportedActions: status.capabilities.supportedActions,
     });
   }
@@ -248,8 +309,9 @@ export async function sendBridgeCommand(
     nonce: randomUUID(),
     createdAt,
     expiresAt: new Date(Date.now() + timeoutMs).toISOString(),
-    action,
-    payload,
+    action: validatedCommand.action,
+    idempotencyKey: operationId,
+    payload: validatedCommand.payload,
     authentication: {} as BridgeRequest["authentication"],
   };
   request.authentication = createBridgeAuthentication(request as unknown as Record<string, unknown>, auth);

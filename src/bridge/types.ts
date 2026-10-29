@@ -40,6 +40,10 @@ export interface BridgeCapabilities {
 export interface BridgeStatus {
   configured: boolean;
   connected: boolean;
+  /** The server remains safe for offline inspection when live control is unavailable. */
+  mode?: "live-edit" | "read-only";
+  availability?: "healthy" | "not-configured" | "not-installed" | "unhealthy";
+  checkedAt?: string;
   bridgeDir?: string;
   reason?: string;
   heartbeatAgeMs?: number;
@@ -57,6 +61,8 @@ export interface BridgeRequest {
   createdAt: string;
   expiresAt: string;
   action: string;
+  /** Stable across waits/retries so an Extension can deduplicate a mutating command. */
+  idempotencyKey: string;
   payload: Record<string, unknown>;
   authentication: BridgeAuthentication;
 }
