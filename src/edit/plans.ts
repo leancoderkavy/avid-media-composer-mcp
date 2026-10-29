@@ -256,9 +256,11 @@ export async function applyEditPlan(
     const bridge = await getBridgeStatus(config.bridgeDir);
     if (!bridge.connected || !bridge.capabilities) {
       throw new AvidMcpError(
-        "BRIDGE_NOT_CONNECTED",
+        bridge.availability === "not-configured" || bridge.availability === "not-installed"
+          ? "BRIDGE_NOT_INSTALLED"
+          : "BRIDGE_NOT_CONNECTED",
         bridge.reason ?? "Media Composer Extension bridge is not connected",
-        { operationId, bridge },
+        { operationId, bridge, readOnlyMode: true },
       );
     }
     const bridgeCapabilities = bridge.capabilities;

@@ -108,7 +108,7 @@ describe("guarded edit plans", () => {
 
     const validated = validateEditPlan(guarded);
     await expect(applyEditPlan(validated, confirmationToken(validated), config({ capabilities: new Set(["inspect", "edit"]) }), () => undefined))
-      .rejects.toMatchObject({ code: "BRIDGE_NOT_CONNECTED" });
+      .rejects.toMatchObject({ code: "BRIDGE_NOT_INSTALLED" });
   });
 
   it("rejects deeply nested, cyclic, or prototype-sensitive plan values", () => {

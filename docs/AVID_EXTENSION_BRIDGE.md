@@ -65,7 +65,7 @@ The MCP considers a bridge disconnected after 15 seconds without a valid heartbe
 
 ## Requests and responses
 
-Each request contains a unique `operationId`, `nonce`, `clientSessionId`, strictly increasing `requestSequence`, creation and expiry times, and an authenticated payload. The response must echo `operationId`, `clientSessionId`, `requestSequence`, and `requestNonce`; the MCP rejects an unsigned, mismatched, stale, symlinked, or malformed response as invalid/replayed.
+Each request contains a unique `operationId`, an `idempotencyKey` equal to that operation ID, `nonce`, `clientSessionId`, strictly increasing `requestSequence`, creation and expiry times, and an authenticated payload. The response must echo `operationId`, `clientSessionId`, `requestSequence`, and `requestNonce`; the MCP rejects an unsigned, mismatched, stale, symlinked, or malformed response as invalid/replayed. The client polls with bounded exponential backoff but never republishes a mutation: Extensions must durably associate the idempotency key with its completed result and return that result if the same edit is encountered again.
 
 ```json
 {
@@ -77,6 +77,7 @@ Each request contains a unique `operationId`, `nonce`, `clientSessionId`, strict
   "createdAt": "2026-08-15T22:00:01.000Z",
   "expiresAt": "2026-08-15T22:00:31.000Z",
   "action": "inspect.getState",
+  "idempotencyKey": "5dbb7cc7-02e3-442d-a940-2de01c0ac899",
   "payload": { "scope": "summary", "options": {} },
   "authentication": { "algorithm": "hmac-sha256", "keyId": "studio-workstation-7", "nonce": "95655a43-18ad-4c9c-902e-b1d38668158d", "signedAt": "2026-08-15T22:00:01.000Z", "signature": "base64url-hmac-sha256" }
 }
