@@ -20,7 +20,7 @@ describe("PostHog telemetry", () => {
     const telemetry = createTelemetry(
       {
         POSTHOG_API_KEY: "test-project-key",
-        POSTHOG_HOST: "https://example.posthog.test",
+        POSTHOG_HOST: "https://us.i.posthog.com",
         NODE_ENV: "test",
       },
       () => ({ captureImmediate, _shutdown: shutdown }) as never,
@@ -62,7 +62,7 @@ describe("PostHog telemetry", () => {
     const telemetry = createTelemetry(
       {
         POSTHOG_API_KEY: "test-project-key",
-        POSTHOG_HOST: "https://example.posthog.test",
+        POSTHOG_HOST: "https://us.i.posthog.com",
         POSTHOG_DISTINCT_ID: "service:test",
         NODE_ENV: "test",
       },
