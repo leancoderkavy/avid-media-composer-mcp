@@ -222,7 +222,7 @@ export default function Home() {
           <aside className="prompt-card">
             <div className="prompt-card-head">
               <span><TerminalSquare /> Safe first prompt</span>
-              <CopyButton value={safePrompt} label="Copy prompt" />
+              <CopyButton value={safePrompt} label="Copy prompt" telemetryTarget="safe_prompt" />
             </div>
             <p>{safePrompt}</p>
             <ul>
