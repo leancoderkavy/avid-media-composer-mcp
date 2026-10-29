@@ -5,6 +5,7 @@ const links = [
   { label: "Demo", href: `${pages.home.path}#demo` },
   { label: "Workflow", href: `${pages.home.path}#workflow` },
   { label: "Capabilities", href: `${pages.home.path}#capabilities` },
+  { label: "Post houses", href: pages.postHouses.path },
   { label: "Connect", href: `${pages.home.path}#connect` },
   { label: "Guides", href: `${pages.home.path}#guides` },
   { label: "Tools", href: pages.tools.path },

@@ -25,6 +25,7 @@ const sitePages = [
   ["Home", "/", "Overview, capabilities, architecture and core FAQ."],
   ["Tool reference", "/tools/", `Every one of the ${toolCount} MCP tools in the published package, grouped by job, with mutation status.`],
   ["Setup guide", "/setup/", "Prerequisites, environment variables, client configuration JSON and the HTTP transport."],
+  ["For post houses", "/post-houses/", "How this independent MCP complements Avid's native AI with local assistant-editor, metadata, bin and interchange workflows."],
   ["FAQ", "/faq/", "Supported formats, AI clients, safety, live editing, privacy and compatibility."]
 ]
 
