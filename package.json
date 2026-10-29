@@ -95,7 +95,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "posthog-node": "^5.49.1",
     "protobufjs": "^8.8.0",
-    "zod": "4.5.4"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@huggingface/transformers": "^4.2.0",
