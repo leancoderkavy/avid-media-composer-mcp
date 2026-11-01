@@ -10,6 +10,10 @@ Use it with an MCP client that can launch a local process or reach the configure
 
 The server also defines a 167-action editing catalog and a tested bridge protocol. Catalog actions require a compatible Extension that advertises each operation. The separate native adapter has its own bounded operations, authority checks and host qualification; the catalog does not describe its coverage.
 
+## Also from this author: Premiere Pro MCP
+
+Editors who work across both NLEs may also want [Premiere Pro MCP](https://github.com/leancoderkavy/premiere-pro-mcp), an MCP server for Adobe Premiere Pro workflows.
+
 > Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
 
 ## Development branch notes
