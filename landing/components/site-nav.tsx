@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react"
 import { docs, pages, repo } from "@/lib/site"
 
 const links = [
+  { label: "What is MCP", href: pages.whatIs.path },
   { label: "Demo", href: `${pages.home.path}#demo` },
   { label: "Workflow", href: `${pages.home.path}#workflow` },
   { label: "Capabilities", href: `${pages.home.path}#capabilities` },

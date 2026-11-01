@@ -7,7 +7,7 @@ const sans = Geist({ variable: "--font-sans", subsets: ["latin"] })
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] })
 const title = pages.home.title
 const description =
-  "Source-safe MCP tools for Avid Media Composer project, AVB, AAF, ALE, EDL, lock, configuration, and media analysis with guarded editing automation."
+  "Connect AI assistants like Claude and ChatGPT to Avid Media Composer projects. Open-source MCP server for read-only analysis of AVB bins, AAF, ALE, EDL files, and project metadata. Free, local-first, and source-safe."
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -37,7 +37,18 @@ export const metadata: Metadata = {
     "Claude Avid integration",
     "Avid AAF MCP",
     "Avid AVB parser",
-    "Avid Media Composer automation"
+    "Avid Media Composer automation",
+    "how to analyze avid projects",
+    "avid bin analysis tool",
+    "validate AAF files",
+    "parse ALE files",
+    "EDL validation",
+    "avid project audit",
+    "post production workflow automation",
+    "avid media composer api",
+    "avid mcp claude",
+    "avid mcp chatgpt",
+    "avid mcp cursor"
   ],
   alternates: { canonical: "/", types: { "text/plain": [{ url: absoluteUrl("/llms.txt"), title: "llms.txt" }] } },
   openGraph: {

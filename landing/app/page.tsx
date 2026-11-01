@@ -142,7 +142,8 @@ export default function Home() {
             <a className="button secondary" href={pages.tools.path}><ClipboardCheck /> Browse {toolCount} tools</a>
           </div>
           <small className="hero-note">
-            Analysis is read-only and stays on your machine. Applied plans require a live bridge and an exact confirmation token.
+            Analysis is read-only and stays on your machine. Applied plans require a live bridge and an exact confirmation token.{" "}
+            <a className="inline-link" href={pages.whatIs.path}>Learn what Avid MCP is →</a>
           </small>
         </div>
 
