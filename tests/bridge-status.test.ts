@@ -60,6 +60,14 @@ function capability(overrides: Record<string, unknown> = {}): Record<string, unk
   });
 }
 
+function editPayload(): Record<string, unknown> {
+  return {
+    plan: { operations: [] },
+    confirmationToken: "a".repeat(64),
+    bridgePrecondition: { installationId: "test-installation", sessionId: "test-session" },
+  };
+}
+
 async function respond(
   root: string,
   operationId: string,
@@ -112,7 +120,17 @@ describe("Media Composer bridge status", () => {
     expect(await getBridgeStatus(root)).toMatchObject({
       configured: true,
       connected: false,
+      mode: "read-only",
+      availability: "not-installed",
     });
+  });
+
+  it("returns a typed install error while retaining read-only mode", async () => {
+    await expect(sendBridgeCommand(undefined, "inspect.getState", {}, 100, "missing-bridge"))
+      .rejects.toMatchObject({
+        code: "BRIDGE_NOT_INSTALLED",
+        details: { readOnlyMode: true, status: { mode: "read-only", availability: "not-configured" } },
+      });
   });
 
   it("rejects v2, malformed, unsigned, and non-negotiating capability documents", async () => {
@@ -160,7 +178,7 @@ describe("Media Composer bridge status", () => {
 
   it("rejects commands the authenticated extension does not advertise", async () => {
     const root = await bridgeDirectory(capability());
-    await expect(sendBridgeCommand(root, "edit.applyPlan", {}, 100, "unsupported")).rejects.toMatchObject({
+    await expect(sendBridgeCommand(root, "edit.applyPlan", editPayload(), 100, "unsupported")).rejects.toMatchObject({
       code: "BRIDGE_ACTION_UNSUPPORTED",
     });
   });
@@ -194,6 +212,35 @@ describe("Media Composer bridge status", () => {
     const secondRequest = await secondResponder;
     expect(secondRequest.requestSequence).toBe((firstRequest.requestSequence as number) + 1);
     expect(secondRequest.nonce).not.toBe(firstRequest.nonce);
+  });
+
+  it("uses bounded exponential response retries without republishing a command", async () => {
+    const root = await bridgeDirectory(capability());
+    await mkdir(path.join(root, "requests"), { recursive: true });
+    await mkdir(path.join(root, "responses"), { recursive: true });
+    const responder = (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 140));
+      return respond(root, "retried-read", {
+        ok: true,
+        data: { stateRevision: "revision-retried", state: {} },
+      });
+    })();
+
+    await expect(sendBridgeCommand(root, "inspect.getState", {}, 1_000, "retried-read"))
+      .resolves.toMatchObject({ ok: true });
+    await responder;
+    expect((await readdir(path.join(root, "requests"))).filter((name) => name === "retried-read.json"))
+      .toHaveLength(1);
+  });
+
+  it("times out with retry evidence and rejects malformed commands before publishing", async () => {
+    const root = await bridgeDirectory(capability());
+    await expect(sendBridgeCommand(root, "inspect.getState", {}, 120, "timed-out"))
+      .rejects.toMatchObject({ code: "BRIDGE_TIMEOUT", details: { retryCount: expect.any(Number) } });
+    await expect(sendBridgeCommand(root, "inspect.getState", { unexpected: true }, 100, "bad-payload"))
+      .rejects.toMatchObject({ code: "BRIDGE_INVALID_REQUEST" });
+    await expect(sendBridgeCommand(root, "inspect.getState", {}, 0, "bad-timeout"))
+      .rejects.toMatchObject({ code: "BRIDGE_INVALID_TIMEOUT" });
   });
 
   it("rejects an authenticated response that is not bound to the request nonce", async () => {
@@ -232,7 +279,7 @@ describe("Media Composer bridge status", () => {
       ok: false,
       error: { code: "BIN_LOCKED", message: "The bin is locked" },
     });
-    await expect(sendBridgeCommand(root, "edit.applyPlan", {}, responseBudgetMs, "failed")).rejects.toMatchObject({
+    await expect(sendBridgeCommand(root, "edit.applyPlan", editPayload(), responseBudgetMs, "failed")).rejects.toMatchObject({
       code: "BIN_LOCKED",
     });
     await failedResponder;
@@ -242,7 +289,7 @@ describe("Media Composer bridge status", () => {
       data: { applied: 1 },
     });
     await expect(
-      sendBridgeCommand(root, "edit.applyPlan", {}, responseBudgetMs, "incomplete-edit"),
+      sendBridgeCommand(root, "edit.applyPlan", editPayload(), responseBudgetMs, "incomplete-edit"),
     ).rejects.toMatchObject({ code: "BRIDGE_INVALID_RESPONSE" });
     await invalidResponder;
   });

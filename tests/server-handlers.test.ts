@@ -164,7 +164,7 @@ describe("MCP tool handlers", () => {
     expect(live.isError).toBe(true);
     expect(live.structuredContent).toMatchObject({
       ok: false,
-      error: { code: "BRIDGE_NOT_CONNECTED" },
+      error: { code: "BRIDGE_NOT_INSTALLED" },
     });
 
     const apply = await client.callTool({

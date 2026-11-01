@@ -9,6 +9,7 @@ const timestamp = z.string().refine((value) => Number.isFinite(Date.parse(value)
 });
 const nonce = z.string().uuid();
 const jsonObject = z.record(z.string().max(256), z.json());
+const bridgeActionSchema = z.enum(["inspect.getState", "edit.applyPlan"]);
 
 const projectIdentity = z
   .object({
@@ -70,6 +71,43 @@ export const bridgeCapabilitiesSchema = z
     authentication: authenticationSchema,
   })
   .strict();
+
+const inspectPayloadSchema = z
+  .object({
+    scope: z.enum(["summary", "project", "bins", "clips", "sequences", "timeline", "settings", "full"]).optional(),
+    options: jsonObject.optional(),
+  })
+  .strict();
+
+const editPayloadSchema = z
+  .object({
+    plan: jsonObject,
+    confirmationToken: z.string().length(64),
+    bridgePrecondition: z
+      .object({
+        installationId: boundedIdentifier,
+        sessionId: boundedIdentifier,
+        stateRevision: boundedIdentifier.optional(),
+        projectId: boundedIdentifier.optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+/** Validate caller-controlled commands before they are signed and published. */
+export function validateBridgeCommand(
+  action: string,
+  payload: Record<string, unknown>,
+): { action: "inspect.getState" | "edit.applyPlan"; payload: Record<string, unknown> } | undefined {
+  const parsedAction = bridgeActionSchema.safeParse(action);
+  if (!parsedAction.success) return undefined;
+  const parsedPayload =
+    parsedAction.data === "inspect.getState"
+      ? inspectPayloadSchema.safeParse(payload)
+      : editPayloadSchema.safeParse(payload);
+  if (!parsedPayload.success) return undefined;
+  return { action: parsedAction.data, payload: parsedPayload.data };
+}
 
 const bridgeErrorSchema = z
   .object({
