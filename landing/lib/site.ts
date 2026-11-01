@@ -7,7 +7,7 @@ export const packageVersion = "1.2.0-rc.1"
 export const stableVersion = "1.1.0"
 
 /** Bump when page content materially changes. Used for sitemap lastmod and visible freshness signals. */
-export const lastUpdated = "2026-09-07"
+export const lastUpdated = "2026-10-29"
 
 export const absoluteUrl = (path = "/") => new URL(path, siteUrl).toString()
 
@@ -26,7 +26,8 @@ export const pages = {
   home: { path: "/", title: "Avid Media Composer MCP Server | AI Project Analysis" },
   tools: { path: "/tools/", title: "MCP Tools for Avid Media Composer" },
   setup: { path: "/setup/", title: "Install the Avid Media Composer MCP Server" },
-  faq: { path: "/faq/", title: "Avid Media Composer MCP FAQ" }
+  faq: { path: "/faq/", title: "Avid Media Composer MCP FAQ" },
+  postHouses: { path: "/post-houses/", title: "Avid MCP for Post Houses" }
 } as const
 
 export const docs = {

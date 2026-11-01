@@ -32,6 +32,14 @@ Distribution status: published package and development branch can differ; inspec
 - Media Composer release and operating-system compatibility checks.
 - Risk-classified edit-plan previews with exact SHA-256 confirmation tokens.
 
+## Post-house positioning
+
+- Avid's official IBC2026 and Media Composer 2026.8 materials describe native Ready to Edit, embedded AI, and expanded APIs/SDK capabilities; they do not document an MCP server.
+- This independent MCP is designed to work alongside Avid's built-in AI, connecting MCP-compatible agents such as Claude, Cursor, and Codex to local Avid project evidence.
+- Post-house workflows include assistant-editor inventory, AVB bin and metadata inspection, AAF/EDL/OTIO conform and turnover evidence, and guarded handoff preparation.
+- Local deployment supports explicit allowed roots and read-only offline analysis. Internal Streamable HTTP requires bearer authentication and the deploying team's network controls.
+- Live Media Composer operations require a separately installed compatible Extension bridge; unavailable or unsupported operations fail closed.
+
 ## Important limitations
 
 - This project is independent and is not affiliated with or endorsed by Avid.
@@ -46,6 +54,7 @@ Distribution status: published package and development branch can differ; inspec
 
 - Website tool reference: https://avid-media-composer-mcp.com/tools/
 - Website setup guide: https://avid-media-composer-mcp.com/setup/
+- Post-house workflows: https://avid-media-composer-mcp.com/post-houses/
 - Website FAQ: https://avid-media-composer-mcp.com/faq/
 - Overview and setup: https://github.com/leancoderkavy/avid-media-composer-mcp#readme
 - Capability status: https://github.com/leancoderkavy/avid-media-composer-mcp/blob/main/docs/CAPABILITY_MATRIX.md

@@ -8,6 +8,7 @@ const product = [
   { label: "Connect a client", href: `${pages.home.path}#connect` },
   { label: "Tool reference", href: pages.tools.path },
   { label: "Setup guide", href: pages.setup.path },
+  { label: "For post houses", href: pages.postHouses.path },
   { label: "FAQ", href: pages.faq.path }
 ]
 
