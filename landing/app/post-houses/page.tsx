@@ -6,7 +6,7 @@ import { SiteNav } from "@/components/site-nav"
 import { absoluteUrl, breadcrumbs, docs, lastUpdated, ogImage, pages } from "@/lib/site"
 
 const description =
-  "A local Avid Media Composer MCP for post houses: connect Claude, Cursor, Codex and other MCP clients alongside Avid's native AI for bounded project, metadata and interchange workflows."
+  "Connect MCP clients to local Avid projects for bounded metadata and interchange workflows alongside native Avid AI. A guide for post houses."
 
 export const metadata: Metadata = {
   title: { absolute: "Avid MCP for Post Houses | Work Alongside Native AI" },
