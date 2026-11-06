@@ -93,17 +93,17 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "posthog-node": "^5.49.1",
+    "posthog-node": "^5.52.4",
     "protobufjs": "^8.8.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@huggingface/transformers": "^4.2.0",
-    "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^5.0.0",
+    "@types/node": "^26.6.2",
+    "@vitest/coverage-v8": "^5.0.3",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.3"
   },
   "overrides": {
     "@hono/node-server": "^2.0.11",
