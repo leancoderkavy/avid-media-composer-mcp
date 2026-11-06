@@ -8,7 +8,7 @@ import { absoluteUrl, breadcrumbs, docs, lastUpdated, ogImage, pages, repo } fro
 import { toolCount, toolGroups } from "@/lib/tools"
 
 const description =
-  `Reference for the ${toolCount} MCP tools in the published Avid Media Composer MCP server: project inventory, AVB bin analysis, AAF, ALE, EDL and OTIO parsing, ffprobe media inspection, compatibility checks and guarded edit plans.`
+  "Reference for Avid Media Composer MCP tools: project inventory, bin analysis, interchange parsing, media inspection and guarded edit plans."
 
 export const metadata: Metadata = {
   title: { absolute: "Avid Media Composer MCP Tools: Full Reference for the MCP Server" },

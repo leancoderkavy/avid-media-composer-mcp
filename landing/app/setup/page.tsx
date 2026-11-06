@@ -7,7 +7,7 @@ import { SiteNav } from "@/components/site-nav"
 import { absoluteUrl, breadcrumbs, docs, lastUpdated, npmUrl, ogImage, pages, repo } from "@/lib/site"
 
 const description =
-  "Install the Avid Media Composer MCP server with npx, set allowed project roots, and connect Claude Desktop, Claude Code, Cursor, VS Code, Codex or LM Studio in a few minutes."
+  "Install Avid Media Composer MCP with npx, set allowed project roots, and connect Claude, Cursor, VS Code, Codex or LM Studio."
 
 export const metadata: Metadata = {
   title: { absolute: "Install the Avid Media Composer MCP Server: Setup Guide" },

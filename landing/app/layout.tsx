@@ -7,7 +7,7 @@ const sans = Geist({ variable: "--font-sans", subsets: ["latin"] })
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] })
 const title = pages.home.title
 const description =
-  "Connect AI assistants like Claude and ChatGPT to Avid Media Composer projects. Open-source MCP server for read-only analysis of AVB bins, AAF, ALE, EDL files, and project metadata. Free, local-first, and source-safe."
+  "Connect AI assistants to Avid Media Composer projects. Analyze AVB bins, AAF, ALE and EDL files with an open-source, local MCP server."
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

@@ -64,9 +64,9 @@ export default async function GuidePage({ params }: Params) {
         about: { "@id": absoluteUrl("/#software") },
         isPartOf: { "@id": absoluteUrl("/#website") },
         mentions: guide.tools.map(name => ({
-          "@type": "SoftwareApplication",
+          "@type": "DefinedTerm",
           name,
-          applicationCategory: "DeveloperApplication",
+          inDefinedTermSet: absoluteUrl(pages.tools.path),
           url: absoluteUrl(`${pages.tools.path}#${name}`)
         }))
       },

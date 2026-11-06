@@ -40,7 +40,7 @@ export const guides: Guide[] = [
     h1Accent: "bin format.",
     eyebrow: "Format guide",
     description:
-      "An AVB file is an Avid Media Composer bin: a proprietary binary container holding clips, subclips, sequences and metadata. How the format is structured, how to open one, and how to read a .avb without Media Composer.",
+      "Learn what an AVB file stores in an Avid bin, how clips and sequences are organized, and how to inspect one without Media Composer.",
     primaryKeyword: "AVB file",
     keywords: ["avb file", "avb file format", "avb file extension", "how to open avb file", "avid avb file", "avb file converter", "avid bin file"],
     answer:
@@ -127,7 +127,7 @@ export const guides: Guide[] = [
     h1Accent: "structure and contents.",
     eyebrow: "Format guide",
     description:
-      "An AAF file is an Advanced Authoring Format package carrying an edited composition and its metadata between Avid, Pro Tools, Premiere Pro and Resolve. What an AAF contains, how it differs from OMF, and how to inspect one before conform.",
+      "Understand AAF compositions and metadata, how AAF differs from OMF, and how to inspect a package before conforming it in another application.",
     primaryKeyword: "AAF file",
     keywords: ["what is an aaf file", "aaf file format", "aaf file structure", "what does an aaf file contain", "aaf vs omf file", "aaf file how to open", "aaf file avid", "aaf project file"],
     answer:
@@ -220,7 +220,7 @@ export const guides: Guide[] = [
     h1Accent: "Avid Log Exchange.",
     eyebrow: "Format guide",
     description:
-      "An ALE file is a tab-delimited Avid Log Exchange metadata log. The Heading, Column and Data sections, the headings that matter, how to export and import ALE in Media Composer, and how to validate one before it breaks a batch import.",
+      "Read the Heading, Column and Data sections of an Avid ALE metadata log. Learn how to export, import and validate ALE before a batch import.",
     primaryKeyword: "ALE file",
     keywords: ["ale file", "avid ale file", "ale avid log exchange", "avid export ale", "import ale avid media composer", "ale file format", "avid log exchange format"],
     answer:
@@ -297,7 +297,7 @@ export const guides: Guide[] = [
     h1Accent: "the CMX cut list.",
     eyebrow: "Format guide",
     description:
-      "An EDL is a plain-text CMX-style edit decision list. How to read an EDL event line, what the transition codes and comment lines mean, how to export one from Avid, and how to validate an EDL before a conform.",
+      "Read a CMX-style EDL, including event lines, transitions and comments. Learn how to export from Avid and validate the cut list before conform.",
     primaryKeyword: "EDL file",
     keywords: ["edl file", "avid edl format", "edl example", "create edl avid", "edl avid media composer", "avid edl manager", "export edl avid", "cmx 3600 edl"],
     answer:
@@ -381,7 +381,7 @@ export const guides: Guide[] = [
     h1Accent: "explained.",
     eyebrow: "Workflow guide",
     description:
-      "How Avid Media Composer bin locking works on shared storage, what a .lck file is, why a bin stays locked at the file level after a crash, and how to audit active versus orphaned locks across a project.",
+      "Learn how Avid bin locking works on shared storage, what .lck files mean, and how to distinguish active locks from orphaned files after a crash.",
     primaryKeyword: "Avid bin locking",
     keywords: ["avid bin locking", "how does avid bin locking work", "avid bin is locked at the file level", "avid media composer bin locked", "avid open bin locked", "avid lck file", "orphaned bin lock avid"],
     answer:
@@ -453,7 +453,7 @@ export const guides: Guide[] = [
     h1Accent: "compatibility.",
     eyebrow: "Compatibility guide",
     description:
-      "Which Avid Media Composer releases are supported on which Windows and macOS versions, how release-line matching works, and how to check a workstation combination automatically instead of reading a matrix.",
+      "Check Avid Media Composer release, operating system and architecture compatibility. Learn how release-line matching and workstation checks work.",
     primaryKeyword: "Avid Media Composer compatibility matrix",
     keywords: ["avid media composer compatibility matrix", "avid media composer os compatibility", "media composer compatibility", "avid media composer system requirements", "avid media composer windows 11", "avid media composer version matrix", "media composer macos support"],
     answer:
@@ -534,7 +534,7 @@ export const guides: Guide[] = [
     h1Accent: "Media Composer.",
     eyebrow: "Workflow guide",
     description:
-      "What can actually be automated in Avid Media Composer today: Avid's own AI features, the Extensions SDK, and how an MCP server lets Claude, Cursor or ChatGPT read Avid projects, AAF, ALE and EDL without an API.",
+      "Explore Avid native AI, the Extensions SDK and MCP-based project analysis. Learn which workflows have documented support and which have limits.",
     primaryKeyword: "Avid Media Composer AI",
     keywords: ["avid media composer ai", "ai tools for avid media composer", "avid media composer automation", "avid media composer api", "avid media composer panel sdk", "avid media composer extensions", "ai video editing avid", "mcp server for video editing"],
     answer:

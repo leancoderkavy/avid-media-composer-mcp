@@ -7,7 +7,7 @@ import { SiteNav } from "@/components/site-nav"
 import { absoluteUrl, breadcrumbs, docs, lastUpdated, npmUrl, ogImage, pages, repo, siteUrl } from "@/lib/site"
 
 const description =
-  "Avid Media Composer MCP is an open-source server that lets AI assistants like Claude and ChatGPT read Avid projects, bins, and editorial files directly. Learn what it does, who it's for, and how to get started."
+  "Learn how Avid Media Composer MCP lets AI assistants read projects, bins and editorial files, what it supports, and how to get started."
 
 export const metadata: Metadata = {
   title: { absolute: "What Is Avid Media Composer MCP? | AI Project Analysis" },
@@ -183,19 +183,19 @@ export default function WhatIsAvidMcpPage() {
 
           <h2>Why it exists</h2>
           <p>
-            Avid Media Composer projects are directories of proprietary binary files. Understanding what's in them —
+            Avid Media Composer projects are directories of proprietary binary files. Understanding what&apos;s in them —
             which bins are locked, what sequences exist, whether an AAF will conform cleanly — normally requires opening
             Media Composer, loading each bin, and inspecting them one by one.
           </p>
           <p>
-            That's slow, error-prone, and impossible to automate at scale. Post supervisors audit dozens of projects.
+            That&apos;s slow, error-prone, and impossible to automate at scale. Post supervisors audit dozens of projects.
             Conform editors check interchange files from multiple facilities. Pipeline developers need structured
             project data for tracking and reporting.
           </p>
           <p>
             Avid Media Composer MCP solves this by parsing those files directly and exposing their contents as
-            structured tools an AI assistant can call. Ask "Which bins in this project contain sequences over 10
-            minutes?" or "Does this AAF have missing media?" and get accurate answers in seconds — no manual inspection
+            structured tools an AI assistant can call. Ask &quot;Which bins in this project contain sequences over 10
+            minutes?&quot; or &quot;Does this AAF have missing media?&quot; and get accurate answers in seconds — no manual inspection
             required.
           </p>
 
@@ -229,7 +229,7 @@ export default function WhatIsAvidMcpPage() {
               <ShieldCheck />
               <h3>Compatibility screening</h3>
               <p>
-                Check Media Composer version, OS, and CPU architecture combinations against Avid's official
+                Check Media Composer version, OS, and CPU architecture combinations against Avid&apos;s official
                 qualification matrix to screen workstation configurations before deployment.
               </p>
             </article>
@@ -263,7 +263,7 @@ export default function WhatIsAvidMcpPage() {
             ))}
           </div>
 
-          <h2>Who it's for</h2>
+          <h2>Who it&apos;s for</h2>
           <table>
             <thead>
               <tr>
@@ -313,13 +313,13 @@ export default function WhatIsAvidMcpPage() {
           </p>
           <p>
             Avid Media Composer MCP implements this protocol as a local stdio server. You configure it with allowed
-            project roots, add it to your AI client's MCP settings, and restart the client. From that point on, the
+            project roots, add it to your AI client&apos;s MCP settings, and restart the client. From that point on, the
             assistant has access to a set of tools like <code>avid_analyze_project</code>,{" "}
             <code>avid_analyze_bin</code>, <code>avid_analyze_aaf</code>, and <code>avid_inventory_project_files</code>
             .
           </p>
           <p>
-            When you ask a question like "Which bins in Show_A are locked?", the assistant translates that into tool
+            When you ask a question like &quot;Which bins in Show_A are locked?&quot;, the assistant translates that into tool
             calls, the MCP server reads the project files, and the structured results flow back to the assistant for
             interpretation. You see the answer in plain language; the parsing happens behind the scenes.
           </p>

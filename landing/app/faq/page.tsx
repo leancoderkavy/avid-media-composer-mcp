@@ -7,7 +7,7 @@ import { extendedFaq } from "@/lib/faq"
 import { absoluteUrl, breadcrumbs, docs, lastUpdated, ogImage, pages } from "@/lib/site"
 
 const description =
-  "Answers about the Avid Media Composer MCP server: supported formats, AI clients, installation, safety, live editing, HTTP transport, privacy and Avid version compatibility."
+  "Answers about Avid Media Composer MCP: formats, AI clients, setup, safety, editing limits, HTTP transport, privacy and compatibility."
 
 export const metadata: Metadata = {
   title: { absolute: "Avid Media Composer MCP FAQ: Formats, Clients, Safety" },

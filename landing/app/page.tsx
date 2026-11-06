@@ -24,7 +24,7 @@ const structuredData = {
       url: absoluteUrl("/"),
       description: "Source-safe Avid Media Composer project intelligence for MCP-compatible AI clients.",
       inLanguage: "en-US",
-      publisher: { "@id": absoluteUrl("/#software") }
+      publisher: { "@type": "Organization", name: "Avid Media Composer MCP contributors", url: repo }
     },
     {
       "@type": "SoftwareSourceCode",
@@ -60,7 +60,7 @@ const structuredData = {
       softwareVersion: stableVersion,
       downloadUrl: npmUrl,
       installUrl: absoluteUrl(pages.setup.path),
-      softwareHelp: absoluteUrl(pages.faq.path),
+      softwareHelp: { "@type": "WebPage", url: absoluteUrl(pages.faq.path) },
       featureList: absoluteUrl(pages.tools.path),
       license: "https://opensource.org/license/mit",
       isAccessibleForFree: true,
