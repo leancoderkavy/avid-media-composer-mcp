@@ -39,8 +39,8 @@ describe("landing deployment security", () => {
     expect(csp).not.toMatch(/\bhttps?:\s/); // bare http: or https: without //
     expect(csp).not.toMatch(/https?:\/\/\*/); // wildcard origins like https://*
     
-    // Allowlist specific PostHog ingestion origins (exact match only)
-    const allowedOrigins = ["https://us.i.posthog.com", "https://eu.i.posthog.com"];
+    // Allowlist specific PostHog ingestion and Ahrefs Web Analytics origins (exact match only)
+    const allowedOrigins = ["https://us.i.posthog.com", "https://eu.i.posthog.com", "https://analytics.ahrefs.com"];
     const urlPattern = /https?:\/\/[^\s;]+/g;
     const foundUrls = csp.match(urlPattern) || [];
     for (const url of foundUrls) {
