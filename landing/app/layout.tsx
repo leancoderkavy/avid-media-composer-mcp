@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { absoluteUrl, pages, repo, siteName, siteUrl } from "@/lib/site"
+import { PageviewTracker } from "@/components/pageview-tracker"
 
 const sans = Geist({ variable: "--font-sans", subsets: ["latin"] })
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] })
@@ -71,7 +72,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className={`${sans.variable} ${mono.variable}`}>{children}</body>
+      <head>
+        {/* Ahrefs Web Analytics (cookieless) for avid-media-composer-mcp.com */}
+        <script src="https://analytics.ahrefs.com/analytics.js" data-key="Z63x8006qJILgT0a5lsxEA" async />
+      </head>
+      <body className={`${sans.variable} ${mono.variable}`}>
+        <PageviewTracker />
+        {children}
+      </body>
     </html>
   )
 }

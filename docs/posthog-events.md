@@ -13,6 +13,7 @@ PostHog project, billing setting, or live ingestion was changed or exercised.
 | `avid_mcp_tool_call` | Confirmed core/native tools; added coverage to the library handler wrapper (index/search, transcripts, collections/export, analysis/job commands, etc.) | Fixed registered `tool` name, `outcome` (`succeeded`, `failed`), `duration_ms`, failure `error_code` |
 | `avid_landing_client_selected` | Added when switching setup-client tabs | `target` (`claude`, `cursor`, `vscode`, `cli`) |
 | `avid_landing_copy` | Added after clipboard write succeeds or fails | `target` (setup client or `safe_prompt`), `outcome` (`succeeded`, `failed`) |
+| `$pageview` | Landing first load and each client-side route change | `$current_url` (origin, path and query; no hash), `$host`, `$pathname`, `$referrer` (origin and path only, or `$direct`), `$referring_domain`, `title`, `utm_*` when present |
 
 No landing login, account identity, checkout or payment integration exists. No
 synthetic auth/payment events were added. MCP bearer checks are operational auth,
@@ -56,7 +57,8 @@ or capture calls. It now uses explicit fetches to the documented
 browser metadata collection and adding no dependency. See `landing/.env.example`:
 
 - `NEXT_PUBLIC_POSTHOG_KEY`: public **project ingestion token**, never a personal
-  API key. Unset means no requests or identity creation.
+  API key. Unset falls back to the public token of the `leancoderkavy` PostHog
+  project hard-coded in `landing/lib/telemetry.ts`.
 - `NEXT_PUBLIC_POSTHOG_HOST`: `https://us.i.posthog.com` (default) or
   `https://eu.i.posthog.com`. Other hosts fail closed. These exact origins are
   allowed by `landing/vercel.json`'s `connect-src` policy.
@@ -64,15 +66,24 @@ browser metadata collection and adding no dependency. See `landing/.env.example`
 Next embeds these public values at build time; changing them requires rebuilding.
 This configuration is independent of the server's opt-in key. The identity is a
 random in-memory page-lifetime UUID, never stored in cookies/local storage or
-linked to MCP IDs. Events omit credentials and referrers, suppress IP storage
+linked to MCP IDs; a matching in-memory UUIDv7 `$session_id` lets Web Analytics
+group pageviews. Both survive client-side navigation but reset on reload. Requests
+omit credentials and send no `Referer` header, suppress IP storage
 with `$ip: "0.0.0.0"`, and disable GeoIP and person profiles. Direct network
 delivery still exposes the browser source IP to the receiving service at the
 network layer. DNT and Global Privacy Control disable capture.
 
-Properties are explicitly constructed from bounded enums. Clipboard text, config
-snippets, prompt text, file paths, location/search/hash, DOM content, error text
-and user details are never passed to capture. There is no pageview/autocapture,
-session replay, global error handler or identify call. Only clipboard failures
+Click-event properties are explicitly constructed from bounded enums. `$pageview`
+adds the page URL (without hash), document title and the incoming referrer's
+origin and path (query and hash dropped) so PostHog Web Analytics works. Clipboard
+text, config snippets, prompt text, file paths, DOM content, error text and user
+details are never passed to capture. There is no autocapture, session replay,
+global error handler or identify call. Because GeoIP is disabled and no SDK parses
+the user agent, Web Analytics country, browser and device breakdowns stay empty.
+
+The landing also loads cookieless [Ahrefs Web Analytics](https://ahrefs.com/web-analytics)
+from `analytics.ahrefs.com` (allowed in `script-src` and `connect-src`). It is
+independent of PostHog and of the DNT/GPC gate above. Only clipboard failures
 are added as landing critical-path errors. Analytics failures are swallowed and
 do not affect copying or client selection.
 
@@ -80,8 +91,9 @@ do not affect copying or client selection.
 
 - Actual project tokens, cloud region, deployed env values, ingestion and dashboard
   configuration remain unverified. No credentials were read or live events sent.
-- Landing analytics remains disabled until an operator supplies a public project
-  token at build time. Self-hosted ingestion needs a reviewed host/CSP change.
+- Landing analytics uses the fallback project token unless an operator supplies
+  another public project token at build time. Self-hosted ingestion needs a
+  reviewed host/CSP change.
 - Startup/config failures, SDK schema rejections before tool handlers, background
   job completion, and global browser errors are not separately captured. HTTP
   status events still cover completed HTTP error responses; health probes are
