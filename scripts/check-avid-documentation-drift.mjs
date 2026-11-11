@@ -11,8 +11,8 @@ const EXPECTED_MATRIX_ROWS = [
   {
     product: "Media Composer",
     releaseLine: "2025.12",
-    latestPatch: "2025.12.2",
-    latestReleaseDate: "April 7, 2026",
+    latestPatch: "2025.12.3",
+    latestReleaseDate: "Oct. 29, 2026",
   },
 ];
 

@@ -18,8 +18,8 @@ describe("Media Composer release compatibility", () => {
       "2024.12",
     ]);
     expect(resolveReleaseTrack("2025.12.1")?.release).toBe("2025.12");
-    expect(resolveReleaseTrack("2025.12.2")?.latestQualifiedPatch).toBe("2025.12.2");
-    expect(resolveReleaseTrack("2024.12.6")?.supportTier).toBe("long-term-maintenance");
+    expect(resolveReleaseTrack("2025.12.3")?.latestQualifiedPatch).toBe("2025.12.3");
+    expect(resolveReleaseTrack("2024.12.7")?.supportTier).toBe("long-term-maintenance");
   });
 
   it("qualifies Windows 11 for 2025.12 and rejects Windows 10", () => {
@@ -42,7 +42,7 @@ describe("Media Composer release compatibility", () => {
   });
 
   it("preserves Windows 10 support for 2025.6 and 2024.12", () => {
-    for (const mediaComposerVersion of ["2025.6", "2024.12.6"]) {
+    for (const mediaComposerVersion of ["2025.6", "2024.12.7"]) {
       expect(
         evaluateCompatibility({
           mediaComposerVersion,
@@ -73,27 +73,27 @@ describe("Media Composer release compatibility", () => {
     ).toBe("unqualified");
     expect(
       evaluateCompatibility({
-        mediaComposerVersion: "2025.12.2",
+        mediaComposerVersion: "2025.12.3",
         platform: "macos",
-        operatingSystemVersion: "26.6",
+        operatingSystemVersion: "26.7",
         architecture: "arm64",
       }).status,
     ).toBe("qualified");
     expect(
       evaluateCompatibility({
-        mediaComposerVersion: "2025.12.2",
+        mediaComposerVersion: "2025.12.3",
         platform: "macos",
-        operatingSystemVersion: "26.7",
+        operatingSystemVersion: "26.8",
         architecture: "arm64",
       }).status,
     ).toBe("unqualified");
   });
 
   it("keeps the current extension terminology tied to the 2025.12 line", () => {
-    const current = resolveReleaseTrack("2025.12.2");
+    const current = resolveReleaseTrack("2025.12.3");
     expect(current).toMatchObject({
       extensionSurface: "extensions",
-      verifiedOn: "2026-08-15",
+      verifiedOn: "2026-11-11",
       source: "https://kb.avid.com/pkb/articles/en_US/compatibility/en267087",
     });
     expect(resolveReleaseTrack("2025.6")?.extensionSurface).toBe("panel-sdk");
@@ -117,7 +117,7 @@ describe("Media Composer release compatibility", () => {
       expect(track.provenance.evidence.releaseLine).toBe(track.release);
       expect(track.provenance.evidence.latestPatch).toBe(track.latestQualifiedPatch);
     }
-    expect(resolveReleaseTrack("2025.12.2")?.provenance.evidence.latestPatch).toBe("2025.12.2");
+    expect(resolveReleaseTrack("2025.12.3")?.provenance.evidence.latestPatch).toBe("2025.12.3");
   });
 
   it("covers every catalog action in the SDK capability manifest without claiming live support", () => {

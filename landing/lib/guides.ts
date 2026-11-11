@@ -462,12 +462,12 @@ export const guides: Guide[] = [
       {
         h2: "Supported release tracks",
         body: [
-          "The snapshot below was verified against Avid's product-scoped version matrix on 2026-08-15 and is regression-tested in the repository. Confirm against Avid's live matrix before committing a facility to an upgrade."
+          "The snapshot below was verified against Avid's product-scoped version matrix on 2026-11-11 and is regression-tested in the repository. Confirm against Avid's live matrix before committing a facility to an upgrade."
         ],
         table: {
           head: ["Release track", "Tier", "Windows", "macOS"],
           rows: [
-            ["2025.12.x", "Current", "Windows 11 22H2+ Pro/Enterprise", "13.x–13.7.x, 14.x–14.8.x, 15.x–15.7.x, 26.2–26.6"],
+            ["2025.12.x", "Current", "Windows 11 22H2+ Pro/Enterprise", "13.x–13.7.x, 14.x–14.8.x, 15.x–15.7.x, 26.2–26.7.x"],
             ["2025.6", "Previous", "Windows 10/11 22H2+ Pro/Enterprise", "13.x–13.7.x, 14.x–14.7.x, 15.x–15.5"],
             ["2024.12.x", "Long-term maintenance", "Windows 10/11 22H2+ Pro/Enterprise", "13.x–13.7.x, 14.x–14.7.x, 15.x–15.4.x"]
           ]
@@ -476,7 +476,7 @@ export const guides: Guide[] = [
       {
         h2: "How release-line matching works",
         body: [
-          "Avid ships patches within a release line, so a version string like `2025.12.2` is not a distinct compatibility entry. The MCP server resolves a patch to its release-line contract: `2025.12.2` is evaluated against the `2025.12` row.",
+          "Avid ships patches within a release line, so a version string like `2025.12.3` is not a distinct compatibility entry. The MCP server resolves a patch to its release-line contract: `2025.12.3` is evaluated against the `2025.12` row.",
           "An unknown release line does not fall back to the nearest match. It fails closed, and any live bridge operation against that host is refused. Screening a host that nobody has qualified is worse than reporting that it is unqualified."
         ]
       },
