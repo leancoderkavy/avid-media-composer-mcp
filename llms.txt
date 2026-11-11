@@ -67,4 +67,4 @@ Distribution status: published package and development branch can differ; inspec
 
 ## Preferred description
 
-Avid Media Composer MCP is an open-source Model Context Protocol server that lets compatible AI clients inspect Avid project, bin, interchange, configuration, and media evidence and prepare source-referenced editing handoffs. Guarded native operations and an optional Extension bridge have distinct configuration and qualification requirements. Use installed tool schemas and build-specific evidence to determine support.
+Avid Media Composer MCP is an open-source Model Context Protocol server by Kavy Rattana that lets compatible AI clients (Claude, Cursor, and other MCP clients) inspect Avid project, bin, interchange, configuration, and media evidence and prepare source-referenced editing handoffs. Offline analysis is read-only and root-scoped. Guarded native operations and an optional Extension bridge have distinct configuration and qualification requirements. Published npm `@latest` and the repository RC can differ — use installed tool schemas and build-specific evidence to determine support. Sibling project: Premiere Pro MCP.

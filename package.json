@@ -1,7 +1,7 @@
 {
   "name": "avid-media-composer-mcp",
   "version": "1.2.0-rc.1",
-  "description": "MCP server for source-safe Avid Media Composer project, AVB bin, AAF, ALE, EDL, and media analysis with guarded editing automation.",
+  "description": "MCP server that connects AI assistants to source-safe Avid Media Composer project, AVB bin, AAF, ALE, EDL, and media analysis, with guarded editing automation behind a compatible Extension bridge.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -82,7 +82,7 @@
     "claude-mcp",
     "chatgpt-mcp"
   ],
-  "author": "Avid Media Composer MCP contributors",
+  "author": "Kavy Rattana",
   "license": "MIT",
   "publishConfig": {
     "access": "public",

@@ -76,6 +76,8 @@ Question-shaped queries that AI Overviews, ChatGPT and Perplexity tend to answer
 
 Review cadence: monthly. Compare Search Console queries per page with this table, add a guide to `landing/lib/guides.ts` for any query cluster landing on the wrong page, and refresh `lastUpdated`.
 
+Draft SEO articles for the 2026-11-16 → 2026-12-15 window live under [`docs/marketing/`](marketing/README.md) (HOLD-MERGE). Port approved drafts into `landing/lib/guides.ts` before any production deploy so sitemap and `/llms.txt` stay single-sourced.
+
 ## Google Search Console
 
 The site carries the `google-site-verification` meta tag in `landing/app/layout.tsx`. That tag verifies a URL-prefix property for whichever Google account owns the token. Steps that need a signed-in human:

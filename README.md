@@ -1,8 +1,10 @@
 # Avid Media Composer MCP Server
 
-An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Avid Media Composer project analysis, bin inspection, post-production metadata, and guarded editing automation.
+An independent, source-safe [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that lets AI assistants inspect Avid Media Composer projects — bins, interchange, locks, configuration evidence, and media metadata — and prepare guarded live edits only through a compatible Extension bridge.
 
-[Website](https://avid-media-composer-mcp.com/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp)
+**Listing summary:** connect Claude, Cursor, VS Code, Codex, LM Studio, or any standards-compatible MCP client to local Avid project evidence. Offline analysis is read-only and confined to `AVID_MCP_ALLOWED_ROOTS`. Live timeline mutation is fail-closed without a bridge that advertises the operation. MIT-licensed. Founder: [Kavy Rattana](https://github.com/leancoderkavy). Not affiliated with or endorsed by Avid Technology, Inc.
+
+[Website](https://avid-media-composer-mcp.com/) · [Setup](#quick-start) · [Capabilities](docs/CAPABILITY_MATRIX.md) · [Security](SECURITY.md) · [npm](https://www.npmjs.com/package/avid-media-composer-mcp) · [Draft marketing pack](docs/marketing/README.md)
 
 Format and workflow references: [AVB files](https://avid-media-composer-mcp.com/avb-file/) · [AAF files](https://avid-media-composer-mcp.com/aaf-file/) · [ALE files](https://avid-media-composer-mcp.com/ale-file/) · [EDL files](https://avid-media-composer-mcp.com/edl-file/) · [Avid bin locking](https://avid-media-composer-mcp.com/bin-locking/) · [Compatibility matrix](https://avid-media-composer-mcp.com/compatibility/) · [AI and automation](https://avid-media-composer-mcp.com/ai-automation/)
 
@@ -12,7 +14,7 @@ The server also defines a 167-action editing catalog and a tested bridge protoco
 
 ## Also from this author: Premiere Pro MCP
 
-Editors who work across both NLEs may also want [Premiere Pro MCP](https://github.com/leancoderkavy/premiere-pro-mcp), an MCP server for Adobe Premiere Pro workflows.
+Editors who work across both NLEs may also want [Premiere Pro MCP](https://github.com/leancoderkavy/premiere-pro-mcp), an MCP server for Adobe Premiere Pro workflows by the same author (Kavy Rattana).
 
 > Avid, Media Composer, MediaCentral, and related marks belong to Avid Technology, Inc. This independent project is not affiliated with or endorsed by Avid.
 
