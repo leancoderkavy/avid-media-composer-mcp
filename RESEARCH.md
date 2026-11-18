@@ -20,7 +20,7 @@ The central constraint is access: Avid publicly describes its Extensions SDK, bu
 
 ### Media Composer Extensions
 
-Avid says Media Composer Extensions integrate tools directly into the editor and can work with the project, bin, or timeline. Media Composer 2025.12 renamed third-party Panels to Media Composer Extensions and added an Extensions menu. The current 2025 documentation index lists 2025.12.2, while the Avid version matrix identifies it as the current 2025.12 patch and records the qualified operating-system ranges.
+Avid says Media Composer Extensions integrate tools directly into the editor and can work with the project, bin, or timeline. Media Composer 2025.12 renamed third-party Panels to Media Composer Extensions and added an Extensions menu. The Avid version matrix identifies 2025.12.3 (Oct. 29, 2026) as the latest 2025.12 patch and records the qualified operating-system ranges.
 
 The current developer landing page presents Extensions as a development surface, while the older onboarding page says new partner onboarding is paused. This unresolved public conflict makes Extensions the correct target architecture, but not a dependency this repository can truthfully claim to have obtained, packaged, signed, or live-validated. SDK access, license/redistribution terms, package format, and signing requirements must be confirmed directly with Avid.
 

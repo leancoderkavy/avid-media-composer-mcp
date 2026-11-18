@@ -1,21 +1,22 @@
 # Supported Media Composer versions
 
-Verified against Avid's current documentation index and version matrix on 2026-08-15.
+Verified against Avid's current documentation index and version matrix on 2026-11-11.
 
 | Media Composer track | Support tier | Windows | macOS | Extension terminology |
 | --- | --- | --- | --- | --- |
-| 2025.12.x (current matrix patch 2025.12.2) | Current | Windows 11 22H2+ Pro/Enterprise | 13.x through 13.7.x; 14.x through 14.8.x; 15.x through 15.7.x; 26.2 through 26.6 | Media Composer Extensions |
+| 2025.12.x (current matrix patch 2025.12.3) | Current | Windows 11 22H2+ Pro/Enterprise | 13.x through 13.7.x; 14.x through 14.8.x; 15.x through 15.7.x; 26.2 through 26.7.x | Media Composer Extensions |
 | 2025.6 | Previous | Windows 10/11 22H2+ Pro/Enterprise | 13.x through 13.7.x; 14.x through 14.7.x; 15.x through 15.5 | Panel SDK |
-| 2024.12.x (current LTM patch 2024.12.6) | Long-term maintenance | Windows 10/11 22H2+ Pro/Enterprise | 13.x through 13.7.x; 14.x through 14.7.x; 15.x through 15.4.x | Panel SDK |
+| 2024.12.x (current LTM patch 2024.12.7) | Long-term maintenance | Windows 10/11 22H2+ Pro/Enterprise | 13.x through 13.7.x; 14.x through 14.7.x; 15.x through 15.4.x | Panel SDK |
 
-The MCP uses release-line matching, so a patch such as `2025.12.2` resolves to the `2025.12`
+The MCP uses release-line matching, so a patch such as `2025.12.3` resolves to the `2025.12`
 compatibility contract. Unknown release lines fail closed for live bridge operations.
 
-The 2025.12.2 claim is product-scoped: it is the `Media Composer` row in Avid's
-Media Composer version matrix, checked on 2026-08-15. Do not substitute a similarly
+The 2025.12.3 claim is product-scoped: it is the `Media Composer` row in Avid's
+Media Composer version matrix, checked on 2026-11-11. Do not substitute a similarly
 numbered Pro Tools or Media Composer Distributed Processing release. The direct official
-matrix response on that date contained `2025.12 | 2025.12.2 | April 7, 2026`; an earlier
-Tavily extraction reported 2025.12.1, so the live product-scoped source takes precedence.
+matrix response on that date contained `2025.12 | 2025.12.3 | Oct. 29, 2026` (page last
+updated October 29, 2026); the matching ReadMe is
+[Media Composer v2025.12.3](https://resources.avid.com/SupportFiles/attach/Media_Composer/2025.12/Media_Composer_v2025.12.3_ReadMe.pdf).
 The complete machine-readable provenance is exposed with each release track at runtime.
 
 In Avid's 2025.12 documentation and product language, the former Panel SDK/panels are

@@ -20,7 +20,7 @@ describe("Avid documentation drift checker", () => {
     expect(JSON.parse(output)).toMatchObject({
       source: "local-fixture",
       status: "current",
-      expected: [{ product: "Media Composer", latestPatch: "2025.12.2" }],
+      expected: [{ product: "Media Composer", latestPatch: "2025.12.3" }],
     });
   });
 
