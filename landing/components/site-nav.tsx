@@ -9,6 +9,7 @@ const links = [
   { label: "Post houses", href: pages.postHouses.path },
   { label: "Connect", href: `${pages.home.path}#connect` },
   { label: "Guides", href: `${pages.home.path}#guides` },
+  { label: "Compare", href: pages.compare.path },
   { label: "Tools", href: pages.tools.path },
   { label: "Setup", href: pages.setup.path },
   { label: "FAQ", href: pages.faq.path },
