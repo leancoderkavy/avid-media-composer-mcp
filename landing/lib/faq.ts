@@ -4,7 +4,7 @@ export type FaqItem = { question: string; answer: string }
 export const faq: FaqItem[] = [
   {
     question: "Is there an MCP server for Avid Media Composer?",
-    answer: "Yes. Avid Media Composer MCP is an open-source Model Context Protocol server that gives AI clients read-only analysis of Avid Media Composer projects, AVB bins, AAF, ALE, EDL, configuration and media files. Guarded live editing requires a compatible Avid Extension bridge."
+    answer: "Yes. Avid Media Composer MCP is an open-source Model Context Protocol server that gives AI clients read-only analysis of Avid Media Composer projects, AVB bins, AAF, ALE, EDL, configuration and media files. Guarded live editing requires a compatible Avid Extension bridge. Jumper also offers an MCP server with visual and dialogue search plus AAF write-back to live sequences. See the comparison page for when each is the better choice."
   },
   {
     question: "Which Avid formats can it analyze?",
