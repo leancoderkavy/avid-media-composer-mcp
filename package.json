@@ -94,7 +94,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "posthog-node": "^5.52.4",
-    "protobufjs": "^8.8.0",
+    "protobufjs": "^8.8.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
